@@ -1,5 +1,20 @@
 # vc-ve-tools README
 
+## Architecture
+
+The extension is organized as a modular monolith with a small composition root:
+
+- `src/extension.ts` is the VS Code entry point and contains no feature logic.
+- `src/application` wires commands, views, services, and lifecycle subscriptions.
+- `src/core` contains stable extension-wide identifiers and constants.
+- `src/features/<feature>` owns models, view providers, panels, templates, and feature services.
+- `src/infrastructure` owns external-system adapters such as `Vars.bat` configuration and PostgreSQL queries.
+- `webview-ui` is a separate Vue 3 application built by Vite. Reusable controls come from the shadcn-vue registry under `webview-ui/src/components/ui`.
+
+New large areas should be added as independent folders under `src/features`. A feature may depend on `core` and explicit infrastructure adapters; infrastructure must not depend on VS Code views. Keep SQL in repositories, webview markup in dedicated template modules, and command registration in the application layer.
+
+Add UI primitives with `npx shadcn-vue@latest add <component>`; do not hand-build substitutes for components available in the registry. Webview code communicates with the extension host through the typed contracts in `src/core/webviewProtocol.ts`.
+
 This is the README for your extension "vc-ve-tools". After writing up a brief description, we recommend including the following sections.
 
 ## Features
