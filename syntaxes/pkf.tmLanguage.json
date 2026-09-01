@@ -1,0 +1,132 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "PKF",
+  "scopeName": "source.pkf",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#embedded-sql" },
+    { "include": "#metadata" },
+    { "include": "#strings" },
+    { "include": "#sections" },
+    { "include": "#declarations" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#numbers" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "embedded-sql": {
+      "name": "meta.embedded.block.sql.pkf",
+      "begin": "(?i)\\b(sqltext!|computed\\s+by)\\s*(\\{\\{)",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.sql-block.pkf" },
+        "2": { "name": "punctuation.section.embedded.begin.pkf" }
+      },
+      "end": "\\}\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.embedded.end.pkf" }
+      },
+      "contentName": "meta.embedded.block.sql",
+      "patterns": [
+        { "include": "source.sql" }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-slash.pkf", "match": "//.*$" },
+        { "name": "comment.block.pkf", "begin": "\\(\\*", "end": "\\*\\)" }
+      ]
+    },
+    "metadata": {
+      "name": "meta.brackets.pkf",
+      "begin": "\\[",
+      "beginCaptures": { "0": { "name": "punctuation.definition.metadata.begin.pkf" } },
+      "end": "\\]",
+      "endCaptures": { "0": { "name": "punctuation.definition.metadata.end.pkf" } },
+      "patterns": [
+        { "include": "#strings" },
+        { "name": "variable.other.property.pkf", "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?=\\s*=)" },
+        { "include": "#constants" },
+        { "include": "#numbers" },
+        { "include": "#operators" },
+        { "name": "punctuation.separator.metadata.pkf", "match": "[,{}]" }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.single.pkf",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        { "name": "constant.character.escape.apostrophe.pkf", "match": "''" }
+      ]
+    },
+    "sections": {
+      "patterns": [
+        { "name": "keyword.control.section.pkf", "match": "(?i)^\\s*\\b(file|meta|data)\\b" },
+        { "name": "keyword.control.terminator.pkf", "match": "(?i)\\bend(?=\\s*[.;])" }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "entity.name.type.class.pkf",
+          "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?=\\s*=\\s*(?i:sealed\\s+)?class\\b)"
+        },
+        {
+          "match": "(?i)\\b(object)\\s+([\\p{L}_][\\p{L}\\p{N}_]*)",
+          "captures": {
+            "1": { "name": "storage.type.object.pkf" },
+            "2": { "name": "entity.name.type.class.pkf" }
+          }
+        },
+        { "name": "storage.type.class.pkf", "match": "(?i)\\b(?:sealed\\s+)?class\\b" },
+        {
+          "match": "(?i)\\b(var|const)\\s+([\\p{L}_][\\p{L}\\p{N}_]*(?:/[\\p{L}_][\\p{L}\\p{N}_]*)?)",
+          "captures": {
+            "1": { "name": "storage.type.pkf" },
+            "2": { "name": "variable.other.definition.pkf" }
+          }
+        },
+        {
+          "match": "(?i)\\b(procedure|function|constructor|destructor)\\s+([\\p{L}_][\\p{L}\\p{N}_]*)",
+          "captures": {
+            "1": { "name": "storage.type.function.pkf" },
+            "2": { "name": "entity.name.function.pkf" }
+          }
+        },
+        {
+          "match": "(:)\\s*([\\p{L}_][\\p{L}\\p{N}_]*)",
+          "captures": {
+            "1": { "name": "punctuation.separator.type.pkf" },
+            "2": { "name": "entity.name.type.pkf" }
+          }
+        },
+        { "name": "variable.other.assignment.pkf", "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?=\\s*=)" }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        { "name": "storage.modifier.pkf", "match": "(?i)\\b(public|private|protected|published|sealed|abstract|virtual|override|static)\\b" },
+        { "name": "keyword.control.pkf", "match": "(?i)\\b(begin|if|then|else|case|of|for|to|downto|while|do|repeat|until|with|try|except|finally|raise|inherited|exit)\\b" },
+        { "name": "keyword.operator.word.pkf", "match": "(?i)\\b(and|or|xor|not|div|mod|in|is|as)\\b" }
+      ]
+    },
+    "types": {
+      "name": "support.type.builtin.pkf",
+      "match": "(?i)\\b(integer|int64|double|real|decimal|boolean|bool|string|char|date|datetime|variant|object)\\b"
+    },
+    "constants": {
+      "name": "constant.language.pkf",
+      "match": "(?i)\\b(true|false|null|nil)\\b"
+    },
+    "numbers": {
+      "name": "constant.numeric.pkf",
+      "match": "(?<![\\p{L}\\p{N}_])(?:\\$[0-9A-Fa-f]+|\\d+(?:\\.\\d+)?)(?![\\p{L}\\p{N}_])"
+    },
+    "operators": {
+      "name": "keyword.operator.pkf",
+      "match": ":=|<=|>=|<>|[=+\\-*/<>]"
+    }
+  }
+}

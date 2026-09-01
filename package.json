@@ -1,0 +1,149 @@
+{
+  "name": "vc-ve-tools",
+  "displayName": "Восточный Экспресс расширение",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.134.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ve-pkf",
+        "aliases": [
+          "PKF",
+          "pkf"
+        ],
+        "extensions": [
+          ".pkf"
+        ],
+        "configuration": "./syntaxes/pkf-language-configuration.json"
+      },
+      {
+        "id": "ve-pascal",
+        "aliases": [
+          "Pascal/Delphi",
+          "Pascal",
+          "Delphi"
+        ],
+        "extensions": [
+          ".pas"
+        ],
+        "configuration": "./syntaxes/pascal-language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ve-pkf",
+        "scopeName": "source.pkf",
+        "path": "./syntaxes/pkf.tmLanguage.json"
+      },
+      {
+        "language": "ve-pascal",
+        "scopeName": "source.pascal.delphi",
+        "path": "./syntaxes/pascal.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Восточный Экспресс",
+      "properties": {
+        "vcVeTools.useFolderAsProjectRoot": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "description": "Использовать открытую папку как корень проекта и читать PKF, Pascal и BAT-файлы в Windows-1251."
+        },
+        "vcVeTools.databaseRole": {
+          "type": "string",
+          "enum": [
+            "main",
+            "test"
+          ],
+          "enumDescriptions": [
+            "Основная база из devDBName_main.",
+            "Тестовая база из devDBName_test."
+          ],
+          "default": "main",
+          "scope": "window",
+          "description": "База данных, к которой подключается Восточный Экспресс."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vc-ve-tools",
+          "title": "Восточный Экспресс",
+          "icon": "resources/train.svg"
+        }
+      ]
+    },
+    "views": {
+      "vc-ve-tools": [
+        {
+          "id": "vc-ve-tools.explorer",
+          "name": "Проводник",
+          "type": "webview"
+        },
+        {
+          "id": "vc-ve-tools.settings",
+          "name": "Настройки"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "vc-ve-tools.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "vc-ve-tools.testDatabaseConnection",
+        "title": "Восточный Экспресс: Проверить подключение к базе"
+      },
+      {
+        "command": "vc-ve-tools.selectDatabaseRole",
+        "title": "Восточный Экспресс: Выбрать базу данных"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "24.x",
+    "@types/pg": "^8.23.1",
+    "@types/vscode": "^1.134.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.0.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.5.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.1"
+  },
+  "overrides": {
+    "diff": "^8.0.4",
+    "serialize-javascript": "^7.0.6"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.7.3",
+    "pg": "^8.23.0"
+  }
+}

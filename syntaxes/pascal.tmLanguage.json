@@ -1,0 +1,96 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Pascal/Delphi",
+  "scopeName": "source.pascal.delphi",
+  "patterns": [
+    { "include": "#directives" },
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#declarations" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#numbers" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "directives": {
+      "patterns": [
+        { "name": "meta.preprocessor.pascal", "begin": "\\{\\$", "end": "\\}" },
+        { "name": "meta.preprocessor.pascal", "begin": "\\(\\*\\$", "end": "\\*\\)" }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-slash.pascal", "match": "//.*$" },
+        { "name": "comment.block.braces.pascal", "begin": "\\{", "end": "\\}" },
+        { "name": "comment.block.parentheses.pascal", "begin": "\\(\\*", "end": "\\*\\)" }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.pascal",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            { "name": "constant.character.escape.apostrophe.pascal", "match": "''" }
+          ]
+        },
+        { "name": "constant.character.pascal", "match": "#(?:\\$[0-9A-Fa-f]+|\\d+)" }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "entity.name.type.class.pascal",
+          "match": "[A-Za-z_][A-Za-z0-9_]*(?=\\s*=\\s*(?i:class|record|interface|object)\\b)"
+        },
+        {
+          "match": "(?i)\\b(program|unit|library|package)\\s+([A-Za-z_][A-Za-z0-9_.]*)",
+          "captures": {
+            "1": { "name": "keyword.control.module.pascal" },
+            "2": { "name": "entity.name.namespace.pascal" }
+          }
+        },
+        {
+          "match": "(?i)\\b(procedure|function|constructor|destructor|operator)\\s+([A-Za-z_][A-Za-z0-9_.]*)",
+          "captures": {
+            "1": { "name": "storage.type.function.pascal" },
+            "2": { "name": "entity.name.function.pascal" }
+          }
+        },
+        {
+          "match": "(?i)\\b(class|record|interface|object)\\b",
+          "captures": {
+            "1": { "name": "storage.type.class.pascal" }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        { "name": "keyword.control.pascal", "match": "(?i)\\b(begin|end|if|then|else|case|of|for|to|downto|while|do|repeat|until|with|try|except|finally|raise|exit|break|continue|goto|inherited|initialization|finalization)\\b" },
+        { "name": "keyword.declaration.pascal", "match": "(?i)\\b(uses|type|var|const|resourcestring|threadvar|label|property|exports|contains|requires|implementation|interface)\\b" },
+        { "name": "storage.modifier.pascal", "match": "(?i)\\b(private|protected|public|published|strict|abstract|sealed|virtual|dynamic|override|overload|reintroduce|static|inline|forward|external|deprecated|platform|experimental|read|write|default|stored|implements|message|dispid|cdecl|stdcall|safecall|register|pascal)\\b" },
+        { "name": "keyword.operator.word.pascal", "match": "(?i)\\b(and|or|xor|not|div|mod|shl|shr|in|is|as)\\b" }
+      ]
+    },
+    "types": {
+      "name": "support.type.builtin.pascal",
+      "match": "(?i)\\b(byte|shortint|smallint|word|integer|cardinal|longint|longword|int64|uint64|nativeint|nativeuint|single|double|extended|real|currency|comp|boolean|bytebool|wordbool|longbool|char|ansichar|widechar|string|ansistring|widestring|unicodestring|pointer|variant|olevariant|tobject|text|file)\\b"
+    },
+    "constants": {
+      "name": "constant.language.pascal",
+      "match": "(?i)\\b(true|false|nil|self|result)\\b"
+    },
+    "numbers": {
+      "name": "constant.numeric.pascal",
+      "match": "(?<![A-Za-z0-9_])(?:\\$[0-9A-Fa-f]+|%[01]+|&[0-7]+|\\d+(?:\\.\\d+)?(?:[Ee][+-]?\\d+)?)(?![A-Za-z0-9_])"
+    },
+    "operators": {
+      "name": "keyword.operator.pascal",
+      "match": ":=|<=|>=|<>|[=+\\-*/<>@^]"
+    }
+  }
+}
