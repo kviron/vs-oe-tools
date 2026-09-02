@@ -36,14 +36,45 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.openClassDetails = openClassDetails;
 exports.closeClassDetailPanels = closeClassDetailPanels;
 const vscode = __importStar(require("vscode"));
+const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
-const classDetailsTemplate_1 = require("./classDetailsTemplate");
 const classDetailPanels = new Map();
 let previewClassPanelId;
-function updateClassDetailPanel(panel, context, classDetails) {
-    panel.title = `Класс ${classDetails.name}`;
-    panel.webview.html = (0, classDetailsTemplate_1.getClassDetailsHtml)(panel.webview, context.extensionUri, classDetails);
-    panel.reveal(vscode.ViewColumn.Active);
+function postDetails(entry) {
+    const message = { command: 'classDetailsLoaded', details: entry.details };
+    void entry.panel.webview.postMessage(message);
+}
+function updateClassDetailPanel(entry, classDetails) {
+    entry.details = classDetails;
+    entry.panel.title = `Класс ${classDetails.name}`;
+    postDetails(entry);
+    entry.panel.reveal(vscode.ViewColumn.Active);
+}
+function createPanel(context, classDetails, pinned) {
+    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot] });
+    const entry = { panel, pinned, details: classDetails };
+    panel.webview.onDidReceiveMessage(async (message) => {
+        if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
+            if (message.command === 'classDetailsReady') {
+                postDetails(entry);
+                return;
+            }
+            const requestedClassId = entry.details.id;
+            try {
+                const attributes = await (0, classRepository_1.getClassAttributes)(requestedClassId, entry.details.name);
+                if (entry.details.id === requestedClassId) {
+                    void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes });
+                }
+            }
+            catch (error) {
+                const failureMessage = error instanceof Error ? error.message : String(error);
+                void panel.webview.postMessage({ command: 'classAttributesLoadFailed', message: failureMessage });
+            }
+        }
+    });
+    panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
+    return entry;
 }
 async function openClassDetails(context, id, pinned) {
     const existingPanel = classDetailPanels.get(id);
@@ -57,26 +88,23 @@ async function openClassDetails(context, id, pinned) {
     }
     const classDetails = await (0, classRepository_1.getClassDetails)(id);
     const previousPreviewPanelId = previewClassPanelId;
-    const previewPanel = previousPreviewPanelId === undefined
-        ? undefined
-        : classDetailPanels.get(previousPreviewPanelId);
+    const previewPanel = previousPreviewPanelId === undefined ? undefined : classDetailPanels.get(previousPreviewPanelId);
     if (previewPanel && previousPreviewPanelId !== undefined && !previewPanel.pinned) {
         classDetailPanels.delete(previousPreviewPanelId);
         classDetailPanels.set(id, previewPanel);
         previewPanel.pinned = pinned;
         previewClassPanelId = pinned ? undefined : id;
-        updateClassDetailPanel(previewPanel.panel, context, classDetails);
+        updateClassDetailPanel(previewPanel, classDetails);
         return;
     }
-    const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, vscode.ViewColumn.Active, { localResourceRoots: [context.extensionUri] });
-    panel.webview.html = (0, classDetailsTemplate_1.getClassDetailsHtml)(panel.webview, context.extensionUri, classDetails);
-    classDetailPanels.set(id, { panel, pinned });
+    const entry = createPanel(context, classDetails, pinned);
+    classDetailPanels.set(id, entry);
     if (!pinned) {
         previewClassPanelId = id;
     }
-    panel.onDidDispose(() => {
-        for (const [panelId, entry] of classDetailPanels) {
-            if (entry.panel === panel) {
+    entry.panel.onDidDispose(() => {
+        for (const [panelId, candidate] of classDetailPanels) {
+            if (candidate.panel === entry.panel) {
                 classDetailPanels.delete(panelId);
                 if (previewClassPanelId === panelId) {
                     previewClassPanelId = undefined;
@@ -85,21 +113,25 @@ async function openClassDetails(context, id, pinned) {
         }
     });
 }
-function isOpenClassMessage(message) {
-    return typeof message === 'object'
-        && message !== null
-        && 'command' in message
-        && 'id' in message
-        && 'pinned' in message
-        && message.command === 'openClass'
-        && typeof message.id === 'number'
-        && typeof message.pinned === 'boolean';
-}
 function closeClassDetailPanels() {
     for (const { panel } of [...classDetailPanels.values()]) {
         panel.dispose();
     }
     classDetailPanels.clear();
     previewClassPanelId = undefined;
+}
+function getClassDetailsShell(webview, assetsRoot) {
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'class-details.js'));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'class-details.css'));
+    const nonce = createNonce();
+    return `<!doctype html><html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+<link rel="stylesheet" href="${styleUri}"><title>Класс</title></head>
+<body><div id="app">Загрузка класса…</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+}
+function createNonce() {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join('');
 }
 //# sourceMappingURL=classDetailsPanelManager.js.map

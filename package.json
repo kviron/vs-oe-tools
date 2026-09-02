@@ -81,6 +81,13 @@
           "title": "Восточный Экспресс",
           "icon": "resources/train.svg"
         }
+      ],
+      "panel": [
+        {
+          "id": "vc-ve-tools-sql-tools",
+          "title": "Исполнитель SQL",
+          "icon": "resources/train.svg"
+        }
       ]
     },
     "views": {
@@ -93,6 +100,13 @@
         {
           "id": "vc-ve-tools.settings",
           "name": "Настройки"
+        }
+      ],
+      "vc-ve-tools-sql-tools": [
+        {
+          "id": "vc-ve-tools.sqlExecutor",
+          "name": "Исполнитель SQL",
+          "type": "webview"
         }
       ]
     },
@@ -108,13 +122,34 @@
       {
         "command": "vc-ve-tools.selectDatabaseRole",
         "title": "Восточный Экспресс: Выбрать базу данных"
+      },
+      {
+        "command": "vc-ve-tools.openSqlMonitor",
+        "title": "SQL-монитор",
+        "category": "Восточный экспресс",
+        "icon": "$(database)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "vc-ve-tools.openSqlMonitor",
+          "when": "view == vc-ve-tools.explorer",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "vc-ve-tools.openSqlMonitor",
+        "key": "alt+shift+i"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
-    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode class-details",
+    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",

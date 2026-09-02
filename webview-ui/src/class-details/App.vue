@@ -50,9 +50,9 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
       attributesLoading.value = false;
       attributesLoaded.value = false;
       attributesError.value = '';
-      activeTab.value = 'class';
     }
     details.value = event.data.details;
+    loadAttributesForActiveTab();
   } else if (event.data.command === 'classAttributesLoaded') {
     attributes.value = event.data.attributes;
     attributesLoading.value = false;
@@ -65,6 +65,10 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
 
 function onTabChange(value: string | number): void {
   activeTab.value = String(value);
+  loadAttributesForActiveTab();
+}
+
+function loadAttributesForActiveTab(): void {
   if (activeTab.value !== 'attributes' || attributesLoading.value || attributesLoaded.value) return;
   attributesLoading.value = true;
   attributesError.value = '';

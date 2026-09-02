@@ -42,6 +42,8 @@ const projectEncodingService_1 = require("../features/project/projectEncodingSer
 const settingsProvider_1 = require("../features/settings/settingsProvider");
 const classDetailsPanelManager_1 = require("../features/classes/views/classDetailsPanelManager");
 const explorerViewProvider_1 = require("../features/explorer/explorerViewProvider");
+const sqlMonitorPanelManager_1 = require("../features/sql-monitor/views/sqlMonitorPanelManager");
+const sqlExecutorViewProvider_1 = require("../features/sql-executor/sqlExecutorViewProvider");
 async function activate(context) {
     const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
     let isUpdatingSetting = false;
@@ -75,6 +77,8 @@ async function activate(context) {
     };
     const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, id, pinned));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
+    const sqlExecutorProvider = new sqlExecutorViewProvider_1.SqlExecutorViewProvider(context.extensionUri);
+    const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(sqlExecutorViewProvider_1.SqlExecutorViewProvider.viewType, sqlExecutorProvider, { webviewOptions: { retainContextWhenHidden: true } });
     const checkboxListener = settingsView.onDidChangeCheckboxState((event) => {
         const enabled = event.items[0]?.[1] === vscode.TreeItemCheckboxState.Checked;
         void updateProjectRootSetting(enabled);
@@ -137,6 +141,7 @@ async function activate(context) {
         }
         await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseRoleSetting, selected.role, vscode.ConfigurationTarget.Workspace);
     });
-    context.subscriptions.push(settingsProvider, settingsView, explorerProvider, explorerRegistration, checkboxListener, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand);
+    const openSqlMonitorCommand = vscode.commands.registerCommand('vc-ve-tools.openSqlMonitor', () => (0, sqlMonitorPanelManager_1.openSqlMonitor)(context));
+    context.subscriptions.push(settingsProvider, settingsView, explorerProvider, explorerRegistration, sqlExecutorRegistration, checkboxListener, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand);
 }
 //# sourceMappingURL=activate.js.map

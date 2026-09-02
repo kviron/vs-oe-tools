@@ -4,8 +4,7 @@ import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  const isClassDetails = mode === 'class-details';
-  const entryName = isClassDetails ? 'class-details' : 'explorer';
+  const entryName = mode === 'class-details' || mode === 'sql-monitor' || mode === 'sql-executor' ? mode : 'explorer';
   return {
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
@@ -17,12 +16,18 @@ export default defineConfig(({ mode }) => {
     },
   },
   build: {
-    emptyOutDir: !isClassDetails,
+    emptyOutDir: entryName === 'explorer',
     outDir: 'dist/webview',
     lib: {
       entry: fileURLToPath(new URL(`./webview-ui/src/${entryName}/main.ts`, import.meta.url)),
       formats: ['iife'],
-      name: isClassDetails ? 'VcVeToolsClassDetails' : 'VcVeToolsExplorer',
+      name: entryName === 'class-details'
+        ? 'VcVeToolsClassDetails'
+        : entryName === 'sql-monitor'
+          ? 'VcVeToolsSqlMonitor'
+          : entryName === 'sql-executor'
+            ? 'VcVeToolsSqlExecutor'
+            : 'VcVeToolsExplorer',
     },
     rollupOptions: {
       output: {

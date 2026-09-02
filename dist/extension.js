@@ -9106,7 +9106,7 @@ __export(extension_exports, {
 module.exports = __toCommonJS(extension_exports);
 
 // src/application/activate.ts
-var vscode6 = __toESM(require("vscode"));
+var vscode8 = __toESM(require("vscode"));
 
 // src/core/constants.ts
 var projectRootSetting = "useFolderAsProjectRoot";
@@ -9194,6 +9194,160 @@ async function getProjectDatabaseOptions() {
   };
 }
 
+// src/features/sql-monitor/sqlMonitorService.ts
+var closedLimit = 10;
+var openLimit = 1e3;
+var SqlMonitorService = class {
+  records = [];
+  listeners = /* @__PURE__ */ new Set();
+  nextId = 1;
+  active = false;
+  start(record) {
+    const entry = { ...record, id: this.nextId++ };
+    this.records.push(entry);
+    this.trim();
+    this.emit(entry);
+    return entry;
+  }
+  update(id, changes) {
+    const entry = this.records.find((candidate) => candidate.id === id);
+    if (!entry) {
+      return;
+    }
+    Object.assign(entry, changes);
+    this.emit(entry);
+  }
+  getRecords() {
+    return this.records.map((record) => ({ ...record, rows: [...record.rows], parameters: [...record.parameters] }));
+  }
+  clear() {
+    this.records.length = 0;
+  }
+  setActive(active) {
+    this.active = active;
+    this.trim();
+  }
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return { dispose: () => this.listeners.delete(listener) };
+  }
+  trim() {
+    const limit = this.active ? openLimit : closedLimit;
+    if (this.records.length > limit) {
+      this.records.splice(0, this.records.length - limit);
+    }
+  }
+  emit(record) {
+    for (const listener of this.listeners) {
+      try {
+        listener(record);
+      } catch {
+      }
+    }
+  }
+};
+var sqlMonitorService = new SqlMonitorService();
+
+// src/infrastructure/database/databaseQueryExecutor.ts
+var resultRowLimit = 500;
+var valueLengthLimit = 1e4;
+async function executeMonitoredQuery(client, query) {
+  const started = performance.now();
+  const record = sqlMonitorService.start({
+    startedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    source: query.source,
+    database: query.database,
+    operation: detectOperation(query.text),
+    status: "running",
+    text: query.text.trim(),
+    parameters: (query.values ?? []).map(normalizeValue),
+    columns: [],
+    rows: [],
+    resultTruncated: false
+  });
+  try {
+    const result = await client.query(query.text, query.values);
+    const serialized = serializeQueryResult(result);
+    sqlMonitorService.update(record.id, {
+      status: "success",
+      durationMs: performance.now() - started,
+      ...serialized
+    });
+    return result;
+  } catch (error) {
+    sqlMonitorService.update(record.id, {
+      status: "error",
+      durationMs: performance.now() - started,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
+}
+function serializeQueryResult(result) {
+  const results = Array.isArray(result) ? result : [result];
+  const displayResult = results.at(-1);
+  if (!displayResult) {
+    return { rowCount: 0, columns: [], rows: [], resultTruncated: false };
+  }
+  const rows = displayResult.rows.slice(0, resultRowLimit).map((row) => normalizeRow(row));
+  return {
+    rowCount: results.reduce((total, item) => total + (item.rowCount ?? item.rows.length), 0),
+    columns: displayResult.fields.map((field) => field.name),
+    rows,
+    resultTruncated: displayResult.rows.length > rows.length
+  };
+}
+function detectOperation(text) {
+  const normalized = text.replace(/^\s*(?:--[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*/g, "").trimStart();
+  const keyword = normalized.match(/^([a-z]+)/i)?.[1]?.toUpperCase();
+  if (keyword === "SELECT" || keyword === "INSERT" || keyword === "UPDATE" || keyword === "DELETE") {
+    return keyword;
+  }
+  if (keyword === "CREATE" || keyword === "ALTER" || keyword === "DROP" || keyword === "TRUNCATE") {
+    return "DDL";
+  }
+  return "OTHER";
+}
+function normalizeRow(row) {
+  return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, normalizeValue(value)]));
+}
+function normalizeValue(value) {
+  if (value === null || value === void 0) {
+    return null;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (Buffer.isBuffer(value)) {
+    return `<binary: ${value.byteLength} bytes>`;
+  }
+  if (typeof value === "object") {
+    try {
+      const serialized = JSON.stringify(
+        value,
+        (_key, nestedValue) => typeof nestedValue === "bigint" ? nestedValue.toString() : nestedValue
+      );
+      return limitValue(serialized ?? String(value));
+    } catch {
+      return "<\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u0434\u043B\u044F \u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F>";
+    }
+  }
+  try {
+    return limitValue(String(value));
+  } catch {
+    return "<\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u0434\u043B\u044F \u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F>";
+  }
+}
+function limitValue(value) {
+  return value.length <= valueLengthLimit ? value : `${value.slice(0, valueLengthLimit)}\u2026`;
+}
+
 // src/infrastructure/database/classRepository.ts
 async function testDatabaseConnection() {
   const options = await getProjectDatabaseOptions();
@@ -9204,9 +9358,11 @@ async function testDatabaseConnection() {
   });
   try {
     await client.connect();
-    const result = await client.query(
-      "SELECT current_database() AS database, current_user AS user"
-    );
+    const result = await executeMonitoredQuery(client, {
+      text: "SELECT current_database() AS database, current_user AS user",
+      source: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F",
+      database: options.database
+    });
     const row = result.rows[0];
     if (!row) {
       throw new Error("\u0411\u0430\u0437\u0430 \u043D\u0435 \u0432\u0435\u0440\u043D\u0443\u043B\u0430 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438.");
@@ -9225,24 +9381,30 @@ async function loadClasses() {
   });
   try {
     await client.connect();
-    const classesResult = await client.query(
-      `SELECT id, name, seniorid, ord
+    const classesResult = await executeMonitoredQuery(client, {
+      text: `SELECT id, name, seniorid, ord
 			 FROM classes
-			 ORDER BY ord NULLS LAST, name`
-    );
-    const commentsResult = await client.query(
-      `SELECT comments.id, comments.name, comments.seniorid, comments.ord
+			 ORDER BY ord NULLS LAST, name`,
+      source: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u043A\u043B\u0430\u0441\u0441\u043E\u0432",
+      database: options.database
+    });
+    const commentsResult = await executeMonitoredQuery(client, {
+      text: `SELECT comments.id, comments.name, comments.seniorid, comments.ord
 			 FROM objcomments AS comments
 			 INNER JOIN classes ON classes.id = comments.seniorid
-			 ORDER BY comments.ord NULLS LAST, comments.name`
-    );
-    const metaDataCountsResult = await client.query(
-      `SELECT map.seniorid, COUNT(map.id) AS count
+			 ORDER BY comments.ord NULLS LAST, comments.name`,
+      source: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0435\u0432 \u043A\u043B\u0430\u0441\u0441\u043E\u0432",
+      database: options.database
+    });
+    const metaDataCountsResult = await executeMonitoredQuery(client, {
+      text: `SELECT map.seniorid, COUNT(map.id) AS count
 			 FROM objectmetadatamap AS map
 			 INNER JOIN classes ON classes.id = map.seniorid
 			 WHERE map.metaobjectclassid = 5
-			 GROUP BY map.seniorid`
-    );
+			 GROUP BY map.seniorid`,
+      source: "\u041F\u043E\u0434\u0441\u0447\u0451\u0442 \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0445 \u043A\u043B\u0430\u0441\u0441\u043E\u0432",
+      database: options.database
+    });
     const commentsBySeniorId = /* @__PURE__ */ new Map();
     for (const comment of commentsResult.rows) {
       const comments = commentsBySeniorId.get(comment.seniorid) ?? [];
@@ -9267,14 +9429,16 @@ async function getClassDetails(id) {
   let classDetails;
   try {
     await client.connect();
-    const result = await client.query(
-      `SELECT class.*, child.name AS childclassname, parent.name AS parentclassname
+    const result = await executeMonitoredQuery(client, {
+      text: `SELECT class.*, child.name AS childclassname, parent.name AS parentclassname
 			 FROM classes AS class
 			 LEFT JOIN classes AS child ON child.id = class.childclassid
 			 LEFT JOIN classes AS parent ON parent.id = class.parentclassid
 			 WHERE class.id = $1`,
-      [id]
-    );
+      values: [id],
+      source: "\u0414\u0430\u043D\u043D\u044B\u0435 \u043A\u043B\u0430\u0441\u0441\u0430",
+      database: options.database
+    });
     classDetails = result.rows[0];
   } finally {
     await client.end().catch(() => void 0);
@@ -9300,8 +9464,8 @@ async function getClassAttributes(classId, className) {
   const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
   try {
     await client.connect();
-    const tables = await client.query(
-      `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
+    const tables = await executeMonitoredQuery(client, {
+      text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
 			 FROM information_schema.columns
 			 WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
 			 GROUP BY table_schema, table_name
@@ -9311,21 +9475,25 @@ async function getClassAttributes(classId, className) {
 			    AND bool_or(lower(column_name) IN ('seniorid', 'classid', 'ownerid'))
 			 ORDER BY CASE lower(table_name)
 			   WHEN 'attributes' THEN 0 WHEN 'classattributes' THEN 1 WHEN 'objattributes' THEN 2 ELSE 3 END,
-			   table_name`
-    );
+			   table_name`,
+      source: "\u041F\u043E\u0438\u0441\u043A \u0442\u0430\u0431\u043B\u0438\u0446\u044B \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432",
+      database: options.database
+    });
     const table = tables.rows[0];
     if (!table) throw new Error("\u0412 \u0441\u0445\u0435\u043C\u0435 \u0431\u0430\u0437\u044B \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0442\u0430\u0431\u043B\u0438\u0446\u0430 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432 \u043A\u043B\u0430\u0441\u0441\u043E\u0432.");
     const ownerColumn = ["seniorid", "classid", "ownerid"].find((column) => table.columns.includes(column));
     if (!ownerColumn) throw new Error("\u0412 \u0442\u0430\u0431\u043B\u0438\u0446\u0435 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0441\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u043A\u043B\u0430\u0441\u0441.");
     const orderColumn = ["ord", "line", "linenumber", "name"].find((column) => table.columns.includes(column)) ?? "id";
     const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
-    const result = await client.query(
-      `SELECT to_jsonb(attribute) AS data
+    const result = await executeMonitoredQuery(client, {
+      text: `SELECT to_jsonb(attribute) AS data
 			 FROM ${source} AS attribute
 			 WHERE attribute.${quoteIdentifier(ownerColumn)} = $1
 			 ORDER BY attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier("id")}`,
-      [classId]
-    );
+      values: [classId],
+      source: `\u0410\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className}`,
+      database: options.database
+    });
     return result.rows.map(({ data }) => ({
       id: readValue(data, "id"),
       name: readValue(data, "name"),
@@ -9439,6 +9607,18 @@ function isExplorerWebviewMessage(message) {
     return true;
   }
   return message.command === "openClass" && "id" in message && "pinned" in message && typeof message.id === "number" && typeof message.pinned === "boolean";
+}
+function isSqlMonitorWebviewMessage(message) {
+  return typeof message === "object" && message !== null && "command" in message && (message.command === "sqlMonitorReady" || message.command === "clearSqlMonitor");
+}
+function isSqlExecutorWebviewMessage(message) {
+  if (typeof message !== "object" || message === null || !("command" in message)) {
+    return false;
+  }
+  if (message.command === "sqlExecutorReady") {
+    return true;
+  }
+  return message.command === "executeSql" && "text" in message && typeof message.text === "string";
 }
 
 // src/features/classes/views/classDetailsPanelManager.ts
@@ -9625,39 +9805,199 @@ document.body.append(applicationScript);
   }
 };
 
+// src/features/sql-monitor/views/sqlMonitorPanelManager.ts
+var vscode6 = __toESM(require("vscode"));
+var monitorPanel;
+function openSqlMonitor(context) {
+  if (monitorPanel) {
+    monitorPanel.reveal(vscode6.ViewColumn.Active);
+    return;
+  }
+  const assetsRoot = vscode6.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel = vscode6.window.createWebviewPanel(
+    "vc-ve-tools.sqlMonitor",
+    "SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440",
+    vscode6.ViewColumn.Active,
+    { enableScripts: true, localResourceRoots: [assetsRoot] }
+  );
+  monitorPanel = panel;
+  sqlMonitorService.setActive(true);
+  const subscription = sqlMonitorService.subscribe((record) => {
+    void panel.webview.postMessage({ command: "sqlQueryChanged", record });
+  });
+  panel.webview.onDidReceiveMessage((message) => {
+    if (!isSqlMonitorWebviewMessage(message)) {
+      return;
+    }
+    if (message.command === "sqlMonitorReady") {
+      void panel.webview.postMessage({
+        command: "sqlMonitorSnapshot",
+        records: sqlMonitorService.getRecords()
+      });
+      return;
+    }
+    sqlMonitorService.clear();
+    void panel.webview.postMessage({ command: "sqlMonitorCleared" });
+  });
+  panel.onDidDispose(() => {
+    subscription.dispose();
+    sqlMonitorService.setActive(false);
+    monitorPanel = void 0;
+  });
+  panel.webview.html = getSqlMonitorShell(panel.webview, assetsRoot);
+}
+function getSqlMonitorShell(webview, assetsRoot) {
+  const scriptUri = webview.asWebviewUri(vscode6.Uri.joinPath(assetsRoot, "sql-monitor.js"));
+  const styleUri = webview.asWebviewUri(vscode6.Uri.joinPath(assetsRoot, "sql-monitor.css"));
+  const nonce = createNonce2();
+  return `<!doctype html><html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+<link rel="stylesheet" href="${styleUri}"><title>SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440</title></head>
+<body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+}
+function createNonce2() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join("");
+}
+
+// src/features/sql-executor/sqlExecutorViewProvider.ts
+var vscode7 = __toESM(require("vscode"));
+
+// src/features/sql-executor/executeSql.ts
+async function executeSql(text) {
+  const queryText = text.trim();
+  if (!queryText) {
+    throw new Error("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 SQL-\u0437\u0430\u043F\u0440\u043E\u0441.");
+  }
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({
+    ...options,
+    application_name: "vc-ve-tools-sql-executor",
+    connectionTimeoutMillis: 5e3
+  });
+  const started = performance.now();
+  try {
+    await client.connect();
+    const result = await executeMonitoredQuery(client, {
+      text: queryText,
+      source: "\u0418\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C SQL",
+      database: options.database
+    });
+    return {
+      result: serializeQueryResult(result),
+      durationMs: performance.now() - started,
+      database: options.database
+    };
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+
+// src/features/sql-executor/sqlExecutorViewProvider.ts
+var SqlExecutorViewProvider = class {
+  constructor(extensionUri) {
+    this.extensionUri = extensionUri;
+  }
+  extensionUri;
+  static viewType = "vc-ve-tools.sqlExecutor";
+  resolveWebviewView(webviewView) {
+    const assetsRoot = vscode7.Uri.joinPath(this.extensionUri, "dist", "webview");
+    webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
+    webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
+    const historySubscription = sqlMonitorService.subscribe((record) => {
+      void webviewView.webview.postMessage({
+        command: "sqlExecutorHistoryChanged",
+        entry: toHistoryEntry(record)
+      });
+    });
+    webviewView.onDidDispose(() => historySubscription.dispose());
+    webviewView.webview.onDidReceiveMessage((message) => {
+      if (!isSqlExecutorWebviewMessage(message)) {
+        return;
+      }
+      if (message.command === "sqlExecutorReady") {
+        void webviewView.webview.postMessage({
+          command: "sqlExecutorInitialized",
+          history: sqlMonitorService.getRecords().map(toHistoryEntry)
+        });
+        return;
+      }
+      void this.runQuery(webviewView.webview, message.text);
+    });
+  }
+  async runQuery(webview, text) {
+    try {
+      const execution = await executeSql(text);
+      void webview.postMessage({
+        command: "sqlExecutionSucceeded",
+        ...execution
+      });
+    } catch (error) {
+      void webview.postMessage({
+        command: "sqlExecutionFailed",
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+  getHtml(webview, assetsRoot) {
+    const scriptUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-executor.js"));
+    const styleUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-executor.css"));
+    const nonce = createNonce3();
+    return `<!doctype html><html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+<link rel="stylesheet" href="${styleUri}"><title>\u0418\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C SQL</title></head>
+<body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044F SQL\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+  }
+};
+function toHistoryEntry(record) {
+  return {
+    id: record.id,
+    startedAt: record.startedAt,
+    source: record.source,
+    operation: record.operation,
+    text: record.text
+  };
+}
+function createNonce3() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join("");
+}
+
 // src/application/activate.ts
 async function activate(context) {
-  const extensionConfiguration = vscode6.workspace.getConfiguration("vcVeTools");
+  const extensionConfiguration = vscode8.workspace.getConfiguration("vcVeTools");
   let isUpdatingSetting = false;
   const settingsProvider = new SettingsProvider(
     extensionConfiguration.get(projectRootSetting, false),
     getDatabaseRole()
   );
-  const settingsView = vscode6.window.createTreeView("vc-ve-tools.settings", {
+  const settingsView = vscode8.window.createTreeView("vc-ve-tools.settings", {
     treeDataProvider: settingsProvider
   });
   const updateProjectRootSetting = async (enabled) => {
-    if (!vscode6.workspace.workspaceFolders?.length) {
+    if (!vscode8.workspace.workspaceFolders?.length) {
       settingsProvider.setProjectRootEnabled(false);
-      void vscode6.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      void vscode8.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       return;
     }
     try {
       isUpdatingSetting = true;
-      await vscode6.workspace.getConfiguration("vcVeTools").update(
+      await vscode8.workspace.getConfiguration("vcVeTools").update(
         projectRootSetting,
         enabled,
-        vscode6.ConfigurationTarget.Workspace
+        vscode8.ConfigurationTarget.Workspace
       );
       await applyProjectEncoding(context, enabled);
       settingsProvider.setProjectRootEnabled(enabled);
-      void vscode6.window.showInformationMessage(
+      void vscode8.window.showInformationMessage(
         enabled ? "PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u044B \u0431\u0443\u0434\u0443\u0442 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C\u0441\u044F \u0432 \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0435 Cyrillic (Windows 1251)." : "\u041A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0430 PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u043E\u0432 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430."
       );
     } catch (error) {
-      const currentValue = vscode6.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
+      const currentValue = vscode8.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       settingsProvider.setProjectRootEnabled(currentValue);
-      void vscode6.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+      void vscode8.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
     } finally {
       isUpdatingSetting = false;
     }
@@ -9667,65 +10007,71 @@ async function activate(context) {
     loadClasses,
     (id, pinned) => openClassDetails(context, id, pinned)
   );
-  const explorerRegistration = vscode6.window.registerWebviewViewProvider(
+  const explorerRegistration = vscode8.window.registerWebviewViewProvider(
     "vc-ve-tools.explorer",
     explorerProvider
   );
+  const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
+  const sqlExecutorRegistration = vscode8.window.registerWebviewViewProvider(
+    SqlExecutorViewProvider.viewType,
+    sqlExecutorProvider,
+    { webviewOptions: { retainContextWhenHidden: true } }
+  );
   const checkboxListener = settingsView.onDidChangeCheckboxState((event) => {
-    const enabled = event.items[0]?.[1] === vscode6.TreeItemCheckboxState.Checked;
+    const enabled = event.items[0]?.[1] === vscode8.TreeItemCheckboxState.Checked;
     void updateProjectRootSetting(enabled);
   });
-  const configurationListener = vscode6.workspace.onDidChangeConfiguration(async (event) => {
+  const configurationListener = vscode8.workspace.onDidChangeConfiguration(async (event) => {
     if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
       settingsProvider.setDatabaseRole(getDatabaseRole());
       closeClassDetailPanels();
       explorerProvider.refreshClasses();
     }
     if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${projectRootSetting}`)) {
-      const enabled = vscode6.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
+      const enabled = vscode8.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       settingsProvider.setProjectRootEnabled(enabled);
       try {
         await applyProjectEncoding(context, enabled);
       } catch (error) {
-        void vscode6.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+        void vscode8.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
       }
     }
   });
-  if (extensionConfiguration.get(projectRootSetting, false) && vscode6.workspace.workspaceFolders?.length) {
+  if (extensionConfiguration.get(projectRootSetting, false) && vscode8.workspace.workspaceFolders?.length) {
     await applyProjectEncoding(context, true);
   }
   console.log('Congratulations, your extension "vc-ve-tools" is now active!');
-  const disposable = vscode6.commands.registerCommand("vc-ve-tools.helloWorld", () => {
-    vscode6.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
+  const disposable = vscode8.commands.registerCommand("vc-ve-tools.helloWorld", () => {
+    vscode8.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
   });
-  const testDatabaseConnectionCommand = vscode6.commands.registerCommand(
+  const testDatabaseConnectionCommand = vscode8.commands.registerCommand(
     "vc-ve-tools.testDatabaseConnection",
     async () => {
       try {
-        const result = await vscode6.window.withProgress(
+        const result = await vscode8.window.withProgress(
           {
-            location: vscode6.ProgressLocation.Notification,
+            location: vscode8.ProgressLocation.Notification,
             title: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0431\u0430\u0437\u0435"
           },
           testDatabaseConnection
         );
-        void vscode6.window.showInformationMessage(
+        void vscode8.window.showInformationMessage(
           `\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${result.database}, \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${result.user}.`
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        void vscode6.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
+        void vscode8.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
       }
     }
   );
-  const selectDatabaseRoleCommand = vscode6.commands.registerCommand(
+  const selectDatabaseRoleCommand = vscode8.commands.registerCommand(
     "vc-ve-tools.selectDatabaseRole",
     async () => {
-      if (!vscode6.workspace.workspaceFolders?.length) {
-        void vscode6.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      if (!vscode8.workspace.workspaceFolders?.length) {
+        void vscode8.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
         return;
       }
-      const selected = await vscode6.window.showQuickPick(
+      const selected = await vscode8.window.showQuickPick(
         [
           { label: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F", description: "devDBName_main", role: "main" },
           { label: "\u0422\u0435\u0441\u0442\u043E\u0432\u0430\u044F", description: "devDBName_test", role: "test" }
@@ -9735,23 +10081,29 @@ async function activate(context) {
       if (!selected || selected.role === getDatabaseRole()) {
         return;
       }
-      await vscode6.workspace.getConfiguration("vcVeTools").update(
+      await vscode8.workspace.getConfiguration("vcVeTools").update(
         databaseRoleSetting,
         selected.role,
-        vscode6.ConfigurationTarget.Workspace
+        vscode8.ConfigurationTarget.Workspace
       );
     }
+  );
+  const openSqlMonitorCommand = vscode8.commands.registerCommand(
+    "vc-ve-tools.openSqlMonitor",
+    () => openSqlMonitor(context)
   );
   context.subscriptions.push(
     settingsProvider,
     settingsView,
     explorerProvider,
     explorerRegistration,
+    sqlExecutorRegistration,
     checkboxListener,
     configurationListener,
     disposable,
     testDatabaseConnectionCommand,
-    selectDatabaseRoleCommand
+    selectDatabaseRoleCommand,
+    openSqlMonitorCommand
   );
 }
 

@@ -6,6 +6,8 @@ import { applyProjectEncoding } from '../features/project/projectEncodingService
 import { SettingsProvider } from '../features/settings/settingsProvider';
 import { closeClassDetailPanels, openClassDetails } from '../features/classes/views/classDetailsPanelManager';
 import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider';
+import { openSqlMonitor } from '../features/sql-monitor/views/sqlMonitorPanelManager';
+import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorViewProvider';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
@@ -57,6 +59,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	const explorerRegistration = vscode.window.registerWebviewViewProvider(
 		'vc-ve-tools.explorer',
 		explorerProvider,
+	);
+	const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
+	const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(
+		SqlExecutorViewProvider.viewType,
+		sqlExecutorProvider,
+		{ webviewOptions: { retainContextWhenHidden: true } },
 	);
 	const checkboxListener = settingsView.onDidChangeCheckboxState((event) => {
 		const enabled = event.items[0]?.[1] === vscode.TreeItemCheckboxState.Checked;
@@ -143,17 +151,22 @@ export async function activate(context: vscode.ExtensionContext) {
 			);
 		},
 	);
+	const openSqlMonitorCommand = vscode.commands.registerCommand(
+		'vc-ve-tools.openSqlMonitor',
+		() => openSqlMonitor(context),
+	);
 
 	context.subscriptions.push(
 		settingsProvider,
 		settingsView,
 		explorerProvider,
 		explorerRegistration,
+		sqlExecutorRegistration,
 		checkboxListener,
 		configurationListener,
 		disposable,
 		testDatabaseConnectionCommand,
 		selectDatabaseRoleCommand,
+		openSqlMonitorCommand,
 	);
 }
-
