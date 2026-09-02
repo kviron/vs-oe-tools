@@ -2,13 +2,22 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isClassDetailsWebviewMessage = isClassDetailsWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
+exports.isCopyEntityIdMessage = isCopyEntityIdMessage;
 exports.isSqlMonitorWebviewMessage = isSqlMonitorWebviewMessage;
 exports.isSqlExecutorWebviewMessage = isSqlExecutorWebviewMessage;
 function isClassDetailsWebviewMessage(message) {
-    return typeof message === 'object'
-        && message !== null
-        && 'command' in message
-        && (message.command === 'classDetailsReady' || message.command === 'loadClassAttributes');
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    if (message.command === 'classDetailsReady' || message.command === 'loadClassAttributes') {
+        return true;
+    }
+    if (isCopyEntityIdMessage(message)) {
+        return true;
+    }
+    return message.command === 'loadClassMethods'
+        && 'includeInherited' in message
+        && typeof message.includeInherited === 'boolean';
 }
 function isExplorerWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -17,8 +26,19 @@ function isExplorerWebviewMessage(message) {
     if (message.command === 'loadClasses') {
         return true;
     }
+    if (isCopyEntityIdMessage(message)) {
+        return true;
+    }
     return message.command === 'openClass' && 'id' in message && 'pinned' in message
         && typeof message.id === 'number' && typeof message.pinned === 'boolean';
+}
+function isCopyEntityIdMessage(message) {
+    return typeof message === 'object'
+        && message !== null
+        && 'command' in message
+        && message.command === 'copyEntityId'
+        && 'id' in message
+        && (typeof message.id === 'number' || typeof message.id === 'string');
 }
 function isSqlMonitorWebviewMessage(message) {
     return typeof message === 'object'

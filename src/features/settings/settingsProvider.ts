@@ -15,6 +15,7 @@ export class SettingsProvider implements vscode.TreeDataProvider<vscode.TreeItem
 	private readonly changeEmitter = new vscode.EventEmitter<vscode.TreeItem>();
 	private readonly projectRootItem: SettingsItem;
 	private readonly databaseRoleItem: vscode.TreeItem;
+	private readonly userIdItem: vscode.TreeItem;
 	private readonly testDatabaseConnectionItem: vscode.TreeItem;
 
 	readonly onDidChangeTreeData = this.changeEmitter.event;
@@ -28,6 +29,13 @@ export class SettingsProvider implements vscode.TreeDataProvider<vscode.TreeItem
 		};
 		this.databaseRoleItem.iconPath = new vscode.ThemeIcon('database');
 		this.setDatabaseRole(databaseRole);
+		this.userIdItem = new vscode.TreeItem('ID пользователя');
+		this.userIdItem.command = {
+			command: 'vc-ve-tools.setUserId',
+			title: 'Установить ID пользователя',
+		};
+		this.userIdItem.iconPath = new vscode.ThemeIcon('person');
+		this.setUserId();
 		this.testDatabaseConnectionItem = new vscode.TreeItem('Проверить подключение к базе');
 		this.testDatabaseConnectionItem.command = {
 			command: 'vc-ve-tools.testDatabaseConnection',
@@ -42,7 +50,7 @@ export class SettingsProvider implements vscode.TreeDataProvider<vscode.TreeItem
 	}
 
 	getChildren(element?: vscode.TreeItem): vscode.TreeItem[] {
-		return element ? [] : [this.databaseRoleItem, this.projectRootItem, this.testDatabaseConnectionItem];
+		return element ? [] : [this.databaseRoleItem, this.userIdItem, this.projectRootItem, this.testDatabaseConnectionItem];
 	}
 
 	setProjectRootEnabled(enabled: boolean): void {
@@ -58,8 +66,14 @@ export class SettingsProvider implements vscode.TreeDataProvider<vscode.TreeItem
 		this.changeEmitter.fire(this.databaseRoleItem);
 	}
 
+	setUserId(): void {
+		const userId = vscode.workspace.getConfiguration('vcVeTools').get<number>('userId', 0);
+		this.userIdItem.description = userId > 0 ? userId.toString() : 'не установлен';
+		this.userIdItem.tooltip = 'Нажмите, чтобы установить ID пользователя для логирования изменений методов';
+		this.changeEmitter.fire(this.userIdItem);
+	}
+
 	dispose(): void {
 		this.changeEmitter.dispose();
 	}
 }
-

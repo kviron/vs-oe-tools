@@ -1,10 +1,45 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.testDatabaseConnection = testDatabaseConnection;
 exports.loadClasses = loadClasses;
 exports.getClassDetails = getClassDetails;
 exports.getClassAttributes = getClassAttributes;
+exports.getClassMethods = getClassMethods;
 const pg_1 = require("pg");
+const iconv = __importStar(require("iconv-lite"));
 const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
 async function testDatabaseConnection() {
@@ -170,5 +205,81 @@ async function getClassAttributes(classId, className) {
     finally {
         await client.end().catch(() => undefined);
     }
+}
+async function getClassMethods(classId, className, includeInherited) {
+    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+    try {
+        await client.connect();
+        const text = includeInherited
+            ? `WITH RECURSIVE class_chain AS (
+			     SELECT class.id, class.seniorid, 0 AS depth, ARRAY[class.id] AS path
+			     FROM classes AS class
+			     WHERE class.id = $1
+			     UNION ALL
+			     SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+			     FROM classes AS parent
+			     INNER JOIN class_chain AS chain ON parent.id = chain.seniorid
+			     WHERE NOT parent.id = ANY(chain.path)
+			   )
+			   SELECT to_jsonb(method) AS data, owner.name AS ownername, chain.depth
+			   FROM class_chain AS chain
+			   INNER JOIN methods AS method ON method.seniorid = chain.id
+			   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+			   ORDER BY chain.depth, lower(method.name), method.id`
+            : `SELECT to_jsonb(method) AS data, owner.name AS ownername, 0 AS depth
+			   FROM methods AS method
+			   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+			   WHERE method.seniorid = $1
+			   ORDER BY lower(method.name), method.id`;
+        const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text,
+            values: [classId],
+            source: includeInherited ? `Методы класса ${className} с наследованием` : `Методы класса ${className}`,
+            database: options.database,
+        });
+        const methods = result.rows.map(({ data, ownername, depth }) => ({
+            id: readValue(data, 'id'),
+            name: readValue(data, 'name', 'methname'),
+            owner: ownername ?? (readValue(data, 'owner', 'ownername', 'classname') || className),
+            signature: decodeDatabaseText(readValue(data, 'signature', 'methsignature', 'parameters', 'params')),
+            type: methodTypeName(readValue(data, 'methtype', 'type', 'typename')),
+            visibility: readValue(data, 'visibility', 'visible', 'access', 'scope'),
+            package: readValue(data, 'package', 'packagename'),
+            line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
+            inherited: depth > 0,
+        }));
+        if (!includeInherited) {
+            return methods;
+        }
+        const visibleMethods = new Map();
+        for (const method of methods) {
+            const key = method.name.toLocaleUpperCase('ru');
+            if (!visibleMethods.has(key)) {
+                visibleMethods.set(key, method);
+            }
+        }
+        return [...visibleMethods.values()].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+function methodTypeName(value) {
+    switch (value) {
+        case '1': return 'Объектный';
+        case '2': return 'Внешняя процедура';
+        case '3': return 'Интерпретируемый';
+        case '4': return 'Visual Basic';
+        case '5': return 'Java';
+        default: return value;
+    }
+}
+function decodeDatabaseText(value) {
+    const bytea = value.match(/^\\x([\da-f]+)$/i);
+    if (!bytea || bytea[1].length % 2 !== 0) {
+        return value;
+    }
+    return iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251');
 }
 //# sourceMappingURL=classRepository.js.map

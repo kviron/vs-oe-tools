@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { vscode } from '@/vscode';
+import { formatTableValue } from '@/lib/formatId';
 
 const sql = ref('SELECT ');
 const history = ref<SqlHistoryEntry[]>([]);
@@ -60,10 +61,6 @@ function syncEditorScroll(): void {
   if (!editor.value || !highlightLayer.value) return;
   highlightLayer.value.scrollTop = editor.value.scrollTop;
   highlightLayer.value.scrollLeft = editor.value.scrollLeft;
-}
-
-function displayValue(value: unknown): string {
-  return value === null ? 'NULL' : String(value);
 }
 
 function formatHistoryTime(value: string): string {
@@ -157,8 +154,8 @@ vscode.postMessage({ command: 'sqlExecutorReady' });
           </TableHeader>
           <TableBody>
             <TableRow v-for="(row, rowIndex) in result.rows" :key="rowIndex">
-              <TableCell v-for="column in result.columns" :key="column" class="max-w-96 px-2 py-1 font-mono" :title="displayValue(row[column])">
-                <span class="block truncate">{{ displayValue(row[column]) }}</span>
+              <TableCell v-for="column in result.columns" :key="column" class="max-w-96 px-2 py-1 font-mono" :title="formatTableValue(column, row[column])">
+                <span class="block truncate">{{ formatTableValue(column, row[column]) }}</span>
               </TableCell>
             </TableRow>
           </TableBody>
@@ -199,4 +196,3 @@ vscode.postMessage({ command: 'sqlExecutorReady' });
 .sql-editor :deep(.sql-comment) { color: var(--muted-foreground); font-style: italic; }
 .sql-editor :deep(.sql-identifier) { color: var(--vscode-symbolIcon-fieldForeground, var(--foreground)); }
 </style>
-

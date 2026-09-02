@@ -1,25 +1,43 @@
 <script setup lang="ts">
 import { ArrowRight01Icon, CodeIcon, DatabaseIcon, Message01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watchEffect } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
+import EntityContextMenu from '@/components/EntityContextMenu.vue';
 
 export interface TreeNode {
   id: number | string;
+  entityId?: number | string;
   name: string;
   kind: 'root' | 'class' | 'comment' | 'metadata';
   children: TreeNode[];
 }
 
-const props = withDefaults(defineProps<{ node: TreeNode; initiallyOpen?: boolean }>(), { initiallyOpen: false });
+const props = withDefaults(defineProps<{
+  node: TreeNode;
+  initiallyOpen?: boolean;
+  selectedClassId?: number;
+  revealClassId?: number;
+}>(), { initiallyOpen: false });
+const emit = defineEmits<{ selectClass: [id: number] }>();
 const open = ref(props.initiallyOpen);
 const hasChildren = computed(() => props.node.children.length > 0);
 let clickTimer: number | undefined;
 
+watchEffect(() => {
+  if (props.revealClassId !== undefined && containsClass(props.node, props.revealClassId)) open.value = true;
+});
+
+function containsClass(node: TreeNode, id: number): boolean {
+  return (node.kind === 'class' && node.id === id) || node.children.some(child => containsClass(child, id));
+}
+
 function openClass(pinned: boolean): void {
   if (typeof props.node.id !== 'number' || props.node.kind !== 'class') return;
+  emit('selectClass', props.node.id);
   window.clearTimeout(clickTimer);
   if (pinned) vscode.postMessage({ command: 'openClass', id: props.node.id, pinned: true });
   else clickTimer = window.setTimeout(() => vscode.postMessage({ command: 'openClass', id: props.node.id as number, pinned: false }), 180);
@@ -28,21 +46,41 @@ function openClass(pinned: boolean): void {
 
 <template>
   <Collapsible v-model:open="open">
-    <div class="group flex min-h-7 items-center hover:bg-accent">
-      <CollapsibleTrigger as-child>
-        <Button variant="ghost" size="icon-xs" :disabled="!hasChildren" :aria-label="open ? 'Свернуть' : 'Развернуть'" class="shrink-0 disabled:opacity-0">
-          <HugeiconsIcon :icon="ArrowRight01Icon" data-icon="inline-start" class="transition-transform" :class="{ 'rotate-90': open }" />
+    <EntityContextMenu :entity-id="node.entityId">
+      <div class="group flex min-h-7 items-center hover:bg-accent">
+        <CollapsibleTrigger as-child>
+          <Button variant="ghost" size="icon-xs" :disabled="!hasChildren" :aria-label="open ? 'Свернуть' : 'Развернуть'" class="shrink-0 disabled:opacity-0">
+            <HugeiconsIcon :icon="ArrowRight01Icon" data-icon="inline-start" class="transition-transform" :class="{ 'rotate-90': open }" />
+          </Button>
+        </CollapsibleTrigger>
+        <Button
+          variant="ghost"
+          size="sm"
+          :class="cn(
+            'h-7 min-w-0 flex-1 justify-start px-1 font-normal',
+            node.kind === 'class' && node.id === selectedClassId && 'bg-accent text-accent-foreground',
+          )"
+          :aria-current="node.kind === 'class' && node.id === selectedClassId ? 'page' : undefined"
+          :data-class-id="node.kind === 'class' ? node.id : undefined"
+          @click="openClass(false)"
+          @dblclick="openClass(true)"
+        >
+          <HugeiconsIcon v-if="node.kind === 'class' || node.kind === 'root'" :icon="CodeIcon" data-icon="inline-start" />
+          <HugeiconsIcon v-else-if="node.kind === 'comment'" :icon="Message01Icon" data-icon="inline-start" />
+          <HugeiconsIcon v-else :icon="DatabaseIcon" data-icon="inline-start" />
+          <span class="truncate">{{ node.name }}</span>
         </Button>
-      </CollapsibleTrigger>
-      <Button variant="ghost" size="sm" class="h-7 min-w-0 flex-1 justify-start px-1 font-normal" @click="openClass(false)" @dblclick="openClass(true)">
-        <HugeiconsIcon v-if="node.kind === 'class' || node.kind === 'root'" :icon="CodeIcon" data-icon="inline-start" />
-        <HugeiconsIcon v-else-if="node.kind === 'comment'" :icon="Message01Icon" data-icon="inline-start" />
-        <HugeiconsIcon v-else :icon="DatabaseIcon" data-icon="inline-start" />
-        <span class="truncate">{{ node.name }}</span>
-      </Button>
-    </div>
+      </div>
+    </EntityContextMenu>
     <CollapsibleContent v-if="hasChildren" class="pl-4">
-      <ClassTreeNode v-for="child in node.children" :key="child.id" :node="child" />
+      <ClassTreeNode
+        v-for="child in node.children"
+        :key="child.id"
+        :node="child"
+        :selected-class-id="selectedClassId"
+        :reveal-class-id="revealClassId"
+        @select-class="emit('selectClass', $event)"
+      />
     </CollapsibleContent>
   </Collapsible>
 </template>

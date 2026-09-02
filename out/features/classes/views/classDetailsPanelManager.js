@@ -56,11 +56,32 @@ function createPanel(context, classDetails, pinned) {
     const entry = { panel, pinned, details: classDetails };
     panel.webview.onDidReceiveMessage(async (message) => {
         if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
+            if (message.command === 'copyEntityId') {
+                await vscode.env.clipboard.writeText(String(message.id));
+                vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
+                return;
+            }
             if (message.command === 'classDetailsReady') {
                 postDetails(entry);
                 return;
             }
             const requestedClassId = entry.details.id;
+            if (message.command === 'loadClassMethods') {
+                const includeInherited = message.includeInherited;
+                try {
+                    const methods = await (0, classRepository_1.getClassMethods)(requestedClassId, entry.details.name, includeInherited);
+                    if (entry.details.id === requestedClassId) {
+                        void panel.webview.postMessage({ command: 'classMethodsLoaded', methods, includeInherited });
+                    }
+                }
+                catch (error) {
+                    if (entry.details.id === requestedClassId) {
+                        const failureMessage = error instanceof Error ? error.message : String(error);
+                        void panel.webview.postMessage({ command: 'classMethodsLoadFailed', message: failureMessage, includeInherited });
+                    }
+                }
+                return;
+            }
             try {
                 const attributes = await (0, classRepository_1.getClassAttributes)(requestedClassId, entry.details.name);
                 if (entry.details.id === requestedClassId) {

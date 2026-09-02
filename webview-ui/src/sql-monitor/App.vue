@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { vscode } from '@/vscode';
+import { formatId, formatTableValue } from '@/lib/formatId';
 
 const operations: SqlOperation[] = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'DDL', 'OTHER'];
 const statuses: Array<{ value: SqlQueryStatus; label: string }> = [
@@ -72,12 +73,6 @@ function statusLabel(status: SqlQueryStatus): string {
   return statuses.find(candidate => candidate.value === status)?.label ?? status;
 }
 
-function displayValue(value: unknown): string {
-  if (value === null) return 'NULL';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
-}
-
 function clearLog(): void {
   vscode.postMessage({ command: 'clearSqlMonitor' });
 }
@@ -135,7 +130,7 @@ vscode.postMessage({ command: 'sqlMonitorReady' });
               @click="selectedId = record.id"
               @keydown.enter="selectedId = record.id"
             >
-              <TableCell class="px-2 py-1">{{ record.id }}</TableCell>
+              <TableCell class="px-2 py-1">{{ formatId(record.id) }}</TableCell>
               <TableCell class="whitespace-nowrap px-2 py-1">{{ formatTime(record.startedAt) }}</TableCell>
               <TableCell class="px-2 py-1 font-medium">{{ record.operation }}</TableCell>
               <TableCell class="max-w-72 truncate px-2 py-1" :title="record.source">{{ record.source }}</TableCell>
@@ -179,8 +174,8 @@ vscode.postMessage({ command: 'sqlMonitorReady' });
             <TableHeader><TableRow><TableHead v-for="column in selectedRecord.columns" :key="column" class="h-7 px-2">{{ column }}</TableHead></TableRow></TableHeader>
             <TableBody>
               <TableRow v-for="(row, rowIndex) in selectedRecord.rows" :key="rowIndex">
-                <TableCell v-for="column in selectedRecord.columns" :key="column" class="max-w-96 px-2 py-1 font-mono" :title="displayValue(row[column])">
-                  <span class="block truncate">{{ displayValue(row[column]) }}</span>
+                <TableCell v-for="column in selectedRecord.columns" :key="column" class="max-w-96 px-2 py-1 font-mono" :title="formatTableValue(column, row[column])">
+                  <span class="block truncate">{{ formatTableValue(column, row[column]) }}</span>
                 </TableCell>
               </TableRow>
             </TableBody>

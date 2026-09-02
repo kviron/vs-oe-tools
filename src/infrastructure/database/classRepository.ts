@@ -1,5 +1,6 @@
 import { Client } from 'pg';
-import type { ClassAttribute, ClassCommentRow, ClassDetails, ClassRow, ClassTreeRow, ObjectMetaDataCountRow } from '../../features/classes/models';
+import * as iconv from 'iconv-lite';
+import type { ClassAttribute, ClassCommentRow, ClassDetails, ClassMethod, ClassRow, ClassTreeRow, ObjectMetaDataCountRow } from '../../features/classes/models';
 import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 
@@ -179,4 +180,90 @@ export async function getClassAttributes(classId: number, className: string): Pr
 	} finally {
 		await client.end().catch(() => undefined);
 	}
+}
+
+interface ClassMethodRow {
+	data: Record<string, unknown>;
+	ownername: string | null;
+	depth: number;
+}
+
+export async function getClassMethods(classId: number, className: string, includeInherited: boolean): Promise<ClassMethod[]> {
+	const options = await getProjectDatabaseOptions();
+	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	try {
+		await client.connect();
+		const text = includeInherited
+			? `WITH RECURSIVE class_chain AS (
+			     SELECT class.id, class.seniorid, 0 AS depth, ARRAY[class.id] AS path
+			     FROM classes AS class
+			     WHERE class.id = $1
+			     UNION ALL
+			     SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+			     FROM classes AS parent
+			     INNER JOIN class_chain AS chain ON parent.id = chain.seniorid
+			     WHERE NOT parent.id = ANY(chain.path)
+			   )
+			   SELECT to_jsonb(method) AS data, owner.name AS ownername, chain.depth
+			   FROM class_chain AS chain
+			   INNER JOIN methods AS method ON method.seniorid = chain.id
+			   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+			   ORDER BY chain.depth, lower(method.name), method.id`
+			: `SELECT to_jsonb(method) AS data, owner.name AS ownername, 0 AS depth
+			   FROM methods AS method
+			   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+			   WHERE method.seniorid = $1
+			   ORDER BY lower(method.name), method.id`;
+		const result = await executeMonitoredQuery<ClassMethodRow, [number]>(client, {
+			text,
+			values: [classId],
+			source: includeInherited ? `Методы класса ${className} с наследованием` : `Методы класса ${className}`,
+			database: options.database,
+		});
+
+		const methods = result.rows.map(({ data, ownername, depth }) => ({
+			id: readValue(data, 'id'),
+			name: readValue(data, 'name', 'methname'),
+			owner: ownername ?? (readValue(data, 'owner', 'ownername', 'classname') || className),
+			signature: decodeDatabaseText(readValue(data, 'signature', 'methsignature', 'parameters', 'params')),
+			type: methodTypeName(readValue(data, 'methtype', 'type', 'typename')),
+			visibility: readValue(data, 'visibility', 'visible', 'access', 'scope'),
+			package: readValue(data, 'package', 'packagename'),
+			line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
+			inherited: depth > 0,
+		}));
+		if (!includeInherited) {
+			return methods;
+		}
+
+		const visibleMethods = new Map<string, ClassMethod>();
+		for (const method of methods) {
+			const key = method.name.toLocaleUpperCase('ru');
+			if (!visibleMethods.has(key)) {
+				visibleMethods.set(key, method);
+			}
+		}
+		return [...visibleMethods.values()].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+	} finally {
+		await client.end().catch(() => undefined);
+	}
+}
+
+function methodTypeName(value: string): string {
+	switch (value) {
+		case '1': return 'Объектный';
+		case '2': return 'Внешняя процедура';
+		case '3': return 'Интерпретируемый';
+		case '4': return 'Visual Basic';
+		case '5': return 'Java';
+		default: return value;
+	}
+}
+
+function decodeDatabaseText(value: string): string {
+	const bytea = value.match(/^\\x([\da-f]+)$/i);
+	if (!bytea || bytea[1].length % 2 !== 0) {
+		return value;
+	}
+	return iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251');
 }

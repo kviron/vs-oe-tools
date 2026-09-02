@@ -71,6 +71,12 @@
           "default": "main",
           "scope": "window",
           "description": "База данных, к которой подключается Восточный Экспресс."
+        },
+        "vcVeTools.userId": {
+          "type": "number",
+          "default": 0,
+          "scope": "window",
+          "description": "ID пользователя в системе Восточного Экспресса для логирования изменений методов."
         }
       }
     },
@@ -124,10 +130,18 @@
         "title": "Восточный Экспресс: Выбрать базу данных"
       },
       {
+        "command": "vc-ve-tools.setUserId",
+        "title": "Восточный Экспресс: Установить ID пользователя"
+      },
+      {
         "command": "vc-ve-tools.openSqlMonitor",
         "title": "SQL-монитор",
         "category": "Восточный экспресс",
         "icon": "$(database)"
+      },
+      {
+        "command": "vc-ve-tools.copySelectedExplorerId",
+        "title": "Восточный Экспресс: Копировать ID выделенного объекта"
       }
     ],
     "menus": {
@@ -143,6 +157,11 @@
       {
         "command": "vc-ve-tools.openSqlMonitor",
         "key": "alt+shift+i"
+      },
+      {
+        "command": "vc-ve-tools.copySelectedExplorerId",
+        "key": "ctrl+c",
+        "when": "vcVeTools.explorerCopyContext"
       }
     ]
   },

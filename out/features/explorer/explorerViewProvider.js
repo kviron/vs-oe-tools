@@ -59,6 +59,11 @@ class ExplorerViewProvider {
                 void this.sendClasses();
                 return;
             }
+            if (message.command === 'copyEntityId') {
+                void vscode.env.clipboard.writeText(String(message.id));
+                vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
+                return;
+            }
             void this.openClass(message.id, message.pinned).catch((error) => {
                 const detail = error instanceof Error ? error.message : String(error);
                 void vscode.window.showErrorMessage(`Не удалось открыть класс: ${detail}`);

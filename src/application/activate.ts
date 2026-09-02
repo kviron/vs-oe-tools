@@ -8,8 +8,10 @@ import { closeClassDetailPanels, openClassDetails } from '../features/classes/vi
 import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider';
 import { openSqlMonitor } from '../features/sql-monitor/views/sqlMonitorPanelManager';
 import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorViewProvider';
+import { registerMethodEditor } from '../features/methods/methodEditorProvider';
 
 export async function activate(context: vscode.ExtensionContext) {
+	const methodEditor = registerMethodEditor(context);
 	const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
 	let isUpdatingSetting = false;
 	const settingsProvider = new SettingsProvider(
@@ -54,7 +56,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const explorerProvider = new ExplorerViewProvider(
 		context.extensionUri,
 		loadClasses,
-		(id, pinned) => openClassDetails(context, id, pinned),
+		(id, pinned) => openClassDetails(context, methodEditor, id, pinned),
 	);
 	const explorerRegistration = vscode.window.registerWebviewViewProvider(
 		'vc-ve-tools.explorer',
@@ -76,6 +78,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			settingsProvider.setDatabaseRole(getDatabaseRole());
 			closeClassDetailPanels();
 			explorerProvider.refreshClasses();
+		}
+
+		if (event.affectsConfiguration('vcVeTools.userId')) {
+			settingsProvider.setUserId();
 		}
 
 		if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${projectRootSetting}`)) {
@@ -155,6 +161,43 @@ export async function activate(context: vscode.ExtensionContext) {
 		'vc-ve-tools.openSqlMonitor',
 		() => openSqlMonitor(context),
 	);
+	const copySelectedExplorerIdCommand = vscode.commands.registerCommand(
+		'vc-ve-tools.copySelectedExplorerId',
+		() => explorerProvider.copySelectedEntityId(),
+	);
+	const setUserIdCommand = vscode.commands.registerCommand(
+		'vc-ve-tools.setUserId',
+		async () => {
+			const input = await vscode.window.showInputBox({
+				placeHolder: '3130673',
+				prompt: 'Введите ID пользователя из таблицы Users для логирования изменений методов',
+				value: vscode.workspace.getConfiguration('vcVeTools').get<number>('userId', 0).toString(),
+				validateInput: (value) => {
+					if (!value.trim()) {
+						return 'ID не может быть пустым';
+					}
+					const parsed = Number.parseInt(value, 10);
+					if (!Number.isInteger(parsed) || parsed <= 0) {
+						return 'ID должен быть положительным числом';
+					}
+					return '';
+				},
+			});
+
+			if (input === undefined) {
+				return;
+			}
+
+			const userId = Number.parseInt(input, 10);
+			await vscode.workspace.getConfiguration('vcVeTools').update(
+				'userId',
+				userId,
+				vscode.ConfigurationTarget.Workspace,
+			);
+			settingsProvider.setUserId();
+			void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
+		},
+	);
 
 	context.subscriptions.push(
 		settingsProvider,
@@ -168,5 +211,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		testDatabaseConnectionCommand,
 		selectDatabaseRoleCommand,
 		openSqlMonitorCommand,
+		copySelectedExplorerIdCommand,
+		setUserIdCommand,
 	);
 }

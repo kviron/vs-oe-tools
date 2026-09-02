@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import type { ClassDetailsHostMessage } from '../../../core/webviewProtocol';
 import { isClassDetailsWebviewMessage } from '../../../core/webviewProtocol';
-import { getClassAttributes, getClassDetails } from '../../../infrastructure/database/classRepository';
+import { getClassAttributes, getClassDetails, getClassMethods } from '../../../infrastructure/database/classRepository';
 import type { ClassDetails } from '../models';
+import type { MethodEditorProvider } from '../../methods/methodEditorProvider';
 
 interface ClassDetailPanel {
 	panel: vscode.WebviewPanel;
@@ -22,25 +23,49 @@ function updateClassDetailPanel(entry: ClassDetailPanel, classDetails: ClassDeta
 	entry.details = classDetails;
 	entry.panel.title = `Класс ${classDetails.name}`;
 	postDetails(entry);
-	entry.panel.reveal(vscode.ViewColumn.Active);
+	entry.panel.reveal(vscode.ViewColumn.Active, !entry.pinned);
 }
 
-function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetails, pinned: boolean): ClassDetailPanel {
+function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetails, pinned: boolean, methodEditor: MethodEditorProvider): ClassDetailPanel {
 	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
 	const panel = vscode.window.createWebviewPanel(
 		'vc-ve-tools.classDetails',
 		`Класс ${classDetails.name}`,
-		vscode.ViewColumn.Active,
+		{ viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned },
 		{ enableScripts: true, localResourceRoots: [assetsRoot] },
 	);
 	const entry: ClassDetailPanel = { panel, pinned, details: classDetails };
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (isClassDetailsWebviewMessage(message)) {
+			if (message.command === 'copyEntityId') {
+				await vscode.env.clipboard.writeText(String(message.id));
+				vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
+				return;
+			}
 			if (message.command === 'classDetailsReady') {
 				postDetails(entry);
 				return;
 			}
+			if (message.command === 'openMethod') {
+				await methodEditor.open(message.id);
+				return;
+			}
 			const requestedClassId = entry.details.id;
+			if (message.command === 'loadClassMethods') {
+				const includeInherited = message.includeInherited;
+				try {
+					const methods = await getClassMethods(requestedClassId, entry.details.name, includeInherited);
+					if (entry.details.id === requestedClassId) {
+						void panel.webview.postMessage({ command: 'classMethodsLoaded', methods, includeInherited } satisfies ClassDetailsHostMessage);
+					}
+				} catch (error) {
+					if (entry.details.id === requestedClassId) {
+						const failureMessage = error instanceof Error ? error.message : String(error);
+						void panel.webview.postMessage({ command: 'classMethodsLoadFailed', message: failureMessage, includeInherited } satisfies ClassDetailsHostMessage);
+					}
+				}
+				return;
+			}
 			try {
 				const attributes = await getClassAttributes(requestedClassId, entry.details.name);
 				if (entry.details.id === requestedClassId) {
@@ -56,14 +81,14 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 	return entry;
 }
 
-export async function openClassDetails(context: vscode.ExtensionContext, id: number, pinned: boolean): Promise<void> {
+export async function openClassDetails(context: vscode.ExtensionContext, methodEditor: MethodEditorProvider, id: number, pinned: boolean): Promise<void> {
 	const existingPanel = classDetailPanels.get(id);
 	if (existingPanel) {
 		if (pinned && !existingPanel.pinned) {
 			existingPanel.pinned = true;
 			previewClassPanelId = undefined;
 		}
-		existingPanel.panel.reveal(vscode.ViewColumn.Active);
+		existingPanel.panel.reveal(vscode.ViewColumn.Active, !pinned);
 		return;
 	}
 	const classDetails = await getClassDetails(id);
@@ -77,7 +102,7 @@ export async function openClassDetails(context: vscode.ExtensionContext, id: num
 		updateClassDetailPanel(previewPanel, classDetails);
 		return;
 	}
-	const entry = createPanel(context, classDetails, pinned);
+	const entry = createPanel(context, classDetails, pinned, methodEditor);
 	classDetailPanels.set(id, entry);
 	if (!pinned) {
 		previewClassPanelId = id;

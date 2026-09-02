@@ -72,3 +72,15 @@ export interface ClassAttribute {
 	package: string;
 	line: string;
 }
+
+export interface ClassMethod {
+	id: string;
+	name: string;
+	owner: string;
+	signature: string;
+	type: string;
+	visibility: string;
+	package: string;
+	line: string;
+	inherited: boolean;
+}
