@@ -48,7 +48,9 @@ export interface SqlHistoryEntry {
 }
 export type SqlExecutorWebviewMessage =
 	| { command: 'sqlExecutorReady' }
-	| { command: 'executeSql'; text: string };
+	| { command: 'executeSql'; text: string }
+	| { command: 'copySqlResult'; format: 'markdown' | 'json' }
+	| { command: 'exportSqlResult' };
 export type SqlExecutorHostMessage =
 	| { command: 'sqlExecutorInitialized'; history: SqlHistoryEntry[] }
 	| { command: 'sqlExecutorHistoryChanged'; entry: SqlHistoryEntry }
@@ -120,5 +122,11 @@ export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExe
 	if (message.command === 'sqlExecutorReady') {
 		return true;
 	}
-	return message.command === 'executeSql' && 'text' in message && typeof message.text === 'string';
+	if (message.command === 'executeSql') {
+		return 'text' in message && typeof message.text === 'string';
+	}
+	if (message.command === 'copySqlResult') {
+		return 'format' in message && (message.format === 'markdown' || message.format === 'json');
+	}
+	return message.command === 'exportSqlResult';
 }

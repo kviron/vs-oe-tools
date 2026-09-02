@@ -37,6 +37,8 @@ const assert = __importStar(require("assert"));
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 const vscode = __importStar(require("vscode"));
+const sqlResultExport_1 = require("../features/sql-executor/sqlResultExport");
+const sqlDialectAdapter_1 = require("../features/sql-executor/sqlDialectAdapter");
 const projectDatabaseOptions_1 = require("../infrastructure/configuration/projectDatabaseOptions");
 // import * as myExtension from '../../extension';
 suite('Extension Test Suite', () => {
@@ -55,6 +57,35 @@ suite('Extension Test Suite', () => {
         assert.strictEqual(variables.get('devdbname_main'), 'production');
         assert.strictEqual(variables.get('devdbname_test'), 'test_database');
         assert.strictEqual(variables.get('oedbmsport'), '5433');
+    });
+    test('SQL result export produces readable Markdown and valid JSON', () => {
+        const result = {
+            rowCount: 2,
+            columns: ['ID', 'Name'],
+            rows: [{ ID: 1, Name: 'Первая | строка' }, { ID: 2, Name: null }],
+            resultTruncated: false,
+        };
+        const markdown = (0, sqlResultExport_1.formatSqlResult)(result, 'markdown');
+        assert.ok(markdown.includes('| 1 | Первая \\| строка |'));
+        assert.ok(markdown.includes('| 2 | NULL |'));
+        assert.deepStrictEqual(JSON.parse((0, sqlResultExport_1.formatSqlResult)(result, 'json')).rows, result.rows);
+    });
+    test('SQL result CSV uses semicolons and escapes quotes', () => {
+        const csv = (0, sqlResultExport_1.formatSqlResult)({
+            rowCount: 1,
+            columns: ['ID', 'Text'],
+            rows: [{ ID: 7, Text: 'значение "в кавычках"' }],
+            resultTruncated: false,
+        }, 'csv');
+        assert.strictEqual(csv, '"ID";"Text"\r\n"7";"значение ""в кавычках"""\r\n');
+    });
+    test('VE SQL adapter expands a composite date-time attribute', () => {
+        const columns = new Map([
+            ['t0', new Set(['id', 'beginplan_date', 'beginplan_tz', 'timezone'])],
+        ]);
+        const source = "SELECT T0.BeginPlan, T0.BeginPlan_date, 'T0.BeginPlan' FROM EducServDocument T0";
+        const adapted = (0, sqlDialectAdapter_1.adaptCompositeDateTimeFields)(source, columns);
+        assert.strictEqual(adapted, "SELECT COALESCE(timezone(T0.timezone, T0.BeginPlan_tz), T0.BeginPlan_date), T0.BeginPlan_date, 'T0.BeginPlan' FROM EducServDocument T0");
     });
 });
 //# sourceMappingURL=extension.test.js.map

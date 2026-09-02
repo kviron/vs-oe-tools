@@ -4,6 +4,7 @@ exports.executeSql = executeSql;
 const pg_1 = require("pg");
 const databaseQueryExecutor_1 = require("../../infrastructure/database/databaseQueryExecutor");
 const projectDatabaseOptions_1 = require("../../infrastructure/configuration/projectDatabaseOptions");
+const sqlDialectAdapter_1 = require("./sqlDialectAdapter");
 async function executeSql(text) {
     const queryText = text.trim();
     if (!queryText) {
@@ -18,8 +19,10 @@ async function executeSql(text) {
     const started = performance.now();
     try {
         await client.connect();
+        const postgresText = await (0, sqlDialectAdapter_1.adaptVeSqlToPostgres)(client, queryText);
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: queryText,
+            text: postgresText,
+            displayText: queryText,
             source: 'Исполнитель SQL',
             database: options.database,
         });

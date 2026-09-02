@@ -48,11 +48,11 @@ function updateClassDetailPanel(entry, classDetails) {
     entry.details = classDetails;
     entry.panel.title = `Класс ${classDetails.name}`;
     postDetails(entry);
-    entry.panel.reveal(vscode.ViewColumn.Active);
+    entry.panel.reveal(vscode.ViewColumn.Active, !entry.pinned);
 }
-function createPanel(context, classDetails, pinned) {
+function createPanel(context, classDetails, pinned, methodEditor) {
     const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
-    const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot] });
+    const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, { viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned }, { enableScripts: true, localResourceRoots: [assetsRoot] });
     const entry = { panel, pinned, details: classDetails };
     panel.webview.onDidReceiveMessage(async (message) => {
         if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
@@ -63,6 +63,10 @@ function createPanel(context, classDetails, pinned) {
             }
             if (message.command === 'classDetailsReady') {
                 postDetails(entry);
+                return;
+            }
+            if (message.command === 'openMethod') {
+                await methodEditor.open(message.id);
                 return;
             }
             const requestedClassId = entry.details.id;
@@ -97,14 +101,14 @@ function createPanel(context, classDetails, pinned) {
     panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
     return entry;
 }
-async function openClassDetails(context, id, pinned) {
+async function openClassDetails(context, methodEditor, id, pinned) {
     const existingPanel = classDetailPanels.get(id);
     if (existingPanel) {
         if (pinned && !existingPanel.pinned) {
             existingPanel.pinned = true;
             previewClassPanelId = undefined;
         }
-        existingPanel.panel.reveal(vscode.ViewColumn.Active);
+        existingPanel.panel.reveal(vscode.ViewColumn.Active, !pinned);
         return;
     }
     const classDetails = await (0, classRepository_1.getClassDetails)(id);
@@ -118,7 +122,7 @@ async function openClassDetails(context, id, pinned) {
         updateClassDetailPanel(previewPanel, classDetails);
         return;
     }
-    const entry = createPanel(context, classDetails, pinned);
+    const entry = createPanel(context, classDetails, pinned, methodEditor);
     classDetailPanels.set(id, entry);
     if (!pinned) {
         previewClassPanelId = id;

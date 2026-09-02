@@ -2,6 +2,7 @@ import { Client } from 'pg';
 import type { SerializedQueryResult } from '../../infrastructure/database/databaseQueryExecutor';
 import { executeMonitoredQuery, serializeQueryResult } from '../../infrastructure/database/databaseQueryExecutor';
 import { getProjectDatabaseOptions } from '../../infrastructure/configuration/projectDatabaseOptions';
+import { adaptVeSqlToPostgres } from './sqlDialectAdapter';
 
 export interface ManualSqlExecutionResult {
 	result: SerializedQueryResult;
@@ -24,8 +25,10 @@ export async function executeSql(text: string): Promise<ManualSqlExecutionResult
 	const started = performance.now();
 	try {
 		await client.connect();
+		const postgresText = await adaptVeSqlToPostgres(client, queryText);
 		const result = await executeMonitoredQuery<Record<string, unknown>>(client, {
-			text: queryText,
+			text: postgresText,
+			displayText: queryText,
 			source: 'Исполнитель SQL',
 			database: options.database,
 		});
@@ -38,4 +41,3 @@ export async function executeSql(text: string): Promise<ManualSqlExecutionResult
 		await client.end().catch(() => undefined);
 	}
 }
-

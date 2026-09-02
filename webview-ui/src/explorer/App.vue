@@ -6,6 +6,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/u
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 import ClassTreeNode, { type TreeNode } from './ClassTreeNode.vue';
 
@@ -15,6 +16,7 @@ const loading = ref(false);
 const loaded = ref(false);
 const error = ref('');
 const selectedClassId = ref<number>();
+const explorerActive = ref(document.hasFocus());
 const revealClassId = ref<number>();
 const searchQuery = ref('');
 let searchClickTimer: number | undefined;
@@ -109,7 +111,7 @@ function selectTreeClass(id: number): void {
 
 function scrollToSelectedClass(id: number): void {
   document.querySelector<HTMLElement>(`[data-class-id="${id}"]`)
-    ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    ?.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' });
 }
 
 document.addEventListener('copy', (event: ClipboardEvent) => {
@@ -136,8 +138,15 @@ document.addEventListener('focusin', (event: FocusEvent) => {
   updateCopyContext(!isTextInput);
 });
 
-window.addEventListener('focus', () => updateCopyContext(true));
-window.addEventListener('blur', () => updateCopyContext(false));
+window.addEventListener('focus', () => {
+  explorerActive.value = true;
+  updateCopyContext(true);
+});
+window.addEventListener('blur', () => {
+  explorerActive.value = false;
+  updateCopyContext(false);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+});
 
 window.addEventListener('keydown', (event: KeyboardEvent) => {
   if (event.ctrlKey && event.key.toLocaleLowerCase() === 'c') {
@@ -166,26 +175,27 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
 </script>
 
 <template>
-  <Tabs :model-value="activeTab" class="w-full gap-0" @update:model-value="onTabChange">
-    <TabsList variant="line" class="sticky top-0 z-20 w-full border-b bg-muted px-1">
+  <Tabs :model-value="activeTab" class="h-screen min-h-0 min-w-0 overflow-hidden gap-0" @update:model-value="onTabChange">
+    <TabsList variant="line" class="relative z-20 w-full shrink-0 border-b bg-muted px-1">
       <TabsTrigger value="packages" class="flex-1">Пакеты</TabsTrigger>
       <TabsTrigger value="objects" class="flex-1">Объекты</TabsTrigger>
       <TabsTrigger value="classes" class="flex-1">Классы</TabsTrigger>
     </TabsList>
-    <TabsContent value="packages">
+    <TabsContent value="packages" class="min-h-0 overflow-auto">
       <Empty class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Пакеты</EmptyTitle><EmptyDescription>Данные пакетов пока не загружены.</EmptyDescription></EmptyHeader></Empty>
     </TabsContent>
-    <TabsContent value="objects">
+    <TabsContent value="objects" class="min-h-0 overflow-auto">
       <Empty class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Объекты</EmptyTitle><EmptyDescription>Данные объектов пока не загружены.</EmptyDescription></EmptyHeader></Empty>
     </TabsContent>
-    <TabsContent value="classes" class="p-1">
+    <TabsContent value="classes" class="min-h-0 min-w-0 overflow-hidden">
+      <div class="flex h-full min-h-0 min-w-0 flex-col">
       <div v-if="loading" class="flex flex-col gap-1 p-1">
         <Skeleton v-for="index in 6" :key="index" class="h-6 w-full" />
       </div>
       <Empty v-else-if="error" class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Не удалось загрузить классы</EmptyTitle><EmptyDescription>{{ error }}</EmptyDescription></EmptyHeader></Empty>
       <Empty v-else-if="loaded && classes.length === 0" class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Классы не найдены</EmptyTitle><EmptyDescription>База данных не вернула доступных классов.</EmptyDescription></EmptyHeader></Empty>
       <template v-else-if="loaded">
-        <div class="sticky top-8 z-10 -mx-1 mb-1 border-b bg-background px-1 pb-1 pt-1">
+        <div class="z-10 shrink-0 border-b bg-background p-1">
           <Input
             v-model="searchQuery"
             type="search"
@@ -194,13 +204,15 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
             aria-label="Поиск класса по названию или ID"
           />
         </div>
-        <div v-if="normalizedSearchQuery" class="flex flex-col">
+        <div v-if="normalizedSearchQuery" class="flex min-h-0 flex-1 flex-col overflow-auto p-1">
           <button
             v-for="item in searchResults"
             :key="item.id"
             type="button"
             class="flex min-h-7 items-center gap-2 px-2 text-left hover:bg-accent"
-            :class="item.id === selectedClassId && 'bg-accent text-accent-foreground'"
+            :class="cn(item.id === selectedClassId && (explorerActive
+              ? 'bg-primary/15 text-primary hover:bg-primary/20'
+              : 'bg-muted text-muted-foreground hover:bg-muted'))"
             :title="`${item.name} — ${item.id}`"
             @click="selectSearchResult(item, false)"
             @dblclick="selectSearchResult(item, true)"
@@ -212,15 +224,20 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
             <EmptyHeader><EmptyTitle>Совпадений нет</EmptyTitle><EmptyDescription>Измените название или ID класса.</EmptyDescription></EmptyHeader>
           </Empty>
         </div>
-        <ClassTreeNode
-          v-else
-          :node="classTree"
-          :selected-class-id="selectedClassId"
-          :reveal-class-id="revealClassId"
-          initially-open
-          @select-class="selectTreeClass"
-        />
+        <div v-else class="min-h-0 min-w-0 flex-1 overflow-auto p-1">
+          <div class="w-max min-w-full">
+            <ClassTreeNode
+              :node="classTree"
+              :selected-class-id="selectedClassId"
+              :reveal-class-id="revealClassId"
+              :explorer-active="explorerActive"
+              initially-open
+              @select-class="selectTreeClass"
+            />
+          </div>
+        </div>
       </template>
+      </div>
     </TabsContent>
   </Tabs>
 </template>

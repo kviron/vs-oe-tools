@@ -3496,8 +3496,8 @@ var require_helper = __commonJS({
       return old;
     };
     module2.exports.getFileName = function(rawEnv) {
-      var env3 = rawEnv || process.env;
-      var file = env3.PGPASSFILE || (isWin ? path.join(env3.APPDATA || "./", "postgresql", "pgpass.conf") : path.join(env3.HOME || "./", ".pgpass"));
+      var env4 = rawEnv || process.env;
+      var file = env4.PGPASSFILE || (isWin ? path.join(env4.APPDATA || "./", "postgresql", "pgpass.conf") : path.join(env4.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -5457,7 +5457,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv4) {
+    function InternalCodec(codecOptions, iconv5) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5469,7 +5469,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv4.defaultCharUnicode;
+          this.defaultCharUnicode = iconv5.defaultCharUnicode;
         }
       }
     }
@@ -5626,8 +5626,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv4) {
-      this.iconv = iconv4;
+    function Utf32Codec(codecOptions, iconv5) {
+      this.iconv = iconv5;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5755,8 +5755,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv4) {
-      this.iconv = iconv4;
+    function Utf32AutoCodec(options, iconv5) {
+      this.iconv = iconv5;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5906,8 +5906,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv4) {
-      this.iconv = iconv4;
+    function Utf16Codec(codecOptions, iconv5) {
+      this.iconv = iconv5;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6005,8 +6005,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv4) {
-      this.iconv = iconv4;
+    function Utf7Codec(codecOptions, iconv5) {
+      this.iconv = iconv5;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6088,8 +6088,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv4) {
-      this.iconv = iconv4;
+    function Utf7IMAPCodec(codecOptions, iconv5) {
+      this.iconv = iconv5;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6222,7 +6222,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv4) {
+    function SBCSCodec(codecOptions, iconv5) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6237,7 +6237,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv4.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv5.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6904,7 +6904,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv4) {
+    function DBCSCodec(codecOptions, iconv5) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6953,7 +6953,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv4.defaultCharUnicode;
+      this.defaultCharUnicode = iconv5.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6977,7 +6977,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv4.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv5.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8975,14 +8975,14 @@ var require_lib3 = __commonJS({
     module2.exports.encodings = null;
     module2.exports.defaultCharUnicode = "\uFFFD";
     module2.exports.defaultCharSingleByte = "?";
-    module2.exports.encode = function encode2(str, encoding, options) {
+    module2.exports.encode = function encode3(str, encoding, options) {
       str = "" + (str || "");
       var encoder = module2.exports.getEncoder(encoding, options);
       var res = encoder.write(str);
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode4(buf, encoding, options) {
+    module2.exports.decode = function decode5(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -9262,7 +9262,7 @@ async function executeMonitoredQuery(client, query) {
     database: query.database,
     operation: detectOperation(query.text),
     status: "running",
-    text: query.text.trim(),
+    text: (query.displayText ?? query.text).trim(),
     parameters: (query.values ?? []).map(normalizeValue),
     columns: [],
     rows: [],
@@ -9741,7 +9741,13 @@ function isSqlExecutorWebviewMessage(message) {
   if (message.command === "sqlExecutorReady") {
     return true;
   }
-  return message.command === "executeSql" && "text" in message && typeof message.text === "string";
+  if (message.command === "executeSql") {
+    return "text" in message && typeof message.text === "string";
+  }
+  if (message.command === "copySqlResult") {
+    return "format" in message && (message.format === "markdown" || message.format === "json");
+  }
+  return message.command === "exportSqlResult";
 }
 
 // src/features/classes/views/classDetailsPanelManager.ts
@@ -10055,6 +10061,89 @@ function createNonce2() {
 // src/features/sql-executor/sqlExecutorViewProvider.ts
 var vscode7 = __toESM(require("vscode"));
 
+// src/features/sql-executor/sqlDialectAdapter.ts
+var sqlKeywords = /* @__PURE__ */ new Set([
+  "where",
+  "left",
+  "right",
+  "inner",
+  "full",
+  "cross",
+  "join",
+  "on",
+  "order",
+  "group",
+  "having",
+  "limit",
+  "offset",
+  "union",
+  "except",
+  "intersect",
+  "returning"
+]);
+async function adaptVeSqlToPostgres(client, source) {
+  const references = extractTableReferences(source);
+  if (references.length === 0) {
+    return source;
+  }
+  const tableNames = [...new Set(references.map((reference) => reference.tableName.toLowerCase()))];
+  const result = await client.query(
+    `SELECT table_name, column_name
+		 FROM information_schema.columns
+		 WHERE table_schema = ANY(current_schemas(false))
+		   AND lower(table_name) = ANY($1::text[])`,
+    [tableNames]
+  );
+  const columnsByTable = /* @__PURE__ */ new Map();
+  for (const row of result.rows) {
+    const columns = columnsByTable.get(row.table_name.toLowerCase()) ?? /* @__PURE__ */ new Set();
+    columns.add(row.column_name.toLowerCase());
+    columnsByTable.set(row.table_name.toLowerCase(), columns);
+  }
+  const columnsByAlias = /* @__PURE__ */ new Map();
+  for (const reference of references) {
+    const columns = columnsByTable.get(reference.tableName.toLowerCase());
+    if (columns) {
+      columnsByAlias.set(reference.alias.toLowerCase(), columns);
+    }
+  }
+  return mapExecutableSql(source, (part) => replaceCompositeDateTimeFields(part, columnsByAlias));
+}
+function extractTableReferences(source) {
+  const executableSql = mapExecutableSql(source, (part) => part, " ");
+  const references = [];
+  const pattern = /\b(?:from|join)\s+(?:([a-z_][\w$]*)\s*\.\s*)?([a-z_][\w$]*)(?:\s+(?:as\s+)?([a-z_][\w$]*))?/gi;
+  for (const match of executableSql.matchAll(pattern)) {
+    const tableName = match[2];
+    const possibleAlias = match[3];
+    const alias = possibleAlias && !sqlKeywords.has(possibleAlias.toLowerCase()) ? possibleAlias : tableName;
+    references.push({ tableName, alias });
+  }
+  return references;
+}
+function replaceCompositeDateTimeFields(part, columnsByAlias) {
+  return part.replace(/\b([a-z_][\w$]*)\s*\.\s*([a-z_][\w$]*)\b/gi, (reference, alias, field) => {
+    const columns = columnsByAlias.get(alias.toLowerCase());
+    const normalizedField = field.toLowerCase();
+    if (!columns || columns.has(normalizedField) || !columns.has(`${normalizedField}_date`) || !columns.has(`${normalizedField}_tz`) || !columns.has("timezone")) {
+      return reference;
+    }
+    return `COALESCE(timezone(${alias}.timezone, ${alias}.${field}_tz), ${alias}.${field}_date)`;
+  });
+}
+function mapExecutableSql(source, transform, protectedReplacement) {
+  const protectedSql = /(--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'|"(?:""|[^"])*")/g;
+  let output = "";
+  let position = 0;
+  for (const match of source.matchAll(protectedSql)) {
+    const index = match.index ?? 0;
+    output += transform(source.slice(position, index));
+    output += protectedReplacement ?? match[0];
+    position = index + match[0].length;
+  }
+  return output + transform(source.slice(position));
+}
+
 // src/features/sql-executor/executeSql.ts
 async function executeSql(text) {
   const queryText = text.trim();
@@ -10070,8 +10159,10 @@ async function executeSql(text) {
   const started = performance.now();
   try {
     await client.connect();
+    const postgresText = await adaptVeSqlToPostgres(client, queryText);
     const result = await executeMonitoredQuery(client, {
-      text: queryText,
+      text: postgresText,
+      displayText: queryText,
       source: "\u0418\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C SQL",
       database: options.database
     });
@@ -10085,6 +10176,62 @@ async function executeSql(text) {
   }
 }
 
+// src/features/sql-executor/sqlResultExport.ts
+var sqlResultExportDefinitions = [
+  { format: "markdown", label: "Markdown \u2014 \u0442\u0430\u0431\u043B\u0438\u0446\u0430 \u0434\u043B\u044F \u0447\u0430\u0442\u0430", extension: "md" },
+  { format: "json", label: "JSON \u2014 \u0441\u0442\u0440\u0443\u043A\u0442\u0443\u0440\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435", extension: "json" },
+  { format: "csv", label: "CSV \u2014 \u0442\u0430\u0431\u043B\u0438\u0446\u0430 \u0434\u043B\u044F Excel", extension: "csv" }
+];
+function formatSqlResult(result, format) {
+  switch (format) {
+    case "markdown":
+      return formatMarkdown(result);
+    case "json":
+      return `${JSON.stringify({
+        rowCount: result.rowCount,
+        resultTruncated: result.resultTruncated,
+        rows: result.rows
+      }, null, 2)}
+`;
+    case "csv":
+      return formatCsv(result);
+  }
+}
+function formatMarkdown(result) {
+  const lines = [`\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL: ${result.rowCount} \u0441\u0442\u0440\u043E\u043A.`];
+  if (result.resultTruncated) {
+    lines.push("\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u0438 \u0432\u044B\u0433\u0440\u0443\u0436\u0435\u043D\u044B \u043F\u0435\u0440\u0432\u044B\u0435 500 \u0441\u0442\u0440\u043E\u043A.");
+  }
+  if (result.columns.length === 0) {
+    return `${lines.join("\n")}
+`;
+  }
+  lines.push("", `| ${result.columns.map(escapeMarkdown).join(" | ")} |`);
+  lines.push(`| ${result.columns.map(() => "---").join(" | ")} |`);
+  for (const row of result.rows) {
+    lines.push(`| ${result.columns.map((column) => escapeMarkdown(formatValue(row[column]))).join(" | ")} |`);
+  }
+  return `${lines.join("\n")}
+`;
+}
+function formatCsv(result) {
+  const rows = [
+    result.columns.map(escapeCsv).join(";"),
+    ...result.rows.map((row) => result.columns.map((column) => escapeCsv(formatValue(row[column], ""))).join(";"))
+  ];
+  return `${rows.join("\r\n")}\r
+`;
+}
+function formatValue(value, nullValue = "NULL") {
+  return value === null ? nullValue : String(value);
+}
+function escapeMarkdown(value) {
+  return value.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+}
+function escapeCsv(value) {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 // src/features/sql-executor/sqlExecutorViewProvider.ts
 var SqlExecutorViewProvider = class {
   constructor(extensionUri) {
@@ -10093,6 +10240,7 @@ var SqlExecutorViewProvider = class {
   extensionUri;
   static viewType = "vc-ve-tools.sqlExecutor";
   resolveWebviewView(webviewView) {
+    let latestResult;
     const assetsRoot = vscode7.Uri.joinPath(this.extensionUri, "dist", "webview");
     webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
     webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
@@ -10114,12 +10262,21 @@ var SqlExecutorViewProvider = class {
         });
         return;
       }
-      void this.runQuery(webviewView.webview, message.text);
+      if (message.command === "executeSql") {
+        void this.runQuery(webviewView.webview, message.text, (result) => {
+          latestResult = result;
+        });
+      } else if (message.command === "copySqlResult") {
+        void this.copyResult(latestResult, message.format);
+      } else {
+        void this.exportResult(latestResult);
+      }
     });
   }
-  async runQuery(webview, text) {
+  async runQuery(webview, text, onResult) {
     try {
       const execution = await executeSql(text);
+      onResult(execution.result);
       void webview.postMessage({
         command: "sqlExecutionSucceeded",
         ...execution
@@ -10129,6 +10286,42 @@ var SqlExecutorViewProvider = class {
         command: "sqlExecutionFailed",
         message: error instanceof Error ? error.message : String(error)
       });
+    }
+  }
+  async copyResult(result, format) {
+    if (!result) {
+      return;
+    }
+    try {
+      await vscode7.env.clipboard.writeText(formatSqlResult(result, format));
+      void vscode7.window.showInformationMessage(format === "json" ? "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 JSON." : "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u043A\u0430\u043A \u0447\u0438\u0442\u0430\u0435\u043C\u0430\u044F \u0442\u0430\u0431\u043B\u0438\u0446\u0430.");
+    } catch (error) {
+      void vscode7.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL: ${errorMessage(error)}`);
+    }
+  }
+  async exportResult(result) {
+    if (!result) {
+      return;
+    }
+    const selected = await vscode7.window.showQuickPick(sqlResultExportDefinitions, {
+      placeHolder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0444\u043E\u0440\u043C\u0430\u0442 \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0438 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u0430 SQL"
+    });
+    if (!selected) {
+      return;
+    }
+    const uri = await vscode7.window.showSaveDialog({
+      defaultUri: vscode7.Uri.file(`sql-result-${fileTimestamp()}.${selected.extension}`),
+      filters: { [selected.label]: [selected.extension] },
+      saveLabel: "\u0412\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442"
+    });
+    if (!uri) {
+      return;
+    }
+    try {
+      await vscode7.workspace.fs.writeFile(uri, new TextEncoder().encode(formatSqlResult(result, selected.format)));
+      void vscode7.window.showInformationMessage(`\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0432\u044B\u0433\u0440\u0443\u0436\u0435\u043D: ${uri.fsPath}`);
+    } catch (error) {
+      void vscode7.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL: ${errorMessage(error)}`);
     }
   }
   getHtml(webview, assetsRoot) {
@@ -10142,6 +10335,12 @@ var SqlExecutorViewProvider = class {
 <body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044F SQL\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
   }
 };
+function fileTimestamp() {
+  return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+}
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
 function toHistoryEntry(record) {
   return {
     id: record.id,
@@ -10158,6 +10357,7 @@ function createNonce3() {
 
 // src/features/methods/methodEditorProvider.ts
 var vscode9 = __toESM(require("vscode"));
+var iconv4 = __toESM(require_lib3());
 
 // src/infrastructure/database/methodRepository.ts
 var iconv3 = __toESM(require_lib3());
@@ -10240,13 +10440,17 @@ async function getMethodSource(id) {
     await client.end().catch(() => void 0);
   }
 }
-async function saveMethodSource(method, code) {
+async function saveMethodSource(method, code, log = () => void 0) {
+  log(`\u0421\u0442\u0430\u0440\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F ID=${method.id}; codeType=${method.codeType}; ${inspectValue(code)}.`);
   const encoded = encodeWindows1251(code);
+  log(`\u041D\u043E\u0432\u044B\u0439 \u043A\u043E\u0434 \u043F\u0440\u043E\u0432\u0435\u0440\u0435\u043D \u0438 \u0437\u0430\u043A\u043E\u0434\u0438\u0440\u043E\u0432\u0430\u043D \u0432 WIN1251: bytes=${encoded.byteLength}.`);
   const options = await getProjectDatabaseOptions();
   const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
   try {
     await client.connect();
+    log(`\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043A \u0411\u0414 ${options.database} \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E.`);
     await client.query("BEGIN");
+    log("\u0422\u0440\u0430\u043D\u0437\u0430\u043A\u0446\u0438\u044F BEGIN.");
     const oldCodeResult = await executeMonitoredQuery(client, {
       text: `SELECT method.code, pg_typeof(method.code)::text AS codetype
 			 FROM methods AS method
@@ -10259,14 +10463,15 @@ async function saveMethodSource(method, code) {
       throw new Error(`\u041C\u0435\u0442\u043E\u0434 ${method.id} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u043F\u0440\u0438 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0438 \u0441\u0442\u0430\u0440\u043E\u0433\u043E \u043A\u043E\u0434\u0430.`);
     }
     const oldCodeRow = oldCodeResult.rows[0];
-    const oldCodeValue = method.codeType === "bytea" ? decodeCode(oldCodeRow.code) : String(oldCodeRow.code ?? "");
+    const oldCodeValue = decodeCode(oldCodeRow.code);
+    log(`\u0421\u0442\u0430\u0440\u044B\u0439 \u043A\u043E\u0434 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043D: ${inspectValue(oldCodeValue)}.`);
     if (oldCodeValue === code) {
       await client.query("ROLLBACK");
       return;
     }
     const sessionContext = await getSessionContext(client, options.database);
     const lastChange = sessionContext.changeDate;
-    const codeValue = method.codeType === "bytea" ? encoded : code;
+    const codeValue = isBinaryCodeType(method.codeType) ? encoded : code;
     const methodResult = await executeMonitoredQuery(client, {
       text: `UPDATE methods
 			 SET lastchange = $1, code = $2, seniorid = $3
@@ -10275,6 +10480,7 @@ async function saveMethodSource(method, code) {
       source: `\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 ${method.name}`,
       database: options.database
     });
+    log(`UPDATE methods \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D: rowCount=${methodResult.rowCount}.`);
     if (methodResult.rowCount !== 1) {
       throw new Error(`\u041C\u0435\u0442\u043E\u0434 ${method.id} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u043F\u0440\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0438.`);
     }
@@ -10286,11 +10492,13 @@ async function saveMethodSource(method, code) {
       source: `\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 abstract \u043C\u0435\u0442\u043E\u0434\u0430 ${method.name}`,
       database: options.database
     });
+    log(`UPDATE abstract \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D: rowCount=${abstractResult.rowCount}.`);
     if (abstractResult.rowCount !== 1) {
       throw new Error(`\u0417\u0430\u043F\u0438\u0441\u044C abstract ${method.id} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u043F\u0440\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0438.`);
     }
-    const newValues = serializeChangeValues(code, method.seniorId);
-    const oldValues = serializeChangeValues(oldCodeValue, method.seniorId);
+    const newValues = toWindows1251Text(serializeChangeValues(code, method.seniorId));
+    const oldValues = toWindows1251Text(serializeChangeValues(oldCodeValue, method.seniorId));
+    log(`\u0417\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0430\u0443\u0434\u0438\u0442\u0430 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043B\u0435\u043D\u044B: NewValues ${inspectValue(newValues)}; OldValues ${inspectValue(oldValues)}.`);
     const logResult = await executeMonitoredQuery(client, {
       text: `INSERT INTO LogCChangedObject (
 			 ObjID,
@@ -10337,12 +10545,16 @@ async function saveMethodSource(method, code) {
       source: `\u041B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u043C\u0435\u0442\u043E\u0434\u0430 ${method.name}`,
       database: options.database
     });
+    log(`INSERT LogCChangedObject \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D: rowCount=${logResult.rowCount}.`);
     if (logResult.rowCount !== 1) {
       throw new Error(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0437\u0430\u043F\u0438\u0441\u0438 \u0432 LogCChangedObject \u0434\u043B\u044F \u043C\u0435\u0442\u043E\u0434\u0430 ${method.id}.`);
     }
     await client.query("COMMIT");
+    log("\u0422\u0440\u0430\u043D\u0437\u0430\u043A\u0446\u0438\u044F COMMIT.");
   } catch (error) {
+    log(`\u041E\u0448\u0438\u0431\u043A\u0430 SQL-\u044D\u0442\u0430\u043F\u0430: ${error instanceof Error ? error.message : String(error)}.`);
     await client.query("ROLLBACK").catch(() => void 0);
+    log("\u0422\u0440\u0430\u043D\u0437\u0430\u043A\u0446\u0438\u044F ROLLBACK.");
     throw error;
   } finally {
     await client.end().catch(() => void 0);
@@ -10356,6 +10568,9 @@ function decodeCode(value) {
   const bytea = text.match(/^\\x([\da-f]+)$/i);
   return bytea && bytea[1].length % 2 === 0 ? iconv3.decode(Buffer.from(bytea[1], "hex"), "win1251") : text;
 }
+function isBinaryCodeType(codeType) {
+  return codeType.toLocaleLowerCase("en-US") === "bytea" || codeType.toLocaleLowerCase("en-US") === "bin";
+}
 function encodeWindows1251(value) {
   const encoded = iconv3.encode(value, "win1251");
   if (iconv3.decode(encoded, "win1251") !== value) {
@@ -10363,20 +10578,35 @@ function encodeWindows1251(value) {
   }
   return encoded;
 }
+function toWindows1251Text(value) {
+  return iconv3.decode(iconv3.encode(value, "win1251"), "win1251");
+}
+function inspectValue(value) {
+  const replacementCount = [...value].filter((character) => character === "\uFFFD").length;
+  const normalized = toWindows1251Text(value);
+  return `chars=${value.length}, U+FFFD=${replacementCount}, WIN1251-roundtrip=${normalized === value}`;
+}
 
 // src/features/methods/methodEditorProvider.ts
 var scheme = "vc-ve-method";
 var MethodEditorProvider = class {
   changed = new vscode9.EventEmitter();
   methods = /* @__PURE__ */ new Map();
+  sessionRevision = Date.now();
+  output = vscode9.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u041C\u0435\u0442\u043E\u0434\u044B");
   onDidChangeFile = this.changed.event;
   async open(id) {
+    this.log(`\u041E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 ID=${id}.`);
     const method = await getMethodSource(id);
+    this.log(`\u041A\u043E\u0434 \u043F\u043E\u043B\u0443\u0447\u0435\u043D \u0438\u0437 \u0411\u0414: type=${method.codeType}; ${inspectText(method.code)}.`);
     const extension = method.methodType === 3 ? "pkf" : "pas";
-    const uri = vscode9.Uri.from({ scheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}` });
+    const languageId = extension === "pkf" ? "ve-pkf" : "ve-pascal";
+    await ensureWindows1251(languageId);
+    const uri = vscode9.Uri.from({ scheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
     this.methods.set(uri.toString(), method);
     const document = await vscode9.workspace.openTextDocument(uri);
-    await vscode9.languages.setTextDocumentLanguage(document, extension === "pkf" ? "ve-pkf" : "ve-pascal");
+    await vscode9.languages.setTextDocumentLanguage(document, languageId);
+    this.log(`\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442 \u043E\u0442\u043A\u0440\u044B\u0442: language=${document.languageId}; ${inspectText(document.getText())}.`);
     await vscode9.window.showTextDocument(document, { preview: false, viewColumn: vscode9.ViewColumn.Active });
   }
   watch() {
@@ -10384,7 +10614,7 @@ var MethodEditorProvider = class {
   }
   async stat(uri) {
     await this.ensureMethod(uri);
-    return { type: vscode9.FileType.File, ctime: 0, mtime: Date.now(), size: Buffer.byteLength(this.methods.get(uri.toString())?.code ?? "", "utf8") };
+    return { type: vscode9.FileType.File, ctime: 0, mtime: Date.now(), size: iconv4.encode(this.methods.get(uri.toString())?.code ?? "", "win1251").byteLength };
   }
   readDirectory() {
     return [];
@@ -10393,12 +10623,23 @@ var MethodEditorProvider = class {
     throw vscode9.FileSystemError.NoPermissions("\u0412\u0438\u0440\u0442\u0443\u0430\u043B\u044C\u043D\u0430\u044F \u043F\u0430\u043F\u043A\u0430 \u043C\u0435\u0442\u043E\u0434\u043E\u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F.");
   }
   async readFile(uri) {
-    return Buffer.from((await this.ensureMethod(uri)).code, "utf8");
+    const method = await this.ensureMethod(uri);
+    const bytes = iconv4.encode(method.code, "win1251");
+    this.log(`readFile ID=${method.id}: bytes=${bytes.byteLength}; source ${inspectText(method.code)}; decoded ${inspectText(iconv4.decode(bytes, "win1251"))}.`);
+    return bytes;
   }
   async writeFile(uri, content) {
     const method = await this.ensureMethod(uri);
-    const code = Buffer.from(content).toString("utf8");
-    await saveMethodSource(method, code);
+    const code = iconv4.decode(Buffer.from(content), "win1251");
+    this.log(`writeFile \u0432\u044B\u0437\u0432\u0430\u043D ID=${method.id}: bytes=${content.byteLength}; decoded ${inspectText(code)}.`);
+    try {
+      await saveMethodSource(method, code, (message) => this.log(`[repository] ${message}`));
+    } catch (error) {
+      this.log(`writeFile \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u043B\u0441\u044F \u043E\u0448\u0438\u0431\u043A\u043E\u0439: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
+      this.output.show(true);
+      throw error;
+    }
+    this.log(`writeFile \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043D ID=${method.id}.`);
     method.code = code;
     this.changed.fire([{ type: vscode9.FileChangeType.Changed, uri }]);
     vscode9.window.setStatusBarMessage(`\u041C\u0435\u0442\u043E\u0434 ${method.name} \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D \u0432 Windows-1251`, 2500);
@@ -10412,6 +10653,10 @@ var MethodEditorProvider = class {
   dispose() {
     this.changed.dispose();
     this.methods.clear();
+    this.output.dispose();
+  }
+  log(message) {
+    this.output.appendLine(`[${(/* @__PURE__ */ new Date()).toISOString()}] ${message}`);
   }
   async ensureMethod(uri) {
     const cached = this.methods.get(uri.toString());
@@ -10434,6 +10679,27 @@ function registerMethodEditor(context) {
 }
 function safeName(value) {
   return value.replace(/[\\/:*?"<>|]/g, "_") || "method";
+}
+async function ensureWindows1251(languageId) {
+  const configuration = vscode9.workspace.getConfiguration("files", { languageId });
+  if (configuration.get("encoding") === "windows1251") {
+    return;
+  }
+  await configuration.update("encoding", "windows1251", vscode9.ConfigurationTarget.Workspace, true);
+}
+function inspectText(value) {
+  const replacementPositions = [];
+  for (let index = value.indexOf("\uFFFD"); index >= 0; index = value.indexOf("\uFFFD", index + 1)) {
+    replacementPositions.push(index);
+  }
+  const roundTrip = iconv4.decode(iconv4.encode(value, "win1251"), "win1251");
+  let unsupportedCount = 0;
+  for (let index = 0; index < value.length; index++) {
+    if (value[index] !== roundTrip[index]) {
+      unsupportedCount++;
+    }
+  }
+  return `chars=${value.length}; U+FFFD=${replacementPositions.length}; positions=${replacementPositions.slice(0, 20).join(",") || "-"}; unsupported=${unsupportedCount}`;
 }
 
 // src/application/activate.ts

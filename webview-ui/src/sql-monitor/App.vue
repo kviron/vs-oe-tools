@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import SortableTableHead from '@/components/SortableTableHead.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { vscode } from '@/vscode';
 import { formatId, formatTableValue } from '@/lib/formatId';
+import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
 
 const operations: SqlOperation[] = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'DDL', 'OTHER'];
 const statuses: Array<{ value: SqlQueryStatus; label: string }> = [
@@ -22,16 +24,24 @@ const selectedId = ref<number>();
 const search = ref('');
 const operationFilters = ref(new Set<SqlOperation>(operations));
 const statusFilters = ref(new Set<SqlQueryStatus>(statuses.map(status => status.value)));
+const recordSortKey = ref<string>();
+const recordSortDirection = ref<SortDirection>('asc');
+const resultSortKey = ref<string>();
+const resultSortDirection = ref<SortDirection>('asc');
 
 const selectedRecord = computed(() => records.value.find(record => record.id === selectedId.value));
 const filteredRecords = computed(() => {
   const needle = search.value.trim().toLocaleLowerCase('ru');
-  return records.value
+  const filtered = records.value
     .filter(record => operationFilters.value.has(record.operation) && statusFilters.value.has(record.status))
     .filter(record => !needle || `${record.source}\n${record.text}`.toLocaleLowerCase('ru').includes(needle))
     .slice()
     .reverse();
+  return sortedRows(filtered, recordSortKey.value, recordSortDirection.value, (record, key) => record[key as keyof SqlQueryRecord]);
 });
+const sortedSelectedRows = computed(() => selectedRecord.value
+  ? sortedRows(selectedRecord.value.rows, resultSortKey.value, resultSortDirection.value, (row, key) => row[key])
+  : []);
 
 window.addEventListener('message', (event: MessageEvent<SqlMonitorHostMessage>) => {
   const message = event.data;
@@ -77,6 +87,16 @@ function clearLog(): void {
   vscode.postMessage({ command: 'clearSqlMonitor' });
 }
 
+function sortRecords(key: string): void {
+  recordSortDirection.value = nextSort(recordSortKey.value, recordSortDirection.value, key);
+  recordSortKey.value = key;
+}
+
+function sortResult(key: string): void {
+  resultSortDirection.value = nextSort(resultSortKey.value, resultSortDirection.value, key);
+  resultSortKey.value = key;
+}
+
 vscode.postMessage({ command: 'sqlMonitorReady' });
 </script>
 
@@ -110,14 +130,14 @@ vscode.postMessage({ command: 'sqlMonitorReady' });
         <Table v-if="filteredRecords.length">
           <TableHeader class="sticky top-0 bg-background">
             <TableRow>
-              <TableHead class="h-7 px-2">№</TableHead>
-              <TableHead class="h-7 px-2">Время</TableHead>
-              <TableHead class="h-7 px-2">Операция</TableHead>
-              <TableHead class="h-7 px-2">Источник</TableHead>
-              <TableHead class="h-7 px-2">Состояние</TableHead>
-              <TableHead class="h-7 px-2 text-right">Строк</TableHead>
-              <TableHead class="h-7 px-2 text-right">Время выполнения</TableHead>
-              <TableHead class="h-7 px-2">База</TableHead>
+              <SortableTableHead class="h-7 px-2" :active="recordSortKey === 'id'" :direction="recordSortDirection" @sort="sortRecords('id')">№</SortableTableHead>
+              <SortableTableHead class="h-7 px-2" :active="recordSortKey === 'startedAt'" :direction="recordSortDirection" @sort="sortRecords('startedAt')">Время</SortableTableHead>
+              <SortableTableHead class="h-7 px-2" :active="recordSortKey === 'operation'" :direction="recordSortDirection" @sort="sortRecords('operation')">Операция</SortableTableHead>
+              <SortableTableHead class="h-7 px-2" :active="recordSortKey === 'source'" :direction="recordSortDirection" @sort="sortRecords('source')">Источник</SortableTableHead>
+              <SortableTableHead class="h-7 px-2" :active="recordSortKey === 'status'" :direction="recordSortDirection" @sort="sortRecords('status')">Состояние</SortableTableHead>
+              <SortableTableHead class="h-7 px-2" :active="recordSortKey === 'rowCount'" :direction="recordSortDirection" @sort="sortRecords('rowCount')">Строк</SortableTableHead>
+              <SortableTableHead class="h-7 px-2" :active="recordSortKey === 'durationMs'" :direction="recordSortDirection" @sort="sortRecords('durationMs')">Время выполнения</SortableTableHead>
+              <SortableTableHead class="h-7 px-2" :active="recordSortKey === 'database'" :direction="recordSortDirection" @sort="sortRecords('database')">База</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -171,9 +191,9 @@ vscode.postMessage({ command: 'sqlMonitorReady' });
             <EmptyHeader><EmptyTitle>Ошибка выполнения</EmptyTitle><EmptyDescription>{{ selectedRecord.error }}</EmptyDescription></EmptyHeader>
           </Empty>
           <Table v-else-if="selectedRecord.columns.length">
-            <TableHeader><TableRow><TableHead v-for="column in selectedRecord.columns" :key="column" class="h-7 px-2">{{ column }}</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><SortableTableHead v-for="column in selectedRecord.columns" :key="column" class="h-7 px-2" :active="resultSortKey === column" :direction="resultSortDirection" @sort="sortResult(column)">{{ column }}</SortableTableHead></TableRow></TableHeader>
             <TableBody>
-              <TableRow v-for="(row, rowIndex) in selectedRecord.rows" :key="rowIndex">
+              <TableRow v-for="(row, rowIndex) in sortedSelectedRows" :key="rowIndex">
                 <TableCell v-for="column in selectedRecord.columns" :key="column" class="max-w-96 px-2 py-1 font-mono" :title="formatTableValue(column, row[column])">
                   <span class="block truncate">{{ formatTableValue(column, row[column]) }}</span>
                 </TableCell>

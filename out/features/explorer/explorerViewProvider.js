@@ -41,6 +41,8 @@ class ExplorerViewProvider {
     getClasses;
     openClass;
     view;
+    selectedEntityId;
+    output = vscode.window.createOutputChannel('Восточный Экспресс: Проводник');
     constructor(extensionUri, getClasses, openClass) {
         this.extensionUri = extensionUri;
         this.getClasses = getClasses;
@@ -48,11 +50,22 @@ class ExplorerViewProvider {
     }
     resolveWebviewView(webviewView) {
         this.view = webviewView;
+        this.log('Webview проводника создан.');
         const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
         webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
         webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
         webviewView.webview.onDidReceiveMessage((message) => {
             if (!(0, webviewProtocol_1.isExplorerWebviewMessage)(message)) {
+                this.log(`Отклонено неизвестное сообщение: ${safeJson(message)}`);
+                return;
+            }
+            if (message.command === 'explorerDebugLog') {
+                this.log(`[webview] ${message.message}`);
+                return;
+            }
+            if (message.command === 'setExplorerCopyContext') {
+                void vscode.commands.executeCommand('setContext', 'vcVeTools.explorerCopyContext', message.active);
+                this.log(`Контекст Ctrl+C: active=${message.active}.`);
                 return;
             }
             if (message.command === 'loadClasses') {
@@ -60,8 +73,14 @@ class ExplorerViewProvider {
                 return;
             }
             if (message.command === 'copyEntityId') {
+                this.log(`Получена команда копирования ID=${message.id}.`);
                 void vscode.env.clipboard.writeText(String(message.id));
                 vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
+                return;
+            }
+            if (message.command === 'selectExplorerEntity') {
+                this.selectedEntityId = message.id;
+                this.log(`Выделение изменено: ID=${message.id ?? 'нет'}.`);
                 return;
             }
             void this.openClass(message.id, message.pinned).catch((error) => {
@@ -70,8 +89,23 @@ class ExplorerViewProvider {
             });
         });
     }
-    dispose() { this.view = undefined; }
+    dispose() {
+        void vscode.commands.executeCommand('setContext', 'vcVeTools.explorerCopyContext', false);
+        this.view = undefined;
+        this.output.dispose();
+    }
     refreshClasses() { void this.postMessage({ command: 'resetClasses' }); }
+    async copySelectedEntityId() {
+        this.log(`Вызвана команда VS Code copySelectedEntityId; ID=${this.selectedEntityId ?? 'нет'}.`);
+        if (this.selectedEntityId === undefined) {
+            return;
+        }
+        await vscode.env.clipboard.writeText(String(this.selectedEntityId));
+        vscode.window.setStatusBarMessage(`ID ${this.selectedEntityId} скопирован`, 1500);
+    }
+    log(message) {
+        this.output.appendLine(`[${new Date().toISOString()}] ${message}`);
+    }
     async sendClasses() {
         try {
             await this.postMessage({ command: 'classesLoaded', classes: await this.getClasses() });
@@ -118,4 +152,12 @@ document.body.append(applicationScript);
     }
 }
 exports.ExplorerViewProvider = ExplorerViewProvider;
+function safeJson(value) {
+    try {
+        return JSON.stringify(value);
+    }
+    catch {
+        return String(value);
+    }
+}
 //# sourceMappingURL=explorerViewProvider.js.map

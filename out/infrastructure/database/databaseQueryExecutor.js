@@ -13,7 +13,7 @@ async function executeMonitoredQuery(client, query) {
         database: query.database,
         operation: detectOperation(query.text),
         status: 'running',
-        text: query.text.trim(),
+        text: (query.displayText ?? query.text).trim(),
         parameters: (query.values ?? []).map(normalizeValue),
         columns: [],
         rows: [],

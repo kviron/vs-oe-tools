@@ -45,13 +45,17 @@ export async function getMethodSource(id: number): Promise<MethodSource> {
 	}
 }
 
-export async function saveMethodSource(method: MethodSource, code: string): Promise<void> {
+export async function saveMethodSource(method: MethodSource, code: string, log: (message: string) => void = () => undefined): Promise<void> {
+	log(`Старт сохранения ID=${method.id}; codeType=${method.codeType}; ${inspectValue(code)}.`);
 	const encoded = encodeWindows1251(code);
+	log(`Новый код проверен и закодирован в WIN1251: bytes=${encoded.byteLength}.`);
 	const options = await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
 	try {
 		await client.connect();
+		log(`Подключение к БД ${options.database} установлено.`);
 		await client.query('BEGIN');
+		log('Транзакция BEGIN.');
 
 		// Получаем старый код перед обновлением
 		const oldCodeResult = await executeMonitoredQuery<MethodSourceRow, [number]>(client, {
@@ -68,7 +72,8 @@ export async function saveMethodSource(method: MethodSource, code: string): Prom
 		}
 
 		const oldCodeRow = oldCodeResult.rows[0];
-		const oldCodeValue = method.codeType === 'bytea' ? decodeCode(oldCodeRow.code) : String(oldCodeRow.code ?? '');
+		const oldCodeValue = decodeCode(oldCodeRow.code);
+		log(`Старый код прочитан: ${inspectValue(oldCodeValue)}.`);
 
 		// Сравниваем старый и новый код
 		if (oldCodeValue === code) {
@@ -82,7 +87,7 @@ export async function saveMethodSource(method: MethodSource, code: string): Prom
 
 		// Выполняем обновление методов
 		const lastChange = sessionContext.changeDate;
-		const codeValue = method.codeType === 'bytea' ? encoded : code;
+		const codeValue = isBinaryCodeType(method.codeType) ? encoded : code;
 
 		const methodResult = await executeMonitoredQuery(client, {
 			text: `UPDATE methods
@@ -92,6 +97,7 @@ export async function saveMethodSource(method: MethodSource, code: string): Prom
 			source: `Сохранение метода ${method.name}`,
 			database: options.database,
 		});
+		log(`UPDATE methods выполнен: rowCount=${methodResult.rowCount}.`);
 
 		if (methodResult.rowCount !== 1) {
 			throw new Error(`Метод ${method.id} не найден при сохранении.`);
@@ -106,14 +112,16 @@ export async function saveMethodSource(method: MethodSource, code: string): Prom
 			source: `Сохранение abstract метода ${method.name}`,
 			database: options.database,
 		});
+		log(`UPDATE abstract выполнен: rowCount=${abstractResult.rowCount}.`);
 
 		if (abstractResult.rowCount !== 1) {
 			throw new Error(`Запись abstract ${method.id} не найдена при сохранении.`);
 		}
 
 		// Формируем NewValues и OldValues для LogCChangedObject
-		const newValues = serializeChangeValues(code, method.seniorId);
-		const oldValues = serializeChangeValues(oldCodeValue, method.seniorId);
+		const newValues = toWindows1251Text(serializeChangeValues(code, method.seniorId));
+		const oldValues = toWindows1251Text(serializeChangeValues(oldCodeValue, method.seniorId));
+		log(`Значения аудита подготовлены: NewValues ${inspectValue(newValues)}; OldValues ${inspectValue(oldValues)}.`);
 
 		// Вставляем запись в LogCChangedObject
 		const logResult = await executeMonitoredQuery(client, {
@@ -150,14 +158,18 @@ export async function saveMethodSource(method: MethodSource, code: string): Prom
 			source: `Логирование изменения метода ${method.name}`,
 			database: options.database,
 		});
+		log(`INSERT LogCChangedObject выполнен: rowCount=${logResult.rowCount}.`);
 
 		if (logResult.rowCount !== 1) {
 			throw new Error(`Ошибка при записи в LogCChangedObject для метода ${method.id}.`);
 		}
 
 		await client.query('COMMIT');
+		log('Транзакция COMMIT.');
 	} catch (error) {
+		log(`Ошибка SQL-этапа: ${error instanceof Error ? error.message : String(error)}.`);
 		await client.query('ROLLBACK').catch(() => undefined);
+		log('Транзакция ROLLBACK.');
 		throw error;
 	} finally {
 		await client.end().catch(() => undefined);
@@ -173,10 +185,25 @@ function decodeCode(value: unknown): string {
 	return bytea && bytea[1].length % 2 === 0 ? iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251') : text;
 }
 
+function isBinaryCodeType(codeType: string): boolean {
+	return codeType.toLocaleLowerCase('en-US') === 'bytea' || codeType.toLocaleLowerCase('en-US') === 'bin';
+}
+
 function encodeWindows1251(value: string): Buffer {
 	const encoded = iconv.encode(value, 'win1251');
 	if (iconv.decode(encoded, 'win1251') !== value) {
 		throw new Error('Код содержит символы, которые невозможно сохранить в Cyrillic Windows-1251.');
 	}
 	return encoded;
+}
+
+/** Produces text that PostgreSQL can convert to WIN1251, including legacy audit values. */
+function toWindows1251Text(value: string): string {
+	return iconv.decode(iconv.encode(value, 'win1251'), 'win1251');
+}
+
+function inspectValue(value: string): string {
+	const replacementCount = [...value].filter(character => character === '\uFFFD').length;
+	const normalized = toWindows1251Text(value);
+	return `chars=${value.length}, U+FFFD=${replacementCount}, WIN1251-roundtrip=${normalized === value}`;
 }

@@ -14,6 +14,7 @@ export interface SerializedQueryResult {
 
 export interface MonitoredQuery<I extends unknown[]> {
 	text: string;
+	displayText?: string;
 	values?: QueryConfigValues<I>;
 	source: string;
 	database: string;
@@ -30,7 +31,7 @@ export async function executeMonitoredQuery<
 		database: query.database,
 		operation: detectOperation(query.text),
 		status: 'running',
-		text: query.text.trim(),
+		text: (query.displayText ?? query.text).trim(),
 		parameters: (query.values ?? []).map(normalizeValue),
 		columns: [],
 		rows: [],

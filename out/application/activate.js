@@ -44,7 +44,9 @@ const classDetailsPanelManager_1 = require("../features/classes/views/classDetai
 const explorerViewProvider_1 = require("../features/explorer/explorerViewProvider");
 const sqlMonitorPanelManager_1 = require("../features/sql-monitor/views/sqlMonitorPanelManager");
 const sqlExecutorViewProvider_1 = require("../features/sql-executor/sqlExecutorViewProvider");
+const methodEditorProvider_1 = require("../features/methods/methodEditorProvider");
 async function activate(context) {
+    const methodEditor = (0, methodEditorProvider_1.registerMethodEditor)(context);
     const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
     let isUpdatingSetting = false;
     const settingsProvider = new settingsProvider_1.SettingsProvider(extensionConfiguration.get(constants_1.projectRootSetting, false), (0, projectDatabaseOptions_1.getDatabaseRole)());
@@ -75,7 +77,7 @@ async function activate(context) {
             isUpdatingSetting = false;
         }
     };
-    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, id, pinned));
+    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
     const sqlExecutorProvider = new sqlExecutorViewProvider_1.SqlExecutorViewProvider(context.extensionUri);
     const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(sqlExecutorViewProvider_1.SqlExecutorViewProvider.viewType, sqlExecutorProvider, { webviewOptions: { retainContextWhenHidden: true } });
@@ -88,6 +90,9 @@ async function activate(context) {
             settingsProvider.setDatabaseRole((0, projectDatabaseOptions_1.getDatabaseRole)());
             (0, classDetailsPanelManager_1.closeClassDetailPanels)();
             explorerProvider.refreshClasses();
+        }
+        if (event.affectsConfiguration('vcVeTools.userId')) {
+            settingsProvider.setUserId();
         }
         if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${constants_1.projectRootSetting}`)) {
             const enabled = vscode.workspace.getConfiguration('vcVeTools').get(constants_1.projectRootSetting, false);
@@ -142,6 +147,31 @@ async function activate(context) {
         await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseRoleSetting, selected.role, vscode.ConfigurationTarget.Workspace);
     });
     const openSqlMonitorCommand = vscode.commands.registerCommand('vc-ve-tools.openSqlMonitor', () => (0, sqlMonitorPanelManager_1.openSqlMonitor)(context));
-    context.subscriptions.push(settingsProvider, settingsView, explorerProvider, explorerRegistration, sqlExecutorRegistration, checkboxListener, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand);
+    const copySelectedExplorerIdCommand = vscode.commands.registerCommand('vc-ve-tools.copySelectedExplorerId', () => explorerProvider.copySelectedEntityId());
+    const setUserIdCommand = vscode.commands.registerCommand('vc-ve-tools.setUserId', async () => {
+        const input = await vscode.window.showInputBox({
+            placeHolder: '3130673',
+            prompt: 'Введите ID пользователя из таблицы Users для логирования изменений методов',
+            value: vscode.workspace.getConfiguration('vcVeTools').get('userId', 0).toString(),
+            validateInput: (value) => {
+                if (!value.trim()) {
+                    return 'ID не может быть пустым';
+                }
+                const parsed = Number.parseInt(value, 10);
+                if (!Number.isInteger(parsed) || parsed <= 0) {
+                    return 'ID должен быть положительным числом';
+                }
+                return '';
+            },
+        });
+        if (input === undefined) {
+            return;
+        }
+        const userId = Number.parseInt(input, 10);
+        await vscode.workspace.getConfiguration('vcVeTools').update('userId', userId, vscode.ConfigurationTarget.Workspace);
+        settingsProvider.setUserId();
+        void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
+    });
+    context.subscriptions.push(settingsProvider, settingsView, explorerProvider, explorerRegistration, sqlExecutorRegistration, checkboxListener, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
 }
 //# sourceMappingURL=activate.js.map

@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import type { ClassDetailsHostMessage } from '../../../src/core/webviewProtocol';
 import type { ClassAttribute, ClassDetails, ClassMethod } from '../../../src/features/classes/models';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { vscode } from '@/vscode';
 import { formatId } from '@/lib/formatId';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
+import SortableTableHead from '@/components/SortableTableHead.vue';
+import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
 
 interface SignaturePart {
   text: string;
@@ -30,6 +32,16 @@ const methodsLoading = ref(false);
 const methodsLoaded = ref(false);
 const methodsError = ref('');
 const includeInheritedMethods = ref(false);
+const attributeSortKey = ref<string>();
+const attributeSortDirection = ref<SortDirection>('asc');
+const methodSortKey = ref<string>();
+const methodSortDirection = ref<SortDirection>('asc');
+const tableColumns = [
+  ['Имя', 'name'], ['Владелец', 'owner'], ['Сигнатура', 'signature'], ['Тип', 'type'],
+  ['ID', 'id'], ['Видимость', 'visibility'], ['Пакет', 'package'], ['Строка', 'line'],
+] as const;
+const sortedAttributes = computed(() => sortedRows(attributes.value, attributeSortKey.value, attributeSortDirection.value, (row, key) => row[key as keyof ClassAttribute]));
+const sortedMethods = computed(() => sortedRows(methods.value, methodSortKey.value, methodSortDirection.value, (row, key) => row[key as keyof ClassMethod]));
 const fieldColumns = [
   [
     ['Имя', 'name'],
@@ -145,6 +157,16 @@ function openMethod(method: ClassMethod): void {
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openMethod', id });
 }
 
+function sortAttributes(key: string): void {
+  attributeSortDirection.value = nextSort(attributeSortKey.value, attributeSortDirection.value, key);
+  attributeSortKey.value = key;
+}
+
+function sortMethods(key: string): void {
+  methodSortDirection.value = nextSort(methodSortKey.value, methodSortDirection.value, key);
+  methodSortKey.value = key;
+}
+
 vscode.postMessage({ command: 'classDetailsReady' });
 </script>
 
@@ -201,14 +223,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
         <Table v-if="attributesLoading || attributes.length > 0">
           <TableHeader>
             <TableRow>
-              <TableHead class="h-6 px-1">Имя</TableHead>
-              <TableHead class="h-6 px-1">Владелец</TableHead>
-              <TableHead class="h-6 px-1">Сигнатура</TableHead>
-              <TableHead class="h-6 px-1">Тип</TableHead>
-              <TableHead class="h-6 px-1">ID</TableHead>
-              <TableHead class="h-6 px-1">Видимость</TableHead>
-              <TableHead class="h-6 px-1">Пакет</TableHead>
-              <TableHead class="h-6 px-1">Строка</TableHead>
+              <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="attributeSortKey === key" :direction="attributeSortDirection" @sort="sortAttributes(key)">{{ label }}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -217,7 +232,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
                 <TableCell v-for="column in 8" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="attribute in attributes" v-else :key="attribute.id" :entity-id="attribute.id">
+            <EntityContextMenu v-for="attribute in sortedAttributes" v-else :key="attribute.id" :entity-id="attribute.id">
             <TableRow>
               <TableCell class="max-w-64 truncate px-1 py-0.5" :title="attribute.name">{{ attribute.name }}</TableCell>
               <TableCell class="max-w-56 truncate px-1 py-0.5" :title="attribute.owner">{{ attribute.owner }}</TableCell>
@@ -252,14 +267,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
         <Table v-if="methodsLoading || methods.length > 0">
           <TableHeader>
             <TableRow>
-              <TableHead class="h-6 px-1">Имя</TableHead>
-              <TableHead class="h-6 px-1">Владелец</TableHead>
-              <TableHead class="h-6 px-1">Сигнатура</TableHead>
-              <TableHead class="h-6 px-1">Тип</TableHead>
-              <TableHead class="h-6 px-1">ID</TableHead>
-              <TableHead class="h-6 px-1">Видимость</TableHead>
-              <TableHead class="h-6 px-1">Пакет</TableHead>
-              <TableHead class="h-6 px-1">Строка</TableHead>
+              <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -268,7 +276,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
                 <TableCell v-for="column in 8" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="method in methods" v-else :key="method.id" :entity-id="method.id">
+            <EntityContextMenu v-for="method in sortedMethods" v-else :key="method.id" :entity-id="method.id">
             <TableRow class="cursor-default" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>

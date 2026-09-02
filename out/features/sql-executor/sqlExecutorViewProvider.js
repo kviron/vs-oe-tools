@@ -38,6 +38,7 @@ const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const sqlMonitorService_1 = require("../sql-monitor/sqlMonitorService");
 const executeSql_1 = require("./executeSql");
+const sqlResultExport_1 = require("./sqlResultExport");
 class SqlExecutorViewProvider {
     extensionUri;
     static viewType = 'vc-ve-tools.sqlExecutor';
@@ -45,6 +46,7 @@ class SqlExecutorViewProvider {
         this.extensionUri = extensionUri;
     }
     resolveWebviewView(webviewView) {
+        let latestResult;
         const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
         webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
         webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
@@ -66,12 +68,21 @@ class SqlExecutorViewProvider {
                 });
                 return;
             }
-            void this.runQuery(webviewView.webview, message.text);
+            if (message.command === 'executeSql') {
+                void this.runQuery(webviewView.webview, message.text, result => { latestResult = result; });
+            }
+            else if (message.command === 'copySqlResult') {
+                void this.copyResult(latestResult, message.format);
+            }
+            else {
+                void this.exportResult(latestResult);
+            }
         });
     }
-    async runQuery(webview, text) {
+    async runQuery(webview, text, onResult) {
         try {
             const execution = await (0, executeSql_1.executeSql)(text);
+            onResult(execution.result);
             void webview.postMessage({
                 command: 'sqlExecutionSucceeded',
                 ...execution,
@@ -82,6 +93,46 @@ class SqlExecutorViewProvider {
                 command: 'sqlExecutionFailed',
                 message: error instanceof Error ? error.message : String(error),
             });
+        }
+    }
+    async copyResult(result, format) {
+        if (!result) {
+            return;
+        }
+        try {
+            await vscode.env.clipboard.writeText((0, sqlResultExport_1.formatSqlResult)(result, format));
+            void vscode.window.showInformationMessage(format === 'json'
+                ? 'Результат SQL скопирован в формате JSON.'
+                : 'Результат SQL скопирован как читаемая таблица.');
+        }
+        catch (error) {
+            void vscode.window.showErrorMessage(`Не удалось скопировать результат SQL: ${errorMessage(error)}`);
+        }
+    }
+    async exportResult(result) {
+        if (!result) {
+            return;
+        }
+        const selected = await vscode.window.showQuickPick(sqlResultExport_1.sqlResultExportDefinitions, {
+            placeHolder: 'Выберите формат выгрузки результата SQL',
+        });
+        if (!selected) {
+            return;
+        }
+        const uri = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.file(`sql-result-${fileTimestamp()}.${selected.extension}`),
+            filters: { [selected.label]: [selected.extension] },
+            saveLabel: 'Выгрузить результат',
+        });
+        if (!uri) {
+            return;
+        }
+        try {
+            await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode((0, sqlResultExport_1.formatSqlResult)(result, selected.format)));
+            void vscode.window.showInformationMessage(`Результат SQL выгружен: ${uri.fsPath}`);
+        }
+        catch (error) {
+            void vscode.window.showErrorMessage(`Не удалось выгрузить результат SQL: ${errorMessage(error)}`);
         }
     }
     getHtml(webview, assetsRoot) {
@@ -96,6 +147,12 @@ class SqlExecutorViewProvider {
     }
 }
 exports.SqlExecutorViewProvider = SqlExecutorViewProvider;
+function fileTimestamp() {
+    return new Date().toISOString().replace(/[:.]/g, '-');
+}
+function errorMessage(error) {
+    return error instanceof Error ? error.message : String(error);
+}
 function toHistoryEntry(record) {
     return {
         id: record.id,

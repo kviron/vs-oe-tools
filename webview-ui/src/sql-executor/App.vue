@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import type { SqlExecutorHostMessage, SqlHistoryEntry } from '../../../src/core/webviewProtocol';
 import type { SerializedQueryResult } from '../../../src/infrastructure/database/databaseQueryExecutor';
+import { Copy01Icon, Download04Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, nextTick, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import SortableTableHead from '@/components/SortableTableHead.vue';
 import { vscode } from '@/vscode';
 import { formatTableValue } from '@/lib/formatId';
+import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
 
 const sql = ref('SELECT ');
 const history = ref<SqlHistoryEntry[]>([]);
@@ -19,9 +23,12 @@ const durationMs = ref<number>();
 const database = ref('');
 const editor = ref<HTMLTextAreaElement>();
 const highlightLayer = ref<HTMLElement>();
+const resultSortKey = ref<string>();
+const resultSortDirection = ref<SortDirection>('asc');
 
 const highlightedSql = computed(() => highlightSql(sql.value));
 const sortedHistory = computed(() => history.value.slice().reverse());
+const sortedResultRows = computed(() => result.value ? sortedRows(result.value.rows, resultSortKey.value, resultSortDirection.value, (row, key) => row[key]) : []);
 
 window.addEventListener('message', (event: MessageEvent<SqlExecutorHostMessage>) => {
   const message = event.data;
@@ -35,6 +42,7 @@ window.addEventListener('message', (event: MessageEvent<SqlExecutorHostMessage>)
     result.value = message.result;
     durationMs.value = message.durationMs;
     database.value = message.database;
+    resultSortKey.value = undefined;
   } else if (message.command === 'sqlExecutionFailed') {
     executing.value = false;
     result.value = undefined;
@@ -65,6 +73,19 @@ function syncEditorScroll(): void {
 
 function formatHistoryTime(value: string): string {
   return new Date(value).toLocaleTimeString('ru-RU', { hour12: false });
+}
+
+function sortResult(key: string): void {
+  resultSortDirection.value = nextSort(resultSortKey.value, resultSortDirection.value, key);
+  resultSortKey.value = key;
+}
+
+function copyResult(format: 'markdown' | 'json'): void {
+  vscode.postMessage({ command: 'copySqlResult', format });
+}
+
+function exportResult(): void {
+  vscode.postMessage({ command: 'exportSqlResult' });
 }
 
 function highlightSql(source: string): string {
@@ -150,10 +171,10 @@ vscode.postMessage({ command: 'sqlExecutorReady' });
       <template v-else-if="result">
         <Table v-if="result.columns.length">
           <TableHeader class="sticky top-0 bg-background">
-            <TableRow><TableHead v-for="column in result.columns" :key="column" class="h-7 px-2">{{ column }}</TableHead></TableRow>
+            <TableRow><SortableTableHead v-for="column in result.columns" :key="column" class="h-7 px-2" :active="resultSortKey === column" :direction="resultSortDirection" @sort="sortResult(column)">{{ column }}</SortableTableHead></TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="(row, rowIndex) in result.rows" :key="rowIndex">
+            <TableRow v-for="(row, rowIndex) in sortedResultRows" :key="rowIndex">
               <TableCell v-for="column in result.columns" :key="column" class="max-w-96 px-2 py-1 font-mono" :title="formatTableValue(column, row[column])">
                 <span class="block truncate">{{ formatTableValue(column, row[column]) }}</span>
               </TableCell>
@@ -163,9 +184,23 @@ vscode.postMessage({ command: 'sqlExecutorReady' });
         <Empty v-else class="h-full min-h-0 py-6">
           <EmptyHeader><EmptyTitle>Запрос выполнен</EmptyTitle><EmptyDescription>Обработано строк: {{ result.rowCount }}.</EmptyDescription></EmptyHeader>
         </Empty>
-        <p class="sticky bottom-0 bg-background p-1 text-xs text-muted-foreground">
-          {{ result.rowCount }} строк · {{ durationMs?.toFixed(2) }} мс<span v-if="result.resultTruncated"> · показаны первые 500 строк</span>
-        </p>
+        <div class="sticky bottom-0 flex flex-wrap items-center gap-1 border-t bg-background p-1">
+          <p class="mr-auto text-xs text-muted-foreground">
+            {{ result.rowCount }} строк · {{ durationMs?.toFixed(2) }} мс<span v-if="result.resultTruncated"> · показаны первые 500 строк</span>
+          </p>
+          <Button variant="outline" size="sm" title="Скопировать читаемую Markdown-таблицу для чата" @click="copyResult('markdown')">
+            <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />
+            Для чата
+          </Button>
+          <Button variant="outline" size="sm" title="Скопировать структурированный JSON" @click="copyResult('json')">
+            <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />
+            JSON
+          </Button>
+          <Button variant="outline" size="sm" title="Выгрузить результат в файл" @click="exportResult">
+            <HugeiconsIcon :icon="Download04Icon" data-icon="inline-start" />
+            В файл…
+          </Button>
+        </div>
       </template>
       <Empty v-else class="h-full min-h-0 py-6">
         <EmptyHeader><EmptyTitle>Результат запроса</EmptyTitle><EmptyDescription>Введите SQL и нажмите «Выполнить запрос».</EmptyDescription></EmptyHeader>
