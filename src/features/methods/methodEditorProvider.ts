@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as iconv from 'iconv-lite';
 import { getMethodSource, saveMethodSource, type MethodSource } from '../../infrastructure/database/methodRepository';
 
-const scheme = 'vc-ve-method';
+export const methodDocumentScheme = 'vc-ve-method';
 
 export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.Disposable {
 	private readonly changed = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
@@ -15,16 +15,22 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 		this.log(`Открытие метода ID=${id}.`);
 		const method = await getMethodSource(id);
 		this.log(`Код получен из БД: type=${method.codeType}; ${inspectText(method.code)}.`);
+		const uri = await this.getUri(method);
 		const extension = method.methodType === 3 ? 'pkf' : 'pas';
 		const languageId = extension === 'pkf' ? 've-pkf' : 've-pascal';
 		await ensureWindows1251(languageId);
-		// A revision makes VS Code read the bytes again instead of restoring a stale UTF-8 document buffer.
-		const uri = vscode.Uri.from({ scheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
-		this.methods.set(uri.toString(), method);
 		const document = await vscode.workspace.openTextDocument(uri);
 		await vscode.languages.setTextDocumentLanguage(document, languageId);
 		this.log(`Документ открыт: language=${document.languageId}; ${inspectText(document.getText())}.`);
 		await vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Active });
+	}
+	async getMethod(uri: vscode.Uri): Promise<MethodSource> { return this.ensureMethod(uri); }
+	async getUri(methodOrId: MethodSource | number): Promise<vscode.Uri> {
+		const method = typeof methodOrId === 'number' ? await getMethodSource(methodOrId) : methodOrId;
+		const extension = method.methodType === 3 ? 'pkf' : 'pas';
+		const uri = vscode.Uri.from({ scheme: methodDocumentScheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
+		this.methods.set(uri.toString(), method);
+		return uri;
 	}
 
 	watch(): vscode.Disposable { return new vscode.Disposable(() => undefined); }
@@ -81,7 +87,7 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 
 export function registerMethodEditor(context: vscode.ExtensionContext): MethodEditorProvider {
 	const provider = new MethodEditorProvider();
-	context.subscriptions.push(provider, vscode.workspace.registerFileSystemProvider(scheme, provider, { isCaseSensitive: true }));
+	context.subscriptions.push(provider, vscode.workspace.registerFileSystemProvider(methodDocumentScheme, provider, { isCaseSensitive: true }));
 	return provider;
 }
 

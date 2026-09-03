@@ -38,6 +38,7 @@ exports.closeSqlMonitor = closeSqlMonitor;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const sqlMonitorService_1 = require("../sqlMonitorService");
+const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
 let monitorPanel;
 function openSqlMonitor(context) {
     if (monitorPanel) {
@@ -53,6 +54,10 @@ function openSqlMonitor(context) {
     });
     panel.webview.onDidReceiveMessage((message) => {
         if (!(0, webviewProtocol_1.isSqlMonitorWebviewMessage)(message)) {
+            return;
+        }
+        if (message.command === 'tableSelectionDebug') {
+            (0, tableSelectionLogger_1.logTableSelection)('SQL-монитор', message.message);
             return;
         }
         if (message.command === 'sqlMonitorReady') {

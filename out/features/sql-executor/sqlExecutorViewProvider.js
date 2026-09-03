@@ -39,6 +39,7 @@ const webviewProtocol_1 = require("../../core/webviewProtocol");
 const sqlMonitorService_1 = require("../sql-monitor/sqlMonitorService");
 const executeSql_1 = require("./executeSql");
 const sqlResultExport_1 = require("./sqlResultExport");
+const tableSelectionLogger_1 = require("../../core/tableSelectionLogger");
 class SqlExecutorViewProvider {
     extensionUri;
     static viewType = 'vc-ve-tools.sqlExecutor';
@@ -61,6 +62,10 @@ class SqlExecutorViewProvider {
             if (!(0, webviewProtocol_1.isSqlExecutorWebviewMessage)(message)) {
                 return;
             }
+            if (message.command === 'tableSelectionDebug') {
+                (0, tableSelectionLogger_1.logTableSelection)('Исполнитель SQL', message.message);
+                return;
+            }
             if (message.command === 'sqlExecutorReady') {
                 void webviewView.webview.postMessage({
                     command: 'sqlExecutorInitialized',
@@ -73,6 +78,9 @@ class SqlExecutorViewProvider {
             }
             else if (message.command === 'copySqlResult') {
                 void this.copyResult(latestResult, message.format);
+            }
+            else if (message.command === 'copySqlError') {
+                void this.copyError(message.text);
             }
             else {
                 void this.exportResult(latestResult);
@@ -92,7 +100,17 @@ class SqlExecutorViewProvider {
             void webview.postMessage({
                 command: 'sqlExecutionFailed',
                 message: error instanceof Error ? error.message : String(error),
+                details: formatSqlError(error),
             });
+        }
+    }
+    async copyError(text) {
+        try {
+            await vscode.env.clipboard.writeText(text);
+            vscode.window.setStatusBarMessage('Текст ошибки SQL скопирован', 2500);
+        }
+        catch (error) {
+            void vscode.window.showErrorMessage(`Не удалось скопировать ошибку SQL: ${errorMessage(error)}`);
         }
     }
     async copyResult(result, format) {
@@ -152,6 +170,30 @@ function fileTimestamp() {
 }
 function errorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+}
+function formatSqlError(error) {
+    if (typeof error !== 'object' || error === null) {
+        return String(error);
+    }
+    const value = error;
+    const lines = [];
+    const fields = [
+        ['Сообщение', 'message'], ['Код PostgreSQL', 'code'], ['Важность', 'severity'],
+        ['Подробности', 'detail'], ['Подсказка', 'hint'], ['Позиция', 'position'],
+        ['Внутренняя позиция', 'internalPosition'], ['Внутренний запрос', 'internalQuery'],
+        ['Контекст', 'where'], ['Схема', 'schema'], ['Таблица', 'table'], ['Столбец', 'column'],
+        ['Тип данных', 'dataType'], ['Ограничение', 'constraint'], ['Процедура', 'routine'],
+    ];
+    for (const [label, key] of fields) {
+        const field = value[key];
+        if (field !== undefined && field !== null && String(field).length > 0) {
+            lines.push(`${label}: ${String(field)}`);
+        }
+    }
+    if (typeof value.stack === 'string' && value.stack.length > 0) {
+        lines.push('', 'Стек:', value.stack);
+    }
+    return lines.join('\n') || String(error);
 }
 function toHistoryEntry(record) {
     return {

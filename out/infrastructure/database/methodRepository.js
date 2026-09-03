@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.findMethodsByName = findMethodsByName;
 exports.getMethodSource = getMethodSource;
 exports.saveMethodSource = saveMethodSource;
 const pg_1 = require("pg");
@@ -41,6 +42,27 @@ const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOption
 const sessionContext_1 = require("../configuration/sessionContext");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
 const changeValuesSerialization_1 = require("./changeValuesSerialization");
+async function findMethodsByName(name) {
+    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+    try {
+        await client.connect();
+        const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `SELECT method.id, method.name, method.seniorid
+			 FROM methods AS method
+			 WHERE lower(method.name) = lower($1)
+			 ORDER BY method.id
+			 LIMIT 20`,
+            values: [name],
+            source: `Поиск метода или функции ${name}`,
+            database: options.database,
+        });
+        return result.rows.map(row => ({ id: row.id, name: row.name, seniorId: row.seniorid }));
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
 async function getMethodSource(id) {
     const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
     const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });

@@ -160,6 +160,19 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
     classes.value = message.classes;
     loading.value = false;
     loaded.value = true;
+  } else if (message.command === 'revealClass') {
+    activeTab.value = 'classes';
+    selectedClassId.value = message.id;
+    searchQuery.value = '';
+    vscode.postMessage({ command: 'selectExplorerEntity', id: message.id });
+    if (!loaded.value) loadClasses();
+    void nextTick(async () => {
+      revealClassId.value = undefined;
+      await nextTick();
+      revealClassId.value = message.id;
+      await nextTick();
+      window.setTimeout(() => scrollToSelectedClass(message.id), 100);
+    });
   } else if (message.command === 'classesLoadFailed') {
     loading.value = false;
     error.value = message.message;

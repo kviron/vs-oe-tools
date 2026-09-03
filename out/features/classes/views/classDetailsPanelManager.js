@@ -38,6 +38,7 @@ exports.closeClassDetailPanels = closeClassDetailPanels;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
+const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
 const classDetailPanels = new Map();
 let previewClassPanelId;
 function postDetails(entry) {
@@ -56,6 +57,10 @@ function createPanel(context, classDetails, pinned, methodEditor) {
     const entry = { panel, pinned, details: classDetails };
     panel.webview.onDidReceiveMessage(async (message) => {
         if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
+            if (message.command === 'tableSelectionDebug') {
+                (0, tableSelectionLogger_1.logTableSelection)('Класс', message.message);
+                return;
+            }
             if (message.command === 'copyEntityId') {
                 await vscode.env.clipboard.writeText(String(message.id));
                 vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
@@ -67,6 +72,11 @@ function createPanel(context, classDetails, pinned, methodEditor) {
             }
             if (message.command === 'openMethod') {
                 await methodEditor.open(message.id);
+                return;
+            }
+            if (message.command === 'methodSvnAction') {
+                const command = message.action === 'localDiff' ? 'vc-ve-tools.svnLocalDiff' : message.action === 'history' ? 'vc-ve-tools.svnHistory' : 'vc-ve-tools.svnBlame';
+                await vscode.commands.executeCommand(command, message.id);
                 return;
             }
             const requestedClassId = entry.details.id;
@@ -86,15 +96,16 @@ function createPanel(context, classDetails, pinned, methodEditor) {
                 }
                 return;
             }
+            const includeInherited = message.includeInherited;
             try {
-                const attributes = await (0, classRepository_1.getClassAttributes)(requestedClassId, entry.details.name);
+                const attributes = await (0, classRepository_1.getClassAttributes)(requestedClassId, entry.details.name, includeInherited);
                 if (entry.details.id === requestedClassId) {
-                    void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes });
+                    void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes, includeInherited });
                 }
             }
             catch (error) {
                 const failureMessage = error instanceof Error ? error.message : String(error);
-                void panel.webview.postMessage({ command: 'classAttributesLoadFailed', message: failureMessage });
+                void panel.webview.postMessage({ command: 'classAttributesLoadFailed', message: failureMessage, includeInherited });
             }
         }
     });

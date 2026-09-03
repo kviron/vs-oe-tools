@@ -93,6 +93,11 @@
           "id": "vc-ve-tools-sql-tools",
           "title": "Исполнитель SQL",
           "icon": "resources/train.svg"
+        },
+        {
+          "id": "vc-ve-tools-code-history",
+          "title": "История кода",
+          "icon": "resources/train.svg"
         }
       ]
     },
@@ -112,6 +117,13 @@
         {
           "id": "vc-ve-tools.sqlExecutor",
           "name": "Исполнитель SQL",
+          "type": "webview"
+        }
+      ],
+      "vc-ve-tools-code-history": [
+        {
+          "id": "vc-ve-tools.codeHistory",
+          "name": "История кода",
           "type": "webview"
         }
       ]
@@ -142,9 +154,71 @@
       {
         "command": "vc-ve-tools.copySelectedExplorerId",
         "title": "Восточный Экспресс: Копировать ID выделенного объекта"
+      },
+      {
+        "command": "vc-ve-tools.showSelectionHistory",
+        "title": "История выделенного кода",
+        "category": "Восточный Экспресс"
+      },
+      {
+        "command": "vc-ve-tools.showCodeHistory",
+        "title": "История файла или метода",
+        "category": "Восточный Экспресс"
+      },
+      {
+        "command": "vc-ve-tools.svnLocalDiff",
+        "title": "Local Diff",
+        "category": "SVN"
+      },
+      {
+        "command": "vc-ve-tools.svnHistory",
+        "title": "История файла",
+        "category": "SVN"
+      },
+      {
+        "command": "vc-ve-tools.svnBlame",
+        "title": "Blame",
+        "category": "SVN"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "vc-ve-tools.svnMenu",
+        "label": "SVN"
       }
     ],
     "menus": {
+      "editor/context": [
+        {
+          "submenu": "vc-ve-tools.svnMenu",
+          "when": "editorTextFocus && (resourceScheme == file || resourceScheme == 'vc-ve-method')",
+          "group": "navigation@19"
+        },
+        {
+          "command": "vc-ve-tools.showSelectionHistory",
+          "when": "editorTextFocus && editorHasSelection && (resourceScheme == file || resourceScheme == 'vc-ve-method')",
+          "group": "navigation@20"
+        },
+        {
+          "command": "vc-ve-tools.showCodeHistory",
+          "when": "editorTextFocus && (resourceScheme == file || resourceScheme == 'vc-ve-method')",
+          "group": "navigation@21"
+        }
+      ],
+      "vc-ve-tools.svnMenu": [
+        {
+          "command": "vc-ve-tools.svnLocalDiff",
+          "group": "1_compare@1"
+        },
+        {
+          "command": "vc-ve-tools.svnHistory",
+          "group": "2_history@1"
+        },
+        {
+          "command": "vc-ve-tools.svnBlame",
+          "group": "2_history@2"
+        }
+      ],
       "view/title": [
         {
           "command": "vc-ve-tools.openSqlMonitor",
@@ -168,7 +242,7 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
-    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor",
+    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",

@@ -1604,11 +1604,11 @@ var require_pg_connection_string = __commonJS({
         config.client_encoding = result.searchParams.get("encoding");
         return config;
       }
-      const hostname2 = dummyHost ? "" : result.hostname;
+      const hostname3 = dummyHost ? "" : result.hostname;
       if (!config.host) {
-        config.host = decodeURIComponent(hostname2);
-      } else if (hostname2 && /^%2f/i.test(hostname2)) {
-        result.pathname = hostname2 + result.pathname;
+        config.host = decodeURIComponent(hostname3);
+      } else if (hostname3 && /^%2f/i.test(hostname3)) {
+        result.pathname = hostname3 + result.pathname;
       }
       if (!config.port) {
         config.port = result.port;
@@ -3075,7 +3075,7 @@ var require_dist = __commonJS({
     function parse(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve) => stream.on("end", () => resolve()));
+      return new Promise((resolve2) => stream.on("end", () => resolve2()));
     }
   }
 });
@@ -3458,7 +3458,7 @@ var require_split2 = __commonJS({
 var require_helper = __commonJS({
   "node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
-    var path = require("path");
+    var path3 = require("path");
     var Stream = require("stream").Stream;
     var split = require_split2();
     var util = require("util");
@@ -3497,7 +3497,7 @@ var require_helper = __commonJS({
     };
     module2.exports.getFileName = function(rawEnv) {
       var env4 = rawEnv || process.env;
-      var file = env4.PGPASSFILE || (isWin ? path.join(env4.APPDATA || "./", "postgresql", "pgpass.conf") : path.join(env4.HOME || "./", ".pgpass"));
+      var file = env4.PGPASSFILE || (isWin ? path3.join(env4.APPDATA || "./", "postgresql", "pgpass.conf") : path3.join(env4.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -3629,7 +3629,7 @@ var require_helper = __commonJS({
 var require_lib = __commonJS({
   "node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
-    var path = require("path");
+    var path3 = require("path");
     var fs = require("fs");
     var helper = require_helper();
     module2.exports = function(connInfo, cb) {
@@ -3840,12 +3840,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve, reject) => {
+        return new this._Promise((resolve2, reject) => {
           this._connect((error) => {
             if (error) {
               reject(error);
             } else {
-              resolve(this);
+              resolve2(this);
             }
           });
         });
@@ -4227,8 +4227,8 @@ var require_client = __commonJS({
         } else {
           query = new Query2(config, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve, reject) => {
-              query.callback = (err, res) => err ? reject(err) : resolve(res);
+            result = new this._Promise((resolve2, reject) => {
+              query.callback = (err, res) => err ? reject(err) : resolve2(res);
             }).catch((err) => {
               Error.captureStackTrace(err);
               throw err;
@@ -4319,8 +4319,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve) => {
-            this.connection.once("end", resolve);
+          return new this._Promise((resolve2) => {
+            this.connection.once("end", resolve2);
           });
         }
       }
@@ -4369,8 +4369,8 @@ var require_pg_pool = __commonJS({
       const cb = function(err, client) {
         err ? rej(err) : res(client);
       };
-      const result = new Promise2(function(resolve, reject) {
-        res = resolve;
+      const result = new Promise2(function(resolve2, reject) {
+        res = resolve2;
         rej = reject;
       }).catch((err) => {
         Error.captureStackTrace(err);
@@ -4431,7 +4431,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve) => resolve(f()));
+        return new Promise2((resolve2) => resolve2(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -4824,8 +4824,8 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve, reject) {
-          this._once("end", resolve);
+        function(resolve2, reject) {
+          this._once("end", resolve2);
           this._once("error", reject);
         }.bind(this)
       );
@@ -5004,12 +5004,12 @@ var require_client2 = __commonJS({
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve, reject) => {
+      return new this._Promise((resolve2, reject) => {
         this._connect((error) => {
           if (error) {
             reject(error);
           } else {
-            resolve(this);
+            resolve2(this);
           }
         });
       });
@@ -5033,8 +5033,8 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve, reject) => {
-            resolveOut = resolve;
+          result = new this._Promise((resolve2, reject) => {
+            resolveOut = resolve2;
             rejectOut = reject;
           }).catch((err) => {
             Error.captureStackTrace(err);
@@ -5097,8 +5097,8 @@ var require_client2 = __commonJS({
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve, reject) {
-          cb = (err) => err ? reject(err) : resolve();
+        result = new this._Promise(function(resolve2, reject) {
+          cb = (err) => err ? reject(err) : resolve2();
         });
       }
       const doEnd = function() {
@@ -5457,7 +5457,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv5) {
+    function InternalCodec(codecOptions, iconv7) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5469,7 +5469,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv5.defaultCharUnicode;
+          this.defaultCharUnicode = iconv7.defaultCharUnicode;
         }
       }
     }
@@ -5626,8 +5626,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv5) {
-      this.iconv = iconv5;
+    function Utf32Codec(codecOptions, iconv7) {
+      this.iconv = iconv7;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5755,8 +5755,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv5) {
-      this.iconv = iconv5;
+    function Utf32AutoCodec(options, iconv7) {
+      this.iconv = iconv7;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5906,8 +5906,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv5) {
-      this.iconv = iconv5;
+    function Utf16Codec(codecOptions, iconv7) {
+      this.iconv = iconv7;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6005,8 +6005,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv5) {
-      this.iconv = iconv5;
+    function Utf7Codec(codecOptions, iconv7) {
+      this.iconv = iconv7;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6088,8 +6088,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv5) {
-      this.iconv = iconv5;
+    function Utf7IMAPCodec(codecOptions, iconv7) {
+      this.iconv = iconv7;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6222,7 +6222,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv5) {
+    function SBCSCodec(codecOptions, iconv7) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6237,7 +6237,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv5.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv7.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6904,7 +6904,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv5) {
+    function DBCSCodec(codecOptions, iconv7) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6953,7 +6953,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv5.defaultCharUnicode;
+      this.defaultCharUnicode = iconv7.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6977,7 +6977,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv5.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv7.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8982,7 +8982,7 @@ var require_lib3 = __commonJS({
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode5(buf, encoding, options) {
+    module2.exports.decode = function decode7(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -9106,7 +9106,7 @@ __export(extension_exports, {
 module.exports = __toCommonJS(extension_exports);
 
 // src/application/activate.ts
-var vscode11 = __toESM(require("vscode"));
+var vscode13 = __toESM(require("vscode"));
 
 // src/core/constants.ts
 var projectRootSetting = "useFolderAsProjectRoot";
@@ -9718,6 +9718,12 @@ var SettingsProvider = class {
 var vscode5 = __toESM(require("vscode"));
 
 // src/core/webviewProtocol.ts
+function isCodeHistoryWebviewMessage(message) {
+  if (typeof message !== "object" || message === null || !("command" in message)) {
+    return false;
+  }
+  return message.command === "codeHistoryReady" || message.command === "openCodeHistoryEntry" && "id" in message && typeof message.id === "string";
+}
 function isClassDetailsWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
     return false;
@@ -9733,6 +9739,9 @@ function isClassDetailsWebviewMessage(message) {
   }
   if (message.command === "openMethod") {
     return "id" in message && typeof message.id === "number";
+  }
+  if (message.command === "methodSvnAction") {
+    return "id" in message && typeof message.id === "number" && "action" in message && (message.action === "localDiff" || message.action === "history" || message.action === "blame");
   }
   if (isCopyEntityIdMessage(message)) {
     return true;
@@ -9837,6 +9846,11 @@ function createPanel(context, classDetails, pinned, methodEditor) {
       }
       if (message.command === "openMethod") {
         await methodEditor.open(message.id);
+        return;
+      }
+      if (message.command === "methodSvnAction") {
+        const command = message.action === "localDiff" ? "vc-ve-tools.svnLocalDiff" : message.action === "history" ? "vc-ve-tools.svnHistory" : "vc-ve-tools.svnBlame";
+        await vscode5.commands.executeCommand(command, message.id);
         return;
       }
       const requestedClassId = entry.details.id;
@@ -9991,6 +10005,11 @@ var ExplorerViewProvider = class {
   }
   refreshClasses() {
     void this.postMessage({ command: "resetClasses" });
+  }
+  async revealClass(id) {
+    this.selectedEntityId = id;
+    await vscode6.commands.executeCommand("workbench.view.extension.vc-ve-tools");
+    await this.postMessage({ command: "revealClass", id });
   }
   async copySelectedEntityId() {
     this.log(`\u0412\u044B\u0437\u0432\u0430\u043D\u0430 \u043A\u043E\u043C\u0430\u043D\u0434\u0430 VS Code copySelectedEntityId; ID=${this.selectedEntityId ?? "\u043D\u0435\u0442"}.`);
@@ -10523,6 +10542,26 @@ function serializeChangeValues(code, seniorId) {
 }
 
 // src/infrastructure/database/methodRepository.ts
+async function findMethodsByName(name) {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const result = await executeMonitoredQuery(client, {
+      text: `SELECT method.id, method.name, method.seniorid
+			 FROM methods AS method
+			 WHERE lower(method.name) = lower($1)
+			 ORDER BY method.id
+			 LIMIT 20`,
+      values: [name],
+      source: `\u041F\u043E\u0438\u0441\u043A \u043C\u0435\u0442\u043E\u0434\u0430 \u0438\u043B\u0438 \u0444\u0443\u043D\u043A\u0446\u0438\u0438 ${name}`,
+      database: options.database
+    });
+    return result.rows.map((row) => ({ id: row.id, name: row.name, seniorId: row.seniorid }));
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
 async function getMethodSource(id) {
   const options = await getProjectDatabaseOptions();
   const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
@@ -10694,7 +10733,7 @@ function inspectValue(value) {
 }
 
 // src/features/methods/methodEditorProvider.ts
-var scheme = "vc-ve-method";
+var methodDocumentScheme = "vc-ve-method";
 var MethodEditorProvider = class {
   changed = new vscode10.EventEmitter();
   methods = /* @__PURE__ */ new Map();
@@ -10705,15 +10744,24 @@ var MethodEditorProvider = class {
     this.log(`\u041E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 ID=${id}.`);
     const method = await getMethodSource(id);
     this.log(`\u041A\u043E\u0434 \u043F\u043E\u043B\u0443\u0447\u0435\u043D \u0438\u0437 \u0411\u0414: type=${method.codeType}; ${inspectText(method.code)}.`);
+    const uri = await this.getUri(method);
     const extension = method.methodType === 3 ? "pkf" : "pas";
     const languageId = extension === "pkf" ? "ve-pkf" : "ve-pascal";
     await ensureWindows1251(languageId);
-    const uri = vscode10.Uri.from({ scheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
-    this.methods.set(uri.toString(), method);
     const document = await vscode10.workspace.openTextDocument(uri);
     await vscode10.languages.setTextDocumentLanguage(document, languageId);
     this.log(`\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442 \u043E\u0442\u043A\u0440\u044B\u0442: language=${document.languageId}; ${inspectText(document.getText())}.`);
     await vscode10.window.showTextDocument(document, { preview: false, viewColumn: vscode10.ViewColumn.Active });
+  }
+  async getMethod(uri) {
+    return this.ensureMethod(uri);
+  }
+  async getUri(methodOrId) {
+    const method = typeof methodOrId === "number" ? await getMethodSource(methodOrId) : methodOrId;
+    const extension = method.methodType === 3 ? "pkf" : "pas";
+    const uri = vscode10.Uri.from({ scheme: methodDocumentScheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
+    this.methods.set(uri.toString(), method);
+    return uri;
   }
   watch() {
     return new vscode10.Disposable(() => void 0);
@@ -10780,7 +10828,7 @@ var MethodEditorProvider = class {
 };
 function registerMethodEditor(context) {
   const provider = new MethodEditorProvider();
-  context.subscriptions.push(provider, vscode10.workspace.registerFileSystemProvider(scheme, provider, { isCaseSensitive: true }));
+  context.subscriptions.push(provider, vscode10.workspace.registerFileSystemProvider(methodDocumentScheme, provider, { isCaseSensitive: true }));
   return provider;
 }
 function safeName(value) {
@@ -10808,40 +10856,791 @@ function inspectText(value) {
   return `chars=${value.length}; U+FFFD=${replacementPositions.length}; positions=${replacementPositions.slice(0, 20).join(",") || "-"}; unsupported=${unsupportedCount}`;
 }
 
+// src/features/methods/methodLanguageFeatures.ts
+var vscode11 = __toESM(require("vscode"));
+var selector = [
+  { scheme: methodDocumentScheme, language: "ve-pkf" },
+  { scheme: methodDocumentScheme, language: "ve-pascal" }
+];
+function registerMethodLanguageFeatures(context, methodEditor, openClass) {
+  const symbols = new MethodSymbolIndex(methodEditor);
+  const diagnostics = new LanguageFeatureDiagnostics(context);
+  context.subscriptions.push(
+    diagnostics,
+    vscode11.languages.registerCompletionItemProvider(selector, {
+      provideCompletionItems: (document) => diagnostics.run(
+        "\u0410\u0432\u0442\u043E\u0434\u043E\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u0435",
+        document,
+        void 0,
+        [],
+        () => symbols.completions(document)
+      )
+    }, ".", ":"),
+    vscode11.languages.registerSignatureHelpProvider(selector, {
+      provideSignatureHelp: (document, position) => diagnostics.run(
+        "\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u043E\u0432",
+        document,
+        position,
+        void 0,
+        () => symbols.signatureHelp(document, position)
+      )
+    }, "(", ","),
+    vscode11.languages.registerDefinitionProvider(selector, {
+      provideDefinition: (document, position) => diagnostics.run(
+        "\u041F\u0435\u0440\u0435\u0445\u043E\u0434 \u043A \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0438\u044E",
+        document,
+        position,
+        void 0,
+        async () => {
+          const range = document.getWordRangeAtPosition(position, /[\p{L}_][\p{L}\p{N}_]*/u);
+          if (!range) {
+            return void 0;
+          }
+          const definition = await symbols.definition(document, document.getText(range));
+          if (definition?.kind === "class") {
+            await openClass(definition.id);
+            return [];
+          }
+          if (definition?.kind === "method") {
+            return new vscode11.Location(await methodEditor.getUri(Number(definition.method.id)), new vscode11.Position(0, 0));
+          }
+          return void 0;
+        }
+      )
+    })
+  );
+}
+var LanguageFeatureDiagnostics = class {
+  constructor(context) {
+    this.context = context;
+    this.output.appendLine(`[${(/* @__PURE__ */ new Date()).toISOString()}] \u0418\u043D\u0442\u0435\u043B\u043B\u0435\u043A\u0442 \u043A\u043E\u0434\u0430 \u0437\u0430\u043F\u0443\u0449\u0435\u043D; \u0432\u0435\u0440\u0441\u0438\u044F \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F ${String(context.extension.packageJSON.version ?? "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430")}.`);
+  }
+  context;
+  output = vscode11.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u0418\u043D\u0442\u0435\u043B\u043B\u0435\u043A\u0442 \u043A\u043E\u0434\u0430");
+  lastNotification = "";
+  lastNotificationAt = 0;
+  async run(operation, document, position, fallback, action) {
+    try {
+      return await action();
+    } catch (error) {
+      this.report(operation, document, position, error);
+      return fallback;
+    }
+  }
+  dispose() {
+    this.output.dispose();
+  }
+  report(operation, document, position, error) {
+    const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+    const location = position ? `${position.line + 1}:${position.character + 1}` : "\u043D\u0435\u0442";
+    const errorText = error instanceof Error ? error.stack ?? error.message : String(error);
+    const methodId = new URLSearchParams(document.uri.query).get("id") ?? "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u0435\u043D";
+    this.output.appendLine("");
+    this.output.appendLine(`[${timestamp}] \u041E\u0428\u0418\u0411\u041A\u0410: ${operation}`);
+    this.output.appendLine(`\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442: ${document.uri.toString()}`);
+    this.output.appendLine(`\u041C\u0435\u0442\u043E\u0434 ID: ${methodId}; \u044F\u0437\u044B\u043A: ${document.languageId}; \u043F\u043E\u0437\u0438\u0446\u0438\u044F: ${location}`);
+    this.output.appendLine(errorText);
+    const notificationKey = `${operation}:${error instanceof Error ? error.message : String(error)}`;
+    const now = Date.now();
+    if (notificationKey === this.lastNotification && now - this.lastNotificationAt < 5e3) {
+      return;
+    }
+    this.lastNotification = notificationKey;
+    this.lastNotificationAt = now;
+    void vscode11.window.showErrorMessage(
+      `\u041E\u0448\u0438\u0431\u043A\u0430 \u0444\u0443\u043D\u043A\u0446\u0438\u0438 \xAB${operation}\xBB. \u041F\u043E\u0434\u0440\u043E\u0431\u043D\u043E\u0441\u0442\u0438 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u044B \u0432 \u0436\u0443\u0440\u043D\u0430\u043B \xAB\u0418\u043D\u0442\u0435\u043B\u043B\u0435\u043A\u0442 \u043A\u043E\u0434\u0430\xBB.`,
+      "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0436\u0443\u0440\u043D\u0430\u043B"
+    ).then((selection) => {
+      if (selection === "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0436\u0443\u0440\u043D\u0430\u043B") {
+        this.output.show(true);
+      }
+    });
+  }
+};
+var MethodSymbolIndex = class {
+  constructor(editor) {
+    this.editor = editor;
+  }
+  editor;
+  classSymbols = /* @__PURE__ */ new Map();
+  classes;
+  async completions(document) {
+    const current = await this.forDocument(document);
+    const classes = await this.allClasses();
+    return [
+      ...current.attributes.map((attribute) => completion(attribute.name, vscode11.CompletionItemKind.Field, attribute.type, attribute.owner)),
+      ...current.methods.map((method) => methodCompletion(method)),
+      ...classes.map((item) => completion(item.name, vscode11.CompletionItemKind.Class, `\u041A\u043B\u0430\u0441\u0441 \xB7 ID ${item.id}`))
+    ];
+  }
+  async signatureHelp(document, position) {
+    const call = findCall(document.getText(new vscode11.Range(new vscode11.Position(0, 0), position)));
+    if (!call) {
+      return void 0;
+    }
+    const current = await this.forDocument(document);
+    const method = current.methods.find((item) => sameName(item.name, call.name));
+    if (!method) {
+      return void 0;
+    }
+    const label = method.signature.trim() || `${method.name}(\u2026)`;
+    const help = new vscode11.SignatureHelp();
+    const information = new vscode11.SignatureInformation(label, `${method.type}${method.owner ? ` \xB7 ${method.owner}` : ""}`);
+    information.parameters = parseParameters(label).map((parameter) => new vscode11.ParameterInformation(parameter));
+    help.signatures = [information];
+    help.activeSignature = 0;
+    help.activeParameter = Math.min(call.parameter, Math.max(0, information.parameters.length - 1));
+    return help;
+  }
+  async definition(document, word) {
+    const current = await this.forDocument(document);
+    const method = current.methods.find((item) => sameName(item.name, word));
+    if (method) {
+      return { kind: "method", method };
+    }
+    const targetClass = (await this.allClasses()).find((item) => sameName(item.name, word));
+    if (targetClass) {
+      return { kind: "class", id: targetClass.id };
+    }
+    const externalMethod = (await findMethodsByName(word))[0];
+    return externalMethod ? { kind: "method", method: { ...externalMethod, id: String(externalMethod.id), owner: "", signature: "", type: "", visibility: "", package: "", line: "", inherited: false } } : void 0;
+  }
+  async forDocument(document) {
+    const method = await this.editor.getMethod(document.uri);
+    let cached = this.classSymbols.get(method.seniorId);
+    if (!cached) {
+      cached = (async () => {
+        const details = await getClassDetails(method.seniorId);
+        const [attributes, methods] = await Promise.all([
+          getClassAttributes(details.id, details.name, true),
+          getClassMethods(details.id, details.name, true)
+        ]);
+        return { className: details.name, attributes, methods };
+      })();
+      this.classSymbols.set(method.seniorId, cached);
+      cached.catch(() => this.classSymbols.delete(method.seniorId));
+    }
+    return cached;
+  }
+  allClasses() {
+    this.classes ??= loadClasses();
+    this.classes.catch(() => {
+      this.classes = void 0;
+    });
+    return this.classes;
+  }
+};
+function completion(label, kind, detail, description) {
+  const item = new vscode11.CompletionItem(label, kind);
+  item.detail = [detail, description].filter(Boolean).join(" \xB7 ");
+  return item;
+}
+function methodCompletion(method) {
+  const item = completion(method.name, vscode11.CompletionItemKind.Method, method.signature || method.type, method.owner);
+  const parameters = parseParameters(method.signature);
+  item.insertText = parameters.length ? new vscode11.SnippetString(`${method.name}(${parameters.map((parameter, index) => `\${${index + 1}:${snippetName(parameter)}}`).join(", ")})`) : method.name;
+  item.command = { command: "editor.action.triggerParameterHints", title: "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B" };
+  return item;
+}
+function parseParameters(signature) {
+  const body = signature.match(/\(([^)]*)\)/)?.[1]?.trim();
+  return body ? body.split(/[;,]/).map((value) => value.trim()).filter(Boolean) : [];
+}
+function snippetName(parameter) {
+  return (parameter.split(/[:=\s]/)[0] || "\u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440").replace(/[}$\\]/g, "");
+}
+function findCall(text) {
+  let depth = 0;
+  let commas = 0;
+  for (let index = text.length - 1; index >= 0; index--) {
+    const character = text[index];
+    if (character === ")") {
+      depth++;
+    } else if (character === "(") {
+      if (depth > 0) {
+        depth--;
+        continue;
+      }
+      const name = text.slice(0, index).match(/([\p{L}_][\p{L}\p{N}_]*)\s*$/u)?.[1];
+      return name ? { name, parameter: commas } : void 0;
+    } else if (character === "," && depth === 0) {
+      commas++;
+    }
+  }
+  return void 0;
+}
+function sameName(left, right) {
+  return left.localeCompare(right, "ru", { sensitivity: "accent" }) === 0;
+}
+
+// src/features/code-history/codeHistoryService.ts
+var path2 = __toESM(require("node:path"));
+var import_promises2 = require("node:fs/promises");
+var vscode12 = __toESM(require("vscode"));
+
+// src/infrastructure/database/methodHistoryRepository.ts
+var iconv5 = __toESM(require_lib3());
+
+// src/infrastructure/database/methodHistoryParsing.ts
+function extractCodeFromChangeValues(value) {
+  if (!value) {
+    return void 0;
+  }
+  const marker = /(?:^|,)127,/.exec(value);
+  if (!marker || marker.index === void 0) {
+    return void 0;
+  }
+  const start = marker.index + marker[0].length;
+  if (value[start] !== '"') {
+    const end = value.indexOf(",102,", start);
+    return value.slice(start, end < 0 ? value.length : end);
+  }
+  let code = "";
+  for (let index = start + 1; index < value.length; index++) {
+    if (value[index] !== '"') {
+      code += value[index];
+      continue;
+    }
+    if (value[index + 1] === '"') {
+      code += '"';
+      index++;
+      continue;
+    }
+    return code;
+  }
+  throw new Error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C Methods.Code (\u0430\u0442\u0440\u0438\u0431\u0443\u0442 127): \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0430\u044F \u043A\u0430\u0432\u044B\u0447\u043A\u0430.");
+}
+
+// src/infrastructure/database/methodHistoryRepository.ts
+async function getMethodHistory(methodId) {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const userTable = await findUserTable(client, options.database).catch(() => void 0);
+    const userJoin = userTable ? buildUserJoin(userTable) : "";
+    const userColumns = userTable ? ", to_jsonb(users) AS userdata" : "";
+    const result = await executeMonitoredQuery(client, {
+      text: `SELECT to_jsonb(log_entry) AS data${userColumns}
+			 FROM logcchangedobject AS log_entry
+			 ${userJoin}
+			 WHERE log_entry.objid = $1 AND log_entry.objclassid = 5
+			 ORDER BY log_entry.changedate DESC`,
+      values: [methodId],
+      source: `\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439 \u043C\u0435\u0442\u043E\u0434\u0430 ${methodId}`,
+      database: options.database
+    });
+    return result.rows.map((row, index) => toHistoryEntry2(row.data, index, row.userdata)).filter((entry) => entry !== void 0);
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+function toHistoryEntry2(data, index, userData) {
+  const oldValues = decodeText(readValue2(data, "oldvalues"));
+  const newValues = decodeText(readValue2(data, "newvalues"));
+  const oldCode = extractCodeFromChangeValues(oldValues);
+  const newCode = extractCodeFromChangeValues(newValues);
+  if (oldCode === void 0 && newCode === void 0) {
+    return void 0;
+  }
+  return {
+    revision: readText(data, "id", "logid", "transactionid"),
+    changedAt: new Date(readText(data, "changedate") || 0),
+    userId: readText(data, "userid") || "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u0435\u043D",
+    userName: decodeText(readValue2(userData ?? {}, "username", "fullname", "name", "fio")),
+    loginName: decodeText(readValue2(userData ?? {}, "loginname", "login", "userlogin")),
+    computerName: readText(data, "computername"),
+    comment: decodeText(readValue2(data, "transactioncomment")),
+    oldCode: oldCode ?? "",
+    newCode: newCode ?? ""
+  };
+}
+async function findUserTable(client, database) {
+  const result = await executeMonitoredQuery(client, {
+    text: `SELECT table_schema, table_name,
+		        min(column_name) FILTER (WHERE lower(column_name) = 'id') AS id_column
+		 FROM information_schema.columns
+		 WHERE lower(table_name) = 'users'
+		 GROUP BY table_schema, table_name
+		 HAVING bool_or(lower(column_name) = 'id')
+		 ORDER BY CASE WHEN table_schema = 'public' THEN 0 ELSE 1 END, table_schema
+		 LIMIT 1`,
+    source: "\u041F\u043E\u0438\u0441\u043A \u0434\u0430\u043D\u043D\u044B\u0445 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439 \u0434\u043B\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u043A\u043E\u0434\u0430",
+    database
+  });
+  return result.rows[0];
+}
+function buildUserJoin(table) {
+  return `LEFT JOIN ${quoteIdentifier2(table.table_schema)}.${quoteIdentifier2(table.table_name)} AS users ON users.${quoteIdentifier2(table.id_column || "id")} = log_entry.userid`;
+}
+function quoteIdentifier2(value) {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+function readValue2(row, ...names) {
+  const values = new Map(Object.entries(row).map(([key, value]) => [key.toLocaleLowerCase("en-US"), value]));
+  for (const name of names) {
+    const value = values.get(name.toLocaleLowerCase("en-US"));
+    if (value !== void 0 && value !== null) {
+      return value;
+    }
+  }
+  return void 0;
+}
+function readText(row, ...names) {
+  const value = readValue2(row, ...names);
+  return value === void 0 ? "" : String(value);
+}
+function decodeText(value) {
+  if (Buffer.isBuffer(value)) {
+    return iconv5.decode(value, "win1251");
+  }
+  const text = value === void 0 || value === null ? "" : String(value);
+  const bytea = text.match(/^\\x([\da-f]+)$/i);
+  return bytea && bytea[1].length % 2 === 0 ? iconv5.decode(Buffer.from(bytea[1], "hex"), "win1251") : text;
+}
+
+// src/infrastructure/database/methodWorkingCopyRepository.ts
+var import_node_os2 = require("node:os");
+async function getMethodWorkingCopyInfo(methodId) {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const result = await executeMonitoredQuery(client, {
+      text: `SELECT file.filename, groups.path AS group_path, package.packagename AS package_name
+			 FROM abstract AS object
+			 JOIN sysfile AS file ON file.id = object.sysfile
+			 LEFT JOIN sysgroups AS groups ON groups.id = file.sysgroup
+			 LEFT JOIN syspackages AS package ON package.id = groups.package
+			 WHERE object.id = $1`,
+      values: [methodId],
+      source: `\u041F\u043E\u0438\u0441\u043A \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u043E\u0433\u043E SVN-\u0444\u0430\u0439\u043B\u0430 \u043C\u0435\u0442\u043E\u0434\u0430 ${methodId}`,
+      database: options.database
+    });
+    const row = result.rows[0];
+    if (!row?.filename) {
+      throw new Error(`\u0414\u043B\u044F \u043C\u0435\u0442\u043E\u0434\u0430 ${methodId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0439 sysfile.`);
+    }
+    const relativePath = [row.package_name, row.group_path, row.filename].filter(Boolean).join("\\");
+    const tune = await executeMonitoredQuery(client, {
+      text: `SELECT pathtopackages
+			 FROM packagestune
+			 WHERE upper(computername) = upper($1)
+			   AND NULLIF(trim(pathtopackages), '') IS NOT NULL
+			 LIMIT 1`,
+      values: [(0, import_node_os2.hostname)()],
+      source: `\u041F\u043E\u0438\u0441\u043A \u0431\u0430\u0437\u044B \u043F\u0430\u043A\u0435\u0442\u043E\u0432 \u0434\u043B\u044F \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u0430 ${(0, import_node_os2.hostname)()}`,
+      database: options.database
+    }).catch(() => void 0);
+    return { fileName: row.filename, relativePath, packagesRoot: tune?.rows[0]?.pathtopackages };
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+
+// src/features/code-history/svnClient.ts
+var import_node_child_process = require("node:child_process");
+var path = __toESM(require("node:path"));
+var iconv6 = __toESM(require_lib3());
+async function svnLog(fileName, limit) {
+  const args = ["log", "--xml"];
+  if (limit !== void 0) {
+    args.push("--limit", String(limit));
+  }
+  args.push(fileName);
+  const xml = (await runSvn(args, fileName)).toString("utf8");
+  return [...xml.matchAll(/<logentry\s+revision="(\d+)">([\s\S]*?)<\/logentry>/g)].map((match) => ({
+    revision: Number(match[1]),
+    author: xmlValue(match[2], "author") || "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u0435\u043D",
+    date: new Date(xmlValue(match[2], "date") || 0),
+    message: xmlValue(match[2], "msg")
+  }));
+}
+async function svnBlameRevisions(fileName, startLine, endLine) {
+  const lines = await svnBlame(fileName);
+  const revisions = /* @__PURE__ */ new Set();
+  for (const entry of lines) {
+    if (entry.line >= startLine && entry.line <= endLine) {
+      revisions.add(entry.revision);
+    }
+  }
+  return revisions;
+}
+async function svnBlame(fileName) {
+  const xml = (await runSvn(["blame", "--xml", fileName], fileName)).toString("utf8");
+  return [...xml.matchAll(/<entry\s+line-number="(\d+)">([\s\S]*?)<\/entry>/g)].map((match) => {
+    const body = match[2];
+    return {
+      line: Number(match[1]),
+      revision: Number(body.match(/<commit\s+revision="(\d+)">/)?.[1]),
+      author: xmlValue(body, "author") || "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u0435\u043D",
+      date: new Date(xmlValue(body, "date") || 0)
+    };
+  }).filter((entry) => Number.isSafeInteger(entry.revision));
+}
+async function svnCat(fileName, revision) {
+  if (revision < 0) {
+    return "";
+  }
+  const bytes = await runSvn(["cat", "-r", String(revision), fileName], fileName);
+  return legacyExtension(fileName) ? iconv6.decode(bytes, "win1251") : bytes.toString("utf8");
+}
+async function svnCatBase(fileName) {
+  const bytes = await runSvn(["cat", "-r", "BASE", fileName], fileName);
+  return legacyExtension(fileName) ? iconv6.decode(bytes, "win1251") : bytes.toString("utf8");
+}
+async function runSvn(args, fileName) {
+  return new Promise((resolve2, reject) => {
+    const process2 = (0, import_node_child_process.spawn)("svn", args, { cwd: path.dirname(fileName), windowsHide: true });
+    const stdout = [];
+    const stderr = [];
+    process2.stdout.on("data", (chunk) => stdout.push(chunk));
+    process2.stderr.on("data", (chunk) => stderr.push(chunk));
+    process2.on("error", reject);
+    process2.on("close", (code) => {
+      if (code === 0) {
+        resolve2(Buffer.concat(stdout));
+        return;
+      }
+      const detail = decodeConsole(Buffer.concat(stderr)).trim();
+      reject(new Error(`svn ${args[0]} \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u043B\u0441\u044F \u0441 \u043A\u043E\u0434\u043E\u043C ${code ?? "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u0435\u043D"}${detail ? `: ${detail}` : ""}`));
+    });
+  });
+}
+function xmlValue(xml, tag) {
+  const value = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1] ?? "";
+  return value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+}
+function legacyExtension(fileName) {
+  return [".pas", ".pkf", ".bat"].includes(path.extname(fileName).toLocaleLowerCase("en-US"));
+}
+function decodeConsole(value) {
+  const utf8 = value.toString("utf8");
+  return utf8.includes("\uFFFD") ? iconv6.decode(value, "win1251") : utf8;
+}
+
+// src/features/code-history/codeHistoryService.ts
+var historyScheme = "vc-ve-history";
+function registerCodeHistory(context, methodEditor) {
+  const service = new CodeHistoryService(context.extensionUri, methodEditor);
+  context.subscriptions.push(
+    service,
+    vscode12.workspace.registerTextDocumentContentProvider(historyScheme, service),
+    vscode12.window.registerWebviewViewProvider(CodeHistoryService.viewType, service, { webviewOptions: { retainContextWhenHidden: true } }),
+    vscode12.commands.registerTextEditorCommand("vc-ve-tools.showCodeHistory", (editor) => service.show(editor, false)),
+    vscode12.commands.registerTextEditorCommand("vc-ve-tools.showSelectionHistory", (editor) => service.show(editor, true)),
+    vscode12.commands.registerCommand("vc-ve-tools.svnLocalDiff", (methodId) => service.showLocalDiff(methodId)),
+    vscode12.commands.registerCommand("vc-ve-tools.svnHistory", (methodId) => service.showWorkingCopyHistory(methodId)),
+    vscode12.commands.registerCommand("vc-ve-tools.svnBlame", (methodId) => service.showBlame(methodId))
+  );
+}
+var CodeHistoryService = class {
+  constructor(extensionUri, methodEditor) {
+    this.extensionUri = extensionUri;
+    this.methodEditor = methodEditor;
+    this.log("\u0421\u0435\u0440\u0432\u0438\u0441 \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u043A\u043E\u0434\u0430 \u0437\u0430\u043F\u0443\u0449\u0435\u043D.");
+  }
+  extensionUri;
+  methodEditor;
+  static viewType = "vc-ve-tools.codeHistory";
+  contents = /* @__PURE__ */ new Map();
+  actions = /* @__PURE__ */ new Map();
+  output = vscode12.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043A\u043E\u0434\u0430");
+  view;
+  message = { command: "codeHistoryLoaded", title: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043A\u043E\u0434\u0430", subtitle: "", entries: [] };
+  sequence = 0;
+  resolveWebviewView(view) {
+    this.view = view;
+    const assetsRoot = vscode12.Uri.joinPath(this.extensionUri, "dist", "webview");
+    view.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
+    view.webview.html = webviewHtml(view.webview, assetsRoot);
+    view.webview.onDidReceiveMessage((message) => {
+      if (!isCodeHistoryWebviewMessage(message)) {
+        return;
+      }
+      if (message.command === "codeHistoryReady") {
+        void this.post(this.message);
+        return;
+      }
+      const action = this.actions.get(message.id);
+      if (action) {
+        void action().catch((error) => this.reportError("\u041E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u044F", vscode12.Uri.parse(message.id), error));
+      }
+    });
+  }
+  provideTextDocumentContent(uri) {
+    return this.contents.get(uri.toString()) ?? "";
+  }
+  async show(editor, selectionOnly) {
+    const operation = selectionOnly ? "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u043D\u043E\u0433\u043E \u043A\u043E\u0434\u0430" : "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0444\u0430\u0439\u043B\u0430 \u0438\u043B\u0438 \u043C\u0435\u0442\u043E\u0434\u0430";
+    const title = selectionOnly ? "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u043D\u043E\u0433\u043E \u043A\u043E\u0434\u0430" : "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043A\u043E\u0434\u0430";
+    try {
+      await vscode12.commands.executeCommand("workbench.view.extension.vc-ve-tools-code-history");
+      this.actions.clear();
+      await this.setMessage({ command: "codeHistoryLoading", title });
+      this.log(`${operation}: ${editor.document.uri.toString()}; \u0441\u0442\u0440\u043E\u043A\u0438 ${editor.selection.start.line + 1}-${editor.selection.end.line + 1}.`);
+      if (editor.document.uri.scheme === methodDocumentScheme) {
+        await this.loadMethodHistory(editor, selectionOnly);
+      } else if (editor.document.uri.scheme === "file") {
+        await this.loadSvnHistory(editor, selectionOnly);
+      } else {
+        throw new Error(`\u0421\u0445\u0435\u043C\u0430 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 ${editor.document.uri.scheme} \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043A\u043E\u0434\u0430.`);
+      }
+    } catch (error) {
+      await this.setMessage({ command: "codeHistoryFailed", title, message: errorMessage2(error) });
+      this.reportError(operation, editor.document.uri, error);
+    }
+  }
+  async showLocalDiff(methodId) {
+    await this.runSvnAction("Local Diff", methodId, async (fileName, id) => {
+      const local = await vscode12.workspace.openTextDocument(vscode12.Uri.file(fileName));
+      const stored = id === void 0 ? await svnCatBase(fileName) : (await getMethodSource(id)).code;
+      await vscode12.commands.executeCommand("vscode.diff", this.store(`${path2.basename(fileName)} \xB7 ${id === void 0 ? "SVN BASE" : "\u043A\u043E\u0434 \u0438\u0437 \u0411\u0414"}`, stored, path2.extname(fileName)), local.uri, `${path2.basename(fileName)} \xB7 Local Diff`, { preview: true });
+    });
+  }
+  async showWorkingCopyHistory(methodId) {
+    await this.runSvnAction("\u0418\u0441\u0442\u043E\u0440\u0438\u044F SVN", methodId, async (fileName) => {
+      await vscode12.commands.executeCommand("workbench.view.extension.vc-ve-tools-code-history");
+      this.actions.clear();
+      await this.setMessage({ command: "codeHistoryLoading", title: path2.basename(fileName) });
+      await this.loadSvnFileHistory(fileName, false);
+    });
+  }
+  async showBlame(methodId) {
+    await this.runSvnAction("SVN Blame", methodId, async (fileName) => {
+      const [document, lines] = await Promise.all([vscode12.workspace.openTextDocument(vscode12.Uri.file(fileName)), svnBlame(fileName)]);
+      const byLine = new Map(lines.map((line) => [line.line, line]));
+      const revisionWidth = Math.max(7, ...lines.map((line) => `r${line.revision}`.length));
+      const authorWidth = Math.min(28, Math.max(5, ...lines.map((line) => line.author.length)));
+      const lineWidth = String(document.lineCount).length;
+      const header = `${"\u0420\u0435\u0432\u0438\u0437\u0438\u044F".padEnd(revisionWidth)} | ${"\u0410\u0432\u0442\u043E\u0440".padEnd(authorWidth)} | ${"\u0421\u0442\u0440\u043E\u043A\u0430".padStart(lineWidth)} | \u041A\u043E\u0434`;
+      const separator = `${"-".repeat(revisionWidth)}-+-${"-".repeat(authorWidth)}-+-${"-".repeat(lineWidth)}-+----`;
+      const content = [header, separator, ...Array.from({ length: document.lineCount }, (_, index) => {
+        const blame = byLine.get(index + 1);
+        const revision = blame ? `r${blame.revision}` : "-";
+        const author = blame?.author ?? "-";
+        return `${revision.padEnd(revisionWidth)} | ${author.slice(0, authorWidth).padEnd(authorWidth)} | ${String(index + 1).padStart(lineWidth)} | ${document.lineAt(index).text}`;
+      })].join("\n");
+      const blameDocument = await vscode12.workspace.openTextDocument(this.store(`${path2.basename(fileName)} \xB7 SVN Blame`, content, ".txt"));
+      await vscode12.window.showTextDocument(blameDocument, { preview: true });
+      vscode12.window.setStatusBarMessage(`SVN Blame: ${lines.length} \u0441\u0442\u0440\u043E\u043A \xB7 ${path2.basename(fileName)}`, 3e3);
+    });
+  }
+  dispose() {
+    this.contents.clear();
+    this.actions.clear();
+    this.output.dispose();
+    this.view = void 0;
+  }
+  async loadSvnHistory(editor, selectionOnly) {
+    const fileName = editor.document.uri.fsPath;
+    await this.loadSvnFileHistory(fileName, selectionOnly, editor);
+  }
+  async loadSvnFileHistory(fileName, selectionOnly, editor) {
+    const allEntries = await svnLog(fileName);
+    let entries = allEntries;
+    if (selectionOnly) {
+      if (!editor || editor.selection.isEmpty) {
+        throw new Error("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0432\u044B\u0434\u0435\u043B\u0438\u0442\u0435 \u0441\u0442\u0440\u043E\u043A\u0438, \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C.");
+      }
+      const startLine = editor.selection.start.line + 1;
+      const endLine = editor.selection.end.line + (editor.selection.end.character === 0 ? 0 : 1);
+      const revisions = await svnBlameRevisions(fileName, startLine, Math.max(startLine, endLine));
+      entries = allEntries.filter((entry) => revisions.has(entry.revision));
+    }
+    const list = entries.map((entry) => {
+      const id = `svn:${entry.revision}`;
+      this.actions.set(id, async () => {
+        const index = allEntries.findIndex((item) => item.revision === entry.revision);
+        const previousRevision = allEntries[index + 1]?.revision ?? entry.revision - 1;
+        const [before, after] = await Promise.all([svnCat(fileName, previousRevision).catch(() => ""), svnCat(fileName, entry.revision)]);
+        await this.openDiff(`${path2.basename(fileName)} \xB7 r${previousRevision}`, before, `${path2.basename(fileName)} \xB7 r${entry.revision}`, after, path2.extname(fileName), `SVN r${entry.revision}: ${firstLine(entry.message) || "\u0431\u0435\u0437 \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u044F"}`);
+      });
+      return {
+        id,
+        kind: "svn",
+        date: formatDate(entry.date),
+        timestamp: entry.date.getTime(),
+        user: entry.author,
+        computer: "",
+        commit: `r${entry.revision}`,
+        commitOrder: entry.revision,
+        comment: firstLine(entry.message) || "\u0411\u0435\u0437 \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u044F"
+      };
+    });
+    await this.setMessage({ command: "codeHistoryLoaded", title: selectionOnly ? "\u0420\u0435\u0432\u0438\u0437\u0438\u0438 \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u043D\u044B\u0445 \u0441\u0442\u0440\u043E\u043A" : path2.basename(fileName), subtitle: `${list.length} ${pluralChanges(list.length)} \xB7 SVN`, entries: list });
+  }
+  async runSvnAction(operation, methodId, action) {
+    let uri = vscode12.window.activeTextEditor?.document.uri;
+    try {
+      const resolvedId = Number.isSafeInteger(methodId) ? methodId : uri?.scheme === methodDocumentScheme ? (await this.methodEditor.getMethod(uri)).id : void 0;
+      const fileName = resolvedId === void 0 ? uri?.scheme === "file" ? uri.fsPath : void 0 : await this.resolveWorkingCopy(resolvedId);
+      if (!fileName) {
+        throw new Error("\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0444\u0430\u0439\u043B \u0438\u043B\u0438 \u043C\u0435\u0442\u043E\u0434 \u0438\u0437 \u0431\u0430\u0437\u044B \u0434\u0430\u043D\u043D\u044B\u0445.");
+      }
+      uri = vscode12.Uri.file(fileName);
+      this.log(`${operation}: ${fileName}${resolvedId === void 0 ? "" : `; \u043C\u0435\u0442\u043E\u0434 ${resolvedId}`}.`);
+      await action(fileName, resolvedId);
+    } catch (error) {
+      this.reportError(operation, uri ?? vscode12.Uri.parse("svn:/"), error);
+    }
+  }
+  async resolveWorkingCopy(methodId) {
+    const info = await getMethodWorkingCopyInfo(methodId);
+    const extensions = path2.extname(info.fileName) ? [""] : [".pkf", ".pas", ""];
+    if (info.packagesRoot) {
+      const roots = [info.packagesRoot, path2.join(info.packagesRoot, "packages")];
+      for (const root of roots) {
+        for (const extension of extensions) {
+          const candidate = path2.resolve(root, `${info.relativePath}${extension}`);
+          if (await fileExists(candidate)) {
+            return candidate;
+          }
+        }
+      }
+    }
+    const candidates = (await Promise.all(extensions.map((extension) => vscode12.workspace.findFiles(`**/${escapeGlob(info.fileName + extension)}`, "**/{node_modules,.git}/**", 100)))).flat();
+    const suffixes = extensions.map((extension) => `${info.relativePath}${extension}`.replace(/\\/g, "/").toLocaleLowerCase("en-US"));
+    const selected = candidates.find((candidate) => suffixes.some((suffix) => candidate.path.toLocaleLowerCase("en-US").endsWith(suffix))) ?? (candidates.length === 1 ? candidates[0] : void 0);
+    if (!selected) {
+      const root = info.packagesRoot ? ` \u041A\u043E\u0440\u0435\u043D\u044C \u043F\u0430\u043A\u0435\u0442\u043E\u0432: ${info.packagesRoot}.` : " \u0414\u043B\u044F \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u0430 \u043D\u0435 \u0437\u0430\u0434\u0430\u043D \u041F\u0443\u0442\u044C\u041A\u0411\u0430\u0437\u0435\u041F\u0430\u043A\u0435\u0442\u043E\u0432.";
+      throw new Error(`\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0444\u0430\u0439\u043B ${info.relativePath}{.pkf,.pas} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.${root}`);
+    }
+    return selected.fsPath;
+  }
+  async loadMethodHistory(editor, selectionOnly) {
+    const method = await this.methodEditor.getMethod(editor.document.uri);
+    const allEntries = await getMethodHistory(method.id);
+    let entries = allEntries;
+    if (selectionOnly) {
+      if (editor.selection.isEmpty) {
+        throw new Error("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0432\u044B\u0434\u0435\u043B\u0438\u0442\u0435 \u043A\u043E\u0434, \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043A\u043E\u0442\u043E\u0440\u043E\u0433\u043E \u043D\u0443\u0436\u043D\u043E \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C.");
+      }
+      const selectedText = editor.document.getText(editor.selection).trim();
+      const matching = selectedText ? allEntries.filter((entry) => entry.oldCode.includes(selectedText) || entry.newCode.includes(selectedText)) : [];
+      if (matching.length) {
+        entries = matching;
+      }
+    }
+    const extension = path2.extname(editor.document.uri.path) || ".pas";
+    const list = entries.map((entry, index) => {
+      const id = `database:${entry.revision}:${index}`;
+      this.actions.set(id, () => this.openDiff(`${method.name} \xB7 \u0434\u043E ${formatDate(entry.changedAt)}`, entry.oldCode, `${method.name} \xB7 \u043F\u043E\u0441\u043B\u0435 ${formatDate(entry.changedAt)}`, entry.newCode, extension, `\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043C\u0435\u0442\u043E\u0434\u0430 ${method.name} \xB7 ${formatDate(entry.changedAt)}`));
+      return {
+        id,
+        kind: "database",
+        date: formatDate(entry.changedAt),
+        timestamp: entry.changedAt.getTime(),
+        user: formatUser(entry),
+        computer: entry.computerName,
+        commit: entry.revision || "\u0411\u0414",
+        commitOrder: Number(entry.revision) || entry.changedAt.getTime() || index,
+        comment: firstLine(entry.comment) || (entry.revision ? `\u0417\u0430\u043F\u0438\u0441\u044C \u0430\u0443\u0434\u0438\u0442\u0430 ${entry.revision}` : "\u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435 \u043A\u043E\u0434\u0430")
+      };
+    });
+    await this.setMessage({ command: "codeHistoryLoaded", title: method.name, subtitle: `${list.length} ${pluralChanges(list.length)} \xB7 \u0431\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \xB7 ID ${method.id}`, entries: list });
+  }
+  async openDiff(leftLabel, left, rightLabel, right, extension, title) {
+    await vscode12.commands.executeCommand("vscode.diff", this.store(leftLabel, left, extension), this.store(rightLabel, right, extension), title, { preview: true });
+  }
+  store(label, content, extension) {
+    const safeLabel = label.replace(/[\\/:*?"<>|]/g, "_");
+    const uri = vscode12.Uri.from({ scheme: historyScheme, path: `/${safeLabel}${extension}`, query: `view=${++this.sequence}` });
+    this.contents.set(uri.toString(), content);
+    return uri;
+  }
+  async setMessage(message) {
+    this.message = message;
+    await this.post(message);
+  }
+  async post(message) {
+    await this.view?.webview.postMessage(message);
+  }
+  reportError(operation, uri, error) {
+    this.log(`\u041E\u0428\u0418\u0411\u041A\u0410 \xB7 ${operation}
+\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442: ${uri.toString()}
+${error instanceof Error ? error.stack ?? error.message : String(error)}`);
+    void vscode12.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C \xAB${operation}\xBB. \u041F\u043E\u0434\u0440\u043E\u0431\u043D\u043E\u0441\u0442\u0438 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u044B \u0432 \u0436\u0443\u0440\u043D\u0430\u043B \xAB\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043A\u043E\u0434\u0430\xBB.`, "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0436\u0443\u0440\u043D\u0430\u043B").then((selection) => {
+      if (selection === "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0436\u0443\u0440\u043D\u0430\u043B") {
+        this.output.show(true);
+      }
+    });
+  }
+  log(message) {
+    this.output.appendLine(`[${(/* @__PURE__ */ new Date()).toISOString()}] ${message}`);
+  }
+};
+function webviewHtml(webview, assetsRoot) {
+  const scriptUri = webview.asWebviewUri(vscode12.Uri.joinPath(assetsRoot, "code-history.js"));
+  const styleUri = webview.asWebviewUri(vscode12.Uri.joinPath(assetsRoot, "code-history.css"));
+  const nonce = Math.random().toString(36).slice(2);
+  return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043A\u043E\u0434\u0430</title></head><body><div id="app"></div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+}
+function formatDate(value) {
+  return Number.isNaN(value.getTime()) ? "\u0434\u0430\u0442\u0430 \u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430" : value.toLocaleString("ru-RU");
+}
+function firstLine(value) {
+  return value.trim().split(/\r?\n/, 1)[0] ?? "";
+}
+function errorMessage2(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+function formatUser(entry) {
+  if (entry.userName && entry.loginName && entry.userName !== entry.loginName) {
+    return `${entry.userName} (${entry.loginName})`;
+  }
+  return entry.userName || entry.loginName || `\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${entry.userId}`;
+}
+function pluralChanges(count) {
+  return count % 10 === 1 && count % 100 !== 11 ? "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435" : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20) ? "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F" : "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439";
+}
+function escapeGlob(value) {
+  return value.replace(/[{}[\]*?]/g, (character) => `[${character}]`);
+}
+async function fileExists(fileName) {
+  try {
+    await (0, import_promises2.access)(fileName);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // src/application/activate.ts
 async function activate(context) {
   const methodEditor = registerMethodEditor(context);
-  const extensionConfiguration = vscode11.workspace.getConfiguration("vcVeTools");
+  registerCodeHistory(context, methodEditor);
+  const extensionConfiguration = vscode13.workspace.getConfiguration("vcVeTools");
   let isUpdatingSetting = false;
   const settingsProvider = new SettingsProvider(
     extensionConfiguration.get(projectRootSetting, false),
     getDatabaseRole()
   );
-  const settingsView = vscode11.window.createTreeView("vc-ve-tools.settings", {
+  const settingsView = vscode13.window.createTreeView("vc-ve-tools.settings", {
     treeDataProvider: settingsProvider
   });
   const updateProjectRootSetting = async (enabled) => {
-    if (!vscode11.workspace.workspaceFolders?.length) {
+    if (!vscode13.workspace.workspaceFolders?.length) {
       settingsProvider.setProjectRootEnabled(false);
-      void vscode11.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      void vscode13.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       return;
     }
     try {
       isUpdatingSetting = true;
-      await vscode11.workspace.getConfiguration("vcVeTools").update(
+      await vscode13.workspace.getConfiguration("vcVeTools").update(
         projectRootSetting,
         enabled,
-        vscode11.ConfigurationTarget.Workspace
+        vscode13.ConfigurationTarget.Workspace
       );
       await applyProjectEncoding(context, enabled);
       settingsProvider.setProjectRootEnabled(enabled);
-      void vscode11.window.showInformationMessage(
+      void vscode13.window.showInformationMessage(
         enabled ? "PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u044B \u0431\u0443\u0434\u0443\u0442 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C\u0441\u044F \u0432 \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0435 Cyrillic (Windows 1251)." : "\u041A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0430 PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u043E\u0432 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430."
       );
     } catch (error) {
-      const currentValue = vscode11.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
+      const currentValue = vscode13.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       settingsProvider.setProjectRootEnabled(currentValue);
-      void vscode11.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+      void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
     } finally {
       isUpdatingSetting = false;
     }
@@ -10851,21 +11650,25 @@ async function activate(context) {
     loadClasses,
     (id, pinned) => openClassDetails(context, methodEditor, id, pinned)
   );
-  const explorerRegistration = vscode11.window.registerWebviewViewProvider(
+  const explorerRegistration = vscode13.window.registerWebviewViewProvider(
     "vc-ve-tools.explorer",
     explorerProvider
   );
+  registerMethodLanguageFeatures(context, methodEditor, async (id) => {
+    await explorerProvider.revealClass(id);
+    await openClassDetails(context, methodEditor, id, true);
+  });
   const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
-  const sqlExecutorRegistration = vscode11.window.registerWebviewViewProvider(
+  const sqlExecutorRegistration = vscode13.window.registerWebviewViewProvider(
     SqlExecutorViewProvider.viewType,
     sqlExecutorProvider,
     { webviewOptions: { retainContextWhenHidden: true } }
   );
   const checkboxListener = settingsView.onDidChangeCheckboxState((event) => {
-    const enabled = event.items[0]?.[1] === vscode11.TreeItemCheckboxState.Checked;
+    const enabled = event.items[0]?.[1] === vscode13.TreeItemCheckboxState.Checked;
     void updateProjectRootSetting(enabled);
   });
-  const configurationListener = vscode11.workspace.onDidChangeConfiguration(async (event) => {
+  const configurationListener = vscode13.workspace.onDidChangeConfiguration(async (event) => {
     if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
       settingsProvider.setDatabaseRole(getDatabaseRole());
       closeClassDetailPanels();
@@ -10875,50 +11678,50 @@ async function activate(context) {
       settingsProvider.setUserId();
     }
     if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${projectRootSetting}`)) {
-      const enabled = vscode11.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
+      const enabled = vscode13.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       settingsProvider.setProjectRootEnabled(enabled);
       try {
         await applyProjectEncoding(context, enabled);
       } catch (error) {
-        void vscode11.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+        void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
       }
     }
   });
-  if (extensionConfiguration.get(projectRootSetting, false) && vscode11.workspace.workspaceFolders?.length) {
+  if (extensionConfiguration.get(projectRootSetting, false) && vscode13.workspace.workspaceFolders?.length) {
     await applyProjectEncoding(context, true);
   }
   console.log('Congratulations, your extension "vc-ve-tools" is now active!');
-  const disposable = vscode11.commands.registerCommand("vc-ve-tools.helloWorld", () => {
-    vscode11.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
+  const disposable = vscode13.commands.registerCommand("vc-ve-tools.helloWorld", () => {
+    vscode13.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
   });
-  const testDatabaseConnectionCommand = vscode11.commands.registerCommand(
+  const testDatabaseConnectionCommand = vscode13.commands.registerCommand(
     "vc-ve-tools.testDatabaseConnection",
     async () => {
       try {
-        const result = await vscode11.window.withProgress(
+        const result = await vscode13.window.withProgress(
           {
-            location: vscode11.ProgressLocation.Notification,
+            location: vscode13.ProgressLocation.Notification,
             title: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0431\u0430\u0437\u0435"
           },
           testDatabaseConnection
         );
-        void vscode11.window.showInformationMessage(
+        void vscode13.window.showInformationMessage(
           `\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${result.database}, \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${result.user}.`
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        void vscode11.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
+        void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
       }
     }
   );
-  const selectDatabaseRoleCommand = vscode11.commands.registerCommand(
+  const selectDatabaseRoleCommand = vscode13.commands.registerCommand(
     "vc-ve-tools.selectDatabaseRole",
     async () => {
-      if (!vscode11.workspace.workspaceFolders?.length) {
-        void vscode11.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      if (!vscode13.workspace.workspaceFolders?.length) {
+        void vscode13.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
         return;
       }
-      const selected = await vscode11.window.showQuickPick(
+      const selected = await vscode13.window.showQuickPick(
         [
           { label: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F", description: "devDBName_main", role: "main" },
           { label: "\u0422\u0435\u0441\u0442\u043E\u0432\u0430\u044F", description: "devDBName_test", role: "test" }
@@ -10928,28 +11731,28 @@ async function activate(context) {
       if (!selected || selected.role === getDatabaseRole()) {
         return;
       }
-      await vscode11.workspace.getConfiguration("vcVeTools").update(
+      await vscode13.workspace.getConfiguration("vcVeTools").update(
         databaseRoleSetting,
         selected.role,
-        vscode11.ConfigurationTarget.Workspace
+        vscode13.ConfigurationTarget.Workspace
       );
     }
   );
-  const openSqlMonitorCommand = vscode11.commands.registerCommand(
+  const openSqlMonitorCommand = vscode13.commands.registerCommand(
     "vc-ve-tools.openSqlMonitor",
     () => openSqlMonitor(context)
   );
-  const copySelectedExplorerIdCommand = vscode11.commands.registerCommand(
+  const copySelectedExplorerIdCommand = vscode13.commands.registerCommand(
     "vc-ve-tools.copySelectedExplorerId",
     () => explorerProvider.copySelectedEntityId()
   );
-  const setUserIdCommand = vscode11.commands.registerCommand(
+  const setUserIdCommand = vscode13.commands.registerCommand(
     "vc-ve-tools.setUserId",
     async () => {
-      const input = await vscode11.window.showInputBox({
+      const input = await vscode13.window.showInputBox({
         placeHolder: "3130673",
         prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B Users \u0434\u043B\u044F \u043B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439 \u043C\u0435\u0442\u043E\u0434\u043E\u0432",
-        value: vscode11.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
+        value: vscode13.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
         validateInput: (value) => {
           if (!value.trim()) {
             return "ID \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C";
@@ -10965,13 +11768,13 @@ async function activate(context) {
         return;
       }
       const userId = Number.parseInt(input, 10);
-      await vscode11.workspace.getConfiguration("vcVeTools").update(
+      await vscode13.workspace.getConfiguration("vcVeTools").update(
         "userId",
         userId,
-        vscode11.ConfigurationTarget.Workspace
+        vscode13.ConfigurationTarget.Workspace
       );
       settingsProvider.setUserId();
-      void vscode11.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
+      void vscode13.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
     }
   );
   context.subscriptions.push(

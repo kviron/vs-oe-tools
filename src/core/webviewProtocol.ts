@@ -13,6 +13,7 @@ export type ExplorerWebviewMessage =
 export type ExplorerHostMessage =
 	| { command: 'classesLoaded'; classes: ClassTreeRow[] }
 	| { command: 'classesLoadFailed'; message: string }
+	| { command: 'revealClass'; id: number }
 	| { command: 'resetClasses' };
 
 export type ClassDetailsWebviewMessage =
@@ -20,6 +21,7 @@ export type ClassDetailsWebviewMessage =
 	| { command: 'loadClassAttributes'; includeInherited: boolean }
 	| { command: 'loadClassMethods'; includeInherited: boolean }
 	| { command: 'openMethod'; id: number }
+	| { command: 'methodSvnAction'; id: number; action: 'localDiff' | 'history' | 'blame' }
 	| CopyEntityIdMessage
 	| TableSelectionDebugMessage;
 
@@ -64,7 +66,36 @@ export type SqlExecutorHostMessage =
 	| { command: 'sqlExecutorHistoryChanged'; entry: SqlHistoryEntry }
 	| { command: 'sqlExecutionSucceeded'; result: SerializedQueryResult; durationMs: number; database: string }
 	| { command: 'sqlExecutionFailed'; message: string; details: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage;
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage;
+
+export interface CodeHistoryListEntry {
+	id: string;
+	kind: 'svn' | 'database';
+	date: string;
+	timestamp: number;
+	user: string;
+	computer: string;
+	commit: string;
+	commitOrder: number;
+	comment: string;
+}
+
+export type CodeHistoryWebviewMessage =
+	| { command: 'codeHistoryReady' }
+	| { command: 'openCodeHistoryEntry'; id: string };
+
+export type CodeHistoryHostMessage =
+	| { command: 'codeHistoryLoading'; title: string }
+	| { command: 'codeHistoryLoaded'; title: string; subtitle: string; entries: CodeHistoryListEntry[] }
+	| { command: 'codeHistoryFailed'; title: string; message: string };
+
+export function isCodeHistoryWebviewMessage(message: unknown): message is CodeHistoryWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) {
+		return false;
+	}
+	return message.command === 'codeHistoryReady'
+		|| (message.command === 'openCodeHistoryEntry' && 'id' in message && typeof message.id === 'string');
+}
 
 export function isClassDetailsWebviewMessage(message: unknown): message is ClassDetailsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -81,6 +112,10 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	}
 	if (message.command === 'openMethod') {
 		return 'id' in message && typeof message.id === 'number';
+	}
+	if (message.command === 'methodSvnAction') {
+		return 'id' in message && typeof message.id === 'number' && 'action' in message
+			&& (message.action === 'localDiff' || message.action === 'history' || message.action === 'blame');
 	}
 	if (isCopyEntityIdMessage(message)) {
 		return true;

@@ -9,9 +9,12 @@ import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider'
 import { openSqlMonitor } from '../features/sql-monitor/views/sqlMonitorPanelManager';
 import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorViewProvider';
 import { registerMethodEditor } from '../features/methods/methodEditorProvider';
+import { registerMethodLanguageFeatures } from '../features/methods/methodLanguageFeatures';
+import { registerCodeHistory } from '../features/code-history/codeHistoryService';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const methodEditor = registerMethodEditor(context);
+	registerCodeHistory(context, methodEditor);
 	const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
 	let isUpdatingSetting = false;
 	const settingsProvider = new SettingsProvider(
@@ -62,6 +65,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		'vc-ve-tools.explorer',
 		explorerProvider,
 	);
+	registerMethodLanguageFeatures(context, methodEditor, async (id) => {
+		await explorerProvider.revealClass(id);
+		await openClassDetails(context, methodEditor, id, true);
+	});
 	const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
 	const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(
 		SqlExecutorViewProvider.viewType,

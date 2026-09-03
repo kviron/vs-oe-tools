@@ -181,6 +181,11 @@ function openMethod(method: ClassMethod): void {
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openMethod', id });
 }
 
+function methodSvnAction(method: ClassMethod, action: 'localDiff' | 'history' | 'blame'): void {
+  const id = Number(method.id);
+  if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'methodSvnAction', id, action });
+}
+
 function sortAttributes(key: string): void {
   attributeSortDirection.value = nextSort(attributeSortKey.value, attributeSortDirection.value, key);
   attributeSortKey.value = key;
@@ -334,7 +339,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
                 <TableCell v-for="column in 8" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="method in sortedMethods" v-else :key="method.id" :entity-id="method.id">
+            <EntityContextMenu v-for="method in sortedMethods" v-else :key="method.id" :entity-id="method.id" svn @svn-action="methodSvnAction(method, $event)">
             <TableRow class="cursor-default" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>

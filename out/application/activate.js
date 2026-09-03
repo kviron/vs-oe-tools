@@ -45,8 +45,11 @@ const explorerViewProvider_1 = require("../features/explorer/explorerViewProvide
 const sqlMonitorPanelManager_1 = require("../features/sql-monitor/views/sqlMonitorPanelManager");
 const sqlExecutorViewProvider_1 = require("../features/sql-executor/sqlExecutorViewProvider");
 const methodEditorProvider_1 = require("../features/methods/methodEditorProvider");
+const methodLanguageFeatures_1 = require("../features/methods/methodLanguageFeatures");
+const codeHistoryService_1 = require("../features/code-history/codeHistoryService");
 async function activate(context) {
     const methodEditor = (0, methodEditorProvider_1.registerMethodEditor)(context);
+    (0, codeHistoryService_1.registerCodeHistory)(context, methodEditor);
     const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
     let isUpdatingSetting = false;
     const settingsProvider = new settingsProvider_1.SettingsProvider(extensionConfiguration.get(constants_1.projectRootSetting, false), (0, projectDatabaseOptions_1.getDatabaseRole)());
@@ -79,6 +82,10 @@ async function activate(context) {
     };
     const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
+    (0, methodLanguageFeatures_1.registerMethodLanguageFeatures)(context, methodEditor, async (id) => {
+        await explorerProvider.revealClass(id);
+        await (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, true);
+    });
     const sqlExecutorProvider = new sqlExecutorViewProvider_1.SqlExecutorViewProvider(context.extensionUri);
     const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(sqlExecutorViewProvider_1.SqlExecutorViewProvider.viewType, sqlExecutorProvider, { webviewOptions: { retainContextWhenHidden: true } });
     const checkboxListener = settingsView.onDidChangeCheckboxState((event) => {

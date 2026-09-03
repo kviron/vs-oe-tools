@@ -95,6 +95,11 @@ class ExplorerViewProvider {
         this.output.dispose();
     }
     refreshClasses() { void this.postMessage({ command: 'resetClasses' }); }
+    async revealClass(id) {
+        this.selectedEntityId = id;
+        await vscode.commands.executeCommand('workbench.view.extension.vc-ve-tools');
+        await this.postMessage({ command: 'revealClass', id });
+    }
     async copySelectedEntityId() {
         this.log(`Вызвана команда VS Code copySelectedEntityId; ID=${this.selectedEntityId ?? 'нет'}.`);
         if (this.selectedEntityId === undefined) {

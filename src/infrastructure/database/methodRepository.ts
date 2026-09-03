@@ -23,6 +23,33 @@ interface MethodSourceRow {
 	codetype: string;
 }
 
+export interface MethodReference {
+	id: number;
+	name: string;
+	seniorId: number;
+}
+
+export async function findMethodsByName(name: string): Promise<MethodReference[]> {
+	const options = await getProjectDatabaseOptions();
+	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	try {
+		await client.connect();
+		const result = await executeMonitoredQuery<{ id: number; name: string; seniorid: number }, [string]>(client, {
+			text: `SELECT method.id, method.name, method.seniorid
+			 FROM methods AS method
+			 WHERE lower(method.name) = lower($1)
+			 ORDER BY method.id
+			 LIMIT 20`,
+			values: [name],
+			source: `Поиск метода или функции ${name}`,
+			database: options.database,
+		});
+		return result.rows.map(row => ({ id: row.id, name: row.name, seniorId: row.seniorid }));
+	} finally {
+		await client.end().catch(() => undefined);
+	}
+}
+
 export async function getMethodSource(id: number): Promise<MethodSource> {
 	const options = await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });

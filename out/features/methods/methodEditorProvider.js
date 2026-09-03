@@ -33,12 +33,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MethodEditorProvider = void 0;
+exports.MethodEditorProvider = exports.methodDocumentScheme = void 0;
 exports.registerMethodEditor = registerMethodEditor;
 const vscode = __importStar(require("vscode"));
 const iconv = __importStar(require("iconv-lite"));
 const methodRepository_1 = require("../../infrastructure/database/methodRepository");
-const scheme = 'vc-ve-method';
+exports.methodDocumentScheme = 'vc-ve-method';
 class MethodEditorProvider {
     changed = new vscode.EventEmitter();
     methods = new Map();
@@ -49,16 +49,22 @@ class MethodEditorProvider {
         this.log(`Открытие метода ID=${id}.`);
         const method = await (0, methodRepository_1.getMethodSource)(id);
         this.log(`Код получен из БД: type=${method.codeType}; ${inspectText(method.code)}.`);
+        const uri = await this.getUri(method);
         const extension = method.methodType === 3 ? 'pkf' : 'pas';
         const languageId = extension === 'pkf' ? 've-pkf' : 've-pascal';
         await ensureWindows1251(languageId);
-        // A revision makes VS Code read the bytes again instead of restoring a stale UTF-8 document buffer.
-        const uri = vscode.Uri.from({ scheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
-        this.methods.set(uri.toString(), method);
         const document = await vscode.workspace.openTextDocument(uri);
         await vscode.languages.setTextDocumentLanguage(document, languageId);
         this.log(`Документ открыт: language=${document.languageId}; ${inspectText(document.getText())}.`);
         await vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Active });
+    }
+    async getMethod(uri) { return this.ensureMethod(uri); }
+    async getUri(methodOrId) {
+        const method = typeof methodOrId === 'number' ? await (0, methodRepository_1.getMethodSource)(methodOrId) : methodOrId;
+        const extension = method.methodType === 3 ? 'pkf' : 'pas';
+        const uri = vscode.Uri.from({ scheme: exports.methodDocumentScheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
+        this.methods.set(uri.toString(), method);
+        return uri;
     }
     watch() { return new vscode.Disposable(() => undefined); }
     async stat(uri) {
@@ -113,7 +119,7 @@ class MethodEditorProvider {
 exports.MethodEditorProvider = MethodEditorProvider;
 function registerMethodEditor(context) {
     const provider = new MethodEditorProvider();
-    context.subscriptions.push(provider, vscode.workspace.registerFileSystemProvider(scheme, provider, { isCaseSensitive: true }));
+    context.subscriptions.push(provider, vscode.workspace.registerFileSystemProvider(exports.methodDocumentScheme, provider, { isCaseSensitive: true }));
     return provider;
 }
 function safeName(value) { return value.replace(/[\\/:*?"<>|]/g, '_') || 'method'; }

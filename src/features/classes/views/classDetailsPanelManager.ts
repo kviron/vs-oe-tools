@@ -55,6 +55,11 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				await methodEditor.open(message.id);
 				return;
 			}
+			if (message.command === 'methodSvnAction') {
+				const command = message.action === 'localDiff' ? 'vc-ve-tools.svnLocalDiff' : message.action === 'history' ? 'vc-ve-tools.svnHistory' : 'vc-ve-tools.svnBlame';
+				await vscode.commands.executeCommand(command, message.id);
+				return;
+			}
 			const requestedClassId = entry.details.id;
 			if (message.command === 'loadClassMethods') {
 				const includeInherited = message.includeInherited;
