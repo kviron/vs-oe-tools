@@ -8,13 +8,16 @@ const props = defineProps<{
   entityId?: number | string;
   copyShortcut?: string;
   svn?: boolean;
+  selectedEntityIds?: string[];
 }>();
 
 const emit = defineEmits<{ svnAction: [action: 'localDiff' | 'history' | 'blame'] }>();
 
 function copyId(): void {
   if (props.entityId === undefined) return;
-  vscode.postMessage({ command: 'copyEntityId', id: props.entityId });
+  const currentId = String(props.entityId);
+  const selectedIds = props.selectedEntityIds?.includes(currentId) ? props.selectedEntityIds : undefined;
+  vscode.postMessage({ command: 'copyEntityId', id: selectedIds?.join(';') ?? currentId });
 }
 </script>
 
@@ -26,7 +29,7 @@ function copyId(): void {
     <ContextMenuContent>
       <ContextMenuItem @select="copyId">
         <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />
-        Скопировать ID
+        {{ selectedEntityIds?.includes(String(entityId)) && selectedEntityIds.length > 1 ? `Скопировать ID (${selectedEntityIds.length})` : 'Скопировать ID' }}
         <ContextMenuShortcut v-if="copyShortcut">{{ copyShortcut }}</ContextMenuShortcut>
       </ContextMenuItem>
       <ContextMenuSub v-if="svn">

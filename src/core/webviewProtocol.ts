@@ -22,6 +22,7 @@ export type ClassDetailsWebviewMessage =
 	| { command: 'loadClassMethods'; includeInherited: boolean }
 	| { command: 'openMethod'; id: number }
 	| { command: 'methodSvnAction'; id: number; action: 'localDiff' | 'history' | 'blame' }
+	| CopyTableCellsMessage
 	| CopyEntityIdMessage
 	| TableSelectionDebugMessage;
 
@@ -33,6 +34,10 @@ export interface TableSelectionDebugMessage {
 	command: 'tableSelectionDebug';
 	message: string;
 }
+export interface CopyTableCellsMessage {
+	command: 'copyTableCells';
+	text: string;
+}
 export type ClassDetailsHostMessage =
 	| { command: 'classDetailsLoaded'; details: ClassDetails }
 	| { command: 'classAttributesLoaded'; attributes: ClassAttribute[]; includeInherited: boolean }
@@ -42,7 +47,8 @@ export type ClassDetailsHostMessage =
 export type SqlMonitorWebviewMessage =
 	| { command: 'sqlMonitorReady' }
 	| { command: 'clearSqlMonitor' }
-	| TableSelectionDebugMessage;
+	| TableSelectionDebugMessage
+	| CopyTableCellsMessage;
 export type SqlMonitorHostMessage =
 	| { command: 'sqlMonitorSnapshot'; records: SqlQueryRecord[] }
 	| { command: 'sqlQueryChanged'; record: SqlQueryRecord }
@@ -60,7 +66,8 @@ export type SqlExecutorWebviewMessage =
 	| { command: 'copySqlResult'; format: 'markdown' | 'json' }
 	| { command: 'copySqlError'; text: string }
 	| { command: 'exportSqlResult' }
-	| TableSelectionDebugMessage;
+	| TableSelectionDebugMessage
+	| CopyTableCellsMessage;
 export type SqlExecutorHostMessage =
 	| { command: 'sqlExecutorInitialized'; history: SqlHistoryEntry[] }
 	| { command: 'sqlExecutorHistoryChanged'; entry: SqlHistoryEntry }
@@ -113,6 +120,9 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'openMethod') {
 		return 'id' in message && typeof message.id === 'number';
 	}
+	if (message.command === 'copyTableCells') {
+		return 'text' in message && typeof message.text === 'string';
+	}
 	if (message.command === 'methodSvnAction') {
 		return 'id' in message && typeof message.id === 'number' && 'action' in message
 			&& (message.action === 'localDiff' || message.action === 'history' || message.action === 'blame');
@@ -161,7 +171,7 @@ export function isSqlMonitorWebviewMessage(message: unknown): message is SqlMoni
 	return typeof message === 'object'
 		&& message !== null
 		&& 'command' in message
-		&& (message.command === 'sqlMonitorReady' || message.command === 'clearSqlMonitor' || isTableSelectionDebugMessage(message));
+		&& (message.command === 'sqlMonitorReady' || message.command === 'clearSqlMonitor' || isTableSelectionDebugMessage(message) || isCopyTableCellsMessage(message));
 }
 
 export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExecutorWebviewMessage {
@@ -174,6 +184,9 @@ export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExe
 	if (isTableSelectionDebugMessage(message)) {
 		return true;
 	}
+	if (isCopyTableCellsMessage(message)) {
+		return true;
+	}
 	if (message.command === 'executeSql') {
 		return 'text' in message && typeof message.text === 'string';
 	}
@@ -184,6 +197,11 @@ export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExe
 		return 'text' in message && typeof message.text === 'string';
 	}
 	return message.command === 'exportSqlResult';
+}
+
+function isCopyTableCellsMessage(message: object): message is CopyTableCellsMessage {
+	return 'command' in message && message.command === 'copyTableCells'
+		&& 'text' in message && typeof message.text === 'string';
 }
 
 function isTableSelectionDebugMessage(message: object): message is TableSelectionDebugMessage {

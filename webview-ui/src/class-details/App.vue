@@ -29,12 +29,20 @@ const attributesLoaded = ref(false);
 const attributesError = ref('');
 const includeInheritedAttributes = ref(false);
 const attributeSearchQuery = ref('');
+const attributeCreatorQuery = ref('');
+const attributeDateFrom = ref('');
+const attributeDateTo = ref('');
+const selectedAttributeIds = ref<string[]>([]);
 const methods = ref<ClassMethod[]>([]);
 const methodsLoading = ref(false);
 const methodsLoaded = ref(false);
 const methodsError = ref('');
 const includeInheritedMethods = ref(false);
 const methodSearchQuery = ref('');
+const methodCreatorQuery = ref('');
+const methodDateFrom = ref('');
+const methodDateTo = ref('');
+const selectedMethodIds = ref<string[]>([]);
 const attributeSortKey = ref<string>();
 const attributeSortDirection = ref<SortDirection>('asc');
 const methodSortKey = ref<string>();
@@ -42,19 +50,14 @@ const methodSortDirection = ref<SortDirection>('asc');
 const tableColumns = [
   ['Имя', 'name'], ['Владелец', 'owner'], ['Сигнатура', 'signature'], ['Тип', 'type'],
   ['ID', 'id'], ['Видимость', 'visibility'], ['Пакет', 'package'], ['Строка', 'line'],
+  ['Дата обновления', 'updatedAt'], ['Создал', 'createdBy'],
 ] as const;
 const filteredAttributes = computed(() => {
-  const query = attributeSearchQuery.value.trim().toLocaleLowerCase('ru');
-  if (!query) return attributes.value;
-  return attributes.value.filter(attribute => [attribute.name, attribute.signature, attribute.owner, attribute.id, formatId(attribute.id)]
-    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(query)));
+  return attributes.value.filter(attribute => matchesFilters(attribute, attributeSearchQuery.value, attributeCreatorQuery.value, attributeDateFrom.value, attributeDateTo.value));
 });
 const sortedAttributes = computed(() => sortedRows(filteredAttributes.value, attributeSortKey.value, attributeSortDirection.value, (row, key) => row[key as keyof ClassAttribute]));
 const filteredMethods = computed(() => {
-  const query = methodSearchQuery.value.trim().toLocaleLowerCase('ru');
-  if (!query) return methods.value;
-  return methods.value.filter(method => [method.name, method.signature, method.owner, method.id, formatId(method.id)]
-    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(query)));
+  return methods.value.filter(method => matchesFilters(method, methodSearchQuery.value, methodCreatorQuery.value, methodDateFrom.value, methodDateTo.value));
 });
 const sortedMethods = computed(() => sortedRows(filteredMethods.value, methodSortKey.value, methodSortDirection.value, (row, key) => row[key as keyof ClassMethod]));
 const fieldColumns = [
@@ -90,11 +93,19 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
       attributesLoaded.value = false;
       attributesError.value = '';
       attributeSearchQuery.value = '';
+      attributeCreatorQuery.value = '';
+      attributeDateFrom.value = '';
+      attributeDateTo.value = '';
+      selectedAttributeIds.value = [];
       methods.value = [];
       methodsLoading.value = false;
       methodsLoaded.value = false;
       methodsError.value = '';
       methodSearchQuery.value = '';
+      methodCreatorQuery.value = '';
+      methodDateFrom.value = '';
+      methodDateTo.value = '';
+      selectedMethodIds.value = [];
     }
     details.value = event.data.details;
     loadAttributesForActiveTab();
@@ -160,6 +171,36 @@ function signaturePartClass(kind: SignaturePart['kind']): string | undefined {
 
 function displayClassField(key: string, value: unknown): string {
   return key === 'id' ? formatId(value) : String(value ?? '');
+}
+
+function formatDate(value: string): string {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ru-RU', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  }).format(date);
+}
+
+function matchesFilters(row: ClassAttribute | ClassMethod, search: string, creator: string, dateFrom: string, dateTo: string): boolean {
+  const searchQuery = search.trim().toLocaleLowerCase('ru');
+  const creatorQuery = creator.trim().toLocaleLowerCase('ru');
+  if (searchQuery && ![row.name, row.signature, row.owner, row.id, formatId(row.id)]
+    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(searchQuery))) return false;
+  if (creatorQuery && !row.createdBy.toLocaleLowerCase('ru').includes(creatorQuery)) return false;
+  if (!dateFrom && !dateTo) return true;
+  const updatedDate = localDateKey(row.updatedAt);
+  if (!updatedDate) return false;
+  return (!dateFrom || updatedDate >= dateFrom) && (!dateTo || updatedDate <= dateTo);
+}
+
+function localDateKey(value: string): string {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function loadAttributesForActiveTab(): void {
@@ -249,7 +290,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
       </EntityContextMenu>
 
       <TabsContent value="attributes" class="flex flex-col gap-1 p-1">
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать атрибуты родительских классов">
             <Checkbox
               :model-value="includeInheritedAttributes"
@@ -259,15 +300,15 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <span aria-hidden="true">↥</span>
             Наследуемые атрибуты
           </label>
-          <Input
-            v-model="attributeSearchQuery"
-            type="search"
-            class="h-6 max-w-sm"
-            placeholder="Поиск атрибута…"
-            aria-label="Поиск атрибута по имени, сигнатуре, владельцу или ID"
-          />
+          <div class="flex flex-wrap items-center justify-end gap-1">
+            <Input v-model="attributeCreatorQuery" type="search" class="h-6 w-44" placeholder="Создатель…" aria-label="Фильтр атрибутов по создателю" />
+            <Input v-model="attributeDateFrom" type="date" class="h-6 w-32" aria-label="Дата обновления атрибута с" title="Дата обновления с" />
+            <span class="text-xs text-muted-foreground">—</span>
+            <Input v-model="attributeDateTo" type="date" class="h-6 w-32" aria-label="Дата обновления атрибута по" title="Дата обновления по" />
+            <Input v-model="attributeSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск атрибута…" aria-label="Поиск атрибута по имени, сигнатуре, владельцу или ID" />
+          </div>
         </div>
-        <Table v-if="attributesLoading || filteredAttributes.length > 0">
+        <Table v-if="attributesLoading || filteredAttributes.length > 0" @selection-change="selectedAttributeIds = $event">
           <TableHeader>
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="attributeSortKey === key" :direction="attributeSortDirection" @sort="sortAttributes(key)">{{ label }}</SortableTableHead>
@@ -276,11 +317,11 @@ vscode.postMessage({ command: 'classDetailsReady' });
           <TableBody>
             <template v-if="attributesLoading">
               <TableRow v-for="row in 8" :key="row">
-                <TableCell v-for="column in 8" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
+                <TableCell v-for="column in tableColumns.length" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="attribute in sortedAttributes" v-else :key="attribute.id" :entity-id="attribute.id">
-            <TableRow>
+            <EntityContextMenu v-for="attribute in sortedAttributes" v-else :key="attribute.id" :entity-id="attribute.id" :selected-entity-ids="selectedAttributeIds">
+            <TableRow :data-entity-id="attribute.id">
               <TableCell class="max-w-64 px-1 py-0.5" :title="attribute.name">
                 <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
                 <span class="truncate">{{ attribute.name }}</span>
@@ -292,6 +333,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
               <TableCell class="px-1 py-0.5">{{ attribute.visibility }}</TableCell>
               <TableCell class="px-1 py-0.5">{{ attribute.package }}</TableCell>
               <TableCell class="px-1 py-0.5">{{ attribute.line }}</TableCell>
+              <TableCell class="whitespace-nowrap px-1 py-0.5">{{ formatDate(attribute.updatedAt) }}</TableCell>
+              <TableCell class="max-w-64 truncate px-1 py-0.5" :title="attribute.createdBy">{{ attribute.createdBy }}</TableCell>
             </TableRow>
             </EntityContextMenu>
           </TableBody>
@@ -302,14 +345,14 @@ vscode.postMessage({ command: 'classDetailsReady' });
         <Empty v-else-if="attributesLoaded" class="min-h-0 py-8">
           <EmptyHeader>
             <EmptyTitle>Атрибуты не найдены</EmptyTitle>
-            <EmptyDescription v-if="attributeSearchQuery.trim()">Измените строку поиска или очистите её.</EmptyDescription>
+            <EmptyDescription v-if="attributeSearchQuery.trim() || attributeCreatorQuery.trim() || attributeDateFrom || attributeDateTo">Измените или очистите фильтры.</EmptyDescription>
             <EmptyDescription v-else>Для этого класса нет доступных атрибутов.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       </TabsContent>
 
       <TabsContent value="methods" class="flex flex-col gap-1 p-1">
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать методы родительских классов">
             <Checkbox
               :model-value="includeInheritedMethods"
@@ -319,15 +362,15 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <span aria-hidden="true">↥</span>
             Наследуемые методы
           </label>
-          <Input
-            v-model="methodSearchQuery"
-            type="search"
-            class="h-6 max-w-sm"
-            placeholder="Поиск метода…"
-            aria-label="Поиск метода по имени, сигнатуре, владельцу или ID"
-          />
+          <div class="flex flex-wrap items-center justify-end gap-1">
+            <Input v-model="methodCreatorQuery" type="search" class="h-6 w-44" placeholder="Создатель…" aria-label="Фильтр методов по создателю" />
+            <Input v-model="methodDateFrom" type="date" class="h-6 w-32" aria-label="Дата обновления метода с" title="Дата обновления с" />
+            <span class="text-xs text-muted-foreground">—</span>
+            <Input v-model="methodDateTo" type="date" class="h-6 w-32" aria-label="Дата обновления метода по" title="Дата обновления по" />
+            <Input v-model="methodSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск метода…" aria-label="Поиск метода по имени, сигнатуре, владельцу или ID" />
+          </div>
         </div>
-        <Table v-if="methodsLoading || filteredMethods.length > 0">
+        <Table v-if="methodsLoading || filteredMethods.length > 0" @selection-change="selectedMethodIds = $event">
           <TableHeader>
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
@@ -336,11 +379,11 @@ vscode.postMessage({ command: 'classDetailsReady' });
           <TableBody>
             <template v-if="methodsLoading">
               <TableRow v-for="row in 8" :key="row">
-                <TableCell v-for="column in 8" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
+                <TableCell v-for="column in tableColumns.length" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="method in sortedMethods" v-else :key="method.id" :entity-id="method.id" svn @svn-action="methodSvnAction(method, $event)">
-            <TableRow class="cursor-default" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
+            <EntityContextMenu v-for="method in sortedMethods" v-else :key="method.id" :entity-id="method.id" :selected-entity-ids="selectedMethodIds" svn @svn-action="methodSvnAction(method, $event)">
+            <TableRow :data-entity-id="method.id" class="cursor-default" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>
                 <span class="truncate">{{ method.name }}</span>
@@ -356,6 +399,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
               <TableCell class="px-1 py-0.5">{{ method.visibility }}</TableCell>
               <TableCell class="px-1 py-0.5">{{ method.package }}</TableCell>
               <TableCell class="px-1 py-0.5">{{ method.line }}</TableCell>
+              <TableCell class="whitespace-nowrap px-1 py-0.5">{{ formatDate(method.updatedAt) }}</TableCell>
+              <TableCell class="max-w-64 truncate px-1 py-0.5" :title="method.createdBy">{{ method.createdBy }}</TableCell>
             </TableRow>
             </EntityContextMenu>
           </TableBody>
@@ -366,7 +411,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
         <Empty v-else-if="methodsLoaded" class="min-h-0 py-8">
           <EmptyHeader>
             <EmptyTitle>Методы не найдены</EmptyTitle>
-            <EmptyDescription v-if="methodSearchQuery.trim()">Измените строку поиска или очистите её.</EmptyDescription>
+            <EmptyDescription v-if="methodSearchQuery.trim() || methodCreatorQuery.trim() || methodDateFrom || methodDateTo">Измените или очистите фильтры.</EmptyDescription>
             <EmptyDescription v-else>Для этого класса нет доступных методов.</EmptyDescription>
           </EmptyHeader>
         </Empty>

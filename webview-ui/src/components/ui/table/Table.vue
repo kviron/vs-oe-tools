@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { cn } from '@/lib/utils'
 import { vscode } from '@/vscode'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']
 }>()
+const emit = defineEmits<{ selectionChange: [ids: string[]] }>()
 
 const container = ref<HTMLElement>()
 const selectedCells = new Set<HTMLTableCellElement>()
@@ -45,6 +46,10 @@ function updateSelectedRows(): void {
     if (selected) row.setAttribute('aria-selected', 'true')
     else row.removeAttribute('aria-selected')
   }
+  emit('selectionChange', tableRows()
+    .filter(row => Array.from(row.cells).some(cell => selectedCells.has(cell)))
+    .map(row => row.dataset.entityId)
+    .filter((id): id is string => Boolean(id)))
 }
 
 function eventCell(event: Event): HTMLTableCellElement | undefined {
@@ -124,6 +129,7 @@ function copySelectedCells(event: ClipboardEvent): void {
     debug('Событие copy: нет выбранных ячеек.')
     return
   }
+  vscode.postMessage({ command: 'copyTableCells', text })
   if (!event.clipboardData) {
     debug(`Событие copy: clipboardData недоступен; ${textSummary(text)}.`)
     return
@@ -145,8 +151,8 @@ function selectedText(): string | undefined {
     : rawRows.map(values => values.map(csvValue).join(';')).join('\r\n')
 }
 
-async function copyWithShortcut(event: KeyboardEvent): Promise<void> {
-  if (!(event.ctrlKey || event.metaKey) || event.key.toLocaleLowerCase() !== 'c') return
+function copyWithShortcut(event: KeyboardEvent): void {
+  if (!(event.ctrlKey || event.metaKey) || (event.code !== 'KeyC' && event.key.toLocaleLowerCase() !== 'c')) return
   const text = selectedText()
   if (text === undefined) {
     debug('Ctrl+C: нет выбранных ячеек.')
@@ -155,27 +161,8 @@ async function copyWithShortcut(event: KeyboardEvent): Promise<void> {
   event.preventDefault()
   event.stopPropagation()
   debug(`Ctrl+C перехвачен; ${textSummary(text)}.`)
-  try {
-    await navigator.clipboard.writeText(text)
-    debug('Clipboard API: запись выполнена успешно.')
-  } catch (error) {
-    debug(`Clipboard API: ошибка ${error instanceof Error ? error.message : String(error)}; запускается резервное копирование.`)
-    const copied = copyThroughTemporaryInput(text)
-    debug(`Резервное копирование: ${copied ? 'успешно' : 'document.execCommand вернул false'}.`)
-  }
-}
-
-function copyThroughTemporaryInput(text: string): boolean {
-  const input = document.createElement('textarea')
-  input.value = text
-  input.style.position = 'fixed'
-  input.style.opacity = '0'
-  document.body.appendChild(input)
-  input.select()
-  const copied = document.execCommand('copy')
-  input.remove()
-  container.value?.focus({ preventScroll: true })
-  return copied
+  vscode.postMessage({ command: 'copyTableCells', text })
+  debug('Текст отправлен в extension host для записи в буфер обмена.')
 }
 
 function navigateWithKeyboard(event: KeyboardEvent): void {
@@ -219,8 +206,40 @@ function navigateWithKeyboard(event: KeyboardEvent): void {
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  void copyWithShortcut(event)
+  copyWithShortcut(event)
   navigateWithKeyboard(event)
+}
+
+function handleDocumentKeydown(event: KeyboardEvent): void {
+  if (!isActiveTable()) return
+  debugKeyboardEvent('keydown', event)
+  handleKeydown(event)
+}
+
+function handleDocumentKeyup(event: KeyboardEvent): void {
+  if (!isActiveTable()) return
+  debugKeyboardEvent('keyup', event)
+}
+
+function handleDocumentCopy(event: ClipboardEvent): void {
+  if (!isActiveTable()) return
+  debug(`copy capture: target=${elementDescription(event.target)}, activeElement=${elementDescription(document.activeElement)}, clipboardData=${Boolean(event.clipboardData)}, выбрано ячеек=${selectedCells.size}.`)
+  copySelectedCells(event)
+}
+
+function isActiveTable(): boolean {
+  return selectedCells.size > 0 && Boolean(container.value?.isConnected && container.value.getClientRects().length)
+}
+
+function debugKeyboardEvent(kind: 'keydown' | 'keyup', event: KeyboardEvent): void {
+  debug(`${kind}: key=${JSON.stringify(event.key)}, code=${event.code}, ctrl=${event.ctrlKey}, meta=${event.metaKey}, shift=${event.shiftKey}, alt=${event.altKey}, repeat=${event.repeat}, target=${elementDescription(event.target)}, activeElement=${elementDescription(document.activeElement)}, выбрано ячеек=${selectedCells.size}.`)
+}
+
+function elementDescription(value: EventTarget | null): string {
+  if (!(value instanceof Element)) return String(value)
+  const id = value.id ? `#${value.id}` : ''
+  const slot = value.getAttribute('data-slot') ? `[data-slot=${value.getAttribute('data-slot')}]` : ''
+  return `${value.tagName.toLocaleLowerCase()}${id}${slot}`
 }
 
 function debugSelection(action: string, cell: HTMLTableCellElement): void {
@@ -247,7 +266,16 @@ function csvValue(value: string): string {
   return /[;"\r\n\s]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
 }
 
+onMounted(() => {
+  document.addEventListener('keydown', handleDocumentKeydown, true)
+  document.addEventListener('keyup', handleDocumentKeyup, true)
+  document.addEventListener('copy', handleDocumentCopy, true)
+})
+
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleDocumentKeydown, true)
+  document.removeEventListener('keyup', handleDocumentKeyup, true)
+  document.removeEventListener('copy', handleDocumentCopy, true)
   clearSelection()
   activeCell?.removeAttribute('data-active-cell')
 })
@@ -264,8 +292,6 @@ onBeforeUnmount(() => {
     @pointerup="stopSelection"
     @pointercancel="stopSelection"
     @pointerleave="stopSelection"
-    @keydown="handleKeydown"
-    @copy="copySelectedCells"
   >
     <table data-slot="table" :class="cn('w-full caption-bottom text-xs', props.class)">
       <slot />

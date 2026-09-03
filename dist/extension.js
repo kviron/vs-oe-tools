@@ -3496,8 +3496,8 @@ var require_helper = __commonJS({
       return old;
     };
     module2.exports.getFileName = function(rawEnv) {
-      var env4 = rawEnv || process.env;
-      var file = env4.PGPASSFILE || (isWin ? path3.join(env4.APPDATA || "./", "postgresql", "pgpass.conf") : path3.join(env4.HOME || "./", ".pgpass"));
+      var env5 = rawEnv || process.env;
+      var file = env5.PGPASSFILE || (isWin ? path3.join(env5.APPDATA || "./", "postgresql", "pgpass.conf") : path3.join(env5.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -9511,6 +9511,7 @@ async function getClassAttributes(classId, className, includeInherited) {
       source: includeInherited ? `\u0410\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className} \u0441 \u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u0435\u043C` : `\u0410\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className}`,
       database: options.database
     });
+    const creators = await getObjectCreators(client, options.database, result.rows.map((row) => readValue(row.data, "id")), 4);
     const attributes = result.rows.map(({ data, ownername, depth }) => ({
       id: readValue(data, "id"),
       name: readValue(data, "name"),
@@ -9520,6 +9521,8 @@ async function getClassAttributes(classId, className, includeInherited) {
       visibility: readValue(data, "visibility", "access", "scope"),
       package: readValue(data, "package", "packagename"),
       line: readValue(data, "line", "linenumber", "row", "rownum"),
+      updatedAt: readValue(data, "lastchange", "updatedate", "updatedat", "modifieddate"),
+      createdBy: creators.get(readValue(data, "id"))?.name ?? "",
       inherited: depth > 0
     }));
     if (!includeInherited) {
@@ -9567,6 +9570,7 @@ async function getClassMethods(classId, className, includeInherited) {
       source: includeInherited ? `\u041C\u0435\u0442\u043E\u0434\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className} \u0441 \u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u0435\u043C` : `\u041C\u0435\u0442\u043E\u0434\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className}`,
       database: options.database
     });
+    const creators = await getObjectCreators(client, options.database, result.rows.map((row) => readValue(row.data, "id")), 5);
     const methods = result.rows.map(({ data, ownername, depth }) => ({
       id: readValue(data, "id"),
       name: readValue(data, "name", "methname"),
@@ -9576,6 +9580,8 @@ async function getClassMethods(classId, className, includeInherited) {
       visibility: readValue(data, "visibility", "visible", "access", "scope"),
       package: readValue(data, "package", "packagename"),
       line: readValue(data, "line", "linenumber", "row", "rownum"),
+      updatedAt: readValue(data, "lastchange", "updatedate", "updatedat", "modifieddate"),
+      createdBy: creators.get(readValue(data, "id"))?.name ?? "",
       inherited: depth > 0
     }));
     if (!includeInherited) {
@@ -9592,6 +9598,54 @@ async function getClassMethods(classId, className, includeInherited) {
   } finally {
     await client.end().catch(() => void 0);
   }
+}
+async function getObjectCreators(client, database, objectIds, objectClassId) {
+  const ids = objectIds.map(Number).filter(Number.isSafeInteger);
+  if (ids.length === 0) {
+    return /* @__PURE__ */ new Map();
+  }
+  const userTable = await findUserTable(client, database).catch(() => void 0);
+  const userJoin = userTable ? `LEFT JOIN ${quoteIdentifier(userTable.table_schema)}.${quoteIdentifier(userTable.table_name)} AS creator_user ON creator_user.${quoteIdentifier(userTable.id_column)} = creator_log.userid` : "";
+  const userColumn = userTable ? ", to_jsonb(creator_user) AS userdata" : "";
+  const result = await executeMonitoredQuery(client, {
+    text: `SELECT DISTINCT ON (creator_log.objid)
+		        creator_log.objid, creator_log.userid${userColumn}
+		 FROM logcchangedobject AS creator_log
+		 ${userJoin}
+		 WHERE creator_log.objid = ANY($1::bigint[]) AND creator_log.objclassid = $2
+		 ORDER BY creator_log.objid,
+		          CASE WHEN creator_log.changetype = 1 THEN 0 ELSE 1 END,
+		          creator_log.changedate`,
+    values: [ids, objectClassId],
+    source: `\u0421\u043E\u0437\u0434\u0430\u0442\u0435\u043B\u0438 \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432 \u043A\u043B\u0430\u0441\u0441\u0430 ${objectClassId}`,
+    database
+  });
+  return new Map(result.rows.map((row) => [String(row.objid), {
+    name: formatAuditUser(row.userid, row.userdata)
+  }]));
+}
+async function findUserTable(client, database) {
+  const result = await executeMonitoredQuery(client, {
+    text: `SELECT table_schema, table_name,
+		        min(column_name) FILTER (WHERE lower(column_name) = 'id') AS id_column
+		 FROM information_schema.columns
+		 WHERE lower(table_name) = 'users'
+		 GROUP BY table_schema, table_name
+		 HAVING bool_or(lower(column_name) = 'id')
+		 ORDER BY CASE WHEN table_schema = 'public' THEN 0 ELSE 1 END, table_schema
+		 LIMIT 1`,
+    source: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439 \u0434\u043B\u044F \u0441\u043E\u0437\u0434\u0430\u0442\u0435\u043B\u0435\u0439 \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432",
+    database
+  });
+  return result.rows[0];
+}
+function formatAuditUser(userId, userData) {
+  const name = decodeDatabaseText(readValue(userData ?? {}, "username", "fullname", "name", "fio"));
+  const login = decodeDatabaseText(readValue(userData ?? {}, "loginname", "login", "userlogin"));
+  if (name && login && name !== login) {
+    return `${name} (${login})`;
+  }
+  return name || login || (userId ? `\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${userId}` : "");
 }
 function methodTypeName(value) {
   switch (value) {
@@ -9740,6 +9794,9 @@ function isClassDetailsWebviewMessage(message) {
   if (message.command === "openMethod") {
     return "id" in message && typeof message.id === "number";
   }
+  if (message.command === "copyTableCells") {
+    return "text" in message && typeof message.text === "string";
+  }
   if (message.command === "methodSvnAction") {
     return "id" in message && typeof message.id === "number" && "action" in message && (message.action === "localDiff" || message.action === "history" || message.action === "blame");
   }
@@ -9773,7 +9830,7 @@ function isCopyEntityIdMessage(message) {
   return typeof message === "object" && message !== null && "command" in message && message.command === "copyEntityId" && "id" in message && (typeof message.id === "number" || typeof message.id === "string");
 }
 function isSqlMonitorWebviewMessage(message) {
-  return typeof message === "object" && message !== null && "command" in message && (message.command === "sqlMonitorReady" || message.command === "clearSqlMonitor" || isTableSelectionDebugMessage(message));
+  return typeof message === "object" && message !== null && "command" in message && (message.command === "sqlMonitorReady" || message.command === "clearSqlMonitor" || isTableSelectionDebugMessage(message) || isCopyTableCellsMessage(message));
 }
 function isSqlExecutorWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
@@ -9783,6 +9840,9 @@ function isSqlExecutorWebviewMessage(message) {
     return true;
   }
   if (isTableSelectionDebugMessage(message)) {
+    return true;
+  }
+  if (isCopyTableCellsMessage(message)) {
     return true;
   }
   if (message.command === "executeSql") {
@@ -9795,6 +9855,9 @@ function isSqlExecutorWebviewMessage(message) {
     return "text" in message && typeof message.text === "string";
   }
   return message.command === "exportSqlResult";
+}
+function isCopyTableCellsMessage(message) {
+  return "command" in message && message.command === "copyTableCells" && "text" in message && typeof message.text === "string";
 }
 function isTableSelectionDebugMessage(message) {
   return "command" in message && message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string";
@@ -9836,8 +9899,28 @@ function createPanel(context, classDetails, pinned, methodEditor) {
         return;
       }
       if (message.command === "copyEntityId") {
-        await vscode5.env.clipboard.writeText(String(message.id));
-        vscode5.window.setStatusBarMessage(`ID ${message.id} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
+        const ids = String(message.id);
+        logTableSelection("\u041A\u043B\u0430\u0441\u0441", `\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u043D\u043E\u0435 \u043C\u0435\u043D\u044E copyEntityId: ${JSON.stringify(ids)}.`);
+        try {
+          await vscode5.env.clipboard.writeText(ids);
+          logTableSelection("\u041A\u043B\u0430\u0441\u0441", "ID \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u044B \u0432 \u0431\u0443\u0444\u0435\u0440 \u0443\u0441\u043F\u0435\u0448\u043D\u043E.");
+          vscode5.window.setStatusBarMessage(`ID ${ids} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
+        } catch (error) {
+          logTableSelection("\u041A\u043B\u0430\u0441\u0441", `\u041E\u0448\u0438\u0431\u043A\u0430 \u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F ID: ${error instanceof Error ? error.message : String(error)}.`);
+          void vscode5.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C ID: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        return;
+      }
+      if (message.command === "copyTableCells") {
+        logTableSelection("\u041A\u043B\u0430\u0441\u0441", `extension host \u043F\u043E\u043B\u0443\u0447\u0438\u043B copyTableCells: \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432=${message.text.length}, \u0442\u0435\u043A\u0441\u0442=${JSON.stringify(message.text.slice(0, 300))}.`);
+        try {
+          await vscode5.env.clipboard.writeText(message.text);
+          logTableSelection("\u041A\u043B\u0430\u0441\u0441", "vscode.env.clipboard.writeText \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043D \u0443\u0441\u043F\u0435\u0448\u043D\u043E.");
+          vscode5.window.setStatusBarMessage("\u0412\u044B\u0434\u0435\u043B\u0435\u043D\u043D\u044B\u0435 \u044F\u0447\u0435\u0439\u043A\u0438 \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D\u044B", 1500);
+        } catch (error) {
+          logTableSelection("\u041A\u043B\u0430\u0441\u0441", `\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u043F\u0438\u0441\u0438 \u0432 \u0431\u0443\u0444\u0435\u0440: ${error instanceof Error ? error.message : String(error)}.`);
+          void vscode5.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u044F\u0447\u0435\u0439\u043A\u0438: ${error instanceof Error ? error.message : String(error)}`);
+        }
         return;
       }
       if (message.command === "classDetailsReady") {
@@ -10094,12 +10177,16 @@ function openSqlMonitor(context) {
   const subscription = sqlMonitorService.subscribe((record) => {
     void panel.webview.postMessage({ command: "sqlQueryChanged", record });
   });
-  panel.webview.onDidReceiveMessage((message) => {
+  panel.webview.onDidReceiveMessage(async (message) => {
     if (!isSqlMonitorWebviewMessage(message)) {
       return;
     }
     if (message.command === "tableSelectionDebug") {
       logTableSelection("SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440", message.message);
+      return;
+    }
+    if (message.command === "copyTableCells") {
+      await vscode7.env.clipboard.writeText(message.text);
       return;
     }
     if (message.command === "sqlMonitorReady") {
@@ -10327,12 +10414,16 @@ var SqlExecutorViewProvider = class {
       });
     });
     webviewView.onDidDispose(() => historySubscription.dispose());
-    webviewView.webview.onDidReceiveMessage((message) => {
+    webviewView.webview.onDidReceiveMessage(async (message) => {
       if (!isSqlExecutorWebviewMessage(message)) {
         return;
       }
       if (message.command === "tableSelectionDebug") {
         logTableSelection("\u0418\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C SQL", message.message);
+        return;
+      }
+      if (message.command === "copyTableCells") {
+        await vscode8.env.clipboard.writeText(message.text);
         return;
       }
       if (message.command === "sqlExecutorReady") {
@@ -11003,7 +11094,7 @@ var MethodSymbolIndex = class {
       return { kind: "class", id: targetClass.id };
     }
     const externalMethod = (await findMethodsByName(word))[0];
-    return externalMethod ? { kind: "method", method: { ...externalMethod, id: String(externalMethod.id), owner: "", signature: "", type: "", visibility: "", package: "", line: "", inherited: false } } : void 0;
+    return externalMethod ? { kind: "method", method: { ...externalMethod, id: String(externalMethod.id), owner: "", signature: "", type: "", visibility: "", package: "", line: "", updatedAt: "", createdBy: "", inherited: false } } : void 0;
   }
   async forDocument(document) {
     const method = await this.editor.getMethod(document.uri);
@@ -11117,7 +11208,7 @@ async function getMethodHistory(methodId) {
   const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
   try {
     await client.connect();
-    const userTable = await findUserTable(client, options.database).catch(() => void 0);
+    const userTable = await findUserTable2(client, options.database).catch(() => void 0);
     const userJoin = userTable ? buildUserJoin(userTable) : "";
     const userColumns = userTable ? ", to_jsonb(users) AS userdata" : "";
     const result = await executeMonitoredQuery(client, {
@@ -11155,7 +11246,7 @@ function toHistoryEntry2(data, index, userData) {
     newCode: newCode ?? ""
   };
 }
-async function findUserTable(client, database) {
+async function findUserTable2(client, database) {
   const result = await executeMonitoredQuery(client, {
     text: `SELECT table_schema, table_name,
 		        min(column_name) FILTER (WHERE lower(column_name) = 'id') AS id_column

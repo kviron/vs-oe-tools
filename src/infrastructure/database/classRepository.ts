@@ -136,6 +136,22 @@ interface ClassAttributeRow {
 	depth: number;
 }
 
+interface ObjectCreatorRow {
+	objid: string;
+	userid: string | null;
+	userdata?: Record<string, unknown> | null;
+}
+
+interface ObjectCreator {
+	name: string;
+}
+
+interface UserTableInfo {
+	table_schema: string;
+	table_name: string;
+	id_column: string;
+}
+
 export async function getClassAttributes(classId: number, className: string, includeInherited: boolean): Promise<ClassAttribute[]> {
 	const options = await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
@@ -189,6 +205,7 @@ export async function getClassAttributes(classId: number, className: string, inc
 			database: options.database,
 		});
 
+		const creators = await getObjectCreators(client, options.database, result.rows.map(row => readValue(row.data, 'id')), 4);
 		const attributes = result.rows.map(({ data, ownername, depth }) => ({
 			id: readValue(data, 'id'),
 			name: readValue(data, 'name'),
@@ -198,6 +215,8 @@ export async function getClassAttributes(classId: number, className: string, inc
 			visibility: readValue(data, 'visibility', 'access', 'scope'),
 			package: readValue(data, 'package', 'packagename'),
 			line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
+			updatedAt: readValue(data, 'lastchange', 'updatedate', 'updatedat', 'modifieddate'),
+			createdBy: creators.get(readValue(data, 'id'))?.name ?? '',
 			inherited: depth > 0,
 		}));
 		if (!includeInherited) {
@@ -256,6 +275,7 @@ export async function getClassMethods(classId: number, className: string, includ
 			database: options.database,
 		});
 
+		const creators = await getObjectCreators(client, options.database, result.rows.map(row => readValue(row.data, 'id')), 5);
 		const methods = result.rows.map(({ data, ownername, depth }) => ({
 			id: readValue(data, 'id'),
 			name: readValue(data, 'name', 'methname'),
@@ -265,6 +285,8 @@ export async function getClassMethods(classId: number, className: string, includ
 			visibility: readValue(data, 'visibility', 'visible', 'access', 'scope'),
 			package: readValue(data, 'package', 'packagename'),
 			line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
+			updatedAt: readValue(data, 'lastchange', 'updatedate', 'updatedat', 'modifieddate'),
+			createdBy: creators.get(readValue(data, 'id'))?.name ?? '',
 			inherited: depth > 0,
 		}));
 		if (!includeInherited) {
@@ -282,6 +304,59 @@ export async function getClassMethods(classId: number, className: string, includ
 	} finally {
 		await client.end().catch(() => undefined);
 	}
+}
+
+async function getObjectCreators(client: Client, database: string, objectIds: string[], objectClassId: number): Promise<Map<string, ObjectCreator>> {
+	const ids = objectIds.map(Number).filter(Number.isSafeInteger);
+	if (ids.length === 0) {
+		return new Map();
+	}
+	const userTable = await findUserTable(client, database).catch(() => undefined);
+	const userJoin = userTable
+		? `LEFT JOIN ${quoteIdentifier(userTable.table_schema)}.${quoteIdentifier(userTable.table_name)} AS creator_user ON creator_user.${quoteIdentifier(userTable.id_column)} = creator_log.userid`
+		: '';
+	const userColumn = userTable ? ', to_jsonb(creator_user) AS userdata' : '';
+	const result = await executeMonitoredQuery<ObjectCreatorRow, [number[], number]>(client, {
+		text: `SELECT DISTINCT ON (creator_log.objid)
+		        creator_log.objid, creator_log.userid${userColumn}
+		 FROM logcchangedobject AS creator_log
+		 ${userJoin}
+		 WHERE creator_log.objid = ANY($1::bigint[]) AND creator_log.objclassid = $2
+		 ORDER BY creator_log.objid,
+		          CASE WHEN creator_log.changetype = 1 THEN 0 ELSE 1 END,
+		          creator_log.changedate`,
+		values: [ids, objectClassId],
+		source: `Создатели объектов класса ${objectClassId}`,
+		database,
+	});
+	return new Map(result.rows.map(row => [String(row.objid), {
+		name: formatAuditUser(row.userid, row.userdata),
+	}]));
+}
+
+async function findUserTable(client: Client, database: string): Promise<UserTableInfo | undefined> {
+	const result = await executeMonitoredQuery<UserTableInfo>(client, {
+		text: `SELECT table_schema, table_name,
+		        min(column_name) FILTER (WHERE lower(column_name) = 'id') AS id_column
+		 FROM information_schema.columns
+		 WHERE lower(table_name) = 'users'
+		 GROUP BY table_schema, table_name
+		 HAVING bool_or(lower(column_name) = 'id')
+		 ORDER BY CASE WHEN table_schema = 'public' THEN 0 ELSE 1 END, table_schema
+		 LIMIT 1`,
+		source: 'Поиск пользователей для создателей объектов',
+		database,
+	});
+	return result.rows[0];
+}
+
+function formatAuditUser(userId: string | null, userData?: Record<string, unknown> | null): string {
+	const name = decodeDatabaseText(readValue(userData ?? {}, 'username', 'fullname', 'name', 'fio'));
+	const login = decodeDatabaseText(readValue(userData ?? {}, 'loginname', 'login', 'userlogin'));
+	if (name && login && name !== login) {
+		return `${name} (${login})`;
+	}
+	return name || login || (userId ? `Пользователь ${userId}` : '');
 }
 
 function methodTypeName(value: string): string {

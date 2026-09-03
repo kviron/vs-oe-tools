@@ -43,8 +43,28 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				return;
 			}
 			if (message.command === 'copyEntityId') {
-				await vscode.env.clipboard.writeText(String(message.id));
-				vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
+				const ids = String(message.id);
+				logTableSelection('Класс', `Контекстное меню copyEntityId: ${JSON.stringify(ids)}.`);
+				try {
+					await vscode.env.clipboard.writeText(ids);
+					logTableSelection('Класс', 'ID записаны в буфер успешно.');
+					vscode.window.setStatusBarMessage(`ID ${ids} скопирован`, 1500);
+				} catch (error) {
+					logTableSelection('Класс', `Ошибка копирования ID: ${error instanceof Error ? error.message : String(error)}.`);
+					void vscode.window.showErrorMessage(`Не удалось скопировать ID: ${error instanceof Error ? error.message : String(error)}`);
+				}
+				return;
+			}
+			if (message.command === 'copyTableCells') {
+				logTableSelection('Класс', `extension host получил copyTableCells: символов=${message.text.length}, текст=${JSON.stringify(message.text.slice(0, 300))}.`);
+				try {
+					await vscode.env.clipboard.writeText(message.text);
+					logTableSelection('Класс', 'vscode.env.clipboard.writeText завершён успешно.');
+					vscode.window.setStatusBarMessage('Выделенные ячейки скопированы', 1500);
+				} catch (error) {
+					logTableSelection('Класс', `Ошибка записи в буфер: ${error instanceof Error ? error.message : String(error)}.`);
+					void vscode.window.showErrorMessage(`Не удалось скопировать ячейки: ${error instanceof Error ? error.message : String(error)}`);
+				}
 				return;
 			}
 			if (message.command === 'classDetailsReady') {

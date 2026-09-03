@@ -26,12 +26,16 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 			} satisfies SqlExecutorHostMessage);
 		});
 		webviewView.onDidDispose(() => historySubscription.dispose());
-		webviewView.webview.onDidReceiveMessage((message: unknown) => {
+		webviewView.webview.onDidReceiveMessage(async (message: unknown) => {
 			if (!isSqlExecutorWebviewMessage(message)) {
 				return;
 			}
 			if (message.command === 'tableSelectionDebug') {
 				logTableSelection('Исполнитель SQL', message.message);
+				return;
+			}
+			if (message.command === 'copyTableCells') {
+				await vscode.env.clipboard.writeText(message.text);
 				return;
 			}
 			if (message.command === 'sqlExecutorReady') {

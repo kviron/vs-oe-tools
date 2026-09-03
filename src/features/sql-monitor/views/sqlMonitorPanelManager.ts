@@ -25,12 +25,16 @@ export function openSqlMonitor(context: vscode.ExtensionContext): void {
 	const subscription = sqlMonitorService.subscribe(record => {
 		void panel.webview.postMessage({ command: 'sqlQueryChanged', record } satisfies SqlMonitorHostMessage);
 	});
-	panel.webview.onDidReceiveMessage((message: unknown) => {
+	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (!isSqlMonitorWebviewMessage(message)) {
 			return;
 		}
 		if (message.command === 'tableSelectionDebug') {
 			logTableSelection('SQL-монитор', message.message);
+			return;
+		}
+		if (message.command === 'copyTableCells') {
+			await vscode.env.clipboard.writeText(message.text);
 			return;
 		}
 		if (message.command === 'sqlMonitorReady') {
