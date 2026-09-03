@@ -87,7 +87,8 @@ function toHistoryEntry(data, index, userData) {
 }
 async function findUserTable(client, database) {
     const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-        text: `SELECT table_schema, table_name, array_agg(column_name) AS columns
+        text: `SELECT table_schema, table_name,
+		        min(column_name) FILTER (WHERE lower(column_name) = 'id') AS id_column
 		 FROM information_schema.columns
 		 WHERE lower(table_name) = 'users'
 		 GROUP BY table_schema, table_name
@@ -100,8 +101,7 @@ async function findUserTable(client, database) {
     return result.rows[0];
 }
 function buildUserJoin(table) {
-    const idColumn = table.columns.find(column => column.toLocaleLowerCase('en-US') === 'id') ?? 'id';
-    return `LEFT JOIN ${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)} AS users ON users.${quoteIdentifier(idColumn)} = log_entry.userid`;
+    return `LEFT JOIN ${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)} AS users ON users.${quoteIdentifier(table.id_column || 'id')} = log_entry.userid`;
 }
 function quoteIdentifier(value) {
     return `"${value.replace(/"/g, '""')}"`;

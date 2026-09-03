@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerCodeHistory = registerCodeHistory;
 const path = __importStar(require("node:path"));
+const promises_1 = require("node:fs/promises");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const methodHistoryRepository_1 = require("../../infrastructure/database/methodHistoryRepository");
@@ -57,10 +58,6 @@ class CodeHistoryService {
     view;
     message = { command: 'codeHistoryLoaded', title: 'История кода', subtitle: '', entries: [] };
     sequence = 0;
-    blameDecoration = vscode.window.createTextEditorDecorationType({
-        isWholeLine: true,
-        before: { color: new vscode.ThemeColor('editorCodeLens.foreground'), margin: '0 1.5em 0 0' },
-    });
     constructor(extensionUri, methodEditor) {
         this.extensionUri = extensionUri;
         this.methodEditor = methodEditor;
@@ -127,16 +124,24 @@ class CodeHistoryService {
     async showBlame(methodId) {
         await this.runSvnAction('SVN Blame', methodId, async (fileName) => {
             const [document, lines] = await Promise.all([vscode.workspace.openTextDocument(vscode.Uri.file(fileName)), (0, svnClient_1.svnBlame)(fileName)]);
-            const editor = await vscode.window.showTextDocument(document, { preview: true });
-            const width = Math.max(1, ...lines.map(line => String(line.revision).length));
-            editor.setDecorations(this.blameDecoration, lines.filter(line => line.line <= document.lineCount).map(line => ({
-                range: document.lineAt(line.line - 1).range,
-                hoverMessage: `SVN r${line.revision} · ${line.author}${Number.isNaN(line.date.getTime()) ? '' : ` · ${formatDate(line.date)}`}`,
-                renderOptions: { before: { contentText: `r${String(line.revision).padStart(width)}  ${line.author}` } },
-            })));
+            const byLine = new Map(lines.map(line => [line.line, line]));
+            const revisionWidth = Math.max(7, ...lines.map(line => `r${line.revision}`.length));
+            const authorWidth = Math.min(28, Math.max(5, ...lines.map(line => line.author.length)));
+            const lineWidth = String(document.lineCount).length;
+            const header = `${'Ревизия'.padEnd(revisionWidth)} | ${'Автор'.padEnd(authorWidth)} | ${'Строка'.padStart(lineWidth)} | Код`;
+            const separator = `${'-'.repeat(revisionWidth)}-+-${'-'.repeat(authorWidth)}-+-${'-'.repeat(lineWidth)}-+----`;
+            const content = [header, separator, ...Array.from({ length: document.lineCount }, (_, index) => {
+                    const blame = byLine.get(index + 1);
+                    const revision = blame ? `r${blame.revision}` : '-';
+                    const author = blame?.author ?? '-';
+                    return `${revision.padEnd(revisionWidth)} | ${author.slice(0, authorWidth).padEnd(authorWidth)} | ${String(index + 1).padStart(lineWidth)} | ${document.lineAt(index).text}`;
+                })].join('\n');
+            const blameDocument = await vscode.workspace.openTextDocument(this.store(`${path.basename(fileName)} · SVN Blame`, content, '.txt'));
+            await vscode.window.showTextDocument(blameDocument, { preview: true });
+            vscode.window.setStatusBarMessage(`SVN Blame: ${lines.length} строк · ${path.basename(fileName)}`, 3000);
         });
     }
-    dispose() { this.contents.clear(); this.actions.clear(); this.blameDecoration.dispose(); this.output.dispose(); this.view = undefined; }
+    dispose() { this.contents.clear(); this.actions.clear(); this.output.dispose(); this.view = undefined; }
     async loadSvnHistory(editor, selectionOnly) {
         const fileName = editor.document.uri.fsPath;
         await this.loadSvnFileHistory(fileName, selectionOnly, editor);
@@ -193,11 +198,24 @@ class CodeHistoryService {
     }
     async resolveWorkingCopy(methodId) {
         const info = await (0, methodWorkingCopyRepository_1.getMethodWorkingCopyInfo)(methodId);
-        const suffix = info.relativePath.replace(/\\/g, '/').toLocaleLowerCase('en-US');
-        const candidates = await vscode.workspace.findFiles(`**/${escapeGlob(info.fileName)}`, '**/{node_modules,.git}/**', 100);
-        const selected = candidates.find(candidate => candidate.path.toLocaleLowerCase('en-US').endsWith(suffix)) ?? (candidates.length === 1 ? candidates[0] : undefined);
+        const extensions = path.extname(info.fileName) ? [''] : ['.pkf', '.pas', ''];
+        if (info.packagesRoot) {
+            const roots = [info.packagesRoot, path.join(info.packagesRoot, 'packages')];
+            for (const root of roots) {
+                for (const extension of extensions) {
+                    const candidate = path.resolve(root, `${info.relativePath}${extension}`);
+                    if (await fileExists(candidate)) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+        const candidates = (await Promise.all(extensions.map(extension => vscode.workspace.findFiles(`**/${escapeGlob(info.fileName + extension)}`, '**/{node_modules,.git}/**', 100)))).flat();
+        const suffixes = extensions.map(extension => `${info.relativePath}${extension}`.replace(/\\/g, '/').toLocaleLowerCase('en-US'));
+        const selected = candidates.find(candidate => suffixes.some(suffix => candidate.path.toLocaleLowerCase('en-US').endsWith(suffix))) ?? (candidates.length === 1 ? candidates[0] : undefined);
         if (!selected) {
-            throw new Error(candidates.length ? `Найдено несколько файлов ${info.fileName}, но путь ${info.relativePath} не совпал.` : `Локальный файл ${info.relativePath} не найден в рабочей области.`);
+            const root = info.packagesRoot ? ` Корень пакетов: ${info.packagesRoot}.` : ' Для текущего компьютера не задан ПутьКБазеПакетов.';
+            throw new Error(`Локальный файл ${info.relativePath}{.pkf,.pas} не найден.${root}`);
         }
         return selected.fsPath;
     }
@@ -271,4 +289,11 @@ function formatUser(entry) {
 }
 function pluralChanges(count) { return count % 10 === 1 && count % 100 !== 11 ? 'изменение' : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20) ? 'изменения' : 'изменений'; }
 function escapeGlob(value) { return value.replace(/[{}[\]*?]/g, character => `[${character}]`); }
+async function fileExists(fileName) { try {
+    await (0, promises_1.access)(fileName);
+    return true;
+}
+catch {
+    return false;
+} }
 //# sourceMappingURL=codeHistoryService.js.map

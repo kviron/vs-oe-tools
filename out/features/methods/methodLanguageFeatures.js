@@ -159,7 +159,7 @@ class MethodSymbolIndex {
         }
         const externalMethod = (await (0, methodRepository_1.findMethodsByName)(word))[0];
         return externalMethod
-            ? { kind: 'method', method: { ...externalMethod, id: String(externalMethod.id), owner: '', signature: '', type: '', visibility: '', package: '', line: '', inherited: false } }
+            ? { kind: 'method', method: { ...externalMethod, id: String(externalMethod.id), owner: '', signature: '', type: '', visibility: '', package: '', line: '', updatedAt: '', createdBy: '', inherited: false } }
             : undefined;
     }
     async forDocument(document) {

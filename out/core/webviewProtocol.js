@@ -29,6 +29,9 @@ function isClassDetailsWebviewMessage(message) {
     if (message.command === 'openMethod') {
         return 'id' in message && typeof message.id === 'number';
     }
+    if (message.command === 'copyTableCells') {
+        return 'text' in message && typeof message.text === 'string';
+    }
     if (message.command === 'methodSvnAction') {
         return 'id' in message && typeof message.id === 'number' && 'action' in message
             && (message.action === 'localDiff' || message.action === 'history' || message.action === 'blame');
@@ -74,7 +77,7 @@ function isSqlMonitorWebviewMessage(message) {
     return typeof message === 'object'
         && message !== null
         && 'command' in message
-        && (message.command === 'sqlMonitorReady' || message.command === 'clearSqlMonitor' || isTableSelectionDebugMessage(message));
+        && (message.command === 'sqlMonitorReady' || message.command === 'clearSqlMonitor' || isTableSelectionDebugMessage(message) || isCopyTableCellsMessage(message));
 }
 function isSqlExecutorWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -84,6 +87,9 @@ function isSqlExecutorWebviewMessage(message) {
         return true;
     }
     if (isTableSelectionDebugMessage(message)) {
+        return true;
+    }
+    if (isCopyTableCellsMessage(message)) {
         return true;
     }
     if (message.command === 'executeSql') {
@@ -96,6 +102,10 @@ function isSqlExecutorWebviewMessage(message) {
         return 'text' in message && typeof message.text === 'string';
     }
     return message.command === 'exportSqlResult';
+}
+function isCopyTableCellsMessage(message) {
+    return 'command' in message && message.command === 'copyTableCells'
+        && 'text' in message && typeof message.text === 'string';
 }
 function isTableSelectionDebugMessage(message) {
     return 'command' in message && message.command === 'tableSelectionDebug'

@@ -58,12 +58,16 @@ class SqlExecutorViewProvider {
             });
         });
         webviewView.onDidDispose(() => historySubscription.dispose());
-        webviewView.webview.onDidReceiveMessage((message) => {
+        webviewView.webview.onDidReceiveMessage(async (message) => {
             if (!(0, webviewProtocol_1.isSqlExecutorWebviewMessage)(message)) {
                 return;
             }
             if (message.command === 'tableSelectionDebug') {
                 (0, tableSelectionLogger_1.logTableSelection)('Исполнитель SQL', message.message);
+                return;
+            }
+            if (message.command === 'copyTableCells') {
+                await vscode.env.clipboard.writeText(message.text);
                 return;
             }
             if (message.command === 'sqlExecutorReady') {

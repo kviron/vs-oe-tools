@@ -62,8 +62,30 @@ function createPanel(context, classDetails, pinned, methodEditor) {
                 return;
             }
             if (message.command === 'copyEntityId') {
-                await vscode.env.clipboard.writeText(String(message.id));
-                vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
+                const ids = String(message.id);
+                (0, tableSelectionLogger_1.logTableSelection)('Класс', `Контекстное меню copyEntityId: ${JSON.stringify(ids)}.`);
+                try {
+                    await vscode.env.clipboard.writeText(ids);
+                    (0, tableSelectionLogger_1.logTableSelection)('Класс', 'ID записаны в буфер успешно.');
+                    vscode.window.setStatusBarMessage(`ID ${ids} скопирован`, 1500);
+                }
+                catch (error) {
+                    (0, tableSelectionLogger_1.logTableSelection)('Класс', `Ошибка копирования ID: ${error instanceof Error ? error.message : String(error)}.`);
+                    void vscode.window.showErrorMessage(`Не удалось скопировать ID: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
+            if (message.command === 'copyTableCells') {
+                (0, tableSelectionLogger_1.logTableSelection)('Класс', `extension host получил copyTableCells: символов=${message.text.length}, текст=${JSON.stringify(message.text.slice(0, 300))}.`);
+                try {
+                    await vscode.env.clipboard.writeText(message.text);
+                    (0, tableSelectionLogger_1.logTableSelection)('Класс', 'vscode.env.clipboard.writeText завершён успешно.');
+                    vscode.window.setStatusBarMessage('Выделенные ячейки скопированы', 1500);
+                }
+                catch (error) {
+                    (0, tableSelectionLogger_1.logTableSelection)('Класс', `Ошибка записи в буфер: ${error instanceof Error ? error.message : String(error)}.`);
+                    void vscode.window.showErrorMessage(`Не удалось скопировать ячейки: ${error instanceof Error ? error.message : String(error)}`);
+                }
                 return;
             }
             if (message.command === 'classDetailsReady') {

@@ -1,5 +1,7 @@
 export type SortDirection = 'asc' | 'desc';
 
+const collator = new Intl.Collator('ru', { numeric: true, sensitivity: 'base' });
+
 export function nextSort(currentKey: string | undefined, currentDirection: SortDirection, key: string): SortDirection {
   return currentKey === key && currentDirection === 'asc' ? 'desc' : 'asc';
 }
@@ -7,7 +9,10 @@ export function nextSort(currentKey: string | undefined, currentDirection: SortD
 export function sortedRows<T>(rows: T[], key: string | undefined, direction: SortDirection, read: (row: T, key: string) => unknown): T[] {
   if (!key) return rows.slice();
   const multiplier = direction === 'asc' ? 1 : -1;
-  return rows.slice().sort((left, right) => compareValues(read(left, key), read(right, key)) * multiplier);
+  return rows
+    .map((row, index) => ({ row, index, value: read(row, key) }))
+    .sort((left, right) => compareValues(left.value, right.value) * multiplier || left.index - right.index)
+    .map(({ row }) => row);
 }
 
 function compareValues(left: unknown, right: unknown): number {
@@ -17,5 +22,5 @@ function compareValues(left: unknown, right: unknown): number {
   const leftNumber = typeof left === 'number' ? left : Number(left);
   const rightNumber = typeof right === 'number' ? right : Number(right);
   if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return leftNumber - rightNumber;
-  return String(left).localeCompare(String(right), 'ru', { numeric: true, sensitivity: 'base' });
+  return collator.compare(String(left), String(right));
 }

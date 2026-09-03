@@ -9462,13 +9462,32 @@ function readValue(row, ...names) {
   }
   return "";
 }
+var attributeTableCache = /* @__PURE__ */ new Map();
+var userTableCache = /* @__PURE__ */ new Map();
+function databaseCacheKey(options) {
+  return `${options.host ?? ""}:${options.port ?? ""}/${options.database ?? ""}/${options.user ?? ""}`;
+}
+function cachedLookup(cache, key, lookup) {
+  const cached = cache.get(key);
+  if (cached) {
+    return cached;
+  }
+  const pending = lookup().catch((error) => {
+    cache.delete(key);
+    throw error;
+  });
+  cache.set(key, pending);
+  return pending;
+}
 async function getClassAttributes(classId, className, includeInherited) {
   const options = await getProjectDatabaseOptions();
   const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
   try {
     await client.connect();
-    const tables = await executeMonitoredQuery(client, {
-      text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
+    const cacheKey = databaseCacheKey(options);
+    const table = await cachedLookup(attributeTableCache, cacheKey, async () => {
+      const tables = await executeMonitoredQuery(client, {
+        text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
 			 FROM information_schema.columns
 			 WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
 			 GROUP BY table_schema, table_name
@@ -9479,13 +9498,18 @@ async function getClassAttributes(classId, className, includeInherited) {
 			 ORDER BY CASE lower(table_name)
 			   WHEN 'attributes' THEN 0 WHEN 'classattributes' THEN 1 WHEN 'objattributes' THEN 2 ELSE 3 END,
 			   table_name`,
-      source: "\u041F\u043E\u0438\u0441\u043A \u0442\u0430\u0431\u043B\u0438\u0446\u044B \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432",
-      database: options.database
+        source: "\u041F\u043E\u0438\u0441\u043A \u0442\u0430\u0431\u043B\u0438\u0446\u044B \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432",
+        database: options.database
+      });
+      return tables.rows[0];
     });
-    const table = tables.rows[0];
-    if (!table) throw new Error("\u0412 \u0441\u0445\u0435\u043C\u0435 \u0431\u0430\u0437\u044B \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0442\u0430\u0431\u043B\u0438\u0446\u0430 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432 \u043A\u043B\u0430\u0441\u0441\u043E\u0432.");
+    if (!table) {
+      throw new Error("\u0412 \u0441\u0445\u0435\u043C\u0435 \u0431\u0430\u0437\u044B \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0442\u0430\u0431\u043B\u0438\u0446\u0430 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432 \u043A\u043B\u0430\u0441\u0441\u043E\u0432.");
+    }
     const ownerColumn = ["seniorid", "classid", "ownerid"].find((column) => table.columns.includes(column));
-    if (!ownerColumn) throw new Error("\u0412 \u0442\u0430\u0431\u043B\u0438\u0446\u0435 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0441\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u043A\u043B\u0430\u0441\u0441.");
+    if (!ownerColumn) {
+      throw new Error("\u0412 \u0442\u0430\u0431\u043B\u0438\u0446\u0435 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0441\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u043A\u043B\u0430\u0441\u0441.");
+    }
     const orderColumn = ["ord", "line", "linenumber", "name"].find((column) => table.columns.includes(column)) ?? "id";
     const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
     const text = includeInherited ? `WITH RECURSIVE class_chain AS (
@@ -9511,7 +9535,7 @@ async function getClassAttributes(classId, className, includeInherited) {
       source: includeInherited ? `\u0410\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className} \u0441 \u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u0435\u043C` : `\u0410\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className}`,
       database: options.database
     });
-    const creators = await getObjectCreators(client, options.database, result.rows.map((row) => readValue(row.data, "id")), 4);
+    const creators = await getObjectCreators(client, options.database, cacheKey, result.rows.map((row) => readValue(row.data, "id")), 4);
     const attributes = result.rows.map(({ data, ownername, depth }) => ({
       id: readValue(data, "id"),
       name: readValue(data, "name"),
@@ -9570,7 +9594,7 @@ async function getClassMethods(classId, className, includeInherited) {
       source: includeInherited ? `\u041C\u0435\u0442\u043E\u0434\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className} \u0441 \u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u0435\u043C` : `\u041C\u0435\u0442\u043E\u0434\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className}`,
       database: options.database
     });
-    const creators = await getObjectCreators(client, options.database, result.rows.map((row) => readValue(row.data, "id")), 5);
+    const creators = await getObjectCreators(client, options.database, databaseCacheKey(options), result.rows.map((row) => readValue(row.data, "id")), 5);
     const methods = result.rows.map(({ data, ownername, depth }) => ({
       id: readValue(data, "id"),
       name: readValue(data, "name", "methname"),
@@ -9599,12 +9623,12 @@ async function getClassMethods(classId, className, includeInherited) {
     await client.end().catch(() => void 0);
   }
 }
-async function getObjectCreators(client, database, objectIds, objectClassId) {
+async function getObjectCreators(client, database, cacheKey, objectIds, objectClassId) {
   const ids = objectIds.map(Number).filter(Number.isSafeInteger);
   if (ids.length === 0) {
     return /* @__PURE__ */ new Map();
   }
-  const userTable = await findUserTable(client, database).catch(() => void 0);
+  const userTable = await cachedLookup(userTableCache, cacheKey, () => findUserTable(client, database)).catch(() => void 0);
   const userJoin = userTable ? `LEFT JOIN ${quoteIdentifier(userTable.table_schema)}.${quoteIdentifier(userTable.table_name)} AS creator_user ON creator_user.${quoteIdentifier(userTable.id_column)} = creator_log.userid` : "";
   const userColumn = userTable ? ", to_jsonb(creator_user) AS userdata" : "";
   const result = await executeMonitoredQuery(client, {

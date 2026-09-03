@@ -7,25 +7,26 @@ import { vscode } from '@/vscode'
 const props = defineProps<{
   class?: HTMLAttributes['class']
 }>()
-const emit = defineEmits<{ selectionChange: [ids: string[]] }>()
-
 const container = ref<HTMLElement>()
 const selectedCells = new Set<HTMLTableCellElement>()
+const selectedRows = new Set<HTMLTableRowElement>()
 let activeCell: HTMLTableCellElement | undefined
 let anchorCell: HTMLTableCellElement | undefined
 let dragging = false
 let additiveDrag = false
+let dragFrame: number | undefined
+let pendingDragCell: HTMLTableCellElement | undefined
 
 function tableRows(): HTMLTableRowElement[] {
   return Array.from(container.value?.querySelectorAll<HTMLTableRowElement>('tbody tr') ?? [])
 }
 
-function clearSelection(): void {
+function clearSelection(updateRows = true): void {
   for (const cell of selectedCells) {
     cell.removeAttribute('data-selected-cell')
   }
   selectedCells.clear()
-  updateSelectedRows()
+  if (updateRows) updateSelectedRows()
 }
 
 function selectCellElement(cell: HTMLTableCellElement): void {
@@ -40,16 +41,23 @@ function setActiveCell(cell: HTMLTableCellElement): void {
 }
 
 function updateSelectedRows(): void {
-  for (const row of tableRows()) {
-    const selected = Array.from(row.cells).some(cell => selectedCells.has(cell))
-    row.toggleAttribute('data-row-selected', selected)
-    if (selected) row.setAttribute('aria-selected', 'true')
-    else row.removeAttribute('aria-selected')
+  const nextSelectedRows = new Set<HTMLTableRowElement>()
+  for (const cell of selectedCells) {
+    const row = cell.parentElement
+    if (row instanceof HTMLTableRowElement) nextSelectedRows.add(row)
   }
-  emit('selectionChange', tableRows()
-    .filter(row => Array.from(row.cells).some(cell => selectedCells.has(cell)))
-    .map(row => row.dataset.entityId)
-    .filter((id): id is string => Boolean(id)))
+  for (const row of selectedRows) {
+    if (nextSelectedRows.has(row)) continue
+    row.removeAttribute('data-row-selected')
+    row.removeAttribute('aria-selected')
+  }
+  for (const row of nextSelectedRows) {
+    if (selectedRows.has(row)) continue
+    row.setAttribute('data-row-selected', '')
+    row.setAttribute('aria-selected', 'true')
+  }
+  selectedRows.clear()
+  for (const row of nextSelectedRows) selectedRows.add(row)
 }
 
 function eventCell(event: Event): HTMLTableCellElement | undefined {
@@ -65,7 +73,7 @@ function selectRectangle(from: HTMLTableCellElement, to: HTMLTableCellElement, a
   const fromRow = rows.indexOf(from.parentElement as HTMLTableRowElement)
   const toRow = rows.indexOf(to.parentElement as HTMLTableRowElement)
   if (fromRow < 0 || toRow < 0) return
-  if (!additive) clearSelection()
+  if (!additive) clearSelection(false)
   const firstRow = Math.min(fromRow, toRow)
   const lastRow = Math.max(fromRow, toRow)
   const firstColumn = Math.min(from.cellIndex, to.cellIndex)
@@ -100,26 +108,42 @@ function startSelection(event: PointerEvent): void {
     }
     anchorCell = cell
   } else {
-    clearSelection()
+    clearSelection(false)
     selectCellElement(cell)
     updateSelectedRows()
     anchorCell = cell
   }
   dragging = true
   additiveDrag = event.ctrlKey || event.metaKey
-  debugSelection('pointerdown', cell)
 }
 
 function extendSelection(event: PointerEvent): void {
   if (!dragging || !anchorCell || event.buttons !== 1) return
   const cell = eventCell(event)
-  if (!cell || cell === activeCell) return
+  if (!cell || cell === activeCell || cell === pendingDragCell) return
+  pendingDragCell = cell
+  if (dragFrame !== undefined) return
+  dragFrame = requestAnimationFrame(applyPendingDrag)
+}
+
+function applyPendingDrag(): void {
+  dragFrame = undefined
+  const cell = pendingDragCell
+  pendingDragCell = undefined
+  if (!dragging || !anchorCell || !cell || cell === activeCell) return
   setActiveCell(cell)
   selectRectangle(anchorCell, cell, additiveDrag)
-  debugSelection('drag', cell)
 }
 
 function stopSelection(): void {
+  if (dragFrame !== undefined) cancelAnimationFrame(dragFrame)
+  dragFrame = undefined
+  const cell = pendingDragCell
+  pendingDragCell = undefined
+  if (dragging && anchorCell && cell && cell !== activeCell) {
+    setActiveCell(cell)
+    selectRectangle(anchorCell, cell, additiveDrag)
+  }
   dragging = false
 }
 
@@ -195,14 +219,13 @@ function navigateWithKeyboard(event: KeyboardEvent): void {
     anchorCell ??= activeCell
     selectRectangle(anchorCell, target, false)
   } else {
-    clearSelection()
+    clearSelection(false)
     selectCellElement(target)
     updateSelectedRows()
     anchorCell = target
   }
   setActiveCell(target)
   target.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  debugSelection(`keyboard ${event.ctrlKey || event.metaKey ? 'Ctrl+' : ''}${event.shiftKey ? 'Shift+' : ''}${event.key}`, target)
 }
 
 function handleKeydown(event: KeyboardEvent): void {
@@ -212,13 +235,7 @@ function handleKeydown(event: KeyboardEvent): void {
 
 function handleDocumentKeydown(event: KeyboardEvent): void {
   if (!isActiveTable()) return
-  debugKeyboardEvent('keydown', event)
   handleKeydown(event)
-}
-
-function handleDocumentKeyup(event: KeyboardEvent): void {
-  if (!isActiveTable()) return
-  debugKeyboardEvent('keyup', event)
 }
 
 function handleDocumentCopy(event: ClipboardEvent): void {
@@ -268,15 +285,14 @@ function csvValue(value: string): string {
 
 onMounted(() => {
   document.addEventListener('keydown', handleDocumentKeydown, true)
-  document.addEventListener('keyup', handleDocumentKeyup, true)
   document.addEventListener('copy', handleDocumentCopy, true)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleDocumentKeydown, true)
-  document.removeEventListener('keyup', handleDocumentKeyup, true)
   document.removeEventListener('copy', handleDocumentCopy, true)
-  clearSelection()
+  if (dragFrame !== undefined) cancelAnimationFrame(dragFrame)
+  clearSelection(false)
   activeCell?.removeAttribute('data-active-cell')
 })
 </script>

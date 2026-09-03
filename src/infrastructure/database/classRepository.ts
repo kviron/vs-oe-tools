@@ -152,13 +152,35 @@ interface UserTableInfo {
 	id_column: string;
 }
 
+const attributeTableCache = new Map<string, Promise<AttributeTableInfo | undefined>>();
+const userTableCache = new Map<string, Promise<UserTableInfo | undefined>>();
+
+function databaseCacheKey(options: { host?: string; port?: number; database?: string; user?: string }): string {
+	return `${options.host ?? ''}:${options.port ?? ''}/${options.database ?? ''}/${options.user ?? ''}`;
+}
+
+function cachedLookup<T>(cache: Map<string, Promise<T>>, key: string, lookup: () => Promise<T>): Promise<T> {
+	const cached = cache.get(key);
+	if (cached) {
+		return cached;
+	}
+	const pending = lookup().catch((error: unknown) => {
+		cache.delete(key);
+		throw error;
+	});
+	cache.set(key, pending);
+	return pending;
+}
+
 export async function getClassAttributes(classId: number, className: string, includeInherited: boolean): Promise<ClassAttribute[]> {
 	const options = await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
 	try {
 		await client.connect();
-		const tables = await executeMonitoredQuery<AttributeTableInfo>(client, {
-			text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
+		const cacheKey = databaseCacheKey(options);
+		const table = await cachedLookup(attributeTableCache, cacheKey, async () => {
+			const tables = await executeMonitoredQuery<AttributeTableInfo>(client, {
+				text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
 			 FROM information_schema.columns
 			 WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
 			 GROUP BY table_schema, table_name
@@ -170,13 +192,18 @@ export async function getClassAttributes(classId: number, className: string, inc
 			   WHEN 'attributes' THEN 0 WHEN 'classattributes' THEN 1 WHEN 'objattributes' THEN 2 ELSE 3 END,
 			   table_name`,
 			source: 'Поиск таблицы атрибутов',
-			database: options.database,
+				database: options.database,
+			});
+			return tables.rows[0];
 		});
-		const table = tables.rows[0];
-		if (!table) throw new Error('В схеме базы данных не найдена таблица атрибутов классов.');
+		if (!table) {
+			throw new Error('В схеме базы данных не найдена таблица атрибутов классов.');
+		}
 
 		const ownerColumn = ['seniorid', 'classid', 'ownerid'].find(column => table.columns.includes(column));
-		if (!ownerColumn) throw new Error('В таблице атрибутов не найдена ссылка на класс.');
+		if (!ownerColumn) {
+			throw new Error('В таблице атрибутов не найдена ссылка на класс.');
+		}
 		const orderColumn = ['ord', 'line', 'linenumber', 'name'].find(column => table.columns.includes(column)) ?? 'id';
 		const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
 		const text = includeInherited
@@ -205,7 +232,7 @@ export async function getClassAttributes(classId: number, className: string, inc
 			database: options.database,
 		});
 
-		const creators = await getObjectCreators(client, options.database, result.rows.map(row => readValue(row.data, 'id')), 4);
+		const creators = await getObjectCreators(client, options.database, cacheKey, result.rows.map(row => readValue(row.data, 'id')), 4);
 		const attributes = result.rows.map(({ data, ownername, depth }) => ({
 			id: readValue(data, 'id'),
 			name: readValue(data, 'name'),
@@ -275,7 +302,7 @@ export async function getClassMethods(classId: number, className: string, includ
 			database: options.database,
 		});
 
-		const creators = await getObjectCreators(client, options.database, result.rows.map(row => readValue(row.data, 'id')), 5);
+		const creators = await getObjectCreators(client, options.database, databaseCacheKey(options), result.rows.map(row => readValue(row.data, 'id')), 5);
 		const methods = result.rows.map(({ data, ownername, depth }) => ({
 			id: readValue(data, 'id'),
 			name: readValue(data, 'name', 'methname'),
@@ -306,12 +333,12 @@ export async function getClassMethods(classId: number, className: string, includ
 	}
 }
 
-async function getObjectCreators(client: Client, database: string, objectIds: string[], objectClassId: number): Promise<Map<string, ObjectCreator>> {
+async function getObjectCreators(client: Client, database: string, cacheKey: string, objectIds: string[], objectClassId: number): Promise<Map<string, ObjectCreator>> {
 	const ids = objectIds.map(Number).filter(Number.isSafeInteger);
 	if (ids.length === 0) {
 		return new Map();
 	}
-	const userTable = await findUserTable(client, database).catch(() => undefined);
+	const userTable = await cachedLookup(userTableCache, cacheKey, () => findUserTable(client, database)).catch(() => undefined);
 	const userJoin = userTable
 		? `LEFT JOIN ${quoteIdentifier(userTable.table_schema)}.${quoteIdentifier(userTable.table_name)} AS creator_user ON creator_user.${quoteIdentifier(userTable.id_column)} = creator_log.userid`
 		: '';

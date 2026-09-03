@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ClassDetailsHostMessage } from '../../../src/core/webviewProtocol';
 import type { ClassAttribute, ClassDetails, ClassMethod } from '../../../src/features/classes/models';
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
@@ -23,7 +23,7 @@ interface SignaturePart {
 
 const details = ref<ClassDetails>();
 const activeTab = ref('class');
-const attributes = ref<ClassAttribute[]>([]);
+const attributes = shallowRef<ClassAttribute[]>([]);
 const attributesLoading = ref(false);
 const attributesLoaded = ref(false);
 const attributesError = ref('');
@@ -32,8 +32,7 @@ const attributeSearchQuery = ref('');
 const attributeCreatorQuery = ref('');
 const attributeDateFrom = ref('');
 const attributeDateTo = ref('');
-const selectedAttributeIds = ref<string[]>([]);
-const methods = ref<ClassMethod[]>([]);
+const methods = shallowRef<ClassMethod[]>([]);
 const methodsLoading = ref(false);
 const methodsLoaded = ref(false);
 const methodsError = ref('');
@@ -42,11 +41,14 @@ const methodSearchQuery = ref('');
 const methodCreatorQuery = ref('');
 const methodDateFrom = ref('');
 const methodDateTo = ref('');
-const selectedMethodIds = ref<string[]>([]);
 const attributeSortKey = ref<string>();
 const attributeSortDirection = ref<SortDirection>('asc');
 const methodSortKey = ref<string>();
 const methodSortDirection = ref<SortDirection>('asc');
+const dateFormatter = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'medium' });
+const formattedDateCache = new Map<string, string>();
+const localDateCache = new Map<string, string>();
+const signaturePartsCache = new Map<string, SignaturePart[]>();
 const tableColumns = [
   ['Имя', 'name'], ['Владелец', 'owner'], ['Сигнатура', 'signature'], ['Тип', 'type'],
   ['ID', 'id'], ['Видимость', 'visibility'], ['Пакет', 'package'], ['Строка', 'line'],
@@ -96,7 +98,6 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
       attributeCreatorQuery.value = '';
       attributeDateFrom.value = '';
       attributeDateTo.value = '';
-      selectedAttributeIds.value = [];
       methods.value = [];
       methodsLoading.value = false;
       methodsLoaded.value = false;
@@ -105,7 +106,6 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
       methodCreatorQuery.value = '';
       methodDateFrom.value = '';
       methodDateTo.value = '';
-      selectedMethodIds.value = [];
     }
     details.value = event.data.details;
     loadAttributesForActiveTab();
@@ -148,6 +148,8 @@ function toggleInheritedMethods(value: boolean | 'indeterminate'): void {
 }
 
 function signatureParts(signature: string): SignaturePart[] {
+  const cached = signaturePartsCache.get(signature);
+  if (cached) return cached;
   const parts: SignaturePart[] = [];
   const pattern = /([\p{L}_][\p{L}\p{N}_]*)(\s*:\s*)([\p{L}_][\p{L}\p{N}_.]*)/gu;
   let position = 0;
@@ -160,6 +162,7 @@ function signatureParts(signature: string): SignaturePart[] {
     position = index + match[0].length;
   }
   if (position < signature.length) parts.push({ text: signature.slice(position), kind: 'plain' });
+  signaturePartsCache.set(signature, parts);
   return parts;
 }
 
@@ -175,11 +178,12 @@ function displayClassField(key: string, value: unknown): string {
 
 function formatDate(value: string): string {
   if (!value) return '';
+  const cached = formattedDateCache.get(value);
+  if (cached !== undefined) return cached;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ru-RU', {
-    dateStyle: 'short',
-    timeStyle: 'medium',
-  }).format(date);
+  const formatted = Number.isNaN(date.getTime()) ? value : dateFormatter.format(date);
+  formattedDateCache.set(value, formatted);
+  return formatted;
 }
 
 function matchesFilters(row: ClassAttribute | ClassMethod, search: string, creator: string, dateFrom: string, dateTo: string): boolean {
@@ -195,12 +199,16 @@ function matchesFilters(row: ClassAttribute | ClassMethod, search: string, creat
 }
 
 function localDateKey(value: string): string {
+  const cached = localDateCache.get(value);
+  if (cached !== undefined) return cached;
   const date = new Date(value);
   if (!value || Number.isNaN(date.getTime())) return '';
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const key = `${year}-${month}-${day}`;
+  localDateCache.set(value, key);
+  return key;
 }
 
 function loadAttributesForActiveTab(): void {
@@ -308,7 +316,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <Input v-model="attributeSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск атрибута…" aria-label="Поиск атрибута по имени, сигнатуре, владельцу или ID" />
           </div>
         </div>
-        <Table v-if="attributesLoading || filteredAttributes.length > 0" @selection-change="selectedAttributeIds = $event">
+        <Table v-if="attributesLoading || filteredAttributes.length > 0">
           <TableHeader>
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="attributeSortKey === key" :direction="attributeSortDirection" @sort="sortAttributes(key)">{{ label }}</SortableTableHead>
@@ -320,7 +328,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
                 <TableCell v-for="column in tableColumns.length" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="attribute in sortedAttributes" v-else :key="attribute.id" :entity-id="attribute.id" :selected-entity-ids="selectedAttributeIds">
+            <EntityContextMenu v-for="attribute in sortedAttributes" v-else :key="attribute.id" :entity-id="attribute.id">
             <TableRow :data-entity-id="attribute.id">
               <TableCell class="max-w-64 px-1 py-0.5" :title="attribute.name">
                 <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
@@ -370,7 +378,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <Input v-model="methodSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск метода…" aria-label="Поиск метода по имени, сигнатуре, владельцу или ID" />
           </div>
         </div>
-        <Table v-if="methodsLoading || filteredMethods.length > 0" @selection-change="selectedMethodIds = $event">
+        <Table v-if="methodsLoading || filteredMethods.length > 0">
           <TableHeader>
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
@@ -382,7 +390,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
                 <TableCell v-for="column in tableColumns.length" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="method in sortedMethods" v-else :key="method.id" :entity-id="method.id" :selected-entity-ids="selectedMethodIds" svn @svn-action="methodSvnAction(method, $event)">
+            <EntityContextMenu v-for="method in sortedMethods" v-else :key="method.id" :entity-id="method.id" svn @svn-action="methodSvnAction(method, $event)">
             <TableRow :data-entity-id="method.id" class="cursor-default" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>

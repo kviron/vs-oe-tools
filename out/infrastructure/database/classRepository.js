@@ -154,13 +154,32 @@ function readValue(row, ...names) {
     }
     return '';
 }
+const attributeTableCache = new Map();
+const userTableCache = new Map();
+function databaseCacheKey(options) {
+    return `${options.host ?? ''}:${options.port ?? ''}/${options.database ?? ''}/${options.user ?? ''}`;
+}
+function cachedLookup(cache, key, lookup) {
+    const cached = cache.get(key);
+    if (cached) {
+        return cached;
+    }
+    const pending = lookup().catch((error) => {
+        cache.delete(key);
+        throw error;
+    });
+    cache.set(key, pending);
+    return pending;
+}
 async function getClassAttributes(classId, className, includeInherited) {
     const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
     const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
     try {
         await client.connect();
-        const tables = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
+        const cacheKey = databaseCacheKey(options);
+        const table = await cachedLookup(attributeTableCache, cacheKey, async () => {
+            const tables = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
 			 FROM information_schema.columns
 			 WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
 			 GROUP BY table_schema, table_name
@@ -171,15 +190,18 @@ async function getClassAttributes(classId, className, includeInherited) {
 			 ORDER BY CASE lower(table_name)
 			   WHEN 'attributes' THEN 0 WHEN 'classattributes' THEN 1 WHEN 'objattributes' THEN 2 ELSE 3 END,
 			   table_name`,
-            source: 'Поиск таблицы атрибутов',
-            database: options.database,
+                source: 'Поиск таблицы атрибутов',
+                database: options.database,
+            });
+            return tables.rows[0];
         });
-        const table = tables.rows[0];
-        if (!table)
+        if (!table) {
             throw new Error('В схеме базы данных не найдена таблица атрибутов классов.');
+        }
         const ownerColumn = ['seniorid', 'classid', 'ownerid'].find(column => table.columns.includes(column));
-        if (!ownerColumn)
+        if (!ownerColumn) {
             throw new Error('В таблице атрибутов не найдена ссылка на класс.');
+        }
         const orderColumn = ['ord', 'line', 'linenumber', 'name'].find(column => table.columns.includes(column)) ?? 'id';
         const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
         const text = includeInherited
@@ -207,6 +229,7 @@ async function getClassAttributes(classId, className, includeInherited) {
             source: includeInherited ? `Атрибуты класса ${className} с наследованием` : `Атрибуты класса ${className}`,
             database: options.database,
         });
+        const creators = await getObjectCreators(client, options.database, cacheKey, result.rows.map(row => readValue(row.data, 'id')), 4);
         const attributes = result.rows.map(({ data, ownername, depth }) => ({
             id: readValue(data, 'id'),
             name: readValue(data, 'name'),
@@ -216,6 +239,8 @@ async function getClassAttributes(classId, className, includeInherited) {
             visibility: readValue(data, 'visibility', 'access', 'scope'),
             package: readValue(data, 'package', 'packagename'),
             line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
+            updatedAt: readValue(data, 'lastchange', 'updatedate', 'updatedat', 'modifieddate'),
+            createdBy: creators.get(readValue(data, 'id'))?.name ?? '',
             inherited: depth > 0,
         }));
         if (!includeInherited) {
@@ -266,6 +291,7 @@ async function getClassMethods(classId, className, includeInherited) {
             source: includeInherited ? `Методы класса ${className} с наследованием` : `Методы класса ${className}`,
             database: options.database,
         });
+        const creators = await getObjectCreators(client, options.database, databaseCacheKey(options), result.rows.map(row => readValue(row.data, 'id')), 5);
         const methods = result.rows.map(({ data, ownername, depth }) => ({
             id: readValue(data, 'id'),
             name: readValue(data, 'name', 'methname'),
@@ -275,6 +301,8 @@ async function getClassMethods(classId, className, includeInherited) {
             visibility: readValue(data, 'visibility', 'visible', 'access', 'scope'),
             package: readValue(data, 'package', 'packagename'),
             line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
+            updatedAt: readValue(data, 'lastchange', 'updatedate', 'updatedat', 'modifieddate'),
+            createdBy: creators.get(readValue(data, 'id'))?.name ?? '',
             inherited: depth > 0,
         }));
         if (!includeInherited) {
@@ -292,6 +320,56 @@ async function getClassMethods(classId, className, includeInherited) {
     finally {
         await client.end().catch(() => undefined);
     }
+}
+async function getObjectCreators(client, database, cacheKey, objectIds, objectClassId) {
+    const ids = objectIds.map(Number).filter(Number.isSafeInteger);
+    if (ids.length === 0) {
+        return new Map();
+    }
+    const userTable = await cachedLookup(userTableCache, cacheKey, () => findUserTable(client, database)).catch(() => undefined);
+    const userJoin = userTable
+        ? `LEFT JOIN ${quoteIdentifier(userTable.table_schema)}.${quoteIdentifier(userTable.table_name)} AS creator_user ON creator_user.${quoteIdentifier(userTable.id_column)} = creator_log.userid`
+        : '';
+    const userColumn = userTable ? ', to_jsonb(creator_user) AS userdata' : '';
+    const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+        text: `SELECT DISTINCT ON (creator_log.objid)
+		        creator_log.objid, creator_log.userid${userColumn}
+		 FROM logcchangedobject AS creator_log
+		 ${userJoin}
+		 WHERE creator_log.objid = ANY($1::bigint[]) AND creator_log.objclassid = $2
+		 ORDER BY creator_log.objid,
+		          CASE WHEN creator_log.changetype = 1 THEN 0 ELSE 1 END,
+		          creator_log.changedate`,
+        values: [ids, objectClassId],
+        source: `Создатели объектов класса ${objectClassId}`,
+        database,
+    });
+    return new Map(result.rows.map(row => [String(row.objid), {
+            name: formatAuditUser(row.userid, row.userdata),
+        }]));
+}
+async function findUserTable(client, database) {
+    const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+        text: `SELECT table_schema, table_name,
+		        min(column_name) FILTER (WHERE lower(column_name) = 'id') AS id_column
+		 FROM information_schema.columns
+		 WHERE lower(table_name) = 'users'
+		 GROUP BY table_schema, table_name
+		 HAVING bool_or(lower(column_name) = 'id')
+		 ORDER BY CASE WHEN table_schema = 'public' THEN 0 ELSE 1 END, table_schema
+		 LIMIT 1`,
+        source: 'Поиск пользователей для создателей объектов',
+        database,
+    });
+    return result.rows[0];
+}
+function formatAuditUser(userId, userData) {
+    const name = decodeDatabaseText(readValue(userData ?? {}, 'username', 'fullname', 'name', 'fio'));
+    const login = decodeDatabaseText(readValue(userData ?? {}, 'loginname', 'login', 'userlogin'));
+    if (name && login && name !== login) {
+        return `${name} (${login})`;
+    }
+    return name || login || (userId ? `Пользователь ${userId}` : '');
 }
 function methodTypeName(value) {
     switch (value) {

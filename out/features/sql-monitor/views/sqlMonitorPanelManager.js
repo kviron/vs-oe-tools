@@ -52,12 +52,16 @@ function openSqlMonitor(context) {
     const subscription = sqlMonitorService_1.sqlMonitorService.subscribe(record => {
         void panel.webview.postMessage({ command: 'sqlQueryChanged', record });
     });
-    panel.webview.onDidReceiveMessage((message) => {
+    panel.webview.onDidReceiveMessage(async (message) => {
         if (!(0, webviewProtocol_1.isSqlMonitorWebviewMessage)(message)) {
             return;
         }
         if (message.command === 'tableSelectionDebug') {
             (0, tableSelectionLogger_1.logTableSelection)('SQL-монитор', message.message);
+            return;
+        }
+        if (message.command === 'copyTableCells') {
+            await vscode.env.clipboard.writeText(message.text);
             return;
         }
         if (message.command === 'sqlMonitorReady') {

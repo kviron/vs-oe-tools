@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Copy01Icon, SourceCodeIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
+import { ref } from 'vue';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { vscode } from '@/vscode';
 
@@ -8,28 +9,39 @@ const props = defineProps<{
   entityId?: number | string;
   copyShortcut?: string;
   svn?: boolean;
-  selectedEntityIds?: string[];
 }>();
 
 const emit = defineEmits<{ svnAction: [action: 'localDiff' | 'history' | 'blame'] }>();
+const selectedIds = ref<string[]>([]);
+
+function syncSelectedIds(event: MouseEvent): void {
+  const target = event.target;
+  const row = target instanceof Element ? target.closest<HTMLTableRowElement>('tr[data-entity-id]') : undefined;
+  const table = row?.closest('[data-slot="table-container"]');
+  selectedIds.value = table
+    ? Array.from(table.querySelectorAll<HTMLTableRowElement>('tr[data-row-selected][data-entity-id]'))
+      .map(selectedRow => selectedRow.dataset.entityId)
+      .filter((id): id is string => Boolean(id))
+    : [];
+}
 
 function copyId(): void {
   if (props.entityId === undefined) return;
   const currentId = String(props.entityId);
-  const selectedIds = props.selectedEntityIds?.includes(currentId) ? props.selectedEntityIds : undefined;
-  vscode.postMessage({ command: 'copyEntityId', id: selectedIds?.join(';') ?? currentId });
+  const ids = selectedIds.value.includes(currentId) ? selectedIds.value : undefined;
+  vscode.postMessage({ command: 'copyEntityId', id: ids?.join(';') ?? currentId });
 }
 </script>
 
 <template>
   <ContextMenu v-if="entityId !== undefined">
-    <ContextMenuTrigger as-child>
+    <ContextMenuTrigger as-child @contextmenu.capture="syncSelectedIds">
       <slot />
     </ContextMenuTrigger>
     <ContextMenuContent>
       <ContextMenuItem @select="copyId">
         <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />
-        {{ selectedEntityIds?.includes(String(entityId)) && selectedEntityIds.length > 1 ? `Скопировать ID (${selectedEntityIds.length})` : 'Скопировать ID' }}
+        {{ selectedIds.includes(String(entityId)) && selectedIds.length > 1 ? `Скопировать ID (${selectedIds.length})` : 'Скопировать ID' }}
         <ContextMenuShortcut v-if="copyShortcut">{{ copyShortcut }}</ContextMenuShortcut>
       </ContextMenuItem>
       <ContextMenuSub v-if="svn">
