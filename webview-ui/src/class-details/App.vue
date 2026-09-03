@@ -7,7 +7,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/u
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableFooter, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { vscode } from '@/vscode';
@@ -73,6 +73,35 @@ const filteredMethods = computed(() => {
   return methods.value.filter(method => matchesFilters(method, methodSearchQuery.value, methodCreatorQuery.value, methodDateFrom.value, methodDateTo.value));
 });
 const sortedMethods = computed(() => sortedRows(filteredMethods.value, methodSortKey.value, methodSortDirection.value, (row, key) => row[key as keyof ClassMethod]));
+const virtualRowHeight = 24;
+const virtualOverscan = 12;
+const attributeScrollTop = ref(0);
+const attributeViewportHeight = ref(600);
+const methodScrollTop = ref(0);
+const methodViewportHeight = ref(600);
+
+function virtualRange(length: number, scrollTop: number, viewportHeight: number): { start: number; end: number } {
+  const visibleCount = Math.ceil(viewportHeight / virtualRowHeight);
+  const start = Math.max(0, Math.min(Math.floor(scrollTop / virtualRowHeight) - virtualOverscan, Math.max(0, length - visibleCount)));
+  return { start, end: Math.min(length, start + visibleCount + virtualOverscan * 2) };
+}
+
+const attributeVirtualRange = computed(() => virtualRange(sortedAttributes.value.length, attributeScrollTop.value, attributeViewportHeight.value));
+const methodVirtualRange = computed(() => virtualRange(sortedMethods.value.length, methodScrollTop.value, methodViewportHeight.value));
+const visibleAttributes = computed(() => sortedAttributes.value.slice(attributeVirtualRange.value.start, attributeVirtualRange.value.end));
+const visibleMethods = computed(() => sortedMethods.value.slice(methodVirtualRange.value.start, methodVirtualRange.value.end));
+
+function trackVirtualScroll(kind: 'attributes' | 'methods', event: Event): void {
+  const element = event.currentTarget;
+  if (!(element instanceof HTMLElement)) return;
+  if (kind === 'attributes') {
+    attributeScrollTop.value = element.scrollTop;
+    attributeViewportHeight.value = element.clientHeight;
+  } else {
+    methodScrollTop.value = element.scrollTop;
+    methodViewportHeight.value = element.clientHeight;
+  }
+}
 const fieldColumns = [
   [
     ['Имя', 'name'],
@@ -263,8 +292,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
 </script>
 
 <template>
-  <main v-if="details" class="flex flex-col p-1">
-    <Tabs :model-value="activeTab" class="gap-1" @update:model-value="onTabChange">
+  <main v-if="details" class="flex h-screen min-h-0 flex-col p-1">
+    <Tabs :model-value="activeTab" class="min-h-0 flex-1 gap-1" @update:model-value="onTabChange">
       <TabsList variant="line">
         <TabsTrigger value="class">Класс</TabsTrigger>
         <TabsTrigger value="attributes">Атрибуты</TabsTrigger>
@@ -311,7 +340,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
       </TabsContent>
       </EntityContextMenu>
 
-      <TabsContent value="attributes" class="flex flex-col gap-1 p-1">
+      <TabsContent value="attributes" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
         <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
           <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать атрибуты родительских классов">
             <Checkbox
@@ -330,8 +359,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <Input v-model="attributeSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск атрибута…" aria-label="Поиск атрибута по имени, сигнатуре, владельцу или ID" />
           </div>
         </div>
-        <Table v-if="attributesLoading || filteredAttributes.length > 0">
-          <TableHeader>
+        <Table :key="`attributes-${includeInheritedAttributes}`" v-if="attributesLoading || filteredAttributes.length > 0" container-class="min-h-0 flex-1 overflow-auto" @scroll="trackVirtualScroll('attributes', $event)">
+          <TableHeader class="sticky top-0 z-10 bg-background">
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="attributeSortKey === key" :direction="attributeSortDirection" @sort="sortAttributes(key)">{{ label }}</SortableTableHead>
             </TableRow>
@@ -342,7 +371,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
                 <TableCell v-for="column in tableColumns.length" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="attribute in sortedAttributes" v-else :key="attribute.id" :entity-id="attribute.id">
+            <TableRow v-if="!attributesLoading && attributeVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${attributeVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
+            <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id">
             <TableRow :data-entity-id="attribute.id">
               <TableCell class="max-w-64 px-1 py-0.5" :title="attribute.name">
                 <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
@@ -359,7 +389,15 @@ vscode.postMessage({ command: 'classDetailsReady' });
               <TableCell class="max-w-64 truncate px-1 py-0.5" :title="attribute.createdBy">{{ attribute.createdBy }}</TableCell>
             </TableRow>
             </EntityContextMenu>
+            <TableRow v-if="!attributesLoading && attributeVirtualRange.end < sortedAttributes.length" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${(sortedAttributes.length - attributeVirtualRange.end) * virtualRowHeight}px` }" /></TableRow>
           </TableBody>
+          <TableFooter v-if="attributesLoaded" class="sticky bottom-0 z-10 bg-background">
+            <TableRow>
+              <TableCell :colspan="tableColumns.length" class="h-5 px-1 py-0 text-right text-[0.625rem] font-normal text-muted-foreground">
+                Строк: {{ filteredAttributes.length }}
+              </TableCell>
+            </TableRow>
+          </TableFooter>
         </Table>
         <Empty v-else-if="attributesError" class="min-h-0 py-8">
           <EmptyHeader><EmptyTitle>Не удалось загрузить атрибуты</EmptyTitle><EmptyDescription>{{ attributesError }}</EmptyDescription></EmptyHeader>
@@ -373,7 +411,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
         </Empty>
       </TabsContent>
 
-      <TabsContent value="methods" class="flex flex-col gap-1 p-1">
+      <TabsContent value="methods" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
         <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
           <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать методы родительских классов">
             <Checkbox
@@ -392,8 +430,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <Input v-model="methodSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск метода…" aria-label="Поиск метода по имени, сигнатуре, владельцу или ID" />
           </div>
         </div>
-        <Table v-if="methodsLoading || filteredMethods.length > 0">
-          <TableHeader>
+        <Table :key="`methods-${includeInheritedMethods}`" v-if="methodsLoading || filteredMethods.length > 0" container-class="min-h-0 flex-1 overflow-auto" @scroll="trackVirtualScroll('methods', $event)">
+          <TableHeader class="sticky top-0 z-10 bg-background">
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
             </TableRow>
@@ -404,7 +442,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
                 <TableCell v-for="column in tableColumns.length" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
-            <EntityContextMenu v-for="method in sortedMethods" v-else :key="method.id" :entity-id="method.id" svn @svn-action="methodSvnAction(method, $event)">
+            <TableRow v-if="!methodsLoading && methodVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${methodVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
+            <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" svn @svn-action="methodSvnAction(method, $event)">
             <TableRow :data-entity-id="method.id" class="cursor-default" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>
@@ -425,7 +464,15 @@ vscode.postMessage({ command: 'classDetailsReady' });
               <TableCell class="max-w-64 truncate px-1 py-0.5" :title="method.createdBy">{{ method.createdBy }}</TableCell>
             </TableRow>
             </EntityContextMenu>
+            <TableRow v-if="!methodsLoading && methodVirtualRange.end < sortedMethods.length" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${(sortedMethods.length - methodVirtualRange.end) * virtualRowHeight}px` }" /></TableRow>
           </TableBody>
+          <TableFooter v-if="methodsLoaded" class="sticky bottom-0 z-10 bg-background">
+            <TableRow>
+              <TableCell :colspan="tableColumns.length" class="h-5 px-1 py-0 text-right text-[0.625rem] font-normal text-muted-foreground">
+                Строк: {{ filteredMethods.length }}
+              </TableCell>
+            </TableRow>
+          </TableFooter>
         </Table>
         <Empty v-else-if="methodsError" class="min-h-0 py-8">
           <EmptyHeader><EmptyTitle>Не удалось загрузить методы</EmptyTitle><EmptyDescription>{{ methodsError }}</EmptyDescription></EmptyHeader>

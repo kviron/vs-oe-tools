@@ -6,7 +6,9 @@ import { vscode } from '@/vscode'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']
+  containerClass?: HTMLAttributes['class']
 }>()
+const emit = defineEmits<{ scroll: [event: Event] }>()
 const container = ref<HTMLElement>()
 const selectedCells = new Set<HTMLTableCellElement>()
 const selectedRows = new Set<HTMLTableRowElement>()
@@ -18,7 +20,7 @@ let dragFrame: number | undefined
 let pendingDragCell: HTMLTableCellElement | undefined
 
 function tableRows(): HTMLTableRowElement[] {
-  return Array.from(container.value?.querySelectorAll<HTMLTableRowElement>('tbody tr') ?? [])
+  return Array.from(container.value?.querySelectorAll<HTMLTableRowElement>('tbody tr:not([data-virtual-spacer])') ?? [])
 }
 
 function clearSelection(updateRows = true): void {
@@ -301,13 +303,14 @@ onBeforeUnmount(() => {
   <div
     ref="container"
     data-slot="table-container"
-    class="relative w-full overflow-x-auto outline-none"
+    :class="cn('relative w-full overflow-x-auto outline-none', props.containerClass)"
     tabindex="0"
     @pointerdown="startSelection"
     @pointerover="extendSelection"
     @pointerup="stopSelection"
     @pointercancel="stopSelection"
     @pointerleave="stopSelection"
+    @scroll="emit('scroll', $event)"
   >
     <table data-slot="table" :class="cn('w-full caption-bottom text-xs', props.class)">
       <slot />
