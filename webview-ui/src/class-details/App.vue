@@ -14,6 +14,7 @@ import { vscode } from '@/vscode';
 import { formatId } from '@/lib/formatId';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
 import SortableTableHead from '@/components/SortableTableHead.vue';
+import DatePicker from '@/components/DatePicker.vue';
 import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
 
 interface SignaturePart {
@@ -21,8 +22,14 @@ interface SignaturePart {
   kind: 'plain' | 'parameter' | 'type';
 }
 
+interface ClassDetailsViewState {
+  activeTab?: string;
+}
+
+const restoredState = (vscode.getState() ?? {}) as ClassDetailsViewState;
+const restoredTab = ['class', 'attributes', 'methods'].includes(restoredState.activeTab ?? '') ? restoredState.activeTab : 'class';
 const details = ref<ClassDetails>();
-const activeTab = ref('class');
+const activeTab = ref(restoredTab);
 const attributes = shallowRef<ClassAttribute[]>([]);
 const attributesLoading = ref(false);
 const attributesLoaded = ref(false);
@@ -129,6 +136,7 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
 
 function onTabChange(value: string | number): void {
   activeTab.value = String(value);
+  vscode.setState({ ...restoredState, activeTab: activeTab.value } satisfies ClassDetailsViewState);
   loadAttributesForActiveTab();
   loadMethodsForActiveTab();
 }
@@ -298,7 +306,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
       </EntityContextMenu>
 
       <TabsContent value="attributes" class="flex flex-col gap-1 p-1">
-        <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
           <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать атрибуты родительских классов">
             <Checkbox
               :model-value="includeInheritedAttributes"
@@ -308,11 +316,11 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <span aria-hidden="true">↥</span>
             Наследуемые атрибуты
           </label>
-          <div class="flex flex-wrap items-center justify-end gap-1">
+          <div class="flex shrink-0 flex-nowrap items-center justify-end gap-1">
             <Input v-model="attributeCreatorQuery" type="search" class="h-6 w-44" placeholder="Создатель…" aria-label="Фильтр атрибутов по создателю" />
-            <Input v-model="attributeDateFrom" type="date" class="h-6 w-32" aria-label="Дата обновления атрибута с" title="Дата обновления с" />
+            <DatePicker v-model="attributeDateFrom" label="Дата обновления атрибута с" title="Дата обновления с" />
             <span class="text-xs text-muted-foreground">—</span>
-            <Input v-model="attributeDateTo" type="date" class="h-6 w-32" aria-label="Дата обновления атрибута по" title="Дата обновления по" />
+            <DatePicker v-model="attributeDateTo" label="Дата обновления атрибута по" title="Дата обновления по" />
             <Input v-model="attributeSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск атрибута…" aria-label="Поиск атрибута по имени, сигнатуре, владельцу или ID" />
           </div>
         </div>
@@ -360,7 +368,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
       </TabsContent>
 
       <TabsContent value="methods" class="flex flex-col gap-1 p-1">
-        <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
           <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать методы родительских классов">
             <Checkbox
               :model-value="includeInheritedMethods"
@@ -370,11 +378,11 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <span aria-hidden="true">↥</span>
             Наследуемые методы
           </label>
-          <div class="flex flex-wrap items-center justify-end gap-1">
+          <div class="flex shrink-0 flex-nowrap items-center justify-end gap-1">
             <Input v-model="methodCreatorQuery" type="search" class="h-6 w-44" placeholder="Создатель…" aria-label="Фильтр методов по создателю" />
-            <Input v-model="methodDateFrom" type="date" class="h-6 w-32" aria-label="Дата обновления метода с" title="Дата обновления с" />
+            <DatePicker v-model="methodDateFrom" label="Дата обновления метода с" title="Дата обновления с" />
             <span class="text-xs text-muted-foreground">—</span>
-            <Input v-model="methodDateTo" type="date" class="h-6 w-32" aria-label="Дата обновления метода по" title="Дата обновления по" />
+            <DatePicker v-model="methodDateTo" label="Дата обновления метода по" title="Дата обновления по" />
             <Input v-model="methodSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск метода…" aria-label="Поиск метода по имени, сигнатуре, владельцу или ID" />
           </div>
         </div>
@@ -398,7 +406,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
               </TableCell>
               <TableCell class="max-w-56 truncate px-1 py-0.5" :title="method.owner">{{ method.owner }}</TableCell>
               <TableCell class="max-w-96 px-1 py-0.5" :title="method.signature">
-                <span class="whitespace-pre-wrap break-words font-mono text-xs">
+                <span class="block truncate font-mono text-xs">
                   <span v-for="(part, index) in signatureParts(method.signature)" :key="index" :class="signaturePartClass(part.kind)">{{ part.text }}</span>
                 </span>
               </TableCell>

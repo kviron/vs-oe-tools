@@ -10,7 +10,7 @@ const props = defineProps<{
 <template>
   <td
     data-slot="table-cell"
-    :class="cn('select-none p-2 align-middle whitespace-nowrap data-[selected-cell=true]:bg-accent data-[active-cell=true]:ring-1 data-[active-cell=true]:ring-inset data-[active-cell=true]:ring-ring [&:has([role=checkbox])]:pr-0', props.class)"
+    :class="cn('select-none overflow-hidden text-ellipsis whitespace-nowrap p-2 align-middle data-[selected-cell=true]:bg-accent data-[active-cell=true]:ring-1 data-[active-cell=true]:ring-inset data-[active-cell=true]:ring-ring [&:has([role=checkbox])]:pr-0', props.class)"
   >
     <slot />
   </td>
