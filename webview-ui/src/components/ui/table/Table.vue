@@ -178,6 +178,51 @@ function copyThroughTemporaryInput(text: string): boolean {
   return copied
 }
 
+function navigateWithKeyboard(event: KeyboardEvent): void {
+  const direction = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
+  if (!direction || !activeCell) return
+  const rows = tableRows()
+  const currentRow = rows.indexOf(activeCell.parentElement as HTMLTableRowElement)
+  if (currentRow < 0) return
+
+  let targetRow = currentRow
+  let targetColumn = activeCell.cellIndex
+  if (event.key === 'ArrowUp') targetRow = event.ctrlKey || event.metaKey ? 0 : currentRow - 1
+  if (event.key === 'ArrowDown') targetRow = event.ctrlKey || event.metaKey ? rows.length - 1 : currentRow + 1
+  if (event.key === 'ArrowLeft') targetColumn = event.ctrlKey || event.metaKey ? 0 : targetColumn - 1
+  if (event.key === 'ArrowRight') {
+    targetColumn = event.ctrlKey || event.metaKey
+      ? (rows[currentRow]?.cells.length ?? 1) - 1
+      : targetColumn + 1
+  }
+  targetRow = Math.max(0, Math.min(rows.length - 1, targetRow))
+  const row = rows[targetRow]
+  if (!row) return
+  targetColumn = Math.max(0, Math.min(row.cells.length - 1, targetColumn))
+  const target = row.cells[targetColumn]
+  if (!target) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  if (event.shiftKey) {
+    anchorCell ??= activeCell
+    selectRectangle(anchorCell, target, false)
+  } else {
+    clearSelection()
+    selectCellElement(target)
+    updateSelectedRows()
+    anchorCell = target
+  }
+  setActiveCell(target)
+  target.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  debugSelection(`keyboard ${event.ctrlKey || event.metaKey ? 'Ctrl+' : ''}${event.shiftKey ? 'Shift+' : ''}${event.key}`, target)
+}
+
+function handleKeydown(event: KeyboardEvent): void {
+  void copyWithShortcut(event)
+  navigateWithKeyboard(event)
+}
+
 function debugSelection(action: string, cell: HTMLTableCellElement): void {
   const row = tableRows().indexOf(cell.parentElement as HTMLTableRowElement)
   debug(`${action}: строка=${row + 1}, столбец=${cell.cellIndex + 1}, выбрано ячеек=${selectedCells.size}.`)
@@ -219,7 +264,7 @@ onBeforeUnmount(() => {
     @pointerup="stopSelection"
     @pointercancel="stopSelection"
     @pointerleave="stopSelection"
-    @keydown="copyWithShortcut"
+    @keydown="handleKeydown"
     @copy="copySelectedCells"
   >
     <table data-slot="table" :class="cn('w-full caption-bottom text-xs', props.class)">

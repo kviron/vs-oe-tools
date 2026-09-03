@@ -56,13 +56,14 @@ export type SqlExecutorWebviewMessage =
 	| { command: 'sqlExecutorReady' }
 	| { command: 'executeSql'; text: string }
 	| { command: 'copySqlResult'; format: 'markdown' | 'json' }
+	| { command: 'copySqlError'; text: string }
 	| { command: 'exportSqlResult' }
 	| TableSelectionDebugMessage;
 export type SqlExecutorHostMessage =
 	| { command: 'sqlExecutorInitialized'; history: SqlHistoryEntry[] }
 	| { command: 'sqlExecutorHistoryChanged'; entry: SqlHistoryEntry }
 	| { command: 'sqlExecutionSucceeded'; result: SerializedQueryResult; durationMs: number; database: string }
-	| { command: 'sqlExecutionFailed'; message: string };
+	| { command: 'sqlExecutionFailed'; message: string; details: string };
 export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage;
 
 export function isClassDetailsWebviewMessage(message: unknown): message is ClassDetailsWebviewMessage {
@@ -143,6 +144,9 @@ export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExe
 	}
 	if (message.command === 'copySqlResult') {
 		return 'format' in message && (message.format === 'markdown' || message.format === 'json');
+	}
+	if (message.command === 'copySqlError') {
+		return 'text' in message && typeof message.text === 'string';
 	}
 	return message.command === 'exportSqlResult';
 }

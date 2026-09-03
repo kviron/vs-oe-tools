@@ -45,6 +45,8 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 				void this.runQuery(webviewView.webview, message.text, result => { latestResult = result; });
 			} else if (message.command === 'copySqlResult') {
 				void this.copyResult(latestResult, message.format);
+			} else if (message.command === 'copySqlError') {
+				void this.copyError(message.text);
 			} else {
 				void this.exportResult(latestResult);
 			}
@@ -63,7 +65,17 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 			void webview.postMessage({
 				command: 'sqlExecutionFailed',
 				message: error instanceof Error ? error.message : String(error),
+				details: formatSqlError(error),
 			} satisfies SqlExecutorHostMessage);
+		}
+	}
+
+	private async copyError(text: string): Promise<void> {
+		try {
+			await vscode.env.clipboard.writeText(text);
+			vscode.window.setStatusBarMessage('Текст ошибки SQL скопирован', 2500);
+		} catch (error) {
+			void vscode.window.showErrorMessage(`Не удалось скопировать ошибку SQL: ${errorMessage(error)}`);
 		}
 	}
 
@@ -125,6 +137,31 @@ function fileTimestamp(): string {
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function formatSqlError(error: unknown): string {
+	if (typeof error !== 'object' || error === null) {
+		return String(error);
+	}
+	const value = error as Record<string, unknown>;
+	const lines: string[] = [];
+	const fields: Array<[string, string]> = [
+		['Сообщение', 'message'], ['Код PostgreSQL', 'code'], ['Важность', 'severity'],
+		['Подробности', 'detail'], ['Подсказка', 'hint'], ['Позиция', 'position'],
+		['Внутренняя позиция', 'internalPosition'], ['Внутренний запрос', 'internalQuery'],
+		['Контекст', 'where'], ['Схема', 'schema'], ['Таблица', 'table'], ['Столбец', 'column'],
+		['Тип данных', 'dataType'], ['Ограничение', 'constraint'], ['Процедура', 'routine'],
+	];
+	for (const [label, key] of fields) {
+		const field = value[key];
+		if (field !== undefined && field !== null && String(field).length > 0) {
+			lines.push(`${label}: ${String(field)}`);
+		}
+	}
+	if (typeof value.stack === 'string' && value.stack.length > 0) {
+		lines.push('', 'Стек:', value.stack);
+	}
+	return lines.join('\n') || String(error);
 }
 
 function toHistoryEntry(record: SqlQueryRecord): SqlHistoryEntry {

@@ -6,7 +6,7 @@ import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, nextTick, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import SortableTableHead from '@/components/SortableTableHead.vue';
 import { vscode } from '@/vscode';
@@ -19,6 +19,8 @@ const historyOpen = ref(false);
 const executing = ref(false);
 const result = ref<SerializedQueryResult>();
 const error = ref('');
+const errorDetails = ref('');
+const errorDetailsOpen = ref(false);
 const durationMs = ref<number>();
 const database = ref('');
 const editor = ref<HTMLTextAreaElement>();
@@ -47,6 +49,8 @@ window.addEventListener('message', (event: MessageEvent<SqlExecutorHostMessage>)
     executing.value = false;
     result.value = undefined;
     error.value = message.message;
+    errorDetails.value = message.details;
+    errorDetailsOpen.value = false;
   }
 });
 
@@ -55,6 +59,8 @@ function execute(): void {
   executing.value = true;
   result.value = undefined;
   error.value = '';
+  errorDetails.value = '';
+  errorDetailsOpen.value = false;
   durationMs.value = undefined;
   vscode.postMessage({ command: 'executeSql', text: sql.value });
 }
@@ -86,6 +92,10 @@ function copyResult(format: 'markdown' | 'json'): void {
 
 function exportResult(): void {
   vscode.postMessage({ command: 'exportSqlResult' });
+}
+
+function copyError(): void {
+  vscode.postMessage({ command: 'copySqlError', text: errorDetails.value || error.value });
 }
 
 function highlightSql(source: string): string {
@@ -166,7 +176,23 @@ vscode.postMessage({ command: 'sqlExecutorReady' });
         <EmptyHeader><EmptyTitle>Запрос выполняется…</EmptyTitle></EmptyHeader>
       </Empty>
       <Empty v-else-if="error" class="h-full min-h-0 py-6">
-        <EmptyHeader><EmptyTitle>Ошибка выполнения</EmptyTitle><EmptyDescription class="whitespace-pre-wrap">{{ error }}</EmptyDescription></EmptyHeader>
+        <EmptyHeader><EmptyTitle>Ошибка выполнения</EmptyTitle><EmptyDescription>{{ error }}</EmptyDescription></EmptyHeader>
+        <EmptyContent class="w-full max-w-4xl">
+          <div class="flex justify-center gap-1">
+            <Button variant="outline" size="sm" @click="copyError">
+              <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />
+              Скопировать ошибку
+            </Button>
+            <Button variant="outline" size="sm" @click="errorDetailsOpen = !errorDetailsOpen">
+              {{ errorDetailsOpen ? 'Скрыть подробности' : 'Показать подробности' }}
+            </Button>
+          </div>
+          <Collapsible v-model:open="errorDetailsOpen" class="w-full">
+            <CollapsibleContent>
+              <pre class="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words border bg-muted/30 p-2 text-left font-mono text-xs select-text">{{ errorDetails || error }}</pre>
+            </CollapsibleContent>
+          </Collapsible>
+        </EmptyContent>
       </Empty>
       <template v-else-if="result">
         <Table v-if="result.columns.length">

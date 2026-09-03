@@ -9782,6 +9782,9 @@ function isSqlExecutorWebviewMessage(message) {
   if (message.command === "copySqlResult") {
     return "format" in message && (message.format === "markdown" || message.format === "json");
   }
+  if (message.command === "copySqlError") {
+    return "text" in message && typeof message.text === "string";
+  }
   return message.command === "exportSqlResult";
 }
 function isTableSelectionDebugMessage(message) {
@@ -10326,6 +10329,8 @@ var SqlExecutorViewProvider = class {
         });
       } else if (message.command === "copySqlResult") {
         void this.copyResult(latestResult, message.format);
+      } else if (message.command === "copySqlError") {
+        void this.copyError(message.text);
       } else {
         void this.exportResult(latestResult);
       }
@@ -10342,8 +10347,17 @@ var SqlExecutorViewProvider = class {
     } catch (error) {
       void webview.postMessage({
         command: "sqlExecutionFailed",
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
+        details: formatSqlError(error)
       });
+    }
+  }
+  async copyError(text) {
+    try {
+      await vscode8.env.clipboard.writeText(text);
+      vscode8.window.setStatusBarMessage("\u0422\u0435\u043A\u0441\u0442 \u043E\u0448\u0438\u0431\u043A\u0438 SQL \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D", 2500);
+    } catch (error) {
+      void vscode8.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043E\u0448\u0438\u0431\u043A\u0443 SQL: ${errorMessage(error)}`);
     }
   }
   async copyResult(result, format) {
@@ -10398,6 +10412,40 @@ function fileTimestamp() {
 }
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+function formatSqlError(error) {
+  if (typeof error !== "object" || error === null) {
+    return String(error);
+  }
+  const value = error;
+  const lines = [];
+  const fields = [
+    ["\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435", "message"],
+    ["\u041A\u043E\u0434 PostgreSQL", "code"],
+    ["\u0412\u0430\u0436\u043D\u043E\u0441\u0442\u044C", "severity"],
+    ["\u041F\u043E\u0434\u0440\u043E\u0431\u043D\u043E\u0441\u0442\u0438", "detail"],
+    ["\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430", "hint"],
+    ["\u041F\u043E\u0437\u0438\u0446\u0438\u044F", "position"],
+    ["\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F \u043F\u043E\u0437\u0438\u0446\u0438\u044F", "internalPosition"],
+    ["\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u0438\u0439 \u0437\u0430\u043F\u0440\u043E\u0441", "internalQuery"],
+    ["\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442", "where"],
+    ["\u0421\u0445\u0435\u043C\u0430", "schema"],
+    ["\u0422\u0430\u0431\u043B\u0438\u0446\u0430", "table"],
+    ["\u0421\u0442\u043E\u043B\u0431\u0435\u0446", "column"],
+    ["\u0422\u0438\u043F \u0434\u0430\u043D\u043D\u044B\u0445", "dataType"],
+    ["\u041E\u0433\u0440\u0430\u043D\u0438\u0447\u0435\u043D\u0438\u0435", "constraint"],
+    ["\u041F\u0440\u043E\u0446\u0435\u0434\u0443\u0440\u0430", "routine"]
+  ];
+  for (const [label, key] of fields) {
+    const field = value[key];
+    if (field !== void 0 && field !== null && String(field).length > 0) {
+      lines.push(`${label}: ${String(field)}`);
+    }
+  }
+  if (typeof value.stack === "string" && value.stack.length > 0) {
+    lines.push("", "\u0421\u0442\u0435\u043A:", value.stack);
+  }
+  return lines.join("\n") || String(error);
 }
 function toHistoryEntry(record) {
   return {
