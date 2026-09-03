@@ -8,6 +8,7 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 	private selectedEntityId?: number;
 	private readonly output = vscode.window.createOutputChannel('Восточный Экспресс: Проводник');
 	constructor(
+		private readonly workspaceState: vscode.Memento,
 		private readonly extensionUri: vscode.Uri,
 		private readonly getClasses: () => Promise<ClassTreeRow[]>,
 		private readonly openClass: (id: number, pinned: boolean) => Promise<void>,
@@ -25,6 +26,16 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 			}
 			if (message.command === 'explorerDebugLog') {
 				this.log(`[webview] ${message.message}`);
+				return;
+			}
+			if (message.command === 'explorerReady') {
+				const state = this.workspaceState.get<{ activeTab: string; selectedClassId?: number }>('explorer.state', { activeTab: 'packages' });
+				void this.postMessage({ command: 'restoreExplorerState', ...state });
+				return;
+			}
+			if (message.command === 'explorerStateChanged') {
+				this.selectedEntityId = message.selectedClassId;
+				void this.workspaceState.update('explorer.state', { activeTab: message.activeTab, selectedClassId: message.selectedClassId });
 				return;
 			}
 			if (message.command === 'setExplorerCopyContext') {

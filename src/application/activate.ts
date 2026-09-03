@@ -4,7 +4,7 @@ import { loadClasses, testDatabaseConnection } from '../infrastructure/database/
 import { getDatabaseRole } from '../infrastructure/configuration/projectDatabaseOptions';
 import { applyProjectEncoding } from '../features/project/projectEncodingService';
 import { SettingsProvider } from '../features/settings/settingsProvider';
-import { closeClassDetailPanels, openClassDetails } from '../features/classes/views/classDetailsPanelManager';
+import { closeClassDetailPanels, openClassDetails, restoreClassDetailPanels } from '../features/classes/views/classDetailsPanelManager';
 import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider';
 import { openSqlMonitor } from '../features/sql-monitor/views/sqlMonitorPanelManager';
 import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorViewProvider';
@@ -57,6 +57,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	};
 
 	const explorerProvider = new ExplorerViewProvider(
+		context.workspaceState,
 		context.extensionUri,
 		loadClasses,
 		(id, pinned) => openClassDetails(context, methodEditor, id, pinned),
@@ -68,6 +69,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	registerMethodLanguageFeatures(context, methodEditor, async (id) => {
 		await explorerProvider.revealClass(id);
 		await openClassDetails(context, methodEditor, id, true);
+	});
+	void restoreClassDetailPanels(context, methodEditor).catch((error) => {
+		console.error('Не удалось восстановить панели классов:', error);
 	});
 	const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
 	const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(

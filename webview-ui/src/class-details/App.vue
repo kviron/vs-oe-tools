@@ -56,6 +56,10 @@ const dateFormatter = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', tim
 const formattedDateCache = new Map<string, string>();
 const localDateCache = new Map<string, string>();
 const signaturePartsCache = new Map<string, SignaturePart[]>();
+
+function persistViewState(): void {
+  vscode.setState({ activeTab: activeTab.value } satisfies ClassDetailsViewState);
+}
 const tableColumns = [
   ['Имя', 'name'], ['Владелец', 'owner'], ['Сигнатура', 'signature'], ['Тип', 'type'],
   ['ID', 'id'], ['Видимость', 'visibility'], ['Пакет', 'package'], ['Строка', 'line'],
@@ -96,6 +100,7 @@ const properties = [
 
 window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>) => {
   if (event.data.command === 'classDetailsLoaded') {
+    if (event.data.activeTab && ['class', 'attributes', 'methods'].includes(event.data.activeTab)) activeTab.value = event.data.activeTab;
     if (details.value?.id !== event.data.details.id) {
       attributes.value = [];
       attributesLoading.value = false;
@@ -136,7 +141,8 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
 
 function onTabChange(value: string | number): void {
   activeTab.value = String(value);
-  vscode.setState({ ...restoredState, activeTab: activeTab.value } satisfies ClassDetailsViewState);
+  persistViewState();
+  vscode.postMessage({ command: 'classDetailsStateChanged', activeTab: activeTab.value });
   loadAttributesForActiveTab();
   loadMethodsForActiveTab();
 }

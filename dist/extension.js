@@ -9809,6 +9809,9 @@ function isClassDetailsWebviewMessage(message) {
   if (message.command === "classDetailsReady") {
     return true;
   }
+  if (message.command === "classDetailsStateChanged") {
+    return "activeTab" in message && typeof message.activeTab === "string";
+  }
   if (isTableSelectionDebugMessage(message)) {
     return true;
   }
@@ -9835,6 +9838,12 @@ function isExplorerWebviewMessage(message) {
   }
   if (message.command === "loadClasses") {
     return true;
+  }
+  if (message.command === "explorerReady") {
+    return true;
+  }
+  if (message.command === "explorerStateChanged") {
+    return "activeTab" in message && typeof message.activeTab === "string" && (!("selectedClassId" in message) || message.selectedClassId === void 0 || typeof message.selectedClassId === "number");
   }
   if (message.command === "selectExplorerEntity") {
     return !("id" in message) || message.id === void 0 || typeof message.id === "number";
@@ -9898,7 +9907,7 @@ function logTableSelection(source, message) {
 var classDetailPanels = /* @__PURE__ */ new Map();
 var previewClassPanelId;
 function postDetails(entry) {
-  const message = { command: "classDetailsLoaded", details: entry.details };
+  const message = { command: "classDetailsLoaded", details: entry.details, activeTab: entry.activeTab };
   void entry.panel.webview.postMessage(message);
 }
 function updateClassDetailPanel(entry, classDetails) {
@@ -9907,7 +9916,10 @@ function updateClassDetailPanel(entry, classDetails) {
   postDetails(entry);
   entry.panel.reveal(vscode5.ViewColumn.Active, !entry.pinned);
 }
-function createPanel(context, classDetails, pinned, methodEditor) {
+function persistPanels(context) {
+  void context.workspaceState.update("classDetails.openPanels", [...classDetailPanels.values()].map((entry) => ({ id: entry.details.id, pinned: entry.pinned, activeTab: entry.activeTab })));
+}
+function createPanel(context, classDetails, pinned, methodEditor, activeTab = "class") {
   const assetsRoot = vscode5.Uri.joinPath(context.extensionUri, "dist", "webview");
   const panel = vscode5.window.createWebviewPanel(
     "vc-ve-tools.classDetails",
@@ -9915,9 +9927,14 @@ function createPanel(context, classDetails, pinned, methodEditor) {
     { viewColumn: vscode5.ViewColumn.Active, preserveFocus: !pinned },
     { enableScripts: true, localResourceRoots: [assetsRoot] }
   );
-  const entry = { panel, pinned, details: classDetails };
+  const entry = { panel, pinned, details: classDetails, activeTab };
   panel.webview.onDidReceiveMessage(async (message) => {
     if (isClassDetailsWebviewMessage(message)) {
+      if (message.command === "classDetailsStateChanged") {
+        entry.activeTab = message.activeTab;
+        persistPanels(context);
+        return;
+      }
       if (message.command === "tableSelectionDebug") {
         logTableSelection("\u041A\u043B\u0430\u0441\u0441", message.message);
         return;
@@ -9991,13 +10008,14 @@ function createPanel(context, classDetails, pinned, methodEditor) {
   panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
   return entry;
 }
-async function openClassDetails(context, methodEditor, id, pinned) {
+async function openClassDetails(context, methodEditor, id, pinned, activeTab = "class") {
   const existingPanel = classDetailPanels.get(id);
   if (existingPanel) {
     if (pinned && !existingPanel.pinned) {
       existingPanel.pinned = true;
       previewClassPanelId = void 0;
     }
+    persistPanels(context);
     existingPanel.panel.reveal(vscode5.ViewColumn.Active, !pinned);
     return;
   }
@@ -10010,10 +10028,12 @@ async function openClassDetails(context, methodEditor, id, pinned) {
     previewPanel.pinned = pinned;
     previewClassPanelId = pinned ? void 0 : id;
     updateClassDetailPanel(previewPanel, classDetails);
+    persistPanels(context);
     return;
   }
-  const entry = createPanel(context, classDetails, pinned, methodEditor);
+  const entry = createPanel(context, classDetails, pinned, methodEditor, activeTab);
   classDetailPanels.set(id, entry);
+  persistPanels(context);
   if (!pinned) {
     previewClassPanelId = id;
   }
@@ -10024,9 +10044,18 @@ async function openClassDetails(context, methodEditor, id, pinned) {
         if (previewClassPanelId === panelId) {
           previewClassPanelId = void 0;
         }
+        persistPanels(context);
       }
     }
   });
+}
+async function restoreClassDetailPanels(context, methodEditor) {
+  const panels = context.workspaceState.get("classDetails.openPanels", []);
+  for (const panel of panels) {
+    if (Number.isSafeInteger(panel.id)) {
+      await openClassDetails(context, methodEditor, panel.id, panel.pinned, panel.activeTab);
+    }
+  }
 }
 function closeClassDetailPanels() {
   for (const { panel } of [...classDetailPanels.values()]) {
@@ -10053,11 +10082,13 @@ function createNonce() {
 // src/features/explorer/explorerViewProvider.ts
 var vscode6 = __toESM(require("vscode"));
 var ExplorerViewProvider = class {
-  constructor(extensionUri, getClasses, openClass) {
+  constructor(workspaceState, extensionUri, getClasses, openClass) {
+    this.workspaceState = workspaceState;
     this.extensionUri = extensionUri;
     this.getClasses = getClasses;
     this.openClass = openClass;
   }
+  workspaceState;
   extensionUri;
   getClasses;
   openClass;
@@ -10077,6 +10108,16 @@ var ExplorerViewProvider = class {
       }
       if (message.command === "explorerDebugLog") {
         this.log(`[webview] ${message.message}`);
+        return;
+      }
+      if (message.command === "explorerReady") {
+        const state = this.workspaceState.get("explorer.state", { activeTab: "packages" });
+        void this.postMessage({ command: "restoreExplorerState", ...state });
+        return;
+      }
+      if (message.command === "explorerStateChanged") {
+        this.selectedEntityId = message.selectedClassId;
+        void this.workspaceState.update("explorer.state", { activeTab: message.activeTab, selectedClassId: message.selectedClassId });
         return;
       }
       if (message.command === "setExplorerCopyContext") {
@@ -11761,6 +11802,7 @@ async function activate(context) {
     }
   };
   const explorerProvider = new ExplorerViewProvider(
+    context.workspaceState,
     context.extensionUri,
     loadClasses,
     (id, pinned) => openClassDetails(context, methodEditor, id, pinned)
@@ -11772,6 +11814,9 @@ async function activate(context) {
   registerMethodLanguageFeatures(context, methodEditor, async (id) => {
     await explorerProvider.revealClass(id);
     await openClassDetails(context, methodEditor, id, true);
+  });
+  void restoreClassDetailPanels(context, methodEditor).catch((error) => {
+    console.error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u0438 \u043A\u043B\u0430\u0441\u0441\u043E\u0432:", error);
   });
   const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
   const sqlExecutorRegistration = vscode13.window.registerWebviewViewProvider(

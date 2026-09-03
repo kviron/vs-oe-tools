@@ -3,6 +3,8 @@ import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 
 export type ExplorerWebviewMessage =
+	| { command: 'explorerReady' }
+	| { command: 'explorerStateChanged'; activeTab: string; selectedClassId?: number }
 	| { command: 'loadClasses' }
 	| { command: 'openClass'; id: number; pinned: boolean }
 	| { command: 'selectExplorerEntity'; id?: number }
@@ -11,6 +13,7 @@ export type ExplorerWebviewMessage =
 	| CopyEntityIdMessage;
 
 export type ExplorerHostMessage =
+	| { command: 'restoreExplorerState'; activeTab: string; selectedClassId?: number }
 	| { command: 'classesLoaded'; classes: ClassTreeRow[] }
 	| { command: 'classesLoadFailed'; message: string }
 	| { command: 'revealClass'; id: number }
@@ -18,6 +21,7 @@ export type ExplorerHostMessage =
 
 export type ClassDetailsWebviewMessage =
 	| { command: 'classDetailsReady' }
+	| { command: 'classDetailsStateChanged'; activeTab: string }
 	| { command: 'loadClassAttributes'; includeInherited: boolean }
 	| { command: 'loadClassMethods'; includeInherited: boolean }
 	| { command: 'openMethod'; id: number }
@@ -39,7 +43,7 @@ export interface CopyTableCellsMessage {
 	text: string;
 }
 export type ClassDetailsHostMessage =
-	| { command: 'classDetailsLoaded'; details: ClassDetails }
+	| { command: 'classDetailsLoaded'; details: ClassDetails; activeTab?: string }
 	| { command: 'classAttributesLoaded'; attributes: ClassAttribute[]; includeInherited: boolean }
 	| { command: 'classAttributesLoadFailed'; message: string; includeInherited: boolean }
 	| { command: 'classMethodsLoaded'; methods: ClassMethod[]; includeInherited: boolean }
@@ -111,6 +115,9 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'classDetailsReady') {
 		return true;
 	}
+	if (message.command === 'classDetailsStateChanged') {
+		return 'activeTab' in message && typeof message.activeTab === 'string';
+	}
 	if (isTableSelectionDebugMessage(message)) {
 		return true;
 	}
@@ -141,6 +148,13 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	}
 	if (message.command === 'loadClasses') {
 		return true;
+	}
+	if (message.command === 'explorerReady') {
+		return true;
+	}
+	if (message.command === 'explorerStateChanged') {
+		return 'activeTab' in message && typeof message.activeTab === 'string'
+			&& (!('selectedClassId' in message) || message.selectedClassId === undefined || typeof message.selectedClassId === 'number');
 	}
 	if (message.command === 'selectExplorerEntity') {
 		return !('id' in message) || message.id === undefined || typeof message.id === 'number';

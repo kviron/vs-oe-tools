@@ -73,11 +73,13 @@ function loadClasses(): void {
 
 function onTabChange(value: string | number): void {
   activeTab.value = String(value);
+  persistExplorerState();
   if (activeTab.value === 'classes') loadClasses();
 }
 
 function selectSearchResult(item: ClassTreeRow, pinned: boolean): void {
   selectedClassId.value = item.id;
+  persistExplorerState();
   debugLog(`Клик по результату поиска; выбран ID=${item.id}; double=${pinned}.`);
   vscode.postMessage({ command: 'selectExplorerEntity', id: item.id });
   window.clearTimeout(searchClickTimer);
@@ -105,6 +107,7 @@ function updateCopyContext(active: boolean): void {
 
 function selectTreeClass(id: number): void {
   selectedClassId.value = id;
+  persistExplorerState();
   debugLog(`Клик по дереву; выбран ID=${id}.`);
   vscode.postMessage({ command: 'selectExplorerEntity', id });
 }
@@ -160,9 +163,15 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
     classes.value = message.classes;
     loading.value = false;
     loaded.value = true;
+  } else if (message.command === 'restoreExplorerState') {
+    activeTab.value = message.activeTab;
+    selectedClassId.value = message.selectedClassId;
+    if (activeTab.value === 'classes') loadClasses();
+    if (message.selectedClassId !== undefined) revealClassId.value = message.selectedClassId;
   } else if (message.command === 'revealClass') {
     activeTab.value = 'classes';
     selectedClassId.value = message.id;
+    persistExplorerState();
     searchQuery.value = '';
     vscode.postMessage({ command: 'selectExplorerEntity', id: message.id });
     if (!loaded.value) loadClasses();
@@ -185,6 +194,12 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
     if (activeTab.value === 'classes') loadClasses();
   }
 });
+
+function persistExplorerState(): void {
+  vscode.postMessage({ command: 'explorerStateChanged', activeTab: activeTab.value, selectedClassId: selectedClassId.value });
+}
+
+vscode.postMessage({ command: 'explorerReady' });
 </script>
 
 <template>
