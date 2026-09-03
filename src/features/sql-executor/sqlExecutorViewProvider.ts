@@ -6,6 +6,7 @@ import type { SqlQueryRecord } from '../sql-monitor/models';
 import { sqlMonitorService } from '../sql-monitor/sqlMonitorService';
 import { executeSql } from './executeSql';
 import { formatSqlResult, sqlResultExportDefinitions } from './sqlResultExport';
+import { logTableSelection } from '../../core/tableSelectionLogger';
 
 export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'vc-ve-tools.sqlExecutor';
@@ -27,6 +28,10 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 		webviewView.onDidDispose(() => historySubscription.dispose());
 		webviewView.webview.onDidReceiveMessage((message: unknown) => {
 			if (!isSqlExecutorWebviewMessage(message)) {
+				return;
+			}
+			if (message.command === 'tableSelectionDebug') {
+				logTableSelection('Исполнитель SQL', message.message);
 				return;
 			}
 			if (message.command === 'sqlExecutorReady') {

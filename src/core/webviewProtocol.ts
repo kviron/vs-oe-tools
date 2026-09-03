@@ -17,24 +17,30 @@ export type ExplorerHostMessage =
 
 export type ClassDetailsWebviewMessage =
 	| { command: 'classDetailsReady' }
-	| { command: 'loadClassAttributes' }
+	| { command: 'loadClassAttributes'; includeInherited: boolean }
 	| { command: 'loadClassMethods'; includeInherited: boolean }
 	| { command: 'openMethod'; id: number }
-	| CopyEntityIdMessage;
+	| CopyEntityIdMessage
+	| TableSelectionDebugMessage;
 
 export interface CopyEntityIdMessage {
 	command: 'copyEntityId';
 	id: number | string;
 }
+export interface TableSelectionDebugMessage {
+	command: 'tableSelectionDebug';
+	message: string;
+}
 export type ClassDetailsHostMessage =
 	| { command: 'classDetailsLoaded'; details: ClassDetails }
-	| { command: 'classAttributesLoaded'; attributes: ClassAttribute[] }
-	| { command: 'classAttributesLoadFailed'; message: string }
+	| { command: 'classAttributesLoaded'; attributes: ClassAttribute[]; includeInherited: boolean }
+	| { command: 'classAttributesLoadFailed'; message: string; includeInherited: boolean }
 	| { command: 'classMethodsLoaded'; methods: ClassMethod[]; includeInherited: boolean }
 	| { command: 'classMethodsLoadFailed'; message: string; includeInherited: boolean };
 export type SqlMonitorWebviewMessage =
 	| { command: 'sqlMonitorReady' }
-	| { command: 'clearSqlMonitor' };
+	| { command: 'clearSqlMonitor' }
+	| TableSelectionDebugMessage;
 export type SqlMonitorHostMessage =
 	| { command: 'sqlMonitorSnapshot'; records: SqlQueryRecord[] }
 	| { command: 'sqlQueryChanged'; record: SqlQueryRecord }
@@ -50,7 +56,8 @@ export type SqlExecutorWebviewMessage =
 	| { command: 'sqlExecutorReady' }
 	| { command: 'executeSql'; text: string }
 	| { command: 'copySqlResult'; format: 'markdown' | 'json' }
-	| { command: 'exportSqlResult' };
+	| { command: 'exportSqlResult' }
+	| TableSelectionDebugMessage;
 export type SqlExecutorHostMessage =
 	| { command: 'sqlExecutorInitialized'; history: SqlHistoryEntry[] }
 	| { command: 'sqlExecutorHistoryChanged'; entry: SqlHistoryEntry }
@@ -62,8 +69,14 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
 		return false;
 	}
-	if (message.command === 'classDetailsReady' || message.command === 'loadClassAttributes') {
+	if (message.command === 'classDetailsReady') {
 		return true;
+	}
+	if (isTableSelectionDebugMessage(message)) {
+		return true;
+	}
+	if (message.command === 'loadClassAttributes') {
+		return 'includeInherited' in message && typeof message.includeInherited === 'boolean';
 	}
 	if (message.command === 'openMethod') {
 		return 'id' in message && typeof message.id === 'number';
@@ -112,7 +125,7 @@ export function isSqlMonitorWebviewMessage(message: unknown): message is SqlMoni
 	return typeof message === 'object'
 		&& message !== null
 		&& 'command' in message
-		&& (message.command === 'sqlMonitorReady' || message.command === 'clearSqlMonitor');
+		&& (message.command === 'sqlMonitorReady' || message.command === 'clearSqlMonitor' || isTableSelectionDebugMessage(message));
 }
 
 export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExecutorWebviewMessage {
@@ -122,6 +135,9 @@ export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExe
 	if (message.command === 'sqlExecutorReady') {
 		return true;
 	}
+	if (isTableSelectionDebugMessage(message)) {
+		return true;
+	}
 	if (message.command === 'executeSql') {
 		return 'text' in message && typeof message.text === 'string';
 	}
@@ -129,4 +145,9 @@ export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExe
 		return 'format' in message && (message.format === 'markdown' || message.format === 'json');
 	}
 	return message.command === 'exportSqlResult';
+}
+
+function isTableSelectionDebugMessage(message: object): message is TableSelectionDebugMessage {
+	return 'command' in message && message.command === 'tableSelectionDebug'
+		&& 'message' in message && typeof message.message === 'string';
 }

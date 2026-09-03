@@ -27,11 +27,14 @@ const attributes = ref<ClassAttribute[]>([]);
 const attributesLoading = ref(false);
 const attributesLoaded = ref(false);
 const attributesError = ref('');
+const includeInheritedAttributes = ref(false);
+const attributeSearchQuery = ref('');
 const methods = ref<ClassMethod[]>([]);
 const methodsLoading = ref(false);
 const methodsLoaded = ref(false);
 const methodsError = ref('');
 const includeInheritedMethods = ref(false);
+const methodSearchQuery = ref('');
 const attributeSortKey = ref<string>();
 const attributeSortDirection = ref<SortDirection>('asc');
 const methodSortKey = ref<string>();
@@ -40,8 +43,20 @@ const tableColumns = [
   ['Имя', 'name'], ['Владелец', 'owner'], ['Сигнатура', 'signature'], ['Тип', 'type'],
   ['ID', 'id'], ['Видимость', 'visibility'], ['Пакет', 'package'], ['Строка', 'line'],
 ] as const;
-const sortedAttributes = computed(() => sortedRows(attributes.value, attributeSortKey.value, attributeSortDirection.value, (row, key) => row[key as keyof ClassAttribute]));
-const sortedMethods = computed(() => sortedRows(methods.value, methodSortKey.value, methodSortDirection.value, (row, key) => row[key as keyof ClassMethod]));
+const filteredAttributes = computed(() => {
+  const query = attributeSearchQuery.value.trim().toLocaleLowerCase('ru');
+  if (!query) return attributes.value;
+  return attributes.value.filter(attribute => [attribute.name, attribute.signature, attribute.owner, attribute.id, formatId(attribute.id)]
+    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(query)));
+});
+const sortedAttributes = computed(() => sortedRows(filteredAttributes.value, attributeSortKey.value, attributeSortDirection.value, (row, key) => row[key as keyof ClassAttribute]));
+const filteredMethods = computed(() => {
+  const query = methodSearchQuery.value.trim().toLocaleLowerCase('ru');
+  if (!query) return methods.value;
+  return methods.value.filter(method => [method.name, method.signature, method.owner, method.id, formatId(method.id)]
+    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(query)));
+});
+const sortedMethods = computed(() => sortedRows(filteredMethods.value, methodSortKey.value, methodSortDirection.value, (row, key) => row[key as keyof ClassMethod]));
 const fieldColumns = [
   [
     ['Имя', 'name'],
@@ -74,19 +89,21 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
       attributesLoading.value = false;
       attributesLoaded.value = false;
       attributesError.value = '';
+      attributeSearchQuery.value = '';
       methods.value = [];
       methodsLoading.value = false;
       methodsLoaded.value = false;
       methodsError.value = '';
+      methodSearchQuery.value = '';
     }
     details.value = event.data.details;
     loadAttributesForActiveTab();
     loadMethodsForActiveTab();
-  } else if (event.data.command === 'classAttributesLoaded') {
+  } else if (event.data.command === 'classAttributesLoaded' && event.data.includeInherited === includeInheritedAttributes.value) {
     attributes.value = event.data.attributes;
     attributesLoading.value = false;
     attributesLoaded.value = true;
-  } else if (event.data.command === 'classAttributesLoadFailed') {
+  } else if (event.data.command === 'classAttributesLoadFailed' && event.data.includeInherited === includeInheritedAttributes.value) {
     attributesLoading.value = false;
     attributesError.value = event.data.message;
   } else if (event.data.command === 'classMethodsLoaded' && event.data.includeInherited === includeInheritedMethods.value) {
@@ -149,7 +166,14 @@ function loadAttributesForActiveTab(): void {
   if (activeTab.value !== 'attributes' || attributesLoading.value || attributesLoaded.value) return;
   attributesLoading.value = true;
   attributesError.value = '';
-  vscode.postMessage({ command: 'loadClassAttributes' });
+  vscode.postMessage({ command: 'loadClassAttributes', includeInherited: includeInheritedAttributes.value });
+}
+
+function toggleInheritedAttributes(value: boolean | 'indeterminate'): void {
+  includeInheritedAttributes.value = value === true;
+  attributes.value = [];
+  attributesLoaded.value = false;
+  loadAttributesForActiveTab();
 }
 
 function openMethod(method: ClassMethod): void {
@@ -219,8 +243,26 @@ vscode.postMessage({ command: 'classDetailsReady' });
       </TabsContent>
       </EntityContextMenu>
 
-      <TabsContent value="attributes" class="p-1">
-        <Table v-if="attributesLoading || attributes.length > 0">
+      <TabsContent value="attributes" class="flex flex-col gap-1 p-1">
+        <div class="flex items-center justify-between gap-2">
+          <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать атрибуты родительских классов">
+            <Checkbox
+              :model-value="includeInheritedAttributes"
+              :disabled="attributesLoading"
+              @update:model-value="toggleInheritedAttributes"
+            />
+            <span aria-hidden="true">↥</span>
+            Наследуемые атрибуты
+          </label>
+          <Input
+            v-model="attributeSearchQuery"
+            type="search"
+            class="h-6 max-w-sm"
+            placeholder="Поиск атрибута…"
+            aria-label="Поиск атрибута по имени, сигнатуре, владельцу или ID"
+          />
+        </div>
+        <Table v-if="attributesLoading || filteredAttributes.length > 0">
           <TableHeader>
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="attributeSortKey === key" :direction="attributeSortDirection" @sort="sortAttributes(key)">{{ label }}</SortableTableHead>
@@ -234,7 +276,10 @@ vscode.postMessage({ command: 'classDetailsReady' });
             </template>
             <EntityContextMenu v-for="attribute in sortedAttributes" v-else :key="attribute.id" :entity-id="attribute.id">
             <TableRow>
-              <TableCell class="max-w-64 truncate px-1 py-0.5" :title="attribute.name">{{ attribute.name }}</TableCell>
+              <TableCell class="max-w-64 px-1 py-0.5" :title="attribute.name">
+                <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
+                <span class="truncate">{{ attribute.name }}</span>
+              </TableCell>
               <TableCell class="max-w-56 truncate px-1 py-0.5" :title="attribute.owner">{{ attribute.owner }}</TableCell>
               <TableCell class="max-w-96 truncate px-1 py-0.5" :title="attribute.signature">{{ attribute.signature }}</TableCell>
               <TableCell class="px-1 py-0.5">{{ attribute.type }}</TableCell>
@@ -250,21 +295,34 @@ vscode.postMessage({ command: 'classDetailsReady' });
           <EmptyHeader><EmptyTitle>Не удалось загрузить атрибуты</EmptyTitle><EmptyDescription>{{ attributesError }}</EmptyDescription></EmptyHeader>
         </Empty>
         <Empty v-else-if="attributesLoaded" class="min-h-0 py-8">
-          <EmptyHeader><EmptyTitle>Атрибуты не найдены</EmptyTitle><EmptyDescription>Для этого класса нет доступных атрибутов.</EmptyDescription></EmptyHeader>
+          <EmptyHeader>
+            <EmptyTitle>Атрибуты не найдены</EmptyTitle>
+            <EmptyDescription v-if="attributeSearchQuery.trim()">Измените строку поиска или очистите её.</EmptyDescription>
+            <EmptyDescription v-else>Для этого класса нет доступных атрибутов.</EmptyDescription>
+          </EmptyHeader>
         </Empty>
       </TabsContent>
 
       <TabsContent value="methods" class="flex flex-col gap-1 p-1">
-        <label class="flex w-fit items-center gap-1 text-xs" title="Показать методы родительских классов">
-          <Checkbox
-            :model-value="includeInheritedMethods"
-            :disabled="methodsLoading"
-            @update:model-value="toggleInheritedMethods"
+        <div class="flex items-center justify-between gap-2">
+          <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать методы родительских классов">
+            <Checkbox
+              :model-value="includeInheritedMethods"
+              :disabled="methodsLoading"
+              @update:model-value="toggleInheritedMethods"
+            />
+            <span aria-hidden="true">↥</span>
+            Наследуемые методы
+          </label>
+          <Input
+            v-model="methodSearchQuery"
+            type="search"
+            class="h-6 max-w-sm"
+            placeholder="Поиск метода…"
+            aria-label="Поиск метода по имени, сигнатуре, владельцу или ID"
           />
-          <span aria-hidden="true">↥</span>
-          Наследуемые методы
-        </label>
-        <Table v-if="methodsLoading || methods.length > 0">
+        </div>
+        <Table v-if="methodsLoading || filteredMethods.length > 0">
           <TableHeader>
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
@@ -301,7 +359,11 @@ vscode.postMessage({ command: 'classDetailsReady' });
           <EmptyHeader><EmptyTitle>Не удалось загрузить методы</EmptyTitle><EmptyDescription>{{ methodsError }}</EmptyDescription></EmptyHeader>
         </Empty>
         <Empty v-else-if="methodsLoaded" class="min-h-0 py-8">
-          <EmptyHeader><EmptyTitle>Методы не найдены</EmptyTitle><EmptyDescription>Для этого класса нет доступных методов.</EmptyDescription></EmptyHeader>
+          <EmptyHeader>
+            <EmptyTitle>Методы не найдены</EmptyTitle>
+            <EmptyDescription v-if="methodSearchQuery.trim()">Измените строку поиска или очистите её.</EmptyDescription>
+            <EmptyDescription v-else>Для этого класса нет доступных методов.</EmptyDescription>
+          </EmptyHeader>
         </Empty>
       </TabsContent>
     </Tabs>

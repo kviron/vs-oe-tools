@@ -350,15 +350,15 @@ var require_postgres_bytea = __commonJS({
       if (/^\\x/.test(input)) {
         return bufferFrom(input.substr(2), "hex");
       }
-      var output = "";
+      var output2 = "";
       var i = 0;
       while (i < input.length) {
         if (input[i] !== "\\") {
-          output += input[i];
+          output2 += input[i];
           ++i;
         } else {
           if (/[0-7]{3}/.test(input.substr(i + 1, 3))) {
-            output += String.fromCharCode(parseInt(input.substr(i + 1, 3), 8));
+            output2 += String.fromCharCode(parseInt(input.substr(i + 1, 3), 8));
             i += 4;
           } else {
             var backslashes = 1;
@@ -366,13 +366,13 @@ var require_postgres_bytea = __commonJS({
               backslashes++;
             }
             for (var k = 0; k < Math.floor(backslashes / 2); ++k) {
-              output += "\\";
+              output2 += "\\";
             }
             i += Math.floor(backslashes / 2) * 2;
           }
         }
       }
-      return bufferFrom(output, "binary");
+      return bufferFrom(output2, "binary");
     };
   }
 });
@@ -9106,7 +9106,7 @@ __export(extension_exports, {
 module.exports = __toCommonJS(extension_exports);
 
 // src/application/activate.ts
-var vscode10 = __toESM(require("vscode"));
+var vscode11 = __toESM(require("vscode"));
 
 // src/core/constants.ts
 var projectRootSetting = "useFolderAsProjectRoot";
@@ -9462,7 +9462,7 @@ function readValue(row, ...names) {
   }
   return "";
 }
-async function getClassAttributes(classId, className) {
+async function getClassAttributes(classId, className, includeInherited) {
   const options = await getProjectDatabaseOptions();
   const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
   try {
@@ -9488,25 +9488,51 @@ async function getClassAttributes(classId, className) {
     if (!ownerColumn) throw new Error("\u0412 \u0442\u0430\u0431\u043B\u0438\u0446\u0435 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0441\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u043A\u043B\u0430\u0441\u0441.");
     const orderColumn = ["ord", "line", "linenumber", "name"].find((column) => table.columns.includes(column)) ?? "id";
     const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
+    const text = includeInherited ? `WITH RECURSIVE class_chain AS (
+			     SELECT class.id, class.seniorid, class.name, 0 AS depth, ARRAY[class.id] AS path
+			     FROM classes AS class
+			     WHERE class.id = $1
+			     UNION ALL
+			     SELECT parent.id, parent.seniorid, parent.name, chain.depth + 1, chain.path || parent.id
+			     FROM classes AS parent
+			     INNER JOIN class_chain AS chain ON parent.id = chain.seniorid
+			     WHERE NOT parent.id = ANY(chain.path)
+			   )
+			   SELECT to_jsonb(attribute) AS data, COALESCE(chain.name, $2::text) AS ownername, chain.depth
+			   FROM class_chain AS chain
+			   INNER JOIN ${source} AS attribute ON attribute.${quoteIdentifier(ownerColumn)} = chain.id
+			   ORDER BY chain.depth, attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier("id")}` : `SELECT to_jsonb(attribute) AS data, $2::text AS ownername, 0 AS depth
+			   FROM ${source} AS attribute
+			   WHERE attribute.${quoteIdentifier(ownerColumn)} = $1
+			   ORDER BY attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier("id")}`;
     const result = await executeMonitoredQuery(client, {
-      text: `SELECT to_jsonb(attribute) AS data
-			 FROM ${source} AS attribute
-			 WHERE attribute.${quoteIdentifier(ownerColumn)} = $1
-			 ORDER BY attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier("id")}`,
-      values: [classId],
-      source: `\u0410\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className}`,
+      text,
+      values: [classId, className],
+      source: includeInherited ? `\u0410\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className} \u0441 \u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u0435\u043C` : `\u0410\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${className}`,
       database: options.database
     });
-    return result.rows.map(({ data }) => ({
+    const attributes = result.rows.map(({ data, ownername, depth }) => ({
       id: readValue(data, "id"),
       name: readValue(data, "name"),
-      owner: readValue(data, "owner", "ownername", "classname") || className,
+      owner: ownername ?? (readValue(data, "owner", "ownername", "classname") || className),
       signature: readValue(data, "signature", "parameters", "params", "args", "declaration"),
       type: readValue(data, "type", "typename", "attributetype", "kind"),
       visibility: readValue(data, "visibility", "access", "scope"),
       package: readValue(data, "package", "packagename"),
-      line: readValue(data, "line", "linenumber", "row", "rownum")
+      line: readValue(data, "line", "linenumber", "row", "rownum"),
+      inherited: depth > 0
     }));
+    if (!includeInherited) {
+      return attributes;
+    }
+    const visibleAttributes = /* @__PURE__ */ new Map();
+    for (const attribute of attributes) {
+      const key = attribute.name.toLocaleUpperCase("ru");
+      if (!visibleAttributes.has(key)) {
+        visibleAttributes.set(key, attribute);
+      }
+    }
+    return [...visibleAttributes.values()].sort((left, right) => left.name.localeCompare(right.name, "ru"));
   } finally {
     await client.end().catch(() => void 0);
   }
@@ -9689,15 +9715,21 @@ var SettingsProvider = class {
 };
 
 // src/features/classes/views/classDetailsPanelManager.ts
-var vscode4 = __toESM(require("vscode"));
+var vscode5 = __toESM(require("vscode"));
 
 // src/core/webviewProtocol.ts
 function isClassDetailsWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
     return false;
   }
-  if (message.command === "classDetailsReady" || message.command === "loadClassAttributes") {
+  if (message.command === "classDetailsReady") {
     return true;
+  }
+  if (isTableSelectionDebugMessage(message)) {
+    return true;
+  }
+  if (message.command === "loadClassAttributes") {
+    return "includeInherited" in message && typeof message.includeInherited === "boolean";
   }
   if (message.command === "openMethod") {
     return "id" in message && typeof message.id === "number";
@@ -9732,13 +9764,16 @@ function isCopyEntityIdMessage(message) {
   return typeof message === "object" && message !== null && "command" in message && message.command === "copyEntityId" && "id" in message && (typeof message.id === "number" || typeof message.id === "string");
 }
 function isSqlMonitorWebviewMessage(message) {
-  return typeof message === "object" && message !== null && "command" in message && (message.command === "sqlMonitorReady" || message.command === "clearSqlMonitor");
+  return typeof message === "object" && message !== null && "command" in message && (message.command === "sqlMonitorReady" || message.command === "clearSqlMonitor" || isTableSelectionDebugMessage(message));
 }
 function isSqlExecutorWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
     return false;
   }
   if (message.command === "sqlExecutorReady") {
+    return true;
+  }
+  if (isTableSelectionDebugMessage(message)) {
     return true;
   }
   if (message.command === "executeSql") {
@@ -9748,6 +9783,16 @@ function isSqlExecutorWebviewMessage(message) {
     return "format" in message && (message.format === "markdown" || message.format === "json");
   }
   return message.command === "exportSqlResult";
+}
+function isTableSelectionDebugMessage(message) {
+  return "command" in message && message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string";
+}
+
+// src/core/tableSelectionLogger.ts
+var vscode4 = __toESM(require("vscode"));
+var output = vscode4.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u0412\u044B\u0434\u0435\u043B\u0435\u043D\u0438\u0435 \u0442\u0430\u0431\u043B\u0438\u0446");
+function logTableSelection(source, message) {
+  output.appendLine(`[${(/* @__PURE__ */ new Date()).toISOString()}] [${source}] ${message}`);
 }
 
 // src/features/classes/views/classDetailsPanelManager.ts
@@ -9761,22 +9806,26 @@ function updateClassDetailPanel(entry, classDetails) {
   entry.details = classDetails;
   entry.panel.title = `\u041A\u043B\u0430\u0441\u0441 ${classDetails.name}`;
   postDetails(entry);
-  entry.panel.reveal(vscode4.ViewColumn.Active, !entry.pinned);
+  entry.panel.reveal(vscode5.ViewColumn.Active, !entry.pinned);
 }
 function createPanel(context, classDetails, pinned, methodEditor) {
-  const assetsRoot = vscode4.Uri.joinPath(context.extensionUri, "dist", "webview");
-  const panel = vscode4.window.createWebviewPanel(
+  const assetsRoot = vscode5.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel = vscode5.window.createWebviewPanel(
     "vc-ve-tools.classDetails",
     `\u041A\u043B\u0430\u0441\u0441 ${classDetails.name}`,
-    { viewColumn: vscode4.ViewColumn.Active, preserveFocus: !pinned },
+    { viewColumn: vscode5.ViewColumn.Active, preserveFocus: !pinned },
     { enableScripts: true, localResourceRoots: [assetsRoot] }
   );
   const entry = { panel, pinned, details: classDetails };
   panel.webview.onDidReceiveMessage(async (message) => {
     if (isClassDetailsWebviewMessage(message)) {
+      if (message.command === "tableSelectionDebug") {
+        logTableSelection("\u041A\u043B\u0430\u0441\u0441", message.message);
+        return;
+      }
       if (message.command === "copyEntityId") {
-        await vscode4.env.clipboard.writeText(String(message.id));
-        vscode4.window.setStatusBarMessage(`ID ${message.id} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
+        await vscode5.env.clipboard.writeText(String(message.id));
+        vscode5.window.setStatusBarMessage(`ID ${message.id} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
         return;
       }
       if (message.command === "classDetailsReady") {
@@ -9789,28 +9838,29 @@ function createPanel(context, classDetails, pinned, methodEditor) {
       }
       const requestedClassId = entry.details.id;
       if (message.command === "loadClassMethods") {
-        const includeInherited = message.includeInherited;
+        const includeInherited2 = message.includeInherited;
         try {
-          const methods = await getClassMethods(requestedClassId, entry.details.name, includeInherited);
+          const methods = await getClassMethods(requestedClassId, entry.details.name, includeInherited2);
           if (entry.details.id === requestedClassId) {
-            void panel.webview.postMessage({ command: "classMethodsLoaded", methods, includeInherited });
+            void panel.webview.postMessage({ command: "classMethodsLoaded", methods, includeInherited: includeInherited2 });
           }
         } catch (error) {
           if (entry.details.id === requestedClassId) {
             const failureMessage = error instanceof Error ? error.message : String(error);
-            void panel.webview.postMessage({ command: "classMethodsLoadFailed", message: failureMessage, includeInherited });
+            void panel.webview.postMessage({ command: "classMethodsLoadFailed", message: failureMessage, includeInherited: includeInherited2 });
           }
         }
         return;
       }
+      const includeInherited = message.includeInherited;
       try {
-        const attributes = await getClassAttributes(requestedClassId, entry.details.name);
+        const attributes = await getClassAttributes(requestedClassId, entry.details.name, includeInherited);
         if (entry.details.id === requestedClassId) {
-          void panel.webview.postMessage({ command: "classAttributesLoaded", attributes });
+          void panel.webview.postMessage({ command: "classAttributesLoaded", attributes, includeInherited });
         }
       } catch (error) {
         const failureMessage = error instanceof Error ? error.message : String(error);
-        void panel.webview.postMessage({ command: "classAttributesLoadFailed", message: failureMessage });
+        void panel.webview.postMessage({ command: "classAttributesLoadFailed", message: failureMessage, includeInherited });
       }
     }
   });
@@ -9824,7 +9874,7 @@ async function openClassDetails(context, methodEditor, id, pinned) {
       existingPanel.pinned = true;
       previewClassPanelId = void 0;
     }
-    existingPanel.panel.reveal(vscode4.ViewColumn.Active, !pinned);
+    existingPanel.panel.reveal(vscode5.ViewColumn.Active, !pinned);
     return;
   }
   const classDetails = await getClassDetails(id);
@@ -9862,8 +9912,8 @@ function closeClassDetailPanels() {
   previewClassPanelId = void 0;
 }
 function getClassDetailsShell(webview, assetsRoot) {
-  const scriptUri = webview.asWebviewUri(vscode4.Uri.joinPath(assetsRoot, "class-details.js"));
-  const styleUri = webview.asWebviewUri(vscode4.Uri.joinPath(assetsRoot, "class-details.css"));
+  const scriptUri = webview.asWebviewUri(vscode5.Uri.joinPath(assetsRoot, "class-details.js"));
+  const styleUri = webview.asWebviewUri(vscode5.Uri.joinPath(assetsRoot, "class-details.css"));
   const nonce = createNonce();
   return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -9877,7 +9927,7 @@ function createNonce() {
 }
 
 // src/features/explorer/explorerViewProvider.ts
-var vscode5 = __toESM(require("vscode"));
+var vscode6 = __toESM(require("vscode"));
 var ExplorerViewProvider = class {
   constructor(extensionUri, getClasses, openClass) {
     this.extensionUri = extensionUri;
@@ -9889,11 +9939,11 @@ var ExplorerViewProvider = class {
   openClass;
   view;
   selectedEntityId;
-  output = vscode5.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u041F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A");
+  output = vscode6.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u041F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A");
   resolveWebviewView(webviewView) {
     this.view = webviewView;
     this.log("Webview \u043F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A\u0430 \u0441\u043E\u0437\u0434\u0430\u043D.");
-    const assetsRoot = vscode5.Uri.joinPath(this.extensionUri, "dist", "webview");
+    const assetsRoot = vscode6.Uri.joinPath(this.extensionUri, "dist", "webview");
     webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
     webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
     webviewView.webview.onDidReceiveMessage((message) => {
@@ -9906,7 +9956,7 @@ var ExplorerViewProvider = class {
         return;
       }
       if (message.command === "setExplorerCopyContext") {
-        void vscode5.commands.executeCommand("setContext", "vcVeTools.explorerCopyContext", message.active);
+        void vscode6.commands.executeCommand("setContext", "vcVeTools.explorerCopyContext", message.active);
         this.log(`\u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442 Ctrl+C: active=${message.active}.`);
         return;
       }
@@ -9916,8 +9966,8 @@ var ExplorerViewProvider = class {
       }
       if (message.command === "copyEntityId") {
         this.log(`\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u0430 \u043A\u043E\u043C\u0430\u043D\u0434\u0430 \u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F ID=${message.id}.`);
-        void vscode5.env.clipboard.writeText(String(message.id));
-        vscode5.window.setStatusBarMessage(`ID ${message.id} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
+        void vscode6.env.clipboard.writeText(String(message.id));
+        vscode6.window.setStatusBarMessage(`ID ${message.id} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
         return;
       }
       if (message.command === "selectExplorerEntity") {
@@ -9927,12 +9977,12 @@ var ExplorerViewProvider = class {
       }
       void this.openClass(message.id, message.pinned).catch((error) => {
         const detail = error instanceof Error ? error.message : String(error);
-        void vscode5.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043A\u043B\u0430\u0441\u0441: ${detail}`);
+        void vscode6.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043A\u043B\u0430\u0441\u0441: ${detail}`);
       });
     });
   }
   dispose() {
-    void vscode5.commands.executeCommand("setContext", "vcVeTools.explorerCopyContext", false);
+    void vscode6.commands.executeCommand("setContext", "vcVeTools.explorerCopyContext", false);
     this.view = void 0;
     this.output.dispose();
   }
@@ -9944,8 +9994,8 @@ var ExplorerViewProvider = class {
     if (this.selectedEntityId === void 0) {
       return;
     }
-    await vscode5.env.clipboard.writeText(String(this.selectedEntityId));
-    vscode5.window.setStatusBarMessage(`ID ${this.selectedEntityId} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
+    await vscode6.env.clipboard.writeText(String(this.selectedEntityId));
+    vscode6.window.setStatusBarMessage(`ID ${this.selectedEntityId} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
   }
   log(message) {
     this.output.appendLine(`[${(/* @__PURE__ */ new Date()).toISOString()}] ${message}`);
@@ -9962,8 +10012,8 @@ var ExplorerViewProvider = class {
     await this.view?.webview.postMessage(message);
   }
   getHtml(webview, assetsRoot) {
-    const scriptUri = webview.asWebviewUri(vscode5.Uri.joinPath(assetsRoot, "explorer.js"));
-    const styleUri = webview.asWebviewUri(vscode5.Uri.joinPath(assetsRoot, "explorer.css"));
+    const scriptUri = webview.asWebviewUri(vscode6.Uri.joinPath(assetsRoot, "explorer.js"));
+    const styleUri = webview.asWebviewUri(vscode6.Uri.joinPath(assetsRoot, "explorer.css"));
     const nonce = this.createNonce();
     return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10003,18 +10053,18 @@ function safeJson(value) {
 }
 
 // src/features/sql-monitor/views/sqlMonitorPanelManager.ts
-var vscode6 = __toESM(require("vscode"));
+var vscode7 = __toESM(require("vscode"));
 var monitorPanel;
 function openSqlMonitor(context) {
   if (monitorPanel) {
-    monitorPanel.reveal(vscode6.ViewColumn.Active);
+    monitorPanel.reveal(vscode7.ViewColumn.Active);
     return;
   }
-  const assetsRoot = vscode6.Uri.joinPath(context.extensionUri, "dist", "webview");
-  const panel = vscode6.window.createWebviewPanel(
+  const assetsRoot = vscode7.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel = vscode7.window.createWebviewPanel(
     "vc-ve-tools.sqlMonitor",
     "SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440",
-    vscode6.ViewColumn.Active,
+    vscode7.ViewColumn.Active,
     { enableScripts: true, localResourceRoots: [assetsRoot] }
   );
   monitorPanel = panel;
@@ -10024,6 +10074,10 @@ function openSqlMonitor(context) {
   });
   panel.webview.onDidReceiveMessage((message) => {
     if (!isSqlMonitorWebviewMessage(message)) {
+      return;
+    }
+    if (message.command === "tableSelectionDebug") {
+      logTableSelection("SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440", message.message);
       return;
     }
     if (message.command === "sqlMonitorReady") {
@@ -10044,8 +10098,8 @@ function openSqlMonitor(context) {
   panel.webview.html = getSqlMonitorShell(panel.webview, assetsRoot);
 }
 function getSqlMonitorShell(webview, assetsRoot) {
-  const scriptUri = webview.asWebviewUri(vscode6.Uri.joinPath(assetsRoot, "sql-monitor.js"));
-  const styleUri = webview.asWebviewUri(vscode6.Uri.joinPath(assetsRoot, "sql-monitor.css"));
+  const scriptUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-monitor.js"));
+  const styleUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-monitor.css"));
   const nonce = createNonce2();
   return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10059,7 +10113,7 @@ function createNonce2() {
 }
 
 // src/features/sql-executor/sqlExecutorViewProvider.ts
-var vscode7 = __toESM(require("vscode"));
+var vscode8 = __toESM(require("vscode"));
 
 // src/features/sql-executor/sqlDialectAdapter.ts
 var sqlKeywords = /* @__PURE__ */ new Set([
@@ -10133,15 +10187,15 @@ function replaceCompositeDateTimeFields(part, columnsByAlias) {
 }
 function mapExecutableSql(source, transform, protectedReplacement) {
   const protectedSql = /(--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'|"(?:""|[^"])*")/g;
-  let output = "";
+  let output2 = "";
   let position = 0;
   for (const match of source.matchAll(protectedSql)) {
     const index = match.index ?? 0;
-    output += transform(source.slice(position, index));
-    output += protectedReplacement ?? match[0];
+    output2 += transform(source.slice(position, index));
+    output2 += protectedReplacement ?? match[0];
     position = index + match[0].length;
   }
-  return output + transform(source.slice(position));
+  return output2 + transform(source.slice(position));
 }
 
 // src/features/sql-executor/executeSql.ts
@@ -10241,7 +10295,7 @@ var SqlExecutorViewProvider = class {
   static viewType = "vc-ve-tools.sqlExecutor";
   resolveWebviewView(webviewView) {
     let latestResult;
-    const assetsRoot = vscode7.Uri.joinPath(this.extensionUri, "dist", "webview");
+    const assetsRoot = vscode8.Uri.joinPath(this.extensionUri, "dist", "webview");
     webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
     webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
     const historySubscription = sqlMonitorService.subscribe((record) => {
@@ -10253,6 +10307,10 @@ var SqlExecutorViewProvider = class {
     webviewView.onDidDispose(() => historySubscription.dispose());
     webviewView.webview.onDidReceiveMessage((message) => {
       if (!isSqlExecutorWebviewMessage(message)) {
+        return;
+      }
+      if (message.command === "tableSelectionDebug") {
+        logTableSelection("\u0418\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C SQL", message.message);
         return;
       }
       if (message.command === "sqlExecutorReady") {
@@ -10293,24 +10351,24 @@ var SqlExecutorViewProvider = class {
       return;
     }
     try {
-      await vscode7.env.clipboard.writeText(formatSqlResult(result, format));
-      void vscode7.window.showInformationMessage(format === "json" ? "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 JSON." : "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u043A\u0430\u043A \u0447\u0438\u0442\u0430\u0435\u043C\u0430\u044F \u0442\u0430\u0431\u043B\u0438\u0446\u0430.");
+      await vscode8.env.clipboard.writeText(formatSqlResult(result, format));
+      void vscode8.window.showInformationMessage(format === "json" ? "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 JSON." : "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u043A\u0430\u043A \u0447\u0438\u0442\u0430\u0435\u043C\u0430\u044F \u0442\u0430\u0431\u043B\u0438\u0446\u0430.");
     } catch (error) {
-      void vscode7.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL: ${errorMessage(error)}`);
+      void vscode8.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL: ${errorMessage(error)}`);
     }
   }
   async exportResult(result) {
     if (!result) {
       return;
     }
-    const selected = await vscode7.window.showQuickPick(sqlResultExportDefinitions, {
+    const selected = await vscode8.window.showQuickPick(sqlResultExportDefinitions, {
       placeHolder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0444\u043E\u0440\u043C\u0430\u0442 \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0438 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u0430 SQL"
     });
     if (!selected) {
       return;
     }
-    const uri = await vscode7.window.showSaveDialog({
-      defaultUri: vscode7.Uri.file(`sql-result-${fileTimestamp()}.${selected.extension}`),
+    const uri = await vscode8.window.showSaveDialog({
+      defaultUri: vscode8.Uri.file(`sql-result-${fileTimestamp()}.${selected.extension}`),
       filters: { [selected.label]: [selected.extension] },
       saveLabel: "\u0412\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442"
     });
@@ -10318,15 +10376,15 @@ var SqlExecutorViewProvider = class {
       return;
     }
     try {
-      await vscode7.workspace.fs.writeFile(uri, new TextEncoder().encode(formatSqlResult(result, selected.format)));
-      void vscode7.window.showInformationMessage(`\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0432\u044B\u0433\u0440\u0443\u0436\u0435\u043D: ${uri.fsPath}`);
+      await vscode8.workspace.fs.writeFile(uri, new TextEncoder().encode(formatSqlResult(result, selected.format)));
+      void vscode8.window.showInformationMessage(`\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL \u0432\u044B\u0433\u0440\u0443\u0436\u0435\u043D: ${uri.fsPath}`);
     } catch (error) {
-      void vscode7.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL: ${errorMessage(error)}`);
+      void vscode8.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 SQL: ${errorMessage(error)}`);
     }
   }
   getHtml(webview, assetsRoot) {
-    const scriptUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-executor.js"));
-    const styleUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-executor.css"));
+    const scriptUri = webview.asWebviewUri(vscode8.Uri.joinPath(assetsRoot, "sql-executor.js"));
+    const styleUri = webview.asWebviewUri(vscode8.Uri.joinPath(assetsRoot, "sql-executor.css"));
     const nonce = createNonce3();
     return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10356,7 +10414,7 @@ function createNonce3() {
 }
 
 // src/features/methods/methodEditorProvider.ts
-var vscode9 = __toESM(require("vscode"));
+var vscode10 = __toESM(require("vscode"));
 var iconv4 = __toESM(require_lib3());
 
 // src/infrastructure/database/methodRepository.ts
@@ -10364,7 +10422,7 @@ var iconv3 = __toESM(require_lib3());
 
 // src/infrastructure/configuration/sessionContext.ts
 var import_node_os = require("node:os");
-var vscode8 = __toESM(require("vscode"));
+var vscode9 = __toESM(require("vscode"));
 async function getSessionContext(client, databaseName) {
   const timeResult = await executeMonitoredQuery(client, {
     text: "SELECT NOW() AS now",
@@ -10382,17 +10440,17 @@ async function getSessionContext(client, databaseName) {
   };
 }
 async function getUserId() {
-  const configuration = vscode8.workspace.getConfiguration("vcVeTools");
+  const configuration = vscode9.workspace.getConfiguration("vcVeTools");
   const configured = configuration.get("userId", 0);
   if (Number.isSafeInteger(configured) && configured > 0) {
     return configured;
   }
   const legacy = Number.parseInt(process.env.VC_VE_USER_ID ?? "", 10);
   if (Number.isSafeInteger(legacy) && legacy > 0) {
-    await configuration.update("userId", legacy, vscode8.ConfigurationTarget.Workspace);
+    await configuration.update("userId", legacy, vscode9.ConfigurationTarget.Workspace);
     return legacy;
   }
-  const input = await vscode8.window.showInputBox({
+  const input = await vscode9.window.showInputBox({
     title: "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430",
     prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B Users. \u041E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.",
     placeHolder: "ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F",
@@ -10403,7 +10461,7 @@ async function getUserId() {
     throw new Error("\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E: \u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0434\u043B\u044F \u0436\u0443\u0440\u043D\u0430\u043B\u0430 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439.");
   }
   const userId = Number.parseInt(input, 10);
-  await configuration.update("userId", userId, vscode8.ConfigurationTarget.Workspace);
+  await configuration.update("userId", userId, vscode9.ConfigurationTarget.Workspace);
   return userId;
 }
 function validateUserId(value) {
@@ -10590,10 +10648,10 @@ function inspectValue(value) {
 // src/features/methods/methodEditorProvider.ts
 var scheme = "vc-ve-method";
 var MethodEditorProvider = class {
-  changed = new vscode9.EventEmitter();
+  changed = new vscode10.EventEmitter();
   methods = /* @__PURE__ */ new Map();
   sessionRevision = Date.now();
-  output = vscode9.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u041C\u0435\u0442\u043E\u0434\u044B");
+  output = vscode10.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u041C\u0435\u0442\u043E\u0434\u044B");
   onDidChangeFile = this.changed.event;
   async open(id) {
     this.log(`\u041E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 ID=${id}.`);
@@ -10602,25 +10660,25 @@ var MethodEditorProvider = class {
     const extension = method.methodType === 3 ? "pkf" : "pas";
     const languageId = extension === "pkf" ? "ve-pkf" : "ve-pascal";
     await ensureWindows1251(languageId);
-    const uri = vscode9.Uri.from({ scheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
+    const uri = vscode10.Uri.from({ scheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
     this.methods.set(uri.toString(), method);
-    const document = await vscode9.workspace.openTextDocument(uri);
-    await vscode9.languages.setTextDocumentLanguage(document, languageId);
+    const document = await vscode10.workspace.openTextDocument(uri);
+    await vscode10.languages.setTextDocumentLanguage(document, languageId);
     this.log(`\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442 \u043E\u0442\u043A\u0440\u044B\u0442: language=${document.languageId}; ${inspectText(document.getText())}.`);
-    await vscode9.window.showTextDocument(document, { preview: false, viewColumn: vscode9.ViewColumn.Active });
+    await vscode10.window.showTextDocument(document, { preview: false, viewColumn: vscode10.ViewColumn.Active });
   }
   watch() {
-    return new vscode9.Disposable(() => void 0);
+    return new vscode10.Disposable(() => void 0);
   }
   async stat(uri) {
     await this.ensureMethod(uri);
-    return { type: vscode9.FileType.File, ctime: 0, mtime: Date.now(), size: iconv4.encode(this.methods.get(uri.toString())?.code ?? "", "win1251").byteLength };
+    return { type: vscode10.FileType.File, ctime: 0, mtime: Date.now(), size: iconv4.encode(this.methods.get(uri.toString())?.code ?? "", "win1251").byteLength };
   }
   readDirectory() {
     return [];
   }
   createDirectory() {
-    throw vscode9.FileSystemError.NoPermissions("\u0412\u0438\u0440\u0442\u0443\u0430\u043B\u044C\u043D\u0430\u044F \u043F\u0430\u043F\u043A\u0430 \u043C\u0435\u0442\u043E\u0434\u043E\u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F.");
+    throw vscode10.FileSystemError.NoPermissions("\u0412\u0438\u0440\u0442\u0443\u0430\u043B\u044C\u043D\u0430\u044F \u043F\u0430\u043F\u043A\u0430 \u043C\u0435\u0442\u043E\u0434\u043E\u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F.");
   }
   async readFile(uri) {
     const method = await this.ensureMethod(uri);
@@ -10641,14 +10699,14 @@ var MethodEditorProvider = class {
     }
     this.log(`writeFile \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043D ID=${method.id}.`);
     method.code = code;
-    this.changed.fire([{ type: vscode9.FileChangeType.Changed, uri }]);
-    vscode9.window.setStatusBarMessage(`\u041C\u0435\u0442\u043E\u0434 ${method.name} \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D \u0432 Windows-1251`, 2500);
+    this.changed.fire([{ type: vscode10.FileChangeType.Changed, uri }]);
+    vscode10.window.setStatusBarMessage(`\u041C\u0435\u0442\u043E\u0434 ${method.name} \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D \u0432 Windows-1251`, 2500);
   }
   delete() {
-    throw vscode9.FileSystemError.NoPermissions("\u0423\u0434\u0430\u043B\u0435\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 \u0438\u0437 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0430 \u0437\u0430\u043F\u0440\u0435\u0449\u0435\u043D\u043E.");
+    throw vscode10.FileSystemError.NoPermissions("\u0423\u0434\u0430\u043B\u0435\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 \u0438\u0437 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0430 \u0437\u0430\u043F\u0440\u0435\u0449\u0435\u043D\u043E.");
   }
   rename() {
-    throw vscode9.FileSystemError.NoPermissions("\u041F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 \u0438\u0437 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0430 \u0437\u0430\u043F\u0440\u0435\u0449\u0435\u043D\u043E.");
+    throw vscode10.FileSystemError.NoPermissions("\u041F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 \u0438\u0437 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0430 \u0437\u0430\u043F\u0440\u0435\u0449\u0435\u043D\u043E.");
   }
   dispose() {
     this.changed.dispose();
@@ -10665,7 +10723,7 @@ var MethodEditorProvider = class {
     }
     const id = Number(new URLSearchParams(uri.query).get("id"));
     if (!Number.isSafeInteger(id)) {
-      throw vscode9.FileSystemError.FileNotFound(uri);
+      throw vscode10.FileSystemError.FileNotFound(uri);
     }
     const method = await getMethodSource(id);
     this.methods.set(uri.toString(), method);
@@ -10674,18 +10732,18 @@ var MethodEditorProvider = class {
 };
 function registerMethodEditor(context) {
   const provider = new MethodEditorProvider();
-  context.subscriptions.push(provider, vscode9.workspace.registerFileSystemProvider(scheme, provider, { isCaseSensitive: true }));
+  context.subscriptions.push(provider, vscode10.workspace.registerFileSystemProvider(scheme, provider, { isCaseSensitive: true }));
   return provider;
 }
 function safeName(value) {
   return value.replace(/[\\/:*?"<>|]/g, "_") || "method";
 }
 async function ensureWindows1251(languageId) {
-  const configuration = vscode9.workspace.getConfiguration("files", { languageId });
+  const configuration = vscode10.workspace.getConfiguration("files", { languageId });
   if (configuration.get("encoding") === "windows1251") {
     return;
   }
-  await configuration.update("encoding", "windows1251", vscode9.ConfigurationTarget.Workspace, true);
+  await configuration.update("encoding", "windows1251", vscode10.ConfigurationTarget.Workspace, true);
 }
 function inspectText(value) {
   const replacementPositions = [];
@@ -10705,37 +10763,37 @@ function inspectText(value) {
 // src/application/activate.ts
 async function activate(context) {
   const methodEditor = registerMethodEditor(context);
-  const extensionConfiguration = vscode10.workspace.getConfiguration("vcVeTools");
+  const extensionConfiguration = vscode11.workspace.getConfiguration("vcVeTools");
   let isUpdatingSetting = false;
   const settingsProvider = new SettingsProvider(
     extensionConfiguration.get(projectRootSetting, false),
     getDatabaseRole()
   );
-  const settingsView = vscode10.window.createTreeView("vc-ve-tools.settings", {
+  const settingsView = vscode11.window.createTreeView("vc-ve-tools.settings", {
     treeDataProvider: settingsProvider
   });
   const updateProjectRootSetting = async (enabled) => {
-    if (!vscode10.workspace.workspaceFolders?.length) {
+    if (!vscode11.workspace.workspaceFolders?.length) {
       settingsProvider.setProjectRootEnabled(false);
-      void vscode10.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      void vscode11.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       return;
     }
     try {
       isUpdatingSetting = true;
-      await vscode10.workspace.getConfiguration("vcVeTools").update(
+      await vscode11.workspace.getConfiguration("vcVeTools").update(
         projectRootSetting,
         enabled,
-        vscode10.ConfigurationTarget.Workspace
+        vscode11.ConfigurationTarget.Workspace
       );
       await applyProjectEncoding(context, enabled);
       settingsProvider.setProjectRootEnabled(enabled);
-      void vscode10.window.showInformationMessage(
+      void vscode11.window.showInformationMessage(
         enabled ? "PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u044B \u0431\u0443\u0434\u0443\u0442 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C\u0441\u044F \u0432 \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0435 Cyrillic (Windows 1251)." : "\u041A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0430 PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u043E\u0432 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430."
       );
     } catch (error) {
-      const currentValue = vscode10.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
+      const currentValue = vscode11.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       settingsProvider.setProjectRootEnabled(currentValue);
-      void vscode10.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+      void vscode11.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
     } finally {
       isUpdatingSetting = false;
     }
@@ -10745,21 +10803,21 @@ async function activate(context) {
     loadClasses,
     (id, pinned) => openClassDetails(context, methodEditor, id, pinned)
   );
-  const explorerRegistration = vscode10.window.registerWebviewViewProvider(
+  const explorerRegistration = vscode11.window.registerWebviewViewProvider(
     "vc-ve-tools.explorer",
     explorerProvider
   );
   const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
-  const sqlExecutorRegistration = vscode10.window.registerWebviewViewProvider(
+  const sqlExecutorRegistration = vscode11.window.registerWebviewViewProvider(
     SqlExecutorViewProvider.viewType,
     sqlExecutorProvider,
     { webviewOptions: { retainContextWhenHidden: true } }
   );
   const checkboxListener = settingsView.onDidChangeCheckboxState((event) => {
-    const enabled = event.items[0]?.[1] === vscode10.TreeItemCheckboxState.Checked;
+    const enabled = event.items[0]?.[1] === vscode11.TreeItemCheckboxState.Checked;
     void updateProjectRootSetting(enabled);
   });
-  const configurationListener = vscode10.workspace.onDidChangeConfiguration(async (event) => {
+  const configurationListener = vscode11.workspace.onDidChangeConfiguration(async (event) => {
     if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
       settingsProvider.setDatabaseRole(getDatabaseRole());
       closeClassDetailPanels();
@@ -10769,50 +10827,50 @@ async function activate(context) {
       settingsProvider.setUserId();
     }
     if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${projectRootSetting}`)) {
-      const enabled = vscode10.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
+      const enabled = vscode11.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       settingsProvider.setProjectRootEnabled(enabled);
       try {
         await applyProjectEncoding(context, enabled);
       } catch (error) {
-        void vscode10.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+        void vscode11.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
       }
     }
   });
-  if (extensionConfiguration.get(projectRootSetting, false) && vscode10.workspace.workspaceFolders?.length) {
+  if (extensionConfiguration.get(projectRootSetting, false) && vscode11.workspace.workspaceFolders?.length) {
     await applyProjectEncoding(context, true);
   }
   console.log('Congratulations, your extension "vc-ve-tools" is now active!');
-  const disposable = vscode10.commands.registerCommand("vc-ve-tools.helloWorld", () => {
-    vscode10.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
+  const disposable = vscode11.commands.registerCommand("vc-ve-tools.helloWorld", () => {
+    vscode11.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
   });
-  const testDatabaseConnectionCommand = vscode10.commands.registerCommand(
+  const testDatabaseConnectionCommand = vscode11.commands.registerCommand(
     "vc-ve-tools.testDatabaseConnection",
     async () => {
       try {
-        const result = await vscode10.window.withProgress(
+        const result = await vscode11.window.withProgress(
           {
-            location: vscode10.ProgressLocation.Notification,
+            location: vscode11.ProgressLocation.Notification,
             title: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0431\u0430\u0437\u0435"
           },
           testDatabaseConnection
         );
-        void vscode10.window.showInformationMessage(
+        void vscode11.window.showInformationMessage(
           `\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${result.database}, \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${result.user}.`
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        void vscode10.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
+        void vscode11.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
       }
     }
   );
-  const selectDatabaseRoleCommand = vscode10.commands.registerCommand(
+  const selectDatabaseRoleCommand = vscode11.commands.registerCommand(
     "vc-ve-tools.selectDatabaseRole",
     async () => {
-      if (!vscode10.workspace.workspaceFolders?.length) {
-        void vscode10.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      if (!vscode11.workspace.workspaceFolders?.length) {
+        void vscode11.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
         return;
       }
-      const selected = await vscode10.window.showQuickPick(
+      const selected = await vscode11.window.showQuickPick(
         [
           { label: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F", description: "devDBName_main", role: "main" },
           { label: "\u0422\u0435\u0441\u0442\u043E\u0432\u0430\u044F", description: "devDBName_test", role: "test" }
@@ -10822,28 +10880,28 @@ async function activate(context) {
       if (!selected || selected.role === getDatabaseRole()) {
         return;
       }
-      await vscode10.workspace.getConfiguration("vcVeTools").update(
+      await vscode11.workspace.getConfiguration("vcVeTools").update(
         databaseRoleSetting,
         selected.role,
-        vscode10.ConfigurationTarget.Workspace
+        vscode11.ConfigurationTarget.Workspace
       );
     }
   );
-  const openSqlMonitorCommand = vscode10.commands.registerCommand(
+  const openSqlMonitorCommand = vscode11.commands.registerCommand(
     "vc-ve-tools.openSqlMonitor",
     () => openSqlMonitor(context)
   );
-  const copySelectedExplorerIdCommand = vscode10.commands.registerCommand(
+  const copySelectedExplorerIdCommand = vscode11.commands.registerCommand(
     "vc-ve-tools.copySelectedExplorerId",
     () => explorerProvider.copySelectedEntityId()
   );
-  const setUserIdCommand = vscode10.commands.registerCommand(
+  const setUserIdCommand = vscode11.commands.registerCommand(
     "vc-ve-tools.setUserId",
     async () => {
-      const input = await vscode10.window.showInputBox({
+      const input = await vscode11.window.showInputBox({
         placeHolder: "3130673",
         prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B Users \u0434\u043B\u044F \u043B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439 \u043C\u0435\u0442\u043E\u0434\u043E\u0432",
-        value: vscode10.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
+        value: vscode11.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
         validateInput: (value) => {
           if (!value.trim()) {
             return "ID \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C";
@@ -10859,13 +10917,13 @@ async function activate(context) {
         return;
       }
       const userId = Number.parseInt(input, 10);
-      await vscode10.workspace.getConfiguration("vcVeTools").update(
+      await vscode11.workspace.getConfiguration("vcVeTools").update(
         "userId",
         userId,
-        vscode10.ConfigurationTarget.Workspace
+        vscode11.ConfigurationTarget.Workspace
       );
       settingsProvider.setUserId();
-      void vscode10.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
+      void vscode11.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
     }
   );
   context.subscriptions.push(

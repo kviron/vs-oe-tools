@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { SqlMonitorHostMessage } from '../../../core/webviewProtocol';
 import { isSqlMonitorWebviewMessage } from '../../../core/webviewProtocol';
 import { sqlMonitorService } from '../sqlMonitorService';
+import { logTableSelection } from '../../../core/tableSelectionLogger';
 
 let monitorPanel: vscode.WebviewPanel | undefined;
 
@@ -26,6 +27,10 @@ export function openSqlMonitor(context: vscode.ExtensionContext): void {
 	});
 	panel.webview.onDidReceiveMessage((message: unknown) => {
 		if (!isSqlMonitorWebviewMessage(message)) {
+			return;
+		}
+		if (message.command === 'tableSelectionDebug') {
+			logTableSelection('SQL-монитор', message.message);
 			return;
 		}
 		if (message.command === 'sqlMonitorReady') {

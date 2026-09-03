@@ -9,11 +9,14 @@
     { "include": "#strings" },
     { "include": "#sections" },
     { "include": "#declarations" },
+    { "include": "#function-calls" },
+    { "include": "#members" },
     { "include": "#keywords" },
     { "include": "#types" },
     { "include": "#constants" },
     { "include": "#numbers" },
-    { "include": "#operators" }
+    { "include": "#operators" },
+    { "include": "source.pascal" }
   ],
   "repository": {
     "embedded-sql": {
@@ -70,6 +73,10 @@
     "declarations": {
       "patterns": [
         {
+          "name": "storage.type.function.pkf",
+          "match": "(?i)\\b(proc)\\b(?=\\s*\\()"
+        },
+        {
           "name": "entity.name.type.class.pkf",
           "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?=\\s*=\\s*(?i:sealed\\s+)?class\\b)"
         },
@@ -89,7 +96,7 @@
           }
         },
         {
-          "match": "(?i)\\b(procedure|function|constructor|destructor)\\s+([\\p{L}_][\\p{L}\\p{N}_]*)",
+          "match": "(?i)\\b(procedure|function|constructor|destructor|proc)\\s+([\\p{L}_][\\p{L}\\p{N}_]*)",
           "captures": {
             "1": { "name": "storage.type.function.pkf" },
             "2": { "name": "entity.name.function.pkf" }
@@ -102,11 +109,36 @@
             "2": { "name": "entity.name.type.pkf" }
           }
         },
+        {
+          "name": "variable.other.definition.pkf",
+          "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?=\\s*:)"
+        },
         { "name": "variable.other.assignment.pkf", "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?=\\s*=)" }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.pkf",
+          "match": "(?i)\\b(?:ToFloat|ToInt|ToIntDef|ToStr|ToDate|ToDateTime|Ord|Round|Trunc|Abs|Min|Max|Length|Copy|Pos|UpperCase|LowerCase|Trim|Format|Assigned|Include|Exclude|Inc|Dec|Warn|Error)\\b(?=\\s*\\()"
+        },
+        {
+          "name": "entity.name.function.call.pkf",
+          "match": "[\\p{L}_][\\p{L}\\p{N}_]*(?=\\s*\\()"
+        }
+      ]
+    },
+    "members": {
+      "patterns": [
+        {
+          "name": "variable.other.member.pkf",
+          "match": "(?<=\\.)[\\p{L}_][\\p{L}\\p{N}_]*"
+        }
       ]
     },
     "keywords": {
       "patterns": [
+        { "name": "support.function.builtin.sql.pkf", "match": "(?i)\\bsqltext!" },
         { "name": "storage.modifier.pkf", "match": "(?i)\\b(public|private|protected|published|sealed|abstract|virtual|override|static)\\b" },
         { "name": "keyword.control.pkf", "match": "(?i)\\b(begin|if|then|else|case|of|for|to|downto|while|do|repeat|until|with|try|except|finally|raise|inherited|exit)\\b" },
         { "name": "keyword.operator.word.pkf", "match": "(?i)\\b(and|or|xor|not|div|mod|in|is|as)\\b" }

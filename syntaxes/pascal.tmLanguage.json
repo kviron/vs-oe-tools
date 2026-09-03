@@ -7,11 +7,14 @@
     { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#declarations" },
+    { "include": "#function-calls" },
+    { "include": "#members" },
     { "include": "#keywords" },
     { "include": "#types" },
     { "include": "#constants" },
     { "include": "#numbers" },
-    { "include": "#operators" }
+    { "include": "#operators" },
+    { "include": "source.pascal" }
   ],
   "repository": {
     "directives": {
@@ -65,6 +68,30 @@
           "captures": {
             "1": { "name": "storage.type.class.pascal" }
           }
+        },
+        {
+          "name": "variable.other.definition.pascal",
+          "match": "[A-Za-z_][A-Za-z0-9_]*(?=\\s*:)"
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.pascal",
+          "match": "(?i)\\b(?:Write|WriteLn|Read|ReadLn|ToFloat|ToInt|ToIntDef|ToStr|ToDate|ToDateTime|Ord|Chr|Round|Trunc|Abs|Min|Max|Length|SetLength|Copy|Pos|UpperCase|LowerCase|Trim|Format|Assigned|Include|Exclude|Inc|Dec|Warn|Error)\\b(?=\\s*\\()"
+        },
+        {
+          "name": "entity.name.function.call.pascal",
+          "match": "[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+        }
+      ]
+    },
+    "members": {
+      "patterns": [
+        {
+          "name": "variable.other.member.pascal",
+          "match": "(?<=\\.)[A-Za-z_][A-Za-z0-9_]*"
         }
       ]
     },

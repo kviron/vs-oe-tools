@@ -4,6 +4,7 @@ import { isClassDetailsWebviewMessage } from '../../../core/webviewProtocol';
 import { getClassAttributes, getClassDetails, getClassMethods } from '../../../infrastructure/database/classRepository';
 import type { ClassDetails } from '../models';
 import type { MethodEditorProvider } from '../../methods/methodEditorProvider';
+import { logTableSelection } from '../../../core/tableSelectionLogger';
 
 interface ClassDetailPanel {
 	panel: vscode.WebviewPanel;
@@ -37,6 +38,10 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 	const entry: ClassDetailPanel = { panel, pinned, details: classDetails };
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (isClassDetailsWebviewMessage(message)) {
+			if (message.command === 'tableSelectionDebug') {
+				logTableSelection('Класс', message.message);
+				return;
+			}
 			if (message.command === 'copyEntityId') {
 				await vscode.env.clipboard.writeText(String(message.id));
 				vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
@@ -66,14 +71,15 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				}
 				return;
 			}
+			const includeInherited = message.includeInherited;
 			try {
-				const attributes = await getClassAttributes(requestedClassId, entry.details.name);
+				const attributes = await getClassAttributes(requestedClassId, entry.details.name, includeInherited);
 				if (entry.details.id === requestedClassId) {
-					void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes } satisfies ClassDetailsHostMessage);
+					void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes, includeInherited } satisfies ClassDetailsHostMessage);
 				}
 			} catch (error) {
 				const failureMessage = error instanceof Error ? error.message : String(error);
-				void panel.webview.postMessage({ command: 'classAttributesLoadFailed', message: failureMessage } satisfies ClassDetailsHostMessage);
+				void panel.webview.postMessage({ command: 'classAttributesLoadFailed', message: failureMessage, includeInherited } satisfies ClassDetailsHostMessage);
 			}
 		}
 	});

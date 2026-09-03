@@ -130,7 +130,13 @@ function readValue(row: Record<string, unknown>, ...names: string[]): string {
 	return '';
 }
 
-export async function getClassAttributes(classId: number, className: string): Promise<ClassAttribute[]> {
+interface ClassAttributeRow {
+	data: Record<string, unknown>;
+	ownername: string | null;
+	depth: number;
+}
+
+export async function getClassAttributes(classId: number, className: string, includeInherited: boolean): Promise<ClassAttribute[]> {
 	const options = await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
 	try {
@@ -157,26 +163,55 @@ export async function getClassAttributes(classId: number, className: string): Pr
 		if (!ownerColumn) throw new Error('В таблице атрибутов не найдена ссылка на класс.');
 		const orderColumn = ['ord', 'line', 'linenumber', 'name'].find(column => table.columns.includes(column)) ?? 'id';
 		const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
-		const result = await executeMonitoredQuery<{ data: Record<string, unknown> }, [number]>(client, {
-			text: `SELECT to_jsonb(attribute) AS data
-			 FROM ${source} AS attribute
-			 WHERE attribute.${quoteIdentifier(ownerColumn)} = $1
-			 ORDER BY attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier('id')}`,
-			values: [classId],
-			source: `Атрибуты класса ${className}`,
+		const text = includeInherited
+			? `WITH RECURSIVE class_chain AS (
+			     SELECT class.id, class.seniorid, class.name, 0 AS depth, ARRAY[class.id] AS path
+			     FROM classes AS class
+			     WHERE class.id = $1
+			     UNION ALL
+			     SELECT parent.id, parent.seniorid, parent.name, chain.depth + 1, chain.path || parent.id
+			     FROM classes AS parent
+			     INNER JOIN class_chain AS chain ON parent.id = chain.seniorid
+			     WHERE NOT parent.id = ANY(chain.path)
+			   )
+			   SELECT to_jsonb(attribute) AS data, COALESCE(chain.name, $2::text) AS ownername, chain.depth
+			   FROM class_chain AS chain
+			   INNER JOIN ${source} AS attribute ON attribute.${quoteIdentifier(ownerColumn)} = chain.id
+			   ORDER BY chain.depth, attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier('id')}`
+			: `SELECT to_jsonb(attribute) AS data, $2::text AS ownername, 0 AS depth
+			   FROM ${source} AS attribute
+			   WHERE attribute.${quoteIdentifier(ownerColumn)} = $1
+			   ORDER BY attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier('id')}`;
+		const result = await executeMonitoredQuery<ClassAttributeRow, [number, string]>(client, {
+			text,
+			values: [classId, className],
+			source: includeInherited ? `Атрибуты класса ${className} с наследованием` : `Атрибуты класса ${className}`,
 			database: options.database,
 		});
 
-		return result.rows.map(({ data }) => ({
+		const attributes = result.rows.map(({ data, ownername, depth }) => ({
 			id: readValue(data, 'id'),
 			name: readValue(data, 'name'),
-			owner: readValue(data, 'owner', 'ownername', 'classname') || className,
+			owner: ownername ?? (readValue(data, 'owner', 'ownername', 'classname') || className),
 			signature: readValue(data, 'signature', 'parameters', 'params', 'args', 'declaration'),
 			type: readValue(data, 'type', 'typename', 'attributetype', 'kind'),
 			visibility: readValue(data, 'visibility', 'access', 'scope'),
 			package: readValue(data, 'package', 'packagename'),
 			line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
+			inherited: depth > 0,
 		}));
+		if (!includeInherited) {
+			return attributes;
+		}
+
+		const visibleAttributes = new Map<string, ClassAttribute>();
+		for (const attribute of attributes) {
+			const key = attribute.name.toLocaleUpperCase('ru');
+			if (!visibleAttributes.has(key)) {
+				visibleAttributes.set(key, attribute);
+			}
+		}
+		return [...visibleAttributes.values()].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
 	} finally {
 		await client.end().catch(() => undefined);
 	}

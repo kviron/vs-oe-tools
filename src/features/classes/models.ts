@@ -71,6 +71,7 @@ export interface ClassAttribute {
 	visibility: string;
 	package: string;
 	line: string;
+	inherited: boolean;
 }
 
 export interface ClassMethod {
