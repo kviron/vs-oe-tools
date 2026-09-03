@@ -3,7 +3,7 @@ import { databaseRoleSetting, projectRootSetting } from '../core/constants';
 import { loadClasses, testDatabaseConnection } from '../infrastructure/database/classRepository';
 import { getDatabaseRole } from '../infrastructure/configuration/projectDatabaseOptions';
 import { applyProjectEncoding } from '../features/project/projectEncodingService';
-import { SettingsProvider } from '../features/settings/settingsProvider';
+import { SettingsViewProvider } from '../features/settings/settingsViewProvider';
 import { closeClassDetailPanels, openClassDetails, restoreClassDetailPanels } from '../features/classes/views/classDetailsPanelManager';
 import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider';
 import { openSqlMonitor } from '../features/sql-monitor/views/sqlMonitorPanelManager';
@@ -11,24 +11,19 @@ import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorVie
 import { registerMethodEditor } from '../features/methods/methodEditorProvider';
 import { registerMethodLanguageFeatures } from '../features/methods/methodLanguageFeatures';
 import { registerCodeHistory } from '../features/code-history/codeHistoryService';
+import { PackageSyncPanelManager } from '../features/package-sync/packageSyncViewProvider';
+import { loadPackageSyncItems } from '../infrastructure/database/packageSyncRepository';
+import { registerDatabaseMcpServer } from '../mcp/registerMcpServer';
 
 export async function activate(context: vscode.ExtensionContext) {
+	const databaseMcpServerRegistration = registerDatabaseMcpServer(context);
 	const methodEditor = registerMethodEditor(context);
 	registerCodeHistory(context, methodEditor);
 	const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
 	let isUpdatingSetting = false;
-	const settingsProvider = new SettingsProvider(
-		extensionConfiguration.get(projectRootSetting, false),
-		getDatabaseRole(),
-	);
-	const settingsView = vscode.window.createTreeView('vc-ve-tools.settings', {
-		treeDataProvider: settingsProvider,
-	});
-
 	const updateProjectRootSetting = async (enabled: boolean): Promise<void> => {
 
 		if (!vscode.workspace.workspaceFolders?.length) {
-			settingsProvider.setProjectRootEnabled(false);
 			void vscode.window.showWarningMessage('Сначала откройте папку проекта.');
 			return;
 		}
@@ -41,20 +36,23 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.ConfigurationTarget.Workspace,
 			);
 			await applyProjectEncoding(context, enabled);
-			settingsProvider.setProjectRootEnabled(enabled);
 			void vscode.window.showInformationMessage(
 				enabled
 					? 'PKF, Pascal и BAT-файлы будут открываться в кодировке Cyrillic (Windows 1251).'
 					: 'Кодировка PKF, Pascal и BAT-файлов восстановлена.',
 			);
 		} catch (error) {
-			const currentValue = vscode.workspace.getConfiguration('vcVeTools').get(projectRootSetting, false);
-			settingsProvider.setProjectRootEnabled(currentValue);
 			void vscode.window.showErrorMessage(`Не удалось изменить кодировку проекта: ${String(error)}`);
 		} finally {
 			isUpdatingSetting = false;
 		}
 	};
+	const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting);
+	const settingsRegistration = vscode.window.registerWebviewViewProvider(
+		SettingsViewProvider.viewType,
+		settingsProvider,
+		{ webviewOptions: { retainContextWhenHidden: true } },
+	);
 
 	const explorerProvider = new ExplorerViewProvider(
 		context.workspaceState,
@@ -65,6 +63,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	const explorerRegistration = vscode.window.registerWebviewViewProvider(
 		'vc-ve-tools.explorer',
 		explorerProvider,
+	);
+	const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncItems);
+	const openPackageSyncCommand = vscode.commands.registerCommand(
+		'vc-ve-tools.openPackageSync',
+		() => packageSyncProvider.show(),
 	);
 	registerMethodLanguageFeatures(context, methodEditor, async (id) => {
 		await explorerProvider.revealClass(id);
@@ -79,25 +82,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		sqlExecutorProvider,
 		{ webviewOptions: { retainContextWhenHidden: true } },
 	);
-	const checkboxListener = settingsView.onDidChangeCheckboxState((event) => {
-		const enabled = event.items[0]?.[1] === vscode.TreeItemCheckboxState.Checked;
-		void updateProjectRootSetting(enabled);
-	});
-
 	const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
 		if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
-			settingsProvider.setDatabaseRole(getDatabaseRole());
 			closeClassDetailPanels();
 			explorerProvider.refreshClasses();
-		}
-
-		if (event.affectsConfiguration('vcVeTools.userId')) {
-			settingsProvider.setUserId();
+			packageSyncProvider.refreshForDatabaseChange();
 		}
 
 		if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${projectRootSetting}`)) {
 			const enabled = vscode.workspace.getConfiguration('vcVeTools').get(projectRootSetting, false);
-			settingsProvider.setProjectRootEnabled(enabled);
 			try {
 				await applyProjectEncoding(context, enabled);
 			} catch (error) {
@@ -205,18 +198,20 @@ export async function activate(context: vscode.ExtensionContext) {
 				userId,
 				vscode.ConfigurationTarget.Workspace,
 			);
-			settingsProvider.setUserId();
+			settingsProvider.refresh();
 			void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
 		},
 	);
 
 	context.subscriptions.push(
+		databaseMcpServerRegistration,
 		settingsProvider,
-		settingsView,
+		settingsRegistration,
 		explorerProvider,
 		explorerRegistration,
+		packageSyncProvider,
+		openPackageSyncCommand,
 		sqlExecutorRegistration,
-		checkboxListener,
 		configurationListener,
 		disposable,
 		testDatabaseConnectionCommand,

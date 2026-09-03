@@ -260,7 +260,7 @@ var require_postgres_interval = __commonJS({
       if (!(this instanceof PostgresInterval)) {
         return new PostgresInterval(raw);
       }
-      extend(this, parse(raw));
+      extend(this, parse2(raw));
     }
     var properties = ["seconds", "minutes", "hours", "days", "months", "years"];
     PostgresInterval.prototype.toPostgres = function() {
@@ -321,7 +321,7 @@ var require_postgres_interval = __commonJS({
       var microseconds = fraction + "000000".slice(fraction.length);
       return parseInt(microseconds, 10) / 1e3;
     }
-    function parse(interval) {
+    function parse2(interval) {
       if (!interval) return {};
       var matches = INTERVAL.exec(interval);
       var isNegative = matches[8] === "-";
@@ -808,13 +808,13 @@ var require_binaryParsers = __commonJS({
           console.log("ERROR: ElementType not implemented: " + elementType2);
         }
       };
-      var parse = function(dimension, elementType2) {
+      var parse2 = function(dimension, elementType2) {
         var array = [];
         var i2;
         if (dimension.length > 1) {
           var count = dimension.shift();
           for (i2 = 0; i2 < count; i2++) {
-            array[i2] = parse(dimension, elementType2);
+            array[i2] = parse2(dimension, elementType2);
           }
           dimension.unshift(count);
         } else {
@@ -824,7 +824,7 @@ var require_binaryParsers = __commonJS({
         }
         return array;
       };
-      return parse(dims, elementType);
+      return parse2(dims, elementType);
     };
     var parseText = function(value) {
       return value.toString("utf8");
@@ -1571,7 +1571,7 @@ var require_type_overrides = __commonJS({
 var require_pg_connection_string = __commonJS({
   "node_modules/pg-connection-string/index.js"(exports2, module2) {
     "use strict";
-    function parse(str, options = {}) {
+    function parse2(str, options = {}) {
       if (str.charAt(0) === "/") {
         const config2 = str.split(" ");
         return { host: config2[0], database: config2[1] };
@@ -1604,11 +1604,11 @@ var require_pg_connection_string = __commonJS({
         config.client_encoding = result.searchParams.get("encoding");
         return config;
       }
-      const hostname3 = dummyHost ? "" : result.hostname;
+      const hostname4 = dummyHost ? "" : result.hostname;
       if (!config.host) {
-        config.host = decodeURIComponent(hostname3);
-      } else if (hostname3 && /^%2f/i.test(hostname3)) {
-        result.pathname = hostname3 + result.pathname;
+        config.host = decodeURIComponent(hostname4);
+      } else if (hostname4 && /^%2f/i.test(hostname4)) {
+        result.pathname = hostname4 + result.pathname;
       }
       if (!config.port) {
         config.port = result.port;
@@ -1733,7 +1733,7 @@ var require_pg_connection_string = __commonJS({
       return poolConfig;
     }
     function parseIntoClientConfig(str) {
-      return toClientConfig(parse(str));
+      return toClientConfig(parse2(str));
     }
     function deprecatedSslModeWarning(sslmode) {
       if (!deprecatedSslModeWarning.warned && typeof process !== "undefined" && process.emitWarning) {
@@ -1748,10 +1748,10 @@ To prepare for this change:
 See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.`);
       }
     }
-    module2.exports = parse;
-    parse.parse = parse;
-    parse.toClientConfig = toClientConfig;
-    parse.parseIntoClientConfig = parseIntoClientConfig;
+    module2.exports = parse2;
+    parse2.parse = parse2;
+    parse2.toClientConfig = toClientConfig;
+    parse2.parseIntoClientConfig = parseIntoClientConfig;
   }
 });
 
@@ -1761,7 +1761,7 @@ var require_connection_parameters = __commonJS({
     "use strict";
     var dns = require("dns");
     var defaults2 = require_defaults();
-    var parse = require_pg_connection_string().parse;
+    var parse2 = require_pg_connection_string().parse;
     var val = function(key, config, envVar) {
       if (config[key]) {
         return config[key];
@@ -1799,9 +1799,9 @@ var require_connection_parameters = __commonJS({
     };
     var ConnectionParameters = class {
       constructor(config) {
-        config = typeof config === "string" ? parse(config) : config || {};
+        config = typeof config === "string" ? parse2(config) : config || {};
         if (config.connectionString) {
-          config = Object.assign({}, config, parse(config.connectionString));
+          config = Object.assign({}, config, parse2(config.connectionString));
         }
         this.user = val("user", config);
         this.database = val("database", config);
@@ -2518,7 +2518,7 @@ var require_serializer = __commonJS({
       );
     };
     var emptyArray = [];
-    var parse = (query2) => {
+    var parse2 = (query2) => {
       const name = query2.name || "";
       if (name.length > 63) {
         console.error("Warning! Postgres only supports 63 characters for query names.");
@@ -2673,7 +2673,7 @@ var require_serializer = __commonJS({
       sendSASLInitialResponseMessage,
       sendSCRAMClientFinalMessage,
       query,
-      parse,
+      parse: parse2,
       bind,
       execute,
       describe,
@@ -3062,7 +3062,7 @@ var require_dist = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.DatabaseError = exports2.serialize = void 0;
-    exports2.parse = parse;
+    exports2.parse = parse2;
     var messages_1 = require_messages();
     Object.defineProperty(exports2, "DatabaseError", { enumerable: true, get: function() {
       return messages_1.DatabaseError;
@@ -3072,7 +3072,7 @@ var require_dist = __commonJS({
       return serializer_1.serialize;
     } });
     var parser_1 = require_parser();
-    function parse(stream, callback) {
+    function parse2(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
       return new Promise((resolve2) => stream.on("end", () => resolve2()));
@@ -3160,7 +3160,7 @@ var require_connection = __commonJS({
   "node_modules/pg/lib/connection.js"(exports2, module2) {
     "use strict";
     var EventEmitter3 = require("events").EventEmitter;
-    var { parse, serialize } = require_dist();
+    var { parse: parse2, serialize } = require_dist();
     var stream = require_stream();
     var { getStream } = stream;
     var flushBuffer = serialize.flush();
@@ -3261,7 +3261,7 @@ var require_connection = __commonJS({
         self.emit("sslconnect");
       }
       attachListeners(stream2) {
-        parse(stream2, (msg) => {
+        parse2(stream2, (msg) => {
           const eventName = msg.name === "error" ? "errorMessage" : msg.name;
           if (this._emitMessage) {
             this.emit("message", msg);
@@ -3458,7 +3458,7 @@ var require_split2 = __commonJS({
 var require_helper = __commonJS({
   "node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
-    var path3 = require("path");
+    var path5 = require("path");
     var Stream = require("stream").Stream;
     var split = require_split2();
     var util = require("util");
@@ -3496,8 +3496,8 @@ var require_helper = __commonJS({
       return old;
     };
     module2.exports.getFileName = function(rawEnv) {
-      var env5 = rawEnv || process.env;
-      var file = env5.PGPASSFILE || (isWin ? path3.join(env5.APPDATA || "./", "postgresql", "pgpass.conf") : path3.join(env5.HOME || "./", ".pgpass"));
+      var env6 = rawEnv || process.env;
+      var file = env6.PGPASSFILE || (isWin ? path5.join(env6.APPDATA || "./", "postgresql", "pgpass.conf") : path5.join(env6.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -3629,7 +3629,7 @@ var require_helper = __commonJS({
 var require_lib = __commonJS({
   "node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
-    var path3 = require("path");
+    var path5 = require("path");
     var fs = require("fs");
     var helper = require_helper();
     module2.exports = function(connInfo, cb) {
@@ -4360,7 +4360,7 @@ var require_pg_pool = __commonJS({
     function throwOnDoubleRelease() {
       throw new Error("Release called on client which has already been released to the pool.");
     }
-    function promisify(Promise2, callback) {
+    function promisify2(Promise2, callback) {
       if (callback) {
         return { callback, result: void 0 };
       }
@@ -4498,7 +4498,7 @@ var require_pg_pool = __commonJS({
           const err = new Error("Cannot use a pool after calling end on the pool");
           return cb ? cb(err) : this.Promise.reject(err);
         }
-        const response = promisify(this.Promise, cb);
+        const response = promisify2(this.Promise, cb);
         const result = response.result;
         if (this._isFull() || this._idle.length) {
           if (this._idle.length) {
@@ -4683,7 +4683,7 @@ var require_pg_pool = __commonJS({
       }
       query(text, values, cb) {
         if (typeof text === "function") {
-          const response2 = promisify(this.Promise, text);
+          const response2 = promisify2(this.Promise, text);
           setImmediate(function() {
             return response2.callback(new Error("Passing a function as the first parameter to pool.query is not supported"));
           });
@@ -4693,7 +4693,7 @@ var require_pg_pool = __commonJS({
           cb = values;
           values = void 0;
         }
-        const response = promisify(this.Promise, cb);
+        const response = promisify2(this.Promise, cb);
         cb = response.callback;
         this.connect((err, client) => {
           if (err) {
@@ -4738,7 +4738,7 @@ var require_pg_pool = __commonJS({
           return cb ? cb(err) : this.Promise.reject(err);
         }
         this.ending = true;
-        const promised = promisify(this.Promise, cb);
+        const promised = promisify2(this.Promise, cb);
         this._endCallback = promised.callback;
         this._pulseQueue();
         return promised.result;
@@ -5457,7 +5457,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv7) {
+    function InternalCodec(codecOptions, iconv8) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5469,7 +5469,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv7.defaultCharUnicode;
+          this.defaultCharUnicode = iconv8.defaultCharUnicode;
         }
       }
     }
@@ -5626,8 +5626,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv7) {
-      this.iconv = iconv7;
+    function Utf32Codec(codecOptions, iconv8) {
+      this.iconv = iconv8;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5755,8 +5755,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv7) {
-      this.iconv = iconv7;
+    function Utf32AutoCodec(options, iconv8) {
+      this.iconv = iconv8;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5906,8 +5906,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv7) {
-      this.iconv = iconv7;
+    function Utf16Codec(codecOptions, iconv8) {
+      this.iconv = iconv8;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6005,8 +6005,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv7) {
-      this.iconv = iconv7;
+    function Utf7Codec(codecOptions, iconv8) {
+      this.iconv = iconv8;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6088,8 +6088,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv7) {
-      this.iconv = iconv7;
+    function Utf7IMAPCodec(codecOptions, iconv8) {
+      this.iconv = iconv8;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6222,7 +6222,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv7) {
+    function SBCSCodec(codecOptions, iconv8) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6237,7 +6237,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv7.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv8.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6904,7 +6904,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv7) {
+    function DBCSCodec(codecOptions, iconv8) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6953,7 +6953,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv7.defaultCharUnicode;
+      this.defaultCharUnicode = iconv8.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6977,7 +6977,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv7.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv8.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8982,7 +8982,7 @@ var require_lib3 = __commonJS({
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode7(buf, encoding, options) {
+    module2.exports.decode = function decode8(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -9106,11 +9106,12 @@ __export(extension_exports, {
 module.exports = __toCommonJS(extension_exports);
 
 // src/application/activate.ts
-var vscode13 = __toESM(require("vscode"));
+var vscode16 = __toESM(require("vscode"));
 
 // src/core/constants.ts
 var projectRootSetting = "useFolderAsProjectRoot";
 var databaseRoleSetting = "databaseRole";
+var mcpEnabledSetting = "mcp.enabled";
 var sourceLanguageIds = ["ve-pkf", "ve-pascal", "bat"];
 var previousEncodingsKey = "vcVeTools.previousWorkspaceLanguageEncodings";
 
@@ -9726,76 +9727,34 @@ async function applyProjectEncoding(context, enabled) {
   }
 }
 
-// src/features/settings/settingsProvider.ts
+// src/features/settings/settingsViewProvider.ts
 var vscode3 = __toESM(require("vscode"));
-var SettingsItem = class extends vscode3.TreeItem {
-  constructor(enabled) {
-    super("\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u043F\u0430\u043F\u043A\u0443 \u043A\u0430\u043A \u043A\u043E\u0440\u0435\u043D\u044C \u043F\u0440\u043E\u0435\u043A\u0442\u0430");
-    this.checkboxState = enabled ? vscode3.TreeItemCheckboxState.Checked : vscode3.TreeItemCheckboxState.Unchecked;
-    this.tooltip = "\u041E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C \u0444\u0430\u0439\u043B\u044B PKF, Pascal/Delphi \u0438 BAT \u0432 \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0435 Cyrillic (Windows 1251)";
-  }
-};
-var SettingsProvider = class {
-  changeEmitter = new vscode3.EventEmitter();
-  projectRootItem;
-  databaseRoleItem;
-  userIdItem;
-  testDatabaseConnectionItem;
-  onDidChangeTreeData = this.changeEmitter.event;
-  constructor(enabled, databaseRole) {
-    this.projectRootItem = new SettingsItem(enabled);
-    this.databaseRoleItem = new vscode3.TreeItem("\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445");
-    this.databaseRoleItem.command = {
-      command: "vc-ve-tools.selectDatabaseRole",
-      title: "\u0412\u044B\u0431\u0440\u0430\u0442\u044C \u0431\u0430\u0437\u0443 \u0434\u0430\u043D\u043D\u044B\u0445"
-    };
-    this.databaseRoleItem.iconPath = new vscode3.ThemeIcon("database");
-    this.setDatabaseRole(databaseRole);
-    this.userIdItem = new vscode3.TreeItem("ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F");
-    this.userIdItem.command = {
-      command: "vc-ve-tools.setUserId",
-      title: "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F"
-    };
-    this.userIdItem.iconPath = new vscode3.ThemeIcon("person");
-    this.setUserId();
-    this.testDatabaseConnectionItem = new vscode3.TreeItem("\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043A \u0431\u0430\u0437\u0435");
-    this.testDatabaseConnectionItem.command = {
-      command: "vc-ve-tools.testDatabaseConnection",
-      title: "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043A \u0431\u0430\u0437\u0435"
-    };
-    this.testDatabaseConnectionItem.iconPath = new vscode3.ThemeIcon("plug");
-    this.testDatabaseConnectionItem.tooltip = "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043A PostgreSQL \u043F\u043E \u0434\u0430\u043D\u043D\u044B\u043C \u0438\u0437 Vars.bat";
-  }
-  getTreeItem(element) {
-    return element;
-  }
-  getChildren(element) {
-    return element ? [] : [this.databaseRoleItem, this.userIdItem, this.projectRootItem, this.testDatabaseConnectionItem];
-  }
-  setProjectRootEnabled(enabled) {
-    this.projectRootItem.checkboxState = enabled ? vscode3.TreeItemCheckboxState.Checked : vscode3.TreeItemCheckboxState.Unchecked;
-    this.changeEmitter.fire(this.projectRootItem);
-  }
-  setDatabaseRole(databaseRole) {
-    this.databaseRoleItem.description = databaseRole === "main" ? "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F" : "\u0422\u0435\u0441\u0442\u043E\u0432\u0430\u044F";
-    this.databaseRoleItem.tooltip = "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0431\u0430\u0437\u0443 \u0434\u0430\u043D\u043D\u044B\u0445";
-    this.changeEmitter.fire(this.databaseRoleItem);
-  }
-  setUserId() {
-    const userId = vscode3.workspace.getConfiguration("vcVeTools").get("userId", 0);
-    this.userIdItem.description = userId > 0 ? userId.toString() : "\u043D\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D";
-    this.userIdItem.tooltip = "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0434\u043B\u044F \u043B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439 \u043C\u0435\u0442\u043E\u0434\u043E\u0432";
-    this.changeEmitter.fire(this.userIdItem);
-  }
-  dispose() {
-    this.changeEmitter.dispose();
-  }
-};
-
-// src/features/classes/views/classDetailsPanelManager.ts
-var vscode5 = __toESM(require("vscode"));
 
 // src/core/webviewProtocol.ts
+function isSettingsWebviewMessage(message) {
+  if (typeof message !== "object" || message === null || !("command" in message)) {
+    return false;
+  }
+  if (message.command === "settingsReady" || message.command === "testSettingsDatabaseConnection") {
+    return true;
+  }
+  if (message.command === "setProjectRootEnabled" || message.command === "setMcpEnabled") {
+    return "enabled" in message && typeof message.enabled === "boolean";
+  }
+  if (message.command === "setDatabaseRole") {
+    return "role" in message && (message.role === "main" || message.role === "test");
+  }
+  if (message.command === "setUserId") {
+    return "userId" in message && typeof message.userId === "number" && Number.isInteger(message.userId) && message.userId >= 0;
+  }
+  return message.command === "copyMcpConnectionCode" && "text" in message && typeof message.text === "string";
+}
+function isPackageSyncWebviewMessage(message) {
+  if (typeof message !== "object" || message === null || !("command" in message)) {
+    return false;
+  }
+  return message.command === "packageSyncReady" || message.command === "refreshPackageSync" || message.command === "openPackageSyncDiff" && "objectId" in message && typeof message.objectId === "number";
+}
 function isCodeHistoryWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
     return false;
@@ -9895,6 +9854,134 @@ function isCopyTableCellsMessage(message) {
 function isTableSelectionDebugMessage(message) {
   return "command" in message && message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string";
 }
+
+// src/features/settings/settingsViewProvider.ts
+var SettingsViewProvider = class {
+  constructor(extensionUri, setProjectRootEnabled) {
+    this.extensionUri = extensionUri;
+    this.setProjectRootEnabled = setProjectRootEnabled;
+    this.disposables.push(
+      vscode3.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration("vcVeTools")) {
+          void this.postState();
+        }
+      }),
+      vscode3.workspace.onDidChangeWorkspaceFolders(() => void this.postState())
+    );
+  }
+  extensionUri;
+  setProjectRootEnabled;
+  static viewType = "vc-ve-tools.settings";
+  view;
+  disposables = [];
+  resolveWebviewView(view) {
+    this.view = view;
+    const assetsRoot = vscode3.Uri.joinPath(this.extensionUri, "dist", "webview");
+    view.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
+    view.webview.html = this.getHtml(view.webview, assetsRoot);
+    view.webview.onDidReceiveMessage((message) => void this.handleMessage(message));
+    view.onDidDispose(() => {
+      this.view = void 0;
+    });
+  }
+  refresh() {
+    void this.postState();
+  }
+  dispose() {
+    this.disposables.forEach((disposable) => disposable.dispose());
+  }
+  async handleMessage(message) {
+    if (!isSettingsWebviewMessage(message)) {
+      return;
+    }
+    if (message.command === "settingsReady") {
+      await this.postState();
+    } else if (message.command === "setProjectRootEnabled") {
+      await this.setProjectRootEnabled(message.enabled);
+    } else if (message.command === "setDatabaseRole") {
+      await vscode3.workspace.getConfiguration("vcVeTools").update(databaseRoleSetting, message.role, vscode3.ConfigurationTarget.Workspace);
+    } else if (message.command === "setUserId") {
+      await vscode3.workspace.getConfiguration("vcVeTools").update("userId", message.userId, vscode3.ConfigurationTarget.Workspace);
+    } else if (message.command === "setMcpEnabled") {
+      await vscode3.workspace.getConfiguration("vcVeTools").update(mcpEnabledSetting, message.enabled, vscode3.ConfigurationTarget.Workspace);
+    } else if (message.command === "testSettingsDatabaseConnection") {
+      await this.testConnection();
+    } else {
+      await vscode3.env.clipboard.writeText(message.text);
+      vscode3.window.setStatusBarMessage("\u041A\u043E\u0434 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F MCP \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D", 2500);
+    }
+  }
+  async testConnection() {
+    this.post({ command: "databaseConnectionTestStarted" });
+    try {
+      const result = await testDatabaseConnection();
+      this.post({ command: "databaseConnectionTestFinished", success: true, message: `\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E: ${result.database}, \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${result.user}.` });
+    } catch (error) {
+      this.post({ command: "databaseConnectionTestFinished", success: false, message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  async postState() {
+    if (!this.view) {
+      return;
+    }
+    this.post({ command: "settingsState", state: await this.getState() });
+  }
+  async getState() {
+    const configuration = vscode3.workspace.getConfiguration("vcVeTools");
+    const workspace11 = vscode3.workspace.workspaceFolders?.[0];
+    const enabled = configuration.get(mcpEnabledSetting, true);
+    const role = getDatabaseRole();
+    let status = enabled ? "ready" : "disabled";
+    let statusText = enabled ? "\u0413\u043E\u0442\u043E\u0432 \u043A \u0437\u0430\u043F\u0443\u0441\u043A\u0443 \u0430\u0433\u0435\u043D\u0442\u043E\u043C" : "MCP-\u0441\u0435\u0440\u0432\u0435\u0440 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D";
+    if (enabled && !workspace11) {
+      status = "unavailable";
+      statusText = "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430";
+    } else if (enabled && workspace11) {
+      try {
+        await vscode3.workspace.fs.stat(vscode3.Uri.joinPath(workspace11.uri, "Vars.bat"));
+        await vscode3.workspace.fs.stat(vscode3.Uri.joinPath(this.extensionUri, "dist", "mcp-server.js"));
+      } catch {
+        status = "unavailable";
+        statusText = "\u041D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D Vars.bat \u0438\u043B\u0438 \u0441\u0431\u043E\u0440\u043A\u0430 MCP-\u0441\u0435\u0440\u0432\u0435\u0440\u0430";
+      }
+    }
+    return {
+      useFolderAsProjectRoot: configuration.get(projectRootSetting, false),
+      databaseRole: role,
+      userId: configuration.get("userId", 0),
+      mcpEnabled: enabled,
+      mcpStatus: status,
+      mcpStatusText: statusText,
+      mcpConnectionCode: this.connectionCode(workspace11?.uri.fsPath, role)
+    };
+  }
+  connectionCode(workspacePath, role) {
+    return JSON.stringify({
+      mcpServers: {
+        "vc-ve-tools": {
+          command: "node",
+          args: [vscode3.Uri.joinPath(this.extensionUri, "dist", "mcp-server.js").fsPath, "--workspace", workspacePath ?? "<PROJECT_PATH>", "--database-role", role]
+        }
+      }
+    }, null, 2);
+  }
+  post(message) {
+    void this.view?.webview.postMessage(message);
+  }
+  getHtml(webview, assetsRoot) {
+    const scriptUri = webview.asWebviewUri(vscode3.Uri.joinPath(assetsRoot, "settings.js"));
+    const styleUri = webview.asWebviewUri(vscode3.Uri.joinPath(assetsRoot, "settings.css"));
+    const nonce = createNonce();
+    return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438</title></head><body><div id="app"></div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+  }
+};
+function createNonce() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join("");
+}
+
+// src/features/classes/views/classDetailsPanelManager.ts
+var vscode5 = __toESM(require("vscode"));
 
 // src/core/tableSelectionLogger.ts
 var vscode4 = __toESM(require("vscode"));
@@ -10067,14 +10154,14 @@ function closeClassDetailPanels() {
 function getClassDetailsShell(webview, assetsRoot) {
   const scriptUri = webview.asWebviewUri(vscode5.Uri.joinPath(assetsRoot, "class-details.js"));
   const styleUri = webview.asWebviewUri(vscode5.Uri.joinPath(assetsRoot, "class-details.css"));
-  const nonce = createNonce();
+  const nonce = createNonce2();
   return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${styleUri}"><title>\u041A\u043B\u0430\u0441\u0441</title></head>
 <body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u043A\u043B\u0430\u0441\u0441\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
-function createNonce() {
+function createNonce2() {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join("");
 }
@@ -10274,14 +10361,14 @@ function openSqlMonitor(context) {
 function getSqlMonitorShell(webview, assetsRoot) {
   const scriptUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-monitor.js"));
   const styleUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-monitor.css"));
-  const nonce = createNonce2();
+  const nonce = createNonce3();
   return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${styleUri}"><title>SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440</title></head>
 <body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
-function createNonce2() {
+function createNonce3() {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join("");
 }
@@ -10574,7 +10661,7 @@ var SqlExecutorViewProvider = class {
   getHtml(webview, assetsRoot) {
     const scriptUri = webview.asWebviewUri(vscode8.Uri.joinPath(assetsRoot, "sql-executor.js"));
     const styleUri = webview.asWebviewUri(vscode8.Uri.joinPath(assetsRoot, "sql-executor.css"));
-    const nonce = createNonce3();
+    const nonce = createNonce4();
     return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
@@ -10631,7 +10718,7 @@ function toHistoryEntry(record) {
     text: record.text
   };
 }
-function createNonce3() {
+function createNonce4() {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join("");
 }
@@ -11233,6 +11320,7 @@ function sameName(left, right) {
 var path2 = __toESM(require("node:path"));
 var import_promises2 = require("node:fs/promises");
 var vscode12 = __toESM(require("vscode"));
+var iconv7 = __toESM(require_lib3());
 
 // src/infrastructure/database/methodHistoryRepository.ts
 var iconv5 = __toESM(require_lib3());
@@ -11487,7 +11575,9 @@ function registerCodeHistory(context, methodEditor) {
     vscode12.commands.registerTextEditorCommand("vc-ve-tools.showSelectionHistory", (editor) => service.show(editor, true)),
     vscode12.commands.registerCommand("vc-ve-tools.svnLocalDiff", (methodId) => service.showLocalDiff(methodId)),
     vscode12.commands.registerCommand("vc-ve-tools.svnHistory", (methodId) => service.showWorkingCopyHistory(methodId)),
-    vscode12.commands.registerCommand("vc-ve-tools.svnBlame", (methodId) => service.showBlame(methodId))
+    vscode12.commands.registerCommand("vc-ve-tools.svnBlame", (methodId) => service.showBlame(methodId)),
+    vscode12.commands.registerCommand("vc-ve-tools.svnLocalDiffFile", (fileName) => service.showFileLocalDiff(fileName)),
+    vscode12.commands.registerCommand("vc-ve-tools.openGeneratedPackageDiff", (fileName, generatedFileName) => service.showGeneratedPackageDiff(fileName, generatedFileName))
   );
 }
 var CodeHistoryService = class {
@@ -11553,6 +11643,30 @@ var CodeHistoryService = class {
       const stored = id === void 0 ? await svnCatBase(fileName) : (await getMethodSource(id)).code;
       await vscode12.commands.executeCommand("vscode.diff", this.store(`${path2.basename(fileName)} \xB7 ${id === void 0 ? "SVN BASE" : "\u043A\u043E\u0434 \u0438\u0437 \u0411\u0414"}`, stored, path2.extname(fileName)), local.uri, `${path2.basename(fileName)} \xB7 Local Diff`, { preview: true });
     });
+  }
+  async showFileLocalDiff(fileName) {
+    if (!fileName || !await fileExists(fileName)) {
+      throw new Error(`\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0444\u0430\u0439\u043B \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D: ${fileName || "\u043F\u0443\u0442\u044C \u043D\u0435 \u0437\u0430\u0434\u0430\u043D"}`);
+    }
+    const [local, stored] = await Promise.all([
+      vscode12.workspace.openTextDocument(vscode12.Uri.file(fileName)),
+      svnCatBase(fileName)
+    ]);
+    await vscode12.commands.executeCommand("vscode.diff", this.store(`${path2.basename(fileName)} \xB7 SVN BASE`, stored, path2.extname(fileName)), local.uri, `${path2.basename(fileName)} \xB7 Local Diff`, { preview: true });
+  }
+  async showGeneratedPackageDiff(fileName, generatedFileName) {
+    const [local, generatedBytes] = await Promise.all([
+      vscode12.workspace.openTextDocument(vscode12.Uri.file(fileName)),
+      (0, import_promises2.readFile)(generatedFileName)
+    ]);
+    const generated = iconv7.decode(generatedBytes, "win1251");
+    await vscode12.commands.executeCommand(
+      "vscode.diff",
+      local.uri,
+      this.store(`${path2.basename(fileName)} \xB7 \u0432\u0435\u0440\u0441\u0438\u044F \u0438\u0437 \u0411\u0414`, generated, path2.extname(fileName)),
+      `${path2.basename(fileName)} \xB7 \u0411\u0414 \u2194 \u0444\u0430\u0439\u043B`,
+      { preview: true }
+    );
   }
   async showWorkingCopyHistory(methodId) {
     await this.runSvnAction("\u0418\u0441\u0442\u043E\u0440\u0438\u044F SVN", methodId, async (fileName) => {
@@ -11762,54 +11876,346 @@ async function fileExists(fileName) {
   }
 }
 
+// src/features/package-sync/packageSyncViewProvider.ts
+var vscode13 = __toESM(require("vscode"));
+var import_promises3 = require("node:fs/promises");
+var path3 = __toESM(require("node:path"));
+var import_node_child_process2 = require("node:child_process");
+var import_node_util = require("node:util");
+var PackageSyncPanelManager = class _PackageSyncPanelManager {
+  constructor(extensionUri, loadItems) {
+    this.extensionUri = extensionUri;
+    this.loadItems = loadItems;
+  }
+  extensionUri;
+  loadItems;
+  static viewType = "vc-ve-tools.packageSync";
+  panel;
+  items = [];
+  show() {
+    if (this.panel) {
+      this.panel.reveal(void 0, false);
+      return;
+    }
+    const panel = vscode13.window.createWebviewPanel(
+      _PackageSyncPanelManager.viewType,
+      "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432",
+      vscode13.ViewColumn.Active,
+      { enableScripts: true, retainContextWhenHidden: true }
+    );
+    this.panel = panel;
+    const assetsRoot = vscode13.Uri.joinPath(this.extensionUri, "dist", "webview");
+    panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
+    panel.webview.html = this.html(panel.webview, assetsRoot);
+    panel.webview.onDidReceiveMessage((message) => {
+      if (!isPackageSyncWebviewMessage(message)) {
+        return;
+      }
+      if (message.command === "packageSyncReady" || message.command === "refreshPackageSync") {
+        void this.refresh();
+        return;
+      }
+      const item = this.items.find((candidate) => candidate.objectId === message.objectId);
+      if (!item?.localPath) {
+        void vscode13.window.showWarningMessage(`\u0414\u043B\u044F \u043E\u0431\u044A\u0435\u043A\u0442\u0430 ${message.objectId} \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u043F\u0443\u0442\u044C.`);
+        return;
+      }
+      void this.openDiff(item);
+    });
+    panel.onDidDispose(() => {
+      this.panel = void 0;
+    });
+  }
+  refreshForDatabaseChange() {
+    if (this.panel) {
+      void this.refresh();
+    }
+  }
+  dispose() {
+    this.panel?.dispose();
+  }
+  async openDiff(item) {
+    try {
+      const fileName = await resolveExistingFile(item.localPath);
+      item.localPath = fileName;
+      await this.post({ command: "packageSyncLoaded", items: this.items });
+      const generatedFileName = await findOriginalClientGeneratedFile(fileName);
+      await vscode13.commands.executeCommand("vc-ve-tools.openGeneratedPackageDiff", fileName, generatedFileName);
+    } catch (error) {
+      void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C SVN diff: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  async refresh() {
+    await this.post({ command: "packageSyncLoading" });
+    try {
+      this.items = await this.loadItems();
+      await this.post({ command: "packageSyncLoaded", items: this.items });
+    } catch (error) {
+      await this.post({ command: "packageSyncFailed", message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  async post(message) {
+    await this.panel?.webview.postMessage(message);
+  }
+  html(webview, assetsRoot) {
+    const script = webview.asWebviewUri(vscode13.Uri.joinPath(assetsRoot, "package-sync.js"));
+    const style = webview.asWebviewUri(vscode13.Uri.joinPath(assetsRoot, "package-sync.css"));
+    const nonce = Math.random().toString(36).slice(2);
+    return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${style}"><title>\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432</title></head><body><div id="app"></div><script nonce="${nonce}" src="${script}"></script></body></html>`;
+  }
+};
+var execFileAsync = (0, import_node_util.promisify)(import_node_child_process2.execFile);
+async function findOriginalClientGeneratedFile(localFileName) {
+  const script = `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); Get-CimInstance Win32_Process -Filter "Name='TortoiseMerge.exe'" | Select-Object -ExpandProperty CommandLine | ConvertTo-Json -Compress`;
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { windowsHide: true, encoding: "utf8" }));
+  } catch {
+    throw new Error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B TortoiseMerge.");
+  }
+  if (!stdout.trim()) {
+    throw new Error("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u0435 \u044D\u0442\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u044C\u043D\u043E\u043C \u043A\u043B\u0438\u0435\u043D\u0442\u0435.");
+  }
+  let commandLines;
+  try {
+    const parsed = JSON.parse(stdout);
+    commandLines = Array.isArray(parsed) ? parsed.filter((value) => typeof value === "string") : typeof parsed === "string" ? [parsed] : [];
+  } catch {
+    commandLines = [stdout];
+  }
+  const normalizedLocal = path3.normalize(localFileName).toLocaleLowerCase("ru");
+  for (const commandLine of commandLines) {
+    const base = commandLine.match(/\/base:"([^"]+)"/i)?.[1];
+    const mine = commandLine.match(/\/mine:"([^"]+)"/i)?.[1];
+    if (!base || !mine || path3.normalize(base).toLocaleLowerCase("ru") !== normalizedLocal) {
+      continue;
+    }
+    try {
+      await (0, import_promises3.access)(mine);
+      return mine;
+    } catch {
+      throw new Error(`\u0412\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F \u0432\u0435\u0440\u0441\u0438\u044F \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u044C\u043D\u043E\u0433\u043E \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u0443\u0436\u0435 \u0443\u0434\u0430\u043B\u0435\u043D\u0430: ${mine}`);
+    }
+  }
+  throw new Error("\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u0435 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u044C\u043D\u043E\u043C \u043A\u043B\u0438\u0435\u043D\u0442\u0435 \u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043F\u043E\u043F\u044B\u0442\u043A\u0443.");
+}
+async function resolveExistingFile(fileName) {
+  try {
+    await (0, import_promises3.access)(fileName);
+    return fileName;
+  } catch {
+  }
+  if (path3.extname(fileName)) {
+    throw new Error(`\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0444\u0430\u0439\u043B \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D: ${fileName}`);
+  }
+  const directory = path3.dirname(fileName);
+  const stem = path3.basename(fileName).toLocaleLowerCase("ru");
+  let entries;
+  try {
+    entries = await (0, import_promises3.readdir)(directory);
+  } catch {
+    throw new Error(`\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u0430\u0442\u0430\u043B\u043E\u0433 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D: ${directory}`);
+  }
+  const matches = entries.filter((entry) => path3.parse(entry).name.toLocaleLowerCase("ru") === stem);
+  const priority = [".pkf", ".pas", ".bat"];
+  matches.sort((left, right) => {
+    const leftIndex = priority.indexOf(path3.extname(left).toLocaleLowerCase("en-US"));
+    const rightIndex = priority.indexOf(path3.extname(right).toLocaleLowerCase("en-US"));
+    return (leftIndex < 0 ? priority.length : leftIndex) - (rightIndex < 0 ? priority.length : rightIndex);
+  });
+  const match = matches[0];
+  if (!match) {
+    throw new Error(`\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0444\u0430\u0439\u043B \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D: ${fileName} (\u0444\u0430\u0439\u043B \u0441 \u0442\u0430\u043A\u0438\u043C \u0438\u043C\u0435\u043D\u0435\u043C \u0438 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435\u043C \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442)`);
+  }
+  return path3.join(directory, match);
+}
+
+// src/infrastructure/database/packageSyncRepository.ts
+var path4 = __toESM(require("node:path"));
+var import_node_os3 = require("node:os");
+var vscode14 = __toESM(require("vscode"));
+async function loadPackageSyncItems() {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const [itemsResult, tuneResult] = await Promise.all([
+      executeMonitoredQuery(client, {
+        text: `SELECT
+				 ObjectID AS objectid,
+				 ObjectClassID AS objectclassid,
+				 ObjectSeniorID AS objectseniorid,
+				 ObjectName AS objectname,
+				 ObjectContentMD5 AS objectcontentmd5,
+				 ObjectContentRevision AS objectcontentrevision,
+				 ObjectChangeState AS objectchangestate,
+				 ObjectChangeLastDate AS objectchangelastdate,
+				 ObjectChangeLastUser AS objectchangelastuser,
+				 SPB.ObjectPath AS objectpath,
+				 COALESCE(SP.PackageName, CAST(SPB.ObjectPathPackage AS text)) AS packagepath,
+				 SF.FileName AS physicalfilename
+				 FROM SysPackageBase SPB
+				 LEFT JOIN SysPackages SP ON SP.ID = SPB.ObjectPathPackage
+				 LEFT JOIN SysFile SF ON SF.ID = SPB.ObjectID
+				 ORDER BY packagepath, SPB.ObjectPath, SPB.ObjectName`,
+        source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432",
+        database: options.database
+      }),
+      executeMonitoredQuery(client, {
+        text: `SELECT pathtopackages FROM packagestune
+				 WHERE upper(computername) = upper($1)
+				   AND NULLIF(trim(pathtopackages), '') IS NOT NULL
+				 LIMIT 1`,
+        values: [(0, import_node_os3.hostname)()],
+        source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u043F\u0443\u0442\u044C \u043A \u043F\u0430\u043A\u0435\u0442\u0430\u043C",
+        database: options.database
+      }).catch(() => void 0)
+    ]);
+    const packagesRoot = tuneResult?.rows[0]?.pathtopackages ?? workspacePackagesRoot();
+    return itemsResult.rows.map((row) => {
+      const objectPath = row.objectpath ?? "";
+      const packagePath = row.packagepath ?? "";
+      return {
+        objectId: Number(row.objectid),
+        objectClassId: Number(row.objectclassid),
+        objectSeniorId: row.objectseniorid === null ? null : Number(row.objectseniorid),
+        objectName: row.objectname ?? "",
+        contentMd5: row.objectcontentmd5 ?? "",
+        contentRevision: row.objectcontentrevision === null ? null : Number(row.objectcontentrevision),
+        changeState: row.objectchangestate === null ? "" : String(row.objectchangestate),
+        changedAt: row.objectchangelastdate instanceof Date ? row.objectchangelastdate.toISOString() : String(row.objectchangelastdate ?? ""),
+        changedBy: row.objectchangelastuser === null ? "" : String(row.objectchangelastuser),
+        objectPath,
+        packagePath,
+        localPath: packagesRoot ? resolveLocalPath(packagesRoot, packagePath, objectPath, row.physicalfilename ?? row.objectname ?? "") : void 0
+      };
+    });
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+function resolveLocalPath(root, packagePath, objectPath, name) {
+  if (/^[a-z]:[\\/]/i.test(objectPath) || /^\\\\/.test(objectPath)) {
+    return path4.normalize(objectPath);
+  }
+  const cleanPackage = packagePath.replace(/\//g, "\\").replace(/^\\+|\\+$/g, "");
+  const cleanObject = objectPath.replace(/\//g, "\\").replace(/^\\+|\\+$/g, "");
+  const cleanName = name.replace(/\//g, "\\").replace(/^\\+/, "");
+  const normalizedName = cleanName.toLocaleLowerCase("en-US");
+  const normalizedPackage = cleanPackage.toLocaleLowerCase("en-US");
+  const extension = path4.extname(cleanName);
+  const nameWithoutExtension = extension ? cleanName.slice(0, -extension.length) : cleanName;
+  if (extension && cleanObject.toLocaleLowerCase("en-US").endsWith(nameWithoutExtension.toLocaleLowerCase("en-US"))) {
+    const qualifiedObject = cleanObject.toLocaleLowerCase("en-US").startsWith(`${normalizedPackage}\\`) ? cleanObject : [cleanPackage, cleanObject].filter(Boolean).join("\\");
+    return path4.join(root, `${qualifiedObject}${extension}`);
+  }
+  if (cleanName.includes("\\")) {
+    const qualifiedName = normalizedName.startsWith(`${normalizedPackage}\\`) ? cleanName : [cleanPackage, cleanName].filter(Boolean).join("\\");
+    return path4.join(root, qualifiedName);
+  }
+  const objectHasName = cleanObject.toLocaleLowerCase("en-US").endsWith(normalizedName);
+  const objectHasPackage = cleanObject.toLocaleLowerCase("en-US").startsWith(`${cleanPackage.toLocaleLowerCase("en-US")}\\`);
+  const nameIsPackage = normalizedName === normalizedPackage;
+  const relative = [objectHasPackage ? "" : cleanPackage, cleanObject, objectHasName || nameIsPackage ? "" : cleanName].filter(Boolean).join("\\");
+  return path4.join(root, relative);
+}
+function workspacePackagesRoot() {
+  const workspaceRoot = vscode14.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    return void 0;
+  }
+  return path4.basename(workspaceRoot).toLocaleLowerCase("en-US") === "packages" ? workspaceRoot : path4.join(workspaceRoot, "packages");
+}
+
+// src/mcp/registerMcpServer.ts
+var vscode15 = __toESM(require("vscode"));
+function registerDatabaseMcpServer(context) {
+  const changeEmitter = new vscode15.EventEmitter();
+  const registration = vscode15.lm.registerMcpServerDefinitionProvider("vc-ve-tools.database", {
+    onDidChangeMcpServerDefinitions: changeEmitter.event,
+    provideMcpServerDefinitions: () => {
+      if (!vscode15.workspace.getConfiguration("vcVeTools").get(mcpEnabledSetting, true)) {
+        return [];
+      }
+      const workspaceFolder = vscode15.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        return [];
+      }
+      const server = new vscode15.McpStdioServerDefinition(
+        "East Express Database (read-only)",
+        process.execPath,
+        [
+          vscode15.Uri.joinPath(context.extensionUri, "dist", "mcp-server.js").fsPath,
+          "--workspace",
+          workspaceFolder.uri.fsPath,
+          "--database-role",
+          getDatabaseRole()
+        ],
+        {},
+        "0.1.0"
+      );
+      server.cwd = workspaceFolder.uri;
+      return [server];
+    }
+  });
+  const configurationListener = vscode15.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration("vcVeTools.databaseRole") || event.affectsConfiguration(`vcVeTools.${mcpEnabledSetting}`)) {
+      changeEmitter.fire();
+    }
+  });
+  const workspaceListener = vscode15.workspace.onDidChangeWorkspaceFolders(() => changeEmitter.fire());
+  return vscode15.Disposable.from(registration, configurationListener, workspaceListener, changeEmitter);
+}
+
 // src/application/activate.ts
 async function activate(context) {
+  const databaseMcpServerRegistration = registerDatabaseMcpServer(context);
   const methodEditor = registerMethodEditor(context);
   registerCodeHistory(context, methodEditor);
-  const extensionConfiguration = vscode13.workspace.getConfiguration("vcVeTools");
+  const extensionConfiguration = vscode16.workspace.getConfiguration("vcVeTools");
   let isUpdatingSetting = false;
-  const settingsProvider = new SettingsProvider(
-    extensionConfiguration.get(projectRootSetting, false),
-    getDatabaseRole()
-  );
-  const settingsView = vscode13.window.createTreeView("vc-ve-tools.settings", {
-    treeDataProvider: settingsProvider
-  });
   const updateProjectRootSetting = async (enabled) => {
-    if (!vscode13.workspace.workspaceFolders?.length) {
-      settingsProvider.setProjectRootEnabled(false);
-      void vscode13.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+    if (!vscode16.workspace.workspaceFolders?.length) {
+      void vscode16.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       return;
     }
     try {
       isUpdatingSetting = true;
-      await vscode13.workspace.getConfiguration("vcVeTools").update(
+      await vscode16.workspace.getConfiguration("vcVeTools").update(
         projectRootSetting,
         enabled,
-        vscode13.ConfigurationTarget.Workspace
+        vscode16.ConfigurationTarget.Workspace
       );
       await applyProjectEncoding(context, enabled);
-      settingsProvider.setProjectRootEnabled(enabled);
-      void vscode13.window.showInformationMessage(
+      void vscode16.window.showInformationMessage(
         enabled ? "PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u044B \u0431\u0443\u0434\u0443\u0442 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C\u0441\u044F \u0432 \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0435 Cyrillic (Windows 1251)." : "\u041A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0430 PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u043E\u0432 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430."
       );
     } catch (error) {
-      const currentValue = vscode13.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
-      settingsProvider.setProjectRootEnabled(currentValue);
-      void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+      void vscode16.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
     } finally {
       isUpdatingSetting = false;
     }
   };
+  const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting);
+  const settingsRegistration = vscode16.window.registerWebviewViewProvider(
+    SettingsViewProvider.viewType,
+    settingsProvider,
+    { webviewOptions: { retainContextWhenHidden: true } }
+  );
   const explorerProvider = new ExplorerViewProvider(
     context.workspaceState,
     context.extensionUri,
     loadClasses,
     (id, pinned) => openClassDetails(context, methodEditor, id, pinned)
   );
-  const explorerRegistration = vscode13.window.registerWebviewViewProvider(
+  const explorerRegistration = vscode16.window.registerWebviewViewProvider(
     "vc-ve-tools.explorer",
     explorerProvider
+  );
+  const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncItems);
+  const openPackageSyncCommand = vscode16.commands.registerCommand(
+    "vc-ve-tools.openPackageSync",
+    () => packageSyncProvider.show()
   );
   registerMethodLanguageFeatures(context, methodEditor, async (id) => {
     await explorerProvider.revealClass(id);
@@ -11819,69 +12225,61 @@ async function activate(context) {
     console.error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u0438 \u043A\u043B\u0430\u0441\u0441\u043E\u0432:", error);
   });
   const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
-  const sqlExecutorRegistration = vscode13.window.registerWebviewViewProvider(
+  const sqlExecutorRegistration = vscode16.window.registerWebviewViewProvider(
     SqlExecutorViewProvider.viewType,
     sqlExecutorProvider,
     { webviewOptions: { retainContextWhenHidden: true } }
   );
-  const checkboxListener = settingsView.onDidChangeCheckboxState((event) => {
-    const enabled = event.items[0]?.[1] === vscode13.TreeItemCheckboxState.Checked;
-    void updateProjectRootSetting(enabled);
-  });
-  const configurationListener = vscode13.workspace.onDidChangeConfiguration(async (event) => {
+  const configurationListener = vscode16.workspace.onDidChangeConfiguration(async (event) => {
     if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
-      settingsProvider.setDatabaseRole(getDatabaseRole());
       closeClassDetailPanels();
       explorerProvider.refreshClasses();
-    }
-    if (event.affectsConfiguration("vcVeTools.userId")) {
-      settingsProvider.setUserId();
+      packageSyncProvider.refreshForDatabaseChange();
     }
     if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${projectRootSetting}`)) {
-      const enabled = vscode13.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
-      settingsProvider.setProjectRootEnabled(enabled);
+      const enabled = vscode16.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       try {
         await applyProjectEncoding(context, enabled);
       } catch (error) {
-        void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+        void vscode16.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
       }
     }
   });
-  if (extensionConfiguration.get(projectRootSetting, false) && vscode13.workspace.workspaceFolders?.length) {
+  if (extensionConfiguration.get(projectRootSetting, false) && vscode16.workspace.workspaceFolders?.length) {
     await applyProjectEncoding(context, true);
   }
   console.log('Congratulations, your extension "vc-ve-tools" is now active!');
-  const disposable = vscode13.commands.registerCommand("vc-ve-tools.helloWorld", () => {
-    vscode13.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
+  const disposable = vscode16.commands.registerCommand("vc-ve-tools.helloWorld", () => {
+    vscode16.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
   });
-  const testDatabaseConnectionCommand = vscode13.commands.registerCommand(
+  const testDatabaseConnectionCommand = vscode16.commands.registerCommand(
     "vc-ve-tools.testDatabaseConnection",
     async () => {
       try {
-        const result = await vscode13.window.withProgress(
+        const result = await vscode16.window.withProgress(
           {
-            location: vscode13.ProgressLocation.Notification,
+            location: vscode16.ProgressLocation.Notification,
             title: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0431\u0430\u0437\u0435"
           },
           testDatabaseConnection
         );
-        void vscode13.window.showInformationMessage(
+        void vscode16.window.showInformationMessage(
           `\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${result.database}, \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${result.user}.`
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
+        void vscode16.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
       }
     }
   );
-  const selectDatabaseRoleCommand = vscode13.commands.registerCommand(
+  const selectDatabaseRoleCommand = vscode16.commands.registerCommand(
     "vc-ve-tools.selectDatabaseRole",
     async () => {
-      if (!vscode13.workspace.workspaceFolders?.length) {
-        void vscode13.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      if (!vscode16.workspace.workspaceFolders?.length) {
+        void vscode16.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
         return;
       }
-      const selected = await vscode13.window.showQuickPick(
+      const selected = await vscode16.window.showQuickPick(
         [
           { label: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F", description: "devDBName_main", role: "main" },
           { label: "\u0422\u0435\u0441\u0442\u043E\u0432\u0430\u044F", description: "devDBName_test", role: "test" }
@@ -11891,28 +12289,28 @@ async function activate(context) {
       if (!selected || selected.role === getDatabaseRole()) {
         return;
       }
-      await vscode13.workspace.getConfiguration("vcVeTools").update(
+      await vscode16.workspace.getConfiguration("vcVeTools").update(
         databaseRoleSetting,
         selected.role,
-        vscode13.ConfigurationTarget.Workspace
+        vscode16.ConfigurationTarget.Workspace
       );
     }
   );
-  const openSqlMonitorCommand = vscode13.commands.registerCommand(
+  const openSqlMonitorCommand = vscode16.commands.registerCommand(
     "vc-ve-tools.openSqlMonitor",
     () => openSqlMonitor(context)
   );
-  const copySelectedExplorerIdCommand = vscode13.commands.registerCommand(
+  const copySelectedExplorerIdCommand = vscode16.commands.registerCommand(
     "vc-ve-tools.copySelectedExplorerId",
     () => explorerProvider.copySelectedEntityId()
   );
-  const setUserIdCommand = vscode13.commands.registerCommand(
+  const setUserIdCommand = vscode16.commands.registerCommand(
     "vc-ve-tools.setUserId",
     async () => {
-      const input = await vscode13.window.showInputBox({
+      const input = await vscode16.window.showInputBox({
         placeHolder: "3130673",
         prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B Users \u0434\u043B\u044F \u043B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439 \u043C\u0435\u0442\u043E\u0434\u043E\u0432",
-        value: vscode13.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
+        value: vscode16.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
         validateInput: (value) => {
           if (!value.trim()) {
             return "ID \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C";
@@ -11928,22 +12326,24 @@ async function activate(context) {
         return;
       }
       const userId = Number.parseInt(input, 10);
-      await vscode13.workspace.getConfiguration("vcVeTools").update(
+      await vscode16.workspace.getConfiguration("vcVeTools").update(
         "userId",
         userId,
-        vscode13.ConfigurationTarget.Workspace
+        vscode16.ConfigurationTarget.Workspace
       );
-      settingsProvider.setUserId();
-      void vscode13.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
+      settingsProvider.refresh();
+      void vscode16.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
     }
   );
   context.subscriptions.push(
+    databaseMcpServerRegistration,
     settingsProvider,
-    settingsView,
+    settingsRegistration,
     explorerProvider,
     explorerRegistration,
+    packageSyncProvider,
+    openPackageSyncCommand,
     sqlExecutorRegistration,
-    checkboxListener,
     configurationListener,
     disposable,
     testDatabaseConnectionCommand,

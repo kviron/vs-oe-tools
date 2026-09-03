@@ -37,6 +37,7 @@ exports.registerCodeHistory = registerCodeHistory;
 const path = __importStar(require("node:path"));
 const promises_1 = require("node:fs/promises");
 const vscode = __importStar(require("vscode"));
+const iconv = __importStar(require("iconv-lite"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const methodHistoryRepository_1 = require("../../infrastructure/database/methodHistoryRepository");
 const methodWorkingCopyRepository_1 = require("../../infrastructure/database/methodWorkingCopyRepository");
@@ -46,7 +47,7 @@ const svnClient_1 = require("./svnClient");
 const historyScheme = 'vc-ve-history';
 function registerCodeHistory(context, methodEditor) {
     const service = new CodeHistoryService(context.extensionUri, methodEditor);
-    context.subscriptions.push(service, vscode.workspace.registerTextDocumentContentProvider(historyScheme, service), vscode.window.registerWebviewViewProvider(CodeHistoryService.viewType, service, { webviewOptions: { retainContextWhenHidden: true } }), vscode.commands.registerTextEditorCommand('vc-ve-tools.showCodeHistory', editor => service.show(editor, false)), vscode.commands.registerTextEditorCommand('vc-ve-tools.showSelectionHistory', editor => service.show(editor, true)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiff', (methodId) => service.showLocalDiff(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnHistory', (methodId) => service.showWorkingCopyHistory(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnBlame', (methodId) => service.showBlame(methodId)));
+    context.subscriptions.push(service, vscode.workspace.registerTextDocumentContentProvider(historyScheme, service), vscode.window.registerWebviewViewProvider(CodeHistoryService.viewType, service, { webviewOptions: { retainContextWhenHidden: true } }), vscode.commands.registerTextEditorCommand('vc-ve-tools.showCodeHistory', editor => service.show(editor, false)), vscode.commands.registerTextEditorCommand('vc-ve-tools.showSelectionHistory', editor => service.show(editor, true)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiff', (methodId) => service.showLocalDiff(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnHistory', (methodId) => service.showWorkingCopyHistory(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnBlame', (methodId) => service.showBlame(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiffFile', (fileName) => service.showFileLocalDiff(fileName)), vscode.commands.registerCommand('vc-ve-tools.openGeneratedPackageDiff', (fileName, generatedFileName) => service.showGeneratedPackageDiff(fileName, generatedFileName)));
 }
 class CodeHistoryService {
     extensionUri;
@@ -112,6 +113,24 @@ class CodeHistoryService {
             const stored = id === undefined ? await (0, svnClient_1.svnCatBase)(fileName) : (await (0, methodRepository_1.getMethodSource)(id)).code;
             await vscode.commands.executeCommand('vscode.diff', this.store(`${path.basename(fileName)} · ${id === undefined ? 'SVN BASE' : 'код из БД'}`, stored, path.extname(fileName)), local.uri, `${path.basename(fileName)} · Local Diff`, { preview: true });
         });
+    }
+    async showFileLocalDiff(fileName) {
+        if (!fileName || !(await fileExists(fileName))) {
+            throw new Error(`Локальный файл не найден: ${fileName || 'путь не задан'}`);
+        }
+        const [local, stored] = await Promise.all([
+            vscode.workspace.openTextDocument(vscode.Uri.file(fileName)),
+            (0, svnClient_1.svnCatBase)(fileName),
+        ]);
+        await vscode.commands.executeCommand('vscode.diff', this.store(`${path.basename(fileName)} · SVN BASE`, stored, path.extname(fileName)), local.uri, `${path.basename(fileName)} · Local Diff`, { preview: true });
+    }
+    async showGeneratedPackageDiff(fileName, generatedFileName) {
+        const [local, generatedBytes] = await Promise.all([
+            vscode.workspace.openTextDocument(vscode.Uri.file(fileName)),
+            (0, promises_1.readFile)(generatedFileName),
+        ]);
+        const generated = iconv.decode(generatedBytes, 'win1251');
+        await vscode.commands.executeCommand('vscode.diff', local.uri, this.store(`${path.basename(fileName)} · версия из БД`, generated, path.extname(fileName)), `${path.basename(fileName)} · БД ↔ файл`, { preview: true });
     }
     async showWorkingCopyHistory(methodId) {
         await this.runSvnAction('История SVN', methodId, async (fileName) => {

@@ -37,13 +37,15 @@ exports.ExplorerViewProvider = void 0;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 class ExplorerViewProvider {
+    workspaceState;
     extensionUri;
     getClasses;
     openClass;
     view;
     selectedEntityId;
     output = vscode.window.createOutputChannel('Восточный Экспресс: Проводник');
-    constructor(extensionUri, getClasses, openClass) {
+    constructor(workspaceState, extensionUri, getClasses, openClass) {
+        this.workspaceState = workspaceState;
         this.extensionUri = extensionUri;
         this.getClasses = getClasses;
         this.openClass = openClass;
@@ -61,6 +63,16 @@ class ExplorerViewProvider {
             }
             if (message.command === 'explorerDebugLog') {
                 this.log(`[webview] ${message.message}`);
+                return;
+            }
+            if (message.command === 'explorerReady') {
+                const state = this.workspaceState.get('explorer.state', { activeTab: 'packages' });
+                void this.postMessage({ command: 'restoreExplorerState', ...state });
+                return;
+            }
+            if (message.command === 'explorerStateChanged') {
+                this.selectedEntityId = message.selectedClassId;
+                void this.workspaceState.update('explorer.state', { activeTab: message.activeTab, selectedClassId: message.selectedClassId });
                 return;
             }
             if (message.command === 'setExplorerCopyContext') {

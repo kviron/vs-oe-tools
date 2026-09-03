@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openClassDetails = openClassDetails;
+exports.restoreClassDetailPanels = restoreClassDetailPanels;
 exports.closeClassDetailPanels = closeClassDetailPanels;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
@@ -42,7 +43,7 @@ const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
 const classDetailPanels = new Map();
 let previewClassPanelId;
 function postDetails(entry) {
-    const message = { command: 'classDetailsLoaded', details: entry.details };
+    const message = { command: 'classDetailsLoaded', details: entry.details, activeTab: entry.activeTab };
     void entry.panel.webview.postMessage(message);
 }
 function updateClassDetailPanel(entry, classDetails) {
@@ -51,12 +52,20 @@ function updateClassDetailPanel(entry, classDetails) {
     postDetails(entry);
     entry.panel.reveal(vscode.ViewColumn.Active, !entry.pinned);
 }
-function createPanel(context, classDetails, pinned, methodEditor) {
+function persistPanels(context) {
+    void context.workspaceState.update('classDetails.openPanels', [...classDetailPanels.values()].map(entry => ({ id: entry.details.id, pinned: entry.pinned, activeTab: entry.activeTab })));
+}
+function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'class') {
     const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, { viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned }, { enableScripts: true, localResourceRoots: [assetsRoot] });
-    const entry = { panel, pinned, details: classDetails };
+    const entry = { panel, pinned, details: classDetails, activeTab };
     panel.webview.onDidReceiveMessage(async (message) => {
         if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
+            if (message.command === 'classDetailsStateChanged') {
+                entry.activeTab = message.activeTab;
+                persistPanels(context);
+                return;
+            }
             if (message.command === 'tableSelectionDebug') {
                 (0, tableSelectionLogger_1.logTableSelection)('Класс', message.message);
                 return;
@@ -134,13 +143,14 @@ function createPanel(context, classDetails, pinned, methodEditor) {
     panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
     return entry;
 }
-async function openClassDetails(context, methodEditor, id, pinned) {
+async function openClassDetails(context, methodEditor, id, pinned, activeTab = 'class') {
     const existingPanel = classDetailPanels.get(id);
     if (existingPanel) {
         if (pinned && !existingPanel.pinned) {
             existingPanel.pinned = true;
             previewClassPanelId = undefined;
         }
+        persistPanels(context);
         existingPanel.panel.reveal(vscode.ViewColumn.Active, !pinned);
         return;
     }
@@ -153,10 +163,12 @@ async function openClassDetails(context, methodEditor, id, pinned) {
         previewPanel.pinned = pinned;
         previewClassPanelId = pinned ? undefined : id;
         updateClassDetailPanel(previewPanel, classDetails);
+        persistPanels(context);
         return;
     }
-    const entry = createPanel(context, classDetails, pinned, methodEditor);
+    const entry = createPanel(context, classDetails, pinned, methodEditor, activeTab);
     classDetailPanels.set(id, entry);
+    persistPanels(context);
     if (!pinned) {
         previewClassPanelId = id;
     }
@@ -167,9 +179,18 @@ async function openClassDetails(context, methodEditor, id, pinned) {
                 if (previewClassPanelId === panelId) {
                     previewClassPanelId = undefined;
                 }
+                persistPanels(context);
             }
         }
     });
+}
+async function restoreClassDetailPanels(context, methodEditor) {
+    const panels = context.workspaceState.get('classDetails.openPanels', []);
+    for (const panel of panels) {
+        if (Number.isSafeInteger(panel.id)) {
+            await openClassDetails(context, methodEditor, panel.id, panel.pinned, panel.activeTab);
+        }
+    }
 }
 function closeClassDetailPanels() {
     for (const { panel } of [...classDetailPanels.values()]) {

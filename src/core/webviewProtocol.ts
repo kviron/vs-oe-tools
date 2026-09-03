@@ -1,6 +1,7 @@
 import type { ClassAttribute, ClassDetails, ClassMethod, ClassTreeRow } from '../features/classes/models';
 import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
+import type { PackageSyncItem } from '../features/package-sync/models';
 
 export type ExplorerWebviewMessage =
 	| { command: 'explorerReady' }
@@ -77,7 +78,62 @@ export type SqlExecutorHostMessage =
 	| { command: 'sqlExecutorHistoryChanged'; entry: SqlHistoryEntry }
 	| { command: 'sqlExecutionSucceeded'; result: SerializedQueryResult; durationMs: number; database: string }
 	| { command: 'sqlExecutionFailed'; message: string; details: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage;
+export type PackageSyncWebviewMessage =
+	| { command: 'packageSyncReady' }
+	| { command: 'refreshPackageSync' }
+	| { command: 'openPackageSyncDiff'; objectId: number };
+export type PackageSyncHostMessage =
+	| { command: 'packageSyncLoading' }
+	| { command: 'packageSyncLoaded'; items: PackageSyncItem[] }
+	| { command: 'packageSyncFailed'; message: string };
+export interface SettingsState {
+	useFolderAsProjectRoot: boolean;
+	databaseRole: 'main' | 'test';
+	userId: number;
+	mcpEnabled: boolean;
+	mcpStatus: 'ready' | 'disabled' | 'unavailable';
+	mcpStatusText: string;
+	mcpConnectionCode: string;
+}
+export type SettingsWebviewMessage =
+	| { command: 'settingsReady' }
+	| { command: 'setProjectRootEnabled'; enabled: boolean }
+	| { command: 'setDatabaseRole'; role: 'main' | 'test' }
+	| { command: 'setUserId'; userId: number }
+	| { command: 'setMcpEnabled'; enabled: boolean }
+	| { command: 'testSettingsDatabaseConnection' }
+	| { command: 'copyMcpConnectionCode'; text: string };
+export type SettingsHostMessage =
+	| { command: 'settingsState'; state: SettingsState }
+	| { command: 'databaseConnectionTestStarted' }
+	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string };
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage;
+
+export function isSettingsWebviewMessage(message: unknown): message is SettingsWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) {
+		return false;
+	}
+	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection') {
+		return true;
+	}
+	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
+		return 'enabled' in message && typeof message.enabled === 'boolean';
+	}
+	if (message.command === 'setDatabaseRole') {
+		return 'role' in message && (message.role === 'main' || message.role === 'test');
+	}
+	if (message.command === 'setUserId') {
+		return 'userId' in message && typeof message.userId === 'number' && Number.isInteger(message.userId) && message.userId >= 0;
+	}
+	return message.command === 'copyMcpConnectionCode' && 'text' in message && typeof message.text === 'string';
+}
+
+export function isPackageSyncWebviewMessage(message: unknown): message is PackageSyncWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) {return false;}
+	return message.command === 'packageSyncReady'
+		|| message.command === 'refreshPackageSync'
+		|| (message.command === 'openPackageSyncDiff' && 'objectId' in message && typeof message.objectId === 'number');
+}
 
 export interface CodeHistoryListEntry {
 	id: string;

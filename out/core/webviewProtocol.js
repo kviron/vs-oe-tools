@@ -1,11 +1,39 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isSettingsWebviewMessage = isSettingsWebviewMessage;
+exports.isPackageSyncWebviewMessage = isPackageSyncWebviewMessage;
 exports.isCodeHistoryWebviewMessage = isCodeHistoryWebviewMessage;
 exports.isClassDetailsWebviewMessage = isClassDetailsWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
 exports.isCopyEntityIdMessage = isCopyEntityIdMessage;
 exports.isSqlMonitorWebviewMessage = isSqlMonitorWebviewMessage;
 exports.isSqlExecutorWebviewMessage = isSqlExecutorWebviewMessage;
+function isSettingsWebviewMessage(message) {
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection') {
+        return true;
+    }
+    if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
+        return 'enabled' in message && typeof message.enabled === 'boolean';
+    }
+    if (message.command === 'setDatabaseRole') {
+        return 'role' in message && (message.role === 'main' || message.role === 'test');
+    }
+    if (message.command === 'setUserId') {
+        return 'userId' in message && typeof message.userId === 'number' && Number.isInteger(message.userId) && message.userId >= 0;
+    }
+    return message.command === 'copyMcpConnectionCode' && 'text' in message && typeof message.text === 'string';
+}
+function isPackageSyncWebviewMessage(message) {
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    return message.command === 'packageSyncReady'
+        || message.command === 'refreshPackageSync'
+        || (message.command === 'openPackageSyncDiff' && 'objectId' in message && typeof message.objectId === 'number');
+}
 function isCodeHistoryWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
@@ -19,6 +47,9 @@ function isClassDetailsWebviewMessage(message) {
     }
     if (message.command === 'classDetailsReady') {
         return true;
+    }
+    if (message.command === 'classDetailsStateChanged') {
+        return 'activeTab' in message && typeof message.activeTab === 'string';
     }
     if (isTableSelectionDebugMessage(message)) {
         return true;
@@ -49,6 +80,13 @@ function isExplorerWebviewMessage(message) {
     }
     if (message.command === 'loadClasses') {
         return true;
+    }
+    if (message.command === 'explorerReady') {
+        return true;
+    }
+    if (message.command === 'explorerStateChanged') {
+        return 'activeTab' in message && typeof message.activeTab === 'string'
+            && (!('selectedClassId' in message) || message.selectedClassId === undefined || typeof message.selectedClassId === 'number');
     }
     if (message.command === 'selectExplorerEntity') {
         return !('id' in message) || message.id === undefined || typeof message.id === 'number';
