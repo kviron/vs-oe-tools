@@ -14,10 +14,20 @@ import { registerCodeHistory } from '../features/code-history/codeHistoryService
 import { PackageSyncPanelManager } from '../features/package-sync/packageSyncViewProvider';
 import { loadPackageSyncItems } from '../infrastructure/database/packageSyncRepository';
 import { registerDatabaseMcpServer } from '../mcp/registerMcpServer';
+import { ExtensionLogService } from '../infrastructure/logging/extensionLogService';
+import { registerNavigationTools, type NavigationActions } from '../features/ai/navigationTools';
+import { startNavigationBridge, type NavigationBridge } from '../features/ai/navigationBridge';
+import { registerDfmEditor } from '../features/dfm/dfmEditorProvider';
+import { openDfmPreview } from '../features/dfm/dfmPreview';
+import { registerDfmLanguageFeatures } from '../features/dfm/dfmLanguageFeatures';
 
 export async function activate(context: vscode.ExtensionContext) {
-	const databaseMcpServerRegistration = registerDatabaseMcpServer(context);
+	const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
+	await extensionLogger.initialize();
+	let navigationBridge: NavigationBridge | undefined;
 	const methodEditor = registerMethodEditor(context);
+	const dfmEditor = registerDfmEditor(context);
+	registerDfmLanguageFeatures(context, dfmEditor);
 	registerCodeHistory(context, methodEditor);
 	const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
 	let isUpdatingSetting = false;
@@ -47,7 +57,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			isUpdatingSetting = false;
 		}
 	};
-	const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting);
+	const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge);
 	const settingsRegistration = vscode.window.registerWebviewViewProvider(
 		SettingsViewProvider.viewType,
 		settingsProvider,
@@ -59,11 +69,24 @@ export async function activate(context: vscode.ExtensionContext) {
 		context.extensionUri,
 		loadClasses,
 		(id, pinned) => openClassDetails(context, methodEditor, id, pinned),
+		id => dfmEditor.open(id),
+		id => openDfmPreview(context, id),
 	);
 	const explorerRegistration = vscode.window.registerWebviewViewProvider(
 		'vc-ve-tools.explorer',
 		explorerProvider,
 	);
+	const navigationActions: NavigationActions = {
+		revealClass: id => explorerProvider.revealClass(id),
+		openClass: id => openClassDetails(context, methodEditor, id, true),
+		openMethod: id => methodEditor.open(id),
+	};
+	registerNavigationTools(context, navigationActions);
+	navigationBridge = await startNavigationBridge(
+		navigationActions,
+		vscode.Uri.joinPath(context.globalStorageUri, 'navigation-bridge.json').fsPath,
+	);
+	const databaseMcpServerRegistration = registerDatabaseMcpServer(context, extensionLogger.logUri.fsPath, navigationBridge);
 	const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncItems);
 	const openPackageSyncCommand = vscode.commands.registerCommand(
 		'vc-ve-tools.openPackageSync',
@@ -204,6 +227,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(
+		extensionLogger,
+		navigationBridge,
 		databaseMcpServerRegistration,
 		settingsProvider,
 		settingsRegistration,

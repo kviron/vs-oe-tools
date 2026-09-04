@@ -58,6 +58,7 @@ function persistPanels(context) {
 function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'class') {
     const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, { viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned }, { enableScripts: true, localResourceRoots: [assetsRoot] });
+    panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
     const entry = { panel, pinned, details: classDetails, activeTab };
     panel.webview.onDidReceiveMessage(async (message) => {
         if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
@@ -140,7 +141,6 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
             }
         }
     });
-    panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
     return entry;
 }
 async function openClassDetails(context, methodEditor, id, pinned, activeTab = 'class') {

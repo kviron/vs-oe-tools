@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Delphi Form",
+  "scopeName": "source.dfm",
+  "patterns": [
+    { "match": "\\b(object|inherited|inline|end)\\b", "name": "keyword.control.dfm" },
+    { "match": "^[ \\t]*[A-Za-z_][A-Za-z0-9_.]*[ \\t]*(?==)", "name": "variable.other.property.dfm" },
+    { "begin": "'", "end": "'", "patterns": [{ "match": "''", "name": "constant.character.escape.dfm" }], "name": "string.quoted.single.dfm" },
+    { "match": "\\b(True|False|Да|Нет|Истина|Ложь|nil)\\b", "name": "constant.language.dfm" },
+    { "match": "(?<![A-Za-z0-9_])-?\\d+(?:\\.\\d+)?", "name": "constant.numeric.dfm" }
+  ]
+}

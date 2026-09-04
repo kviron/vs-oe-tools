@@ -128,8 +128,20 @@ vscode.postMessage({ command: 'settingsReady' });
                 </FieldContent>
                 <Switch :model-value="state.mcpEnabled" @update:model-value="enabled => vscode.postMessage({ command: 'setMcpEnabled', enabled })" />
               </Field>
+              <Field>
+                <FieldTitle>Диагностика расширения</FieldTitle>
+                <FieldDescription v-if="state.lastExtensionError">
+                  {{ new Date(state.lastExtensionError.timestamp).toLocaleString() }} · {{ state.lastExtensionError.source }} · {{ state.lastExtensionError.message }}
+                </FieldDescription>
+                <FieldDescription v-else>Ошибок в журнале нет.</FieldDescription>
+              </Field>
             </FieldGroup>
           </CardContent>
+          <CardFooter>
+            <Button variant="outline" :disabled="!state?.lastExtensionError" @click="vscode.postMessage({ command: 'clearExtensionLogs' })">
+              Очистить журнал
+            </Button>
+          </CardFooter>
         </Card>
 
         <Card>
@@ -141,7 +153,7 @@ vscode.postMessage({ command: 'settingsReady' });
             <Textarea :model-value="state.mcpConnectionCode" readonly spellcheck="false" class="min-h-56 resize-none font-mono text-xs" />
             <p class="flex items-center gap-1 text-xs text-muted-foreground">
               <HugeiconsIcon :icon="PlugSocketIcon" />
-              Инструмент query_readonly принимает только SELECT, WITH и VALUES, до 500 строк.
+              Доступны query_readonly, get_recent_extension_errors и get_extension_logs.
             </p>
           </CardContent>
           <CardFooter>

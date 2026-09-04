@@ -19,6 +19,7 @@ export interface ClassRow {
 	name: string;
 	seniorid: number | null;
 	ord: number | null;
+	hasDfm?: boolean;
 }
 
 export interface ClassCommentRow {

@@ -42,13 +42,17 @@ const classRepository_1 = require("../../infrastructure/database/classRepository
 class SettingsViewProvider {
     extensionUri;
     setProjectRootEnabled;
+    logger;
+    getNavigationConnection;
     static viewType = 'vc-ve-tools.settings';
     view;
     disposables = [];
-    constructor(extensionUri, setProjectRootEnabled) {
+    constructor(extensionUri, setProjectRootEnabled, logger, getNavigationConnection) {
         this.extensionUri = extensionUri;
         this.setProjectRootEnabled = setProjectRootEnabled;
-        this.disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
+        this.logger = logger;
+        this.getNavigationConnection = getNavigationConnection;
+        this.disposables.push(this.logger.onDidChange(() => void this.postState()), vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration('vcVeTools')) {
                 void this.postState();
             }
@@ -90,6 +94,10 @@ class SettingsViewProvider {
         else if (message.command === 'testSettingsDatabaseConnection') {
             await this.testConnection();
         }
+        else if (message.command === 'clearExtensionLogs') {
+            await this.logger.clear();
+            await this.postState();
+        }
         else {
             await vscode.env.clipboard.writeText(message.text);
             vscode.window.setStatusBarMessage('Код подключения MCP скопирован', 2500);
@@ -102,6 +110,7 @@ class SettingsViewProvider {
             this.post({ command: 'databaseConnectionTestFinished', success: true, message: `Подключено: ${result.database}, пользователь ${result.user}.` });
         }
         catch (error) {
+            this.logger.error('Настройки', 'Проверка подключения к базе завершилась ошибкой', error);
             this.post({ command: 'databaseConnectionTestFinished', success: false, message: error instanceof Error ? error.message : String(error) });
         }
     }
@@ -116,6 +125,7 @@ class SettingsViewProvider {
         const workspace = vscode.workspace.workspaceFolders?.[0];
         const enabled = configuration.get(constants_1.mcpEnabledSetting, true);
         const role = (0, projectDatabaseOptions_1.getDatabaseRole)();
+        const lastError = this.logger.getLastError();
         let status = enabled ? 'ready' : 'disabled';
         let statusText = enabled ? 'Готов к запуску агентом' : 'MCP-сервер выключен';
         if (enabled && !workspace) {
@@ -140,14 +150,22 @@ class SettingsViewProvider {
             mcpStatus: status,
             mcpStatusText: statusText,
             mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role),
+            lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
         };
     }
     connectionCode(workspacePath, role) {
+        const navigation = this.getNavigationConnection();
         return JSON.stringify({
             mcpServers: {
                 'vc-ve-tools': {
                     command: 'node',
-                    args: [vscode.Uri.joinPath(this.extensionUri, 'dist', 'mcp-server.js').fsPath, '--workspace', workspacePath ?? '<PROJECT_PATH>', '--database-role', role],
+                    args: [
+                        vscode.Uri.joinPath(this.extensionUri, 'dist', 'mcp-server.js').fsPath,
+                        '--workspace', workspacePath ?? '<PROJECT_PATH>',
+                        '--database-role', role,
+                        '--logs', this.logger.logUri.fsPath,
+                        ...(navigation ? ['--navigation-info', navigation.infoPath] : []),
+                    ],
                 },
             },
         }, null, 2);

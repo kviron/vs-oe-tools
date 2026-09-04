@@ -40,8 +40,13 @@ export async function loadClasses(): Promise<ClassTreeRow[]> {
 	try {
 		await client.connect();
 		const classesResult = await executeMonitoredQuery<ClassRow>(client, {
-			text: `SELECT id, name, seniorid, ord
-			 FROM classes
+			text: `SELECT class.id, class.name, class.seniorid, class.ord,
+			 EXISTS (
+			   SELECT 1 FROM dfltvalues value
+			   JOIN attributes attribute ON attribute.id = value.attrid
+			   WHERE value.seniorid = class.id AND upper(attribute.name) = 'DFM'
+			 ) AS "hasDfm"
+			 FROM classes class
 			 ORDER BY ord NULLS LAST, name`,
 			source: 'Загрузка классов',
 			database: options.database,
@@ -238,7 +243,7 @@ export async function getClassAttributes(classId: number, className: string, inc
 			name: readValue(data, 'name'),
 			owner: ownername ?? (readValue(data, 'owner', 'ownername', 'classname') || className),
 			signature: readValue(data, 'signature', 'parameters', 'params', 'args', 'declaration'),
-			type: readValue(data, 'type', 'typename', 'attributetype', 'kind'),
+			type: readValue(data, 'type', 'typename', 'attrtype', 'attributetype', 'kind'),
 			visibility: readValue(data, 'visibility', 'access', 'scope'),
 			package: readValue(data, 'package', 'packagename'),
 			line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),

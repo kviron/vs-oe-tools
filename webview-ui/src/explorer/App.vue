@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 import ClassTreeNode, { type TreeNode } from './ClassTreeNode.vue';
+import EntityContextMenu from '@/components/EntityContextMenu.vue';
+import { BrowserIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/vue';
 
 const activeTab = ref('packages');
 const classes = ref<ClassTreeRow[]>([]);
@@ -37,7 +40,7 @@ const searchResults = computed(() => {
 
 const classTree = computed<TreeNode>(() => {
   const byId = new Map<number, TreeNode>(
-    classes.value.map(item => [item.id, { id: item.id, entityId: item.id, name: item.name, kind: 'class', children: [] }]),
+    classes.value.map(item => [item.id, { id: item.id, entityId: item.id, name: item.name, kind: 'class', hasDfm: item.hasDfm, children: [] }]),
   );
   const roots: TreeNode[] = [];
   for (const item of classes.value) {
@@ -233,9 +236,8 @@ vscode.postMessage({ command: 'explorerReady' });
           />
         </div>
         <div v-if="normalizedSearchQuery" class="flex min-h-0 flex-1 flex-col overflow-auto p-1">
+		  <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" :class-id="item.hasDfm ? item.id : undefined" copy-shortcut="Ctrl+C">
           <button
-            v-for="item in searchResults"
-            :key="item.id"
             type="button"
             class="flex min-h-7 items-center gap-2 px-2 text-left hover:bg-accent"
             :class="cn(item.id === selectedClassId && (explorerActive
@@ -245,9 +247,11 @@ vscode.postMessage({ command: 'explorerReady' });
             @click="selectSearchResult(item, false)"
             @dblclick="selectSearchResult(item, true)"
           >
+			<HugeiconsIcon v-if="item.hasDfm" :icon="BrowserIcon" data-icon="inline-start" class="text-[var(--vscode-charts-orange)]" />
             <span class="min-w-0 flex-1 truncate">{{ item.name }}</span>
             <span class="shrink-0 text-xs text-muted-foreground">{{ item.id }}</span>
           </button>
+		  </EntityContextMenu>
           <Empty v-if="searchResults.length === 0" class="min-h-0 py-6">
             <EmptyHeader><EmptyTitle>Совпадений нет</EmptyTitle><EmptyDescription>Измените название или ID класса.</EmptyDescription></EmptyHeader>
           </Empty>

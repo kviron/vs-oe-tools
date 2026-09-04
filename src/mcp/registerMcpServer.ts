@@ -2,7 +2,11 @@ import * as vscode from 'vscode';
 import { getDatabaseRole } from '../infrastructure/configuration/projectDatabaseOptions';
 import { mcpEnabledSetting } from '../core/constants';
 
-export function registerDatabaseMcpServer(context: vscode.ExtensionContext): vscode.Disposable {
+export interface McpNavigationConnection {
+	infoPath: string;
+}
+
+export function registerDatabaseMcpServer(context: vscode.ExtensionContext, logsPath: string, navigation: McpNavigationConnection): vscode.Disposable {
 	const changeEmitter = new vscode.EventEmitter<void>();
 	const registration = vscode.lm.registerMcpServerDefinitionProvider('vc-ve-tools.database', {
 		onDidChangeMcpServerDefinitions: changeEmitter.event,
@@ -21,9 +25,11 @@ export function registerDatabaseMcpServer(context: vscode.ExtensionContext): vsc
 					vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath,
 					'--workspace', workspaceFolder.uri.fsPath,
 					'--database-role', getDatabaseRole(),
+					'--logs', logsPath,
+					'--navigation-info', navigation.infoPath,
 				],
 				{},
-				'0.1.0',
+				'0.4.0',
 			);
 			server.cwd = workspaceFolder.uri;
 			return [server];

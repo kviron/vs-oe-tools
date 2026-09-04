@@ -8,6 +8,8 @@ export type ExplorerWebviewMessage =
 	| { command: 'explorerStateChanged'; activeTab: string; selectedClassId?: number }
 	| { command: 'loadClasses' }
 	| { command: 'openClass'; id: number; pinned: boolean }
+	| { command: 'openDfmEditor'; classId: number }
+	| { command: 'openDfmPreview'; classId: number }
 	| { command: 'selectExplorerEntity'; id?: number }
 	| { command: 'setExplorerCopyContext'; active: boolean }
 	| { command: 'explorerDebugLog'; message: string }
@@ -94,6 +96,7 @@ export interface SettingsState {
 	mcpStatus: 'ready' | 'disabled' | 'unavailable';
 	mcpStatusText: string;
 	mcpConnectionCode: string;
+	lastExtensionError?: { timestamp: string; source: string; message: string };
 }
 export type SettingsWebviewMessage =
 	| { command: 'settingsReady' }
@@ -102,7 +105,8 @@ export type SettingsWebviewMessage =
 	| { command: 'setUserId'; userId: number }
 	| { command: 'setMcpEnabled'; enabled: boolean }
 	| { command: 'testSettingsDatabaseConnection' }
-	| { command: 'copyMcpConnectionCode'; text: string };
+	| { command: 'copyMcpConnectionCode'; text: string }
+	| { command: 'clearExtensionLogs' };
 export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
 	| { command: 'databaseConnectionTestStarted' }
@@ -113,7 +117,7 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
 		return false;
 	}
-	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection') {
+	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'clearExtensionLogs') {
 		return true;
 	}
 	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
@@ -223,6 +227,9 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	}
 	if (isCopyEntityIdMessage(message)) {
 		return true;
+	}
+	if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
+		return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
 	}
 	return message.command === 'openClass' && 'id' in message && 'pinned' in message
 		&& typeof message.id === 'number' && typeof message.pinned === 'boolean';

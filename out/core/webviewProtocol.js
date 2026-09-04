@@ -12,7 +12,7 @@ function isSettingsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
     }
-    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection') {
+    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'clearExtensionLogs') {
         return true;
     }
     if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {

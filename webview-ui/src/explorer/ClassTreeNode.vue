@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight01Icon, CodeIcon, DatabaseIcon, Message01Icon } from '@hugeicons/core-free-icons';
+import { ArrowRight01Icon, BrowserIcon, CodeIcon, DatabaseIcon, Message01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, ref, watchEffect } from 'vue';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ export interface TreeNode {
   entityId?: number | string;
   name: string;
   kind: 'root' | 'class' | 'comment' | 'metadata';
+	hasDfm?: boolean;
   children: TreeNode[];
 }
 
@@ -49,6 +50,7 @@ function openClass(pinned: boolean): void {
   <Collapsible v-model:open="open">
     <EntityContextMenu
       :entity-id="node.entityId"
+	  :class-id="node.kind === 'class' && node.hasDfm && typeof node.id === 'number' ? node.id : undefined"
       copy-shortcut="Ctrl+C"
     >
       <div class="group flex min-h-7 min-w-full items-center whitespace-nowrap hover:bg-accent">
@@ -71,7 +73,8 @@ function openClass(pinned: boolean): void {
           @click="openClass(false)"
           @dblclick="openClass(true)"
         >
-          <HugeiconsIcon v-if="node.kind === 'class' || node.kind === 'root'" :icon="CodeIcon" data-icon="inline-start" />
+		  <HugeiconsIcon v-if="node.kind === 'class' && node.hasDfm" :icon="BrowserIcon" data-icon="inline-start" class="text-[var(--vscode-charts-orange)]" />
+		  <HugeiconsIcon v-else-if="node.kind === 'class' || node.kind === 'root'" :icon="CodeIcon" data-icon="inline-start" />
           <HugeiconsIcon v-else-if="node.kind === 'comment'" :icon="Message01Icon" data-icon="inline-start" />
           <HugeiconsIcon v-else :icon="DatabaseIcon" data-icon="inline-start" />
           <span>{{ node.name }}</span>

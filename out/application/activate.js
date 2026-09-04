@@ -50,8 +50,13 @@ const codeHistoryService_1 = require("../features/code-history/codeHistoryServic
 const packageSyncViewProvider_1 = require("../features/package-sync/packageSyncViewProvider");
 const packageSyncRepository_1 = require("../infrastructure/database/packageSyncRepository");
 const registerMcpServer_1 = require("../mcp/registerMcpServer");
+const extensionLogService_1 = require("../infrastructure/logging/extensionLogService");
+const navigationTools_1 = require("../features/ai/navigationTools");
+const navigationBridge_1 = require("../features/ai/navigationBridge");
 async function activate(context) {
-    const databaseMcpServerRegistration = (0, registerMcpServer_1.registerDatabaseMcpServer)(context);
+    const extensionLogger = new extensionLogService_1.ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
+    await extensionLogger.initialize();
+    let navigationBridge;
     const methodEditor = (0, methodEditorProvider_1.registerMethodEditor)(context);
     (0, codeHistoryService_1.registerCodeHistory)(context, methodEditor);
     const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
@@ -76,10 +81,18 @@ async function activate(context) {
             isUpdatingSetting = false;
         }
     };
-    const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting);
+    const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge);
     const settingsRegistration = vscode.window.registerWebviewViewProvider(settingsViewProvider_1.SettingsViewProvider.viewType, settingsProvider, { webviewOptions: { retainContextWhenHidden: true } });
     const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
+    const navigationActions = {
+        revealClass: id => explorerProvider.revealClass(id),
+        openClass: id => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, true),
+        openMethod: id => methodEditor.open(id),
+    };
+    (0, navigationTools_1.registerNavigationTools)(context, navigationActions);
+    navigationBridge = await (0, navigationBridge_1.startNavigationBridge)(navigationActions, vscode.Uri.joinPath(context.globalStorageUri, 'navigation-bridge.json').fsPath);
+    const databaseMcpServerRegistration = (0, registerMcpServer_1.registerDatabaseMcpServer)(context, extensionLogger.logUri.fsPath, navigationBridge);
     const packageSyncProvider = new packageSyncViewProvider_1.PackageSyncPanelManager(context.extensionUri, packageSyncRepository_1.loadPackageSyncItems);
     const openPackageSyncCommand = vscode.commands.registerCommand('vc-ve-tools.openPackageSync', () => packageSyncProvider.show());
     (0, methodLanguageFeatures_1.registerMethodLanguageFeatures)(context, methodEditor, async (id) => {
@@ -174,6 +187,6 @@ async function activate(context) {
         settingsProvider.refresh();
         void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
     });
-    context.subscriptions.push(databaseMcpServerRegistration, settingsProvider, settingsRegistration, explorerProvider, explorerRegistration, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
+    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, settingsProvider, settingsRegistration, explorerProvider, explorerRegistration, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
 }
 //# sourceMappingURL=activate.js.map

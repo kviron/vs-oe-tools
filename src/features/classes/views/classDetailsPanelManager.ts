@@ -40,6 +40,7 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 		{ viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned },
 		{ enableScripts: true, localResourceRoots: [assetsRoot] },
 	);
+	panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
 	const entry: ClassDetailPanel = { panel, pinned, details: classDetails, activeTab };
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (isClassDetailsWebviewMessage(message)) {
@@ -118,7 +119,6 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 			}
 		}
 	});
-	panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
 	return entry;
 }
 

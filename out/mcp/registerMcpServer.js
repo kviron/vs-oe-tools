@@ -37,7 +37,7 @@ exports.registerDatabaseMcpServer = registerDatabaseMcpServer;
 const vscode = __importStar(require("vscode"));
 const projectDatabaseOptions_1 = require("../infrastructure/configuration/projectDatabaseOptions");
 const constants_1 = require("../core/constants");
-function registerDatabaseMcpServer(context) {
+function registerDatabaseMcpServer(context, logsPath, navigation) {
     const changeEmitter = new vscode.EventEmitter();
     const registration = vscode.lm.registerMcpServerDefinitionProvider('vc-ve-tools.database', {
         onDidChangeMcpServerDefinitions: changeEmitter.event,
@@ -53,7 +53,9 @@ function registerDatabaseMcpServer(context) {
                 vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath,
                 '--workspace', workspaceFolder.uri.fsPath,
                 '--database-role', (0, projectDatabaseOptions_1.getDatabaseRole)(),
-            ], {}, '0.1.0');
+                '--logs', logsPath,
+                '--navigation-info', navigation.infoPath,
+            ], {}, '0.4.0');
             server.cwd = workspaceFolder.uri;
             return [server];
         },

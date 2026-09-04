@@ -1189,7 +1189,7 @@ var require_utils2 = __commonJS({
     var nodeCrypto = require("crypto");
     module2.exports = {
       postgresMd5PasswordHash,
-      randomBytes,
+      randomBytes: randomBytes2,
       deriveKey,
       sha256,
       hashByName,
@@ -1199,7 +1199,7 @@ var require_utils2 = __commonJS({
     var webCrypto = nodeCrypto.webcrypto || globalThis.crypto;
     var subtleCrypto = webCrypto.subtle;
     var textEncoder = new TextEncoder();
-    function randomBytes(length) {
+    function randomBytes2(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
     async function md5(string) {
@@ -2001,10 +2001,10 @@ var require_result = __commonJS({
 var require_query = __commonJS({
   "node_modules/pg/lib/query.js"(exports2, module2) {
     "use strict";
-    var { EventEmitter: EventEmitter3 } = require("events");
+    var { EventEmitter: EventEmitter5 } = require("events");
     var Result2 = require_result();
     var utils = require_utils();
-    var Query2 = class extends EventEmitter3 {
+    var Query2 = class extends EventEmitter5 {
       constructor(config, values, callback) {
         super();
         config = utils.normalizeQueryConfig(config, values, callback);
@@ -3135,8 +3135,8 @@ var require_stream = __commonJS({
       };
     }
     function isCloudflareRuntime() {
-      if (typeof navigator === "object" && navigator !== null && typeof navigator.userAgent === "string") {
-        return navigator.userAgent === "Cloudflare-Workers";
+      if (false) {
+        return (void 0).userAgent === "Cloudflare-Workers";
       }
       if (typeof Response === "function") {
         const resp = new Response(null, { cf: { thing: true } });
@@ -3159,14 +3159,14 @@ var require_stream = __commonJS({
 var require_connection = __commonJS({
   "node_modules/pg/lib/connection.js"(exports2, module2) {
     "use strict";
-    var EventEmitter3 = require("events").EventEmitter;
+    var EventEmitter5 = require("events").EventEmitter;
     var { parse: parse2, serialize } = require_dist();
     var stream = require_stream();
     var { getStream } = stream;
     var flushBuffer = serialize.flush();
     var syncBuffer = serialize.sync();
     var endBuffer = serialize.end();
-    var Connection2 = class extends EventEmitter3 {
+    var Connection2 = class extends EventEmitter5 {
       constructor(config) {
         super();
         config = config || {};
@@ -3649,7 +3649,7 @@ var require_lib = __commonJS({
 // node_modules/pg/lib/client.js
 var require_client = __commonJS({
   "node_modules/pg/lib/client.js"(exports2, module2) {
-    var EventEmitter3 = require("events").EventEmitter;
+    var EventEmitter5 = require("events").EventEmitter;
     var utils = require_utils();
     var nodeUtils = require("util");
     var sasl = require_sasl();
@@ -3694,7 +3694,7 @@ var require_client = __commonJS({
       }
       return defaultValue;
     }
-    var Client2 = class extends EventEmitter3 {
+    var Client2 = class extends EventEmitter5 {
       constructor(config) {
         super();
         this.connectionParameters = new ConnectionParameters(config);
@@ -4338,7 +4338,7 @@ var require_client = __commonJS({
 var require_pg_pool = __commonJS({
   "node_modules/pg-pool/index.js"(exports2, module2) {
     "use strict";
-    var EventEmitter3 = require("events").EventEmitter;
+    var EventEmitter5 = require("events").EventEmitter;
     var NOOP = function() {
     };
     var removeWhere = (list, predicate) => {
@@ -4389,7 +4389,7 @@ var require_pg_pool = __commonJS({
         pool.emit("error", err, client);
       };
     }
-    var Pool2 = class extends EventEmitter3 {
+    var Pool2 = class extends EventEmitter5 {
       constructor(options, Client2) {
         super();
         this.options = Object.assign({}, options);
@@ -4764,11 +4764,11 @@ var require_pg_pool = __commonJS({
 var require_query2 = __commonJS({
   "node_modules/pg/lib/native/query.js"(exports2, module2) {
     "use strict";
-    var EventEmitter3 = require("events").EventEmitter;
+    var EventEmitter5 = require("events").EventEmitter;
     var util = require("util");
     var utils = require_utils();
     var NativeQuery = module2.exports = function(config, values, callback) {
-      EventEmitter3.call(this);
+      EventEmitter5.call(this);
       config = utils.normalizeQueryConfig(config, values, callback);
       this.text = config.text;
       this.values = config.values;
@@ -4785,7 +4785,7 @@ var require_query2 = __commonJS({
         }.bind(this)
       );
     };
-    util.inherits(NativeQuery, EventEmitter3);
+    util.inherits(NativeQuery, EventEmitter5);
     var errorFieldMap = {
       sqlState: "code",
       statementPosition: "position",
@@ -4912,7 +4912,7 @@ var require_client2 = __commonJS({
       throw e;
     }
     var TypeOverrides2 = require_type_overrides();
-    var EventEmitter3 = require("events").EventEmitter;
+    var EventEmitter5 = require("events").EventEmitter;
     var util = require("util");
     var ConnectionParameters = require_connection_parameters();
     var NativeQuery = require_query2();
@@ -4922,7 +4922,7 @@ var require_client2 = __commonJS({
       "Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead."
     );
     var Client2 = module2.exports = function(config) {
-      EventEmitter3.call(this);
+      EventEmitter5.call(this);
       config = config || {};
       this._Promise = config.Promise || global.Promise;
       this._types = new TypeOverrides2(config.types);
@@ -4951,7 +4951,7 @@ var require_client2 = __commonJS({
       this.namedQueries = {};
     };
     Client2.Query = NativeQuery;
-    util.inherits(Client2, EventEmitter3);
+    util.inherits(Client2, EventEmitter5);
     Client2.prototype._errorAllQueries = function(err) {
       const enqueueError = (query) => {
         process.nextTick(() => {
@@ -5457,7 +5457,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv8) {
+    function InternalCodec(codecOptions, iconv10) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5469,7 +5469,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv8.defaultCharUnicode;
+          this.defaultCharUnicode = iconv10.defaultCharUnicode;
         }
       }
     }
@@ -5626,8 +5626,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv8) {
-      this.iconv = iconv8;
+    function Utf32Codec(codecOptions, iconv10) {
+      this.iconv = iconv10;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5755,8 +5755,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv8) {
-      this.iconv = iconv8;
+    function Utf32AutoCodec(options, iconv10) {
+      this.iconv = iconv10;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5906,8 +5906,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv8) {
-      this.iconv = iconv8;
+    function Utf16Codec(codecOptions, iconv10) {
+      this.iconv = iconv10;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6005,8 +6005,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv8) {
-      this.iconv = iconv8;
+    function Utf7Codec(codecOptions, iconv10) {
+      this.iconv = iconv10;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6088,8 +6088,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv8) {
-      this.iconv = iconv8;
+    function Utf7IMAPCodec(codecOptions, iconv10) {
+      this.iconv = iconv10;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6222,7 +6222,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv8) {
+    function SBCSCodec(codecOptions, iconv10) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6237,7 +6237,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv8.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv10.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6904,7 +6904,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv8) {
+    function DBCSCodec(codecOptions, iconv10) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6953,7 +6953,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv8.defaultCharUnicode;
+      this.defaultCharUnicode = iconv10.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6977,7 +6977,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv8.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv10.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8975,14 +8975,14 @@ var require_lib3 = __commonJS({
     module2.exports.encodings = null;
     module2.exports.defaultCharUnicode = "\uFFFD";
     module2.exports.defaultCharSingleByte = "?";
-    module2.exports.encode = function encode3(str, encoding, options) {
+    module2.exports.encode = function encode6(str, encoding, options) {
       str = "" + (str || "");
       var encoder = module2.exports.getEncoder(encoding, options);
       var res = encoder.write(str);
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode8(buf, encoding, options) {
+    module2.exports.decode = function decode10(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -9106,7 +9106,7 @@ __export(extension_exports, {
 module.exports = __toCommonJS(extension_exports);
 
 // src/application/activate.ts
-var vscode16 = __toESM(require("vscode"));
+var vscode21 = __toESM(require("vscode"));
 
 // src/core/constants.ts
 var projectRootSetting = "useFolderAsProjectRoot";
@@ -9386,8 +9386,13 @@ async function loadClasses() {
   try {
     await client.connect();
     const classesResult = await executeMonitoredQuery(client, {
-      text: `SELECT id, name, seniorid, ord
-			 FROM classes
+      text: `SELECT class.id, class.name, class.seniorid, class.ord,
+			 EXISTS (
+			   SELECT 1 FROM dfltvalues value
+			   JOIN attributes attribute ON attribute.id = value.attrid
+			   WHERE value.seniorid = class.id AND upper(attribute.name) = 'DFM'
+			 ) AS "hasDfm"
+			 FROM classes class
 			 ORDER BY ord NULLS LAST, name`,
       source: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u043A\u043B\u0430\u0441\u0441\u043E\u0432",
       database: options.database
@@ -9542,7 +9547,7 @@ async function getClassAttributes(classId, className, includeInherited) {
       name: readValue(data, "name"),
       owner: ownername ?? (readValue(data, "owner", "ownername", "classname") || className),
       signature: readValue(data, "signature", "parameters", "params", "args", "declaration"),
-      type: readValue(data, "type", "typename", "attributetype", "kind"),
+      type: readValue(data, "type", "typename", "attrtype", "attributetype", "kind"),
       visibility: readValue(data, "visibility", "access", "scope"),
       package: readValue(data, "package", "packagename"),
       line: readValue(data, "line", "linenumber", "row", "rownum"),
@@ -9735,7 +9740,7 @@ function isSettingsWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
     return false;
   }
-  if (message.command === "settingsReady" || message.command === "testSettingsDatabaseConnection") {
+  if (message.command === "settingsReady" || message.command === "testSettingsDatabaseConnection" || message.command === "clearExtensionLogs") {
     return true;
   }
   if (message.command === "setProjectRootEnabled" || message.command === "setMcpEnabled") {
@@ -9816,6 +9821,9 @@ function isExplorerWebviewMessage(message) {
   if (isCopyEntityIdMessage(message)) {
     return true;
   }
+  if (message.command === "openDfmEditor" || message.command === "openDfmPreview") {
+    return "classId" in message && typeof message.classId === "number" && Number.isSafeInteger(message.classId);
+  }
   return message.command === "openClass" && "id" in message && "pinned" in message && typeof message.id === "number" && typeof message.pinned === "boolean";
 }
 function isCopyEntityIdMessage(message) {
@@ -9857,10 +9865,13 @@ function isTableSelectionDebugMessage(message) {
 
 // src/features/settings/settingsViewProvider.ts
 var SettingsViewProvider = class {
-  constructor(extensionUri, setProjectRootEnabled) {
+  constructor(extensionUri, setProjectRootEnabled, logger, getNavigationConnection) {
     this.extensionUri = extensionUri;
     this.setProjectRootEnabled = setProjectRootEnabled;
+    this.logger = logger;
+    this.getNavigationConnection = getNavigationConnection;
     this.disposables.push(
+      this.logger.onDidChange(() => void this.postState()),
       vscode3.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration("vcVeTools")) {
           void this.postState();
@@ -9871,6 +9882,8 @@ var SettingsViewProvider = class {
   }
   extensionUri;
   setProjectRootEnabled;
+  logger;
+  getNavigationConnection;
   static viewType = "vc-ve-tools.settings";
   view;
   disposables = [];
@@ -9906,6 +9919,9 @@ var SettingsViewProvider = class {
       await vscode3.workspace.getConfiguration("vcVeTools").update(mcpEnabledSetting, message.enabled, vscode3.ConfigurationTarget.Workspace);
     } else if (message.command === "testSettingsDatabaseConnection") {
       await this.testConnection();
+    } else if (message.command === "clearExtensionLogs") {
+      await this.logger.clear();
+      await this.postState();
     } else {
       await vscode3.env.clipboard.writeText(message.text);
       vscode3.window.setStatusBarMessage("\u041A\u043E\u0434 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F MCP \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D", 2500);
@@ -9917,6 +9933,7 @@ var SettingsViewProvider = class {
       const result = await testDatabaseConnection();
       this.post({ command: "databaseConnectionTestFinished", success: true, message: `\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E: ${result.database}, \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${result.user}.` });
     } catch (error) {
+      this.logger.error("\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438", "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0431\u0430\u0437\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u043B\u0430\u0441\u044C \u043E\u0448\u0438\u0431\u043A\u043E\u0439", error);
       this.post({ command: "databaseConnectionTestFinished", success: false, message: error instanceof Error ? error.message : String(error) });
     }
   }
@@ -9928,17 +9945,18 @@ var SettingsViewProvider = class {
   }
   async getState() {
     const configuration = vscode3.workspace.getConfiguration("vcVeTools");
-    const workspace11 = vscode3.workspace.workspaceFolders?.[0];
+    const workspace13 = vscode3.workspace.workspaceFolders?.[0];
     const enabled = configuration.get(mcpEnabledSetting, true);
     const role = getDatabaseRole();
+    const lastError = this.logger.getLastError();
     let status = enabled ? "ready" : "disabled";
     let statusText = enabled ? "\u0413\u043E\u0442\u043E\u0432 \u043A \u0437\u0430\u043F\u0443\u0441\u043A\u0443 \u0430\u0433\u0435\u043D\u0442\u043E\u043C" : "MCP-\u0441\u0435\u0440\u0432\u0435\u0440 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D";
-    if (enabled && !workspace11) {
+    if (enabled && !workspace13) {
       status = "unavailable";
       statusText = "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430";
-    } else if (enabled && workspace11) {
+    } else if (enabled && workspace13) {
       try {
-        await vscode3.workspace.fs.stat(vscode3.Uri.joinPath(workspace11.uri, "Vars.bat"));
+        await vscode3.workspace.fs.stat(vscode3.Uri.joinPath(workspace13.uri, "Vars.bat"));
         await vscode3.workspace.fs.stat(vscode3.Uri.joinPath(this.extensionUri, "dist", "mcp-server.js"));
       } catch {
         status = "unavailable";
@@ -9952,15 +9970,26 @@ var SettingsViewProvider = class {
       mcpEnabled: enabled,
       mcpStatus: status,
       mcpStatusText: statusText,
-      mcpConnectionCode: this.connectionCode(workspace11?.uri.fsPath, role)
+      mcpConnectionCode: this.connectionCode(workspace13?.uri.fsPath, role),
+      lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message }
     };
   }
   connectionCode(workspacePath, role) {
+    const navigation = this.getNavigationConnection();
     return JSON.stringify({
       mcpServers: {
         "vc-ve-tools": {
           command: "node",
-          args: [vscode3.Uri.joinPath(this.extensionUri, "dist", "mcp-server.js").fsPath, "--workspace", workspacePath ?? "<PROJECT_PATH>", "--database-role", role]
+          args: [
+            vscode3.Uri.joinPath(this.extensionUri, "dist", "mcp-server.js").fsPath,
+            "--workspace",
+            workspacePath ?? "<PROJECT_PATH>",
+            "--database-role",
+            role,
+            "--logs",
+            this.logger.logUri.fsPath,
+            ...navigation ? ["--navigation-info", navigation.infoPath] : []
+          ]
         }
       }
     }, null, 2);
@@ -10008,14 +10037,15 @@ function persistPanels(context) {
 }
 function createPanel(context, classDetails, pinned, methodEditor, activeTab = "class") {
   const assetsRoot = vscode5.Uri.joinPath(context.extensionUri, "dist", "webview");
-  const panel = vscode5.window.createWebviewPanel(
+  const panel2 = vscode5.window.createWebviewPanel(
     "vc-ve-tools.classDetails",
     `\u041A\u043B\u0430\u0441\u0441 ${classDetails.name}`,
     { viewColumn: vscode5.ViewColumn.Active, preserveFocus: !pinned },
     { enableScripts: true, localResourceRoots: [assetsRoot] }
   );
-  const entry = { panel, pinned, details: classDetails, activeTab };
-  panel.webview.onDidReceiveMessage(async (message) => {
+  panel2.webview.html = getClassDetailsShell(panel2.webview, assetsRoot);
+  const entry = { panel: panel2, pinned, details: classDetails, activeTab };
+  panel2.webview.onDidReceiveMessage(async (message) => {
     if (isClassDetailsWebviewMessage(message)) {
       if (message.command === "classDetailsStateChanged") {
         entry.activeTab = message.activeTab;
@@ -10070,12 +10100,12 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = "c
         try {
           const methods = await getClassMethods(requestedClassId, entry.details.name, includeInherited2);
           if (entry.details.id === requestedClassId) {
-            void panel.webview.postMessage({ command: "classMethodsLoaded", methods, includeInherited: includeInherited2 });
+            void panel2.webview.postMessage({ command: "classMethodsLoaded", methods, includeInherited: includeInherited2 });
           }
         } catch (error) {
           if (entry.details.id === requestedClassId) {
             const failureMessage = error instanceof Error ? error.message : String(error);
-            void panel.webview.postMessage({ command: "classMethodsLoadFailed", message: failureMessage, includeInherited: includeInherited2 });
+            void panel2.webview.postMessage({ command: "classMethodsLoadFailed", message: failureMessage, includeInherited: includeInherited2 });
           }
         }
         return;
@@ -10084,15 +10114,14 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = "c
       try {
         const attributes = await getClassAttributes(requestedClassId, entry.details.name, includeInherited);
         if (entry.details.id === requestedClassId) {
-          void panel.webview.postMessage({ command: "classAttributesLoaded", attributes, includeInherited });
+          void panel2.webview.postMessage({ command: "classAttributesLoaded", attributes, includeInherited });
         }
       } catch (error) {
         const failureMessage = error instanceof Error ? error.message : String(error);
-        void panel.webview.postMessage({ command: "classAttributesLoadFailed", message: failureMessage, includeInherited });
+        void panel2.webview.postMessage({ command: "classAttributesLoadFailed", message: failureMessage, includeInherited });
       }
     }
   });
-  panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
   return entry;
 }
 async function openClassDetails(context, methodEditor, id, pinned, activeTab = "class") {
@@ -10138,15 +10167,15 @@ async function openClassDetails(context, methodEditor, id, pinned, activeTab = "
 }
 async function restoreClassDetailPanels(context, methodEditor) {
   const panels = context.workspaceState.get("classDetails.openPanels", []);
-  for (const panel of panels) {
-    if (Number.isSafeInteger(panel.id)) {
-      await openClassDetails(context, methodEditor, panel.id, panel.pinned, panel.activeTab);
+  for (const panel2 of panels) {
+    if (Number.isSafeInteger(panel2.id)) {
+      await openClassDetails(context, methodEditor, panel2.id, panel2.pinned, panel2.activeTab);
     }
   }
 }
 function closeClassDetailPanels() {
-  for (const { panel } of [...classDetailPanels.values()]) {
-    panel.dispose();
+  for (const { panel: panel2 } of [...classDetailPanels.values()]) {
+    panel2.dispose();
   }
   classDetailPanels.clear();
   previewClassPanelId = void 0;
@@ -10169,16 +10198,20 @@ function createNonce2() {
 // src/features/explorer/explorerViewProvider.ts
 var vscode6 = __toESM(require("vscode"));
 var ExplorerViewProvider = class {
-  constructor(workspaceState, extensionUri, getClasses, openClass) {
+  constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview2) {
     this.workspaceState = workspaceState;
     this.extensionUri = extensionUri;
     this.getClasses = getClasses;
     this.openClass = openClass;
+    this.openDfmEditor = openDfmEditor;
+    this.openDfmPreview = openDfmPreview2;
   }
   workspaceState;
   extensionUri;
   getClasses;
   openClass;
+  openDfmEditor;
+  openDfmPreview;
   view;
   selectedEntityId;
   output = vscode6.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u041F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A");
@@ -10225,6 +10258,11 @@ var ExplorerViewProvider = class {
       if (message.command === "selectExplorerEntity") {
         this.selectedEntityId = message.id;
         this.log(`\u0412\u044B\u0434\u0435\u043B\u0435\u043D\u0438\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u043E: ID=${message.id ?? "\u043D\u0435\u0442"}.`);
+        return;
+      }
+      if (message.command === "openDfmEditor" || message.command === "openDfmPreview") {
+        const action = message.command === "openDfmEditor" ? this.openDfmEditor : this.openDfmPreview;
+        void action(message.classId).catch((error) => void vscode6.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C DFM: ${error instanceof Error ? error.message : String(error)}`));
         return;
       }
       void this.openClass(message.id, message.pinned).catch((error) => {
@@ -10318,18 +10356,18 @@ function openSqlMonitor(context) {
     return;
   }
   const assetsRoot = vscode7.Uri.joinPath(context.extensionUri, "dist", "webview");
-  const panel = vscode7.window.createWebviewPanel(
+  const panel2 = vscode7.window.createWebviewPanel(
     "vc-ve-tools.sqlMonitor",
     "SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440",
     vscode7.ViewColumn.Active,
     { enableScripts: true, localResourceRoots: [assetsRoot] }
   );
-  monitorPanel = panel;
+  monitorPanel = panel2;
   sqlMonitorService.setActive(true);
   const subscription = sqlMonitorService.subscribe((record) => {
-    void panel.webview.postMessage({ command: "sqlQueryChanged", record });
+    void panel2.webview.postMessage({ command: "sqlQueryChanged", record });
   });
-  panel.webview.onDidReceiveMessage(async (message) => {
+  panel2.webview.onDidReceiveMessage(async (message) => {
     if (!isSqlMonitorWebviewMessage(message)) {
       return;
     }
@@ -10342,21 +10380,21 @@ function openSqlMonitor(context) {
       return;
     }
     if (message.command === "sqlMonitorReady") {
-      void panel.webview.postMessage({
+      void panel2.webview.postMessage({
         command: "sqlMonitorSnapshot",
         records: sqlMonitorService.getRecords()
       });
       return;
     }
     sqlMonitorService.clear();
-    void panel.webview.postMessage({ command: "sqlMonitorCleared" });
+    void panel2.webview.postMessage({ command: "sqlMonitorCleared" });
   });
-  panel.onDidDispose(() => {
+  panel2.onDidDispose(() => {
     subscription.dispose();
     sqlMonitorService.setActive(false);
     monitorPanel = void 0;
   });
-  panel.webview.html = getSqlMonitorShell(panel.webview, assetsRoot);
+  panel2.webview.html = getSqlMonitorShell(panel2.webview, assetsRoot);
 }
 function getSqlMonitorShell(webview, assetsRoot) {
   const scriptUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "sql-monitor.js"));
@@ -11897,17 +11935,17 @@ var PackageSyncPanelManager = class _PackageSyncPanelManager {
       this.panel.reveal(void 0, false);
       return;
     }
-    const panel = vscode13.window.createWebviewPanel(
+    const panel2 = vscode13.window.createWebviewPanel(
       _PackageSyncPanelManager.viewType,
       "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432",
       vscode13.ViewColumn.Active,
       { enableScripts: true, retainContextWhenHidden: true }
     );
-    this.panel = panel;
+    this.panel = panel2;
     const assetsRoot = vscode13.Uri.joinPath(this.extensionUri, "dist", "webview");
-    panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
-    panel.webview.html = this.html(panel.webview, assetsRoot);
-    panel.webview.onDidReceiveMessage((message) => {
+    panel2.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
+    panel2.webview.html = this.html(panel2.webview, assetsRoot);
+    panel2.webview.onDidReceiveMessage((message) => {
       if (!isPackageSyncWebviewMessage(message)) {
         return;
       }
@@ -11922,7 +11960,7 @@ var PackageSyncPanelManager = class _PackageSyncPanelManager {
       }
       void this.openDiff(item);
     });
-    panel.onDidDispose(() => {
+    panel2.onDidDispose(() => {
       this.panel = void 0;
     });
   }
@@ -12129,7 +12167,7 @@ function workspacePackagesRoot() {
 
 // src/mcp/registerMcpServer.ts
 var vscode15 = __toESM(require("vscode"));
-function registerDatabaseMcpServer(context) {
+function registerDatabaseMcpServer(context, logsPath, navigation) {
   const changeEmitter = new vscode15.EventEmitter();
   const registration = vscode15.lm.registerMcpServerDefinitionProvider("vc-ve-tools.database", {
     onDidChangeMcpServerDefinitions: changeEmitter.event,
@@ -12149,10 +12187,14 @@ function registerDatabaseMcpServer(context) {
           "--workspace",
           workspaceFolder.uri.fsPath,
           "--database-role",
-          getDatabaseRole()
+          getDatabaseRole(),
+          "--logs",
+          logsPath,
+          "--navigation-info",
+          navigation.infoPath
         ],
         {},
-        "0.1.0"
+        "0.4.0"
       );
       server.cwd = workspaceFolder.uri;
       return [server];
@@ -12167,37 +12209,677 @@ function registerDatabaseMcpServer(context) {
   return vscode15.Disposable.from(registration, configurationListener, workspaceListener, changeEmitter);
 }
 
+// src/infrastructure/logging/extensionLogService.ts
+var vscode16 = __toESM(require("vscode"));
+var recordLimit = 300;
+var ExtensionLogService = class {
+  output = vscode16.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441");
+  changeEmitter = new vscode16.EventEmitter();
+  records = [];
+  subscriptions = [];
+  persistQueue = Promise.resolve();
+  extensionRoot;
+  logUri;
+  onDidChange = this.changeEmitter.event;
+  constructor(storageUri, extensionRoot) {
+    this.logUri = vscode16.Uri.joinPath(storageUri, "extension-log.jsonl");
+    this.extensionRoot = normalizePath(extensionRoot);
+    this.subscriptions.push(sqlMonitorService.subscribe((record) => this.captureSqlError(record)));
+    process.on("unhandledRejection", this.onUnhandledRejection);
+    process.on("uncaughtExceptionMonitor", this.onUncaughtException);
+  }
+  async initialize() {
+    try {
+      const content = new TextDecoder().decode(await vscode16.workspace.fs.readFile(this.logUri));
+      for (const line of content.split(/\r?\n/).filter(Boolean).slice(-recordLimit)) {
+        try {
+          this.records.push(JSON.parse(line));
+        } catch {
+        }
+      }
+    } catch {
+    }
+  }
+  info(source, message, details) {
+    this.add("info", source, message, details);
+  }
+  warning(source, message, details) {
+    this.add("warning", source, message, details);
+  }
+  error(source, message, details) {
+    this.add("error", source, message, details);
+  }
+  getLastError() {
+    for (let index = this.records.length - 1; index >= 0; index -= 1) {
+      if (this.records[index].level === "error") {
+        return this.records[index];
+      }
+    }
+    return void 0;
+  }
+  async clear() {
+    this.records.length = 0;
+    this.output.clear();
+    await this.persist();
+    this.changeEmitter.fire();
+  }
+  dispose() {
+    process.off("unhandledRejection", this.onUnhandledRejection);
+    process.off("uncaughtExceptionMonitor", this.onUncaughtException);
+    this.subscriptions.forEach((subscription) => subscription.dispose());
+    this.output.dispose();
+    this.changeEmitter.dispose();
+  }
+  onUnhandledRejection = (reason) => {
+    if (this.belongsToExtension(reason)) {
+      this.error("Extension Host", "Unhandled promise rejection", reason);
+    }
+  };
+  onUncaughtException = (error) => {
+    if (this.belongsToExtension(error)) {
+      this.error("Extension Host", "Uncaught exception", error);
+    }
+  };
+  belongsToExtension(value) {
+    if (!(value instanceof Error)) {
+      return false;
+    }
+    return normalizePath(value.stack ?? "").includes(this.extensionRoot);
+  }
+  captureSqlError(record) {
+    if (record.status === "error") {
+      this.error(record.source, record.error ?? "\u041E\u0448\u0438\u0431\u043A\u0430 PostgreSQL", `\u0411\u0430\u0437\u0430: ${record.database}
+SQL: ${record.text.slice(0, 2e3)}`);
+    }
+  }
+  add(level, source, message, details) {
+    const record = {
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      level,
+      source: sanitize(source),
+      message: sanitize(message),
+      details: details === void 0 ? void 0 : sanitize(formatDetails(details))
+    };
+    this.records.push(record);
+    if (this.records.length > recordLimit) {
+      this.records.splice(0, this.records.length - recordLimit);
+    }
+    this.output.appendLine(`[${record.timestamp}] ${level.toUpperCase()} ${record.source}: ${record.message}`);
+    this.changeEmitter.fire();
+    this.persistQueue = this.persistQueue.then(() => this.persist()).catch(() => void 0);
+  }
+  async persist() {
+    await vscode16.workspace.fs.createDirectory(vscode16.Uri.joinPath(this.logUri, ".."));
+    const content = this.records.map((record) => JSON.stringify(record)).join("\n");
+    await vscode16.workspace.fs.writeFile(this.logUri, new TextEncoder().encode(content ? `${content}
+` : ""));
+  }
+};
+function formatDetails(details) {
+  if (details instanceof Error) {
+    return details.stack ?? details.message;
+  }
+  return typeof details === "string" ? details : JSON.stringify(details);
+}
+function sanitize(value) {
+  return value.replace(/(password\s*[=:]\s*)[^\s;]+/gi, "$1<redacted>").replace(/(oedbmspassword\s*[=:]\s*)[^\s;]+/gi, "$1<redacted>").slice(0, 1e4);
+}
+function normalizePath(value) {
+  return value.replaceAll("\\", "/").toLowerCase();
+}
+
+// src/features/ai/navigationTools.ts
+var vscode17 = __toESM(require("vscode"));
+function registerNavigationTools(context, actions) {
+  context.subscriptions.push(
+    vscode17.lm.registerTool("vcVeTools_reveal_class", createClassTool(
+      "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E \u043A\u043B\u0430\u0441\u0441 \u0432 \u043F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A\u0435 \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430\u2026",
+      actions.revealClass,
+      (classId) => `\u041A\u043B\u0430\u0441\u0441 ID=${classId} \u043F\u043E\u043A\u0430\u0437\u0430\u043D \u0432 \u043F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A\u0435 \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430.`
+    )),
+    vscode17.lm.registerTool("vcVeTools_open_class", createClassTool(
+      "\u041E\u0442\u043A\u0440\u044B\u0432\u0430\u044E \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443 \u043A\u043B\u0430\u0441\u0441\u0430 \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430\u2026",
+      async (classId) => {
+        await actions.revealClass(classId);
+        await actions.openClass(classId);
+      },
+      (classId) => `\u041A\u043B\u0430\u0441\u0441 ID=${classId} \u043F\u043E\u043A\u0430\u0437\u0430\u043D \u0432 \u043F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A\u0435 \u0438 \u043E\u0442\u043A\u0440\u044B\u0442 \u0432 \u043E\u043A\u043D\u0435 \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430.`
+    )),
+    vscode17.lm.registerTool("vcVeTools_open_method", {
+      prepareInvocation: () => ({ invocationMessage: "\u041E\u0442\u043A\u0440\u044B\u0432\u0430\u044E \u043C\u0435\u0442\u043E\u0434 \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430 \u0432 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0435\u2026" }),
+      invoke: async (options) => {
+        const methodId = requirePositiveId(options.input.methodId, "methodId");
+        await actions.openMethod(methodId);
+        return textResult(`\u041C\u0435\u0442\u043E\u0434 ID=${methodId} \u043E\u0442\u043A\u0440\u044B\u0442 \u0432 \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0435.`);
+      }
+    })
+  );
+}
+function createClassTool(invocationMessage, action, result) {
+  return {
+    prepareInvocation: () => ({ invocationMessage }),
+    invoke: async (options) => {
+      const classId = requirePositiveId(options.input.classId, "classId");
+      await action(classId);
+      return textResult(result(classId));
+    }
+  };
+}
+function requirePositiveId(value, name) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u043C \u0446\u0435\u043B\u044B\u043C \u0447\u0438\u0441\u043B\u043E\u043C.`);
+  }
+  return value;
+}
+function textResult(text) {
+  return new vscode17.LanguageModelToolResult([new vscode17.LanguageModelTextPart(text)]);
+}
+
+// src/features/ai/navigationBridge.ts
+var import_node_crypto = require("node:crypto");
+var import_promises4 = require("node:fs/promises");
+var import_node_http = require("node:http");
+async function startNavigationBridge(actions, infoPath) {
+  const token = (0, import_node_crypto.randomBytes)(32).toString("hex");
+  const server = (0, import_node_http.createServer)((request, response) => void handleRequest(request, response, token, actions));
+  await new Promise((resolve2, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve2();
+    });
+  });
+  const address = server.address();
+  const url = `http://127.0.0.1:${address.port}/navigate`;
+  await (0, import_promises4.writeFile)(infoPath, JSON.stringify({ url, token }), { encoding: "utf8", mode: 384 });
+  return {
+    url,
+    token,
+    infoPath,
+    dispose: () => {
+      server.close();
+      void removeOwnInfoFile(infoPath, token);
+    }
+  };
+}
+async function removeOwnInfoFile(infoPath, token) {
+  try {
+    const current = JSON.parse(await (0, import_promises4.readFile)(infoPath, "utf8"));
+    if (current.token === token) {
+      await (0, import_promises4.unlink)(infoPath);
+    }
+  } catch {
+  }
+}
+async function handleRequest(request, response, token, actions) {
+  try {
+    if (request.method !== "POST" || request.url !== "/navigate") {
+      respond(response, 404, { error: "Not found." });
+      return;
+    }
+    if (!isAuthorized(request.headers.authorization, token)) {
+      respond(response, 401, { error: "Unauthorized." });
+      return;
+    }
+    const input = validateRequest(JSON.parse(await readBody(request)));
+    if (input.action === "reveal_class") {
+      await actions.revealClass(input.id);
+    } else if (input.action === "open_class") {
+      await actions.revealClass(input.id);
+      await actions.openClass(input.id);
+    } else {
+      await actions.openMethod(input.id);
+    }
+    respond(response, 200, { ok: true, action: input.action, id: input.id });
+  } catch (error) {
+    respond(response, 400, { error: error instanceof Error ? error.message : String(error) });
+  }
+}
+function isAuthorized(header, token) {
+  const supplied = header?.startsWith("Bearer ") ? header.slice(7) : "";
+  const expectedBytes = Buffer.from(token);
+  const suppliedBytes = Buffer.from(supplied);
+  return expectedBytes.length === suppliedBytes.length && (0, import_node_crypto.timingSafeEqual)(expectedBytes, suppliedBytes);
+}
+async function readBody(request) {
+  const chunks = [];
+  let length = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    length += buffer.length;
+    if (length > 4096) {
+      throw new Error("Navigation request is too large.");
+    }
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+function validateRequest(value) {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid navigation request.");
+  }
+  const { action, id } = value;
+  if (action !== "reveal_class" && action !== "open_class" && action !== "open_method") {
+    throw new Error("Unknown navigation action.");
+  }
+  if (!Number.isSafeInteger(id) || (id ?? 0) <= 0) {
+    throw new Error("Navigation ID must be a positive integer.");
+  }
+  return { action, id };
+}
+function respond(response, statusCode, body) {
+  response.writeHead(statusCode, { "content-type": "application/json; charset=utf-8" });
+  response.end(JSON.stringify(body));
+}
+
+// src/features/dfm/dfmEditorProvider.ts
+var vscode18 = __toESM(require("vscode"));
+var iconv9 = __toESM(require_lib3());
+
+// src/features/dfm/dfmRepository.ts
+var iconv8 = __toESM(require_lib3());
+var dfmQuery = `WITH RECURSIVE class_chain AS (
+	SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+	UNION ALL
+	SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+	FROM classes parent JOIN class_chain chain ON parent.id = chain.seniorid
+	WHERE NOT parent.id = ANY(chain.path)
+), dfm_attribute AS (
+	SELECT attribute.id, chain.depth
+	FROM class_chain chain JOIN attributes attribute ON attribute.seniorid = chain.id
+	WHERE upper(attribute.name) = 'DFM'
+	ORDER BY chain.depth LIMIT 1
+)
+SELECT class.id AS classid, class.name AS classname, attribute.id AS attrid,
+	value.id AS valueid, value.name AS valuename, value.defvalue,
+	pg_typeof(value.defvalue)::text AS valuetype
+FROM classes class CROSS JOIN dfm_attribute attribute
+LEFT JOIN dfltvalues value ON value.seniorid = class.id AND value.attrid = attribute.id
+WHERE class.id = $1`;
+async function getDfmSource(classId) {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const result = await executeMonitoredQuery(client, {
+      text: dfmQuery,
+      values: [classId],
+      source: `DFM \u043A\u043B\u0430\u0441\u0441\u0430 ${classId}`,
+      database: options.database
+    });
+    const row = result.rows[0];
+    if (!row) throw new Error(`\u0423 \u043A\u043B\u0430\u0441\u0441\u0430 ${classId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0430\u0442\u0440\u0438\u0431\u0443\u0442 DFM.`);
+    if (row.valueid === null) throw new Error(`\u0423 \u043A\u043B\u0430\u0441\u0441\u0430 ${row.classname} \u043D\u0435\u0442 \u0441\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u043E\u0433\u043E \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F DFM.`);
+    return toSource(row);
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+async function getDfmInheritance(classId) {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const result = await executeMonitoredQuery(client, {
+      text: `WITH RECURSIVE class_chain AS (
+			  SELECT id, name, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+			  UNION ALL
+			  SELECT parent.id, parent.name, parent.seniorid, chain.depth + 1, chain.path || parent.id
+			  FROM classes parent JOIN class_chain chain ON parent.id = chain.seniorid
+			  WHERE NOT parent.id = ANY(chain.path)
+			), dfm_attributes AS (
+			  SELECT attribute.id FROM class_chain chain
+			  JOIN attributes attribute ON attribute.seniorid = chain.id
+			  WHERE upper(attribute.name) = 'DFM'
+			)
+			SELECT chain.id AS classid, chain.name AS classname, value.attrid,
+			  value.id AS valueid, value.name AS valuename, value.defvalue,
+			  pg_typeof(value.defvalue)::text AS valuetype, chain.depth
+			FROM class_chain chain
+			JOIN dfltvalues value ON value.seniorid = chain.id
+			WHERE value.attrid IN (SELECT id FROM dfm_attributes)
+			ORDER BY chain.depth DESC`,
+      values: [classId],
+      source: `\u0426\u0435\u043F\u043E\u0447\u043A\u0430 DFM \u043A\u043B\u0430\u0441\u0441\u0430 ${classId}`,
+      database: options.database
+    });
+    if (!result.rows.length) throw new Error(`\u0412 \u0438\u0435\u0440\u0430\u0440\u0445\u0438\u0438 \u043A\u043B\u0430\u0441\u0441\u0430 ${classId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D DFM.`);
+    return result.rows.map(toSource);
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+async function saveDfmSource(source, text) {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    await client.query("BEGIN");
+    const current = await executeMonitoredQuery(client, {
+      text: dfmQuery,
+      values: [source.classId],
+      source: `\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 DFM \u043A\u043B\u0430\u0441\u0441\u0430 ${source.classId}`,
+      database: options.database
+    });
+    const row = current.rows[0];
+    if (!row || row.valueid !== source.valueId || row.attrid !== source.attributeId) throw new Error("\u0417\u0430\u043F\u0438\u0441\u044C DFM \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0430\u0441\u044C \u0438\u043B\u0438 \u0431\u044B\u043B\u0430 \u0443\u0434\u0430\u043B\u0435\u043D\u0430. \u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0435\u0451 \u0437\u0430\u043D\u043E\u0432\u043E.");
+    if (decodeValue(row.defvalue) === text) {
+      await client.query("ROLLBACK");
+      return toSource(row);
+    }
+    const session = await getSessionContext(client, options.database);
+    const value = isBinaryType(row.valuetype) ? encode4(text) : text;
+    const updated = await executeMonitoredQuery(client, {
+      text: `UPDATE dfltvalues SET lastchange = $1, seniorid = $2, attrid = $3, defvalue = $4, name = $5 WHERE id = $6`,
+      values: [session.changeDate, source.classId, source.attributeId, value, source.valueName, source.valueId],
+      source: `\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 DFM \u043A\u043B\u0430\u0441\u0441\u0430 ${source.className}`,
+      database: options.database
+    });
+    if (updated.rowCount !== 1) throw new Error("\u0417\u0430\u043F\u0438\u0441\u044C DFM \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u043F\u0440\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0438.");
+    const abstractUpdated = await executeMonitoredQuery(client, {
+      text: `UPDATE abstract SET lastchange = $1, seniorid = $2, name = $3 WHERE id = $4`,
+      values: [session.changeDate, source.classId, source.valueName, source.valueId],
+      source: `\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 abstract DFM ${source.valueId}`,
+      database: options.database
+    });
+    if (abstractUpdated.rowCount !== 1) throw new Error("\u0417\u0430\u043F\u0438\u0441\u044C abstract \u0434\u043B\u044F DFM \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.");
+    const reread = await executeMonitoredQuery(client, {
+      text: dfmQuery,
+      values: [source.classId],
+      source: `\u041F\u043E\u0432\u0442\u043E\u0440\u043D\u043E\u0435 \u0447\u0442\u0435\u043D\u0438\u0435 DFM \u043A\u043B\u0430\u0441\u0441\u0430 ${source.classId}`,
+      database: options.database
+    });
+    const saved = reread.rows[0];
+    if (!saved || decodeValue(saved.defvalue) !== text) throw new Error("\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u043E\u0433\u043E DFM \u043D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u0430.");
+    await client.query("COMMIT");
+    return toSource(saved);
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => void 0);
+    throw error;
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+function toSource(row) {
+  return { classId: row.classid, className: row.classname, attributeId: row.attrid, valueId: row.valueid, valueName: row.valuename ?? "DFM", text: decodeValue(row.defvalue), valueType: row.valuetype };
+}
+function decodeValue(value) {
+  if (Buffer.isBuffer(value)) return iconv8.decode(value, "win1251");
+  const text = value == null ? "" : String(value);
+  const bytea = text.match(/^\\x([\da-f]+)$/i);
+  return bytea ? iconv8.decode(Buffer.from(bytea[1], "hex"), "win1251") : text;
+}
+function encode4(value) {
+  const result = iconv8.encode(value, "win1251");
+  if (iconv8.decode(result, "win1251") !== value) throw new Error("DFM \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B \u0432\u043D\u0435 Windows-1251.");
+  return result;
+}
+function isBinaryType(value) {
+  return value.toLowerCase() === "bytea" || value.toLowerCase() === "bin";
+}
+
+// src/features/dfm/dfmEditorProvider.ts
+var scheme = "vc-ve-dfm";
+var DfmEditorProvider = class {
+  changed = new vscode18.EventEmitter();
+  sources = /* @__PURE__ */ new Map();
+  sessionRevision = Date.now();
+  onDidChangeFile = this.changed.event;
+  async getSource(uri) {
+    return this.ensure(uri);
+  }
+  async open(classId) {
+    const source = await getDfmSource(classId);
+    await ensureWindows12512();
+    const uri = vscode18.Uri.from({ scheme, path: `/${safeName2(source.className)}-${classId}.dfm`, query: `classId=${classId}&revision=${this.sessionRevision}` });
+    this.sources.set(uri.toString(), source);
+    const document = await vscode18.workspace.openTextDocument(uri);
+    await vscode18.languages.setTextDocumentLanguage(document, "ve-dfm");
+    await vscode18.window.showTextDocument(document, { preview: false });
+  }
+  watch() {
+    return new vscode18.Disposable(() => void 0);
+  }
+  async stat(uri) {
+    const source = await this.ensure(uri);
+    return { type: vscode18.FileType.File, ctime: 0, mtime: Date.now(), size: iconv9.encode(source.text, "win1251").byteLength };
+  }
+  readDirectory() {
+    return [];
+  }
+  createDirectory() {
+    throw vscode18.FileSystemError.NoPermissions();
+  }
+  async readFile(uri) {
+    return iconv9.encode((await this.ensure(uri)).text, "win1251");
+  }
+  async writeFile(uri, content) {
+    const source = await this.ensure(uri);
+    const saved = await saveDfmSource(source, iconv9.decode(Buffer.from(content), "win1251"));
+    this.sources.set(uri.toString(), saved);
+    this.changed.fire([{ type: vscode18.FileChangeType.Changed, uri }]);
+    vscode18.window.setStatusBarMessage(`DFM ${source.className} \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D`, 2500);
+  }
+  delete() {
+    throw vscode18.FileSystemError.NoPermissions();
+  }
+  rename() {
+    throw vscode18.FileSystemError.NoPermissions();
+  }
+  dispose() {
+    this.changed.dispose();
+    this.sources.clear();
+  }
+  async ensure(uri) {
+    const cached = this.sources.get(uri.toString());
+    if (cached) return cached;
+    const id = Number(new URLSearchParams(uri.query).get("classId"));
+    if (!Number.isSafeInteger(id)) throw vscode18.FileSystemError.FileNotFound(uri);
+    const source = await getDfmSource(id);
+    this.sources.set(uri.toString(), source);
+    return source;
+  }
+};
+function registerDfmEditor(context) {
+  const provider = new DfmEditorProvider();
+  context.subscriptions.push(provider, vscode18.workspace.registerFileSystemProvider(scheme, provider, { isCaseSensitive: true }));
+  return provider;
+}
+function safeName2(value) {
+  return value.replace(/[\\/:*?"<>|]/g, "_") || "dialog";
+}
+async function ensureWindows12512() {
+  const configuration = vscode18.workspace.getConfiguration("files", { languageId: "ve-dfm" });
+  if (configuration.get("encoding") === "windows1251") {
+    return;
+  }
+  await configuration.update("encoding", "windows1251", vscode18.ConfigurationTarget.Workspace, true);
+}
+
+// src/features/dfm/dfmPreview.ts
+var vscode19 = __toESM(require("vscode"));
+var panel;
+async function openDfmPreview(context, classId) {
+  const sources = await getDfmInheritance(classId);
+  const source = sources.at(-1);
+  if (!panel) {
+    panel = vscode19.window.createWebviewPanel("vc-ve-tools.dfmPreview", "\u041F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 DFM", vscode19.ViewColumn.Active, { enableScripts: false });
+    panel.onDidDispose(() => {
+      panel = void 0;
+    }, void 0, context.subscriptions);
+  } else panel.reveal(vscode19.ViewColumn.Active, true);
+  panel.title = `\u0414\u0438\u0430\u043B\u043E\u0433: ${source.className}`;
+  const roots = sources.map((item) => parseDfm(item.text)).filter((item) => Boolean(item));
+  panel.webview.html = render(roots.reduce((merged, current) => mergeControls(merged, current)), source.className);
+}
+function mergeControls(base, override) {
+  const children = base.children.map((child) => ({ ...child, props: { ...child.props }, children: [...child.children] }));
+  for (const child of override.children) {
+    const index = children.findIndex((candidate) => candidate.name.toLocaleLowerCase("ru") === child.name.toLocaleLowerCase("ru"));
+    if (index >= 0) children[index] = mergeControls(children[index], child);
+    else children.push(child);
+  }
+  return { name: override.name || base.name, type: override.type || base.type, props: { ...base.props, ...override.props }, children };
+}
+function parseDfm(text) {
+  const stack = [];
+  let root;
+  let collectionItemDepth = 0;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (/^item\s*$/i.test(line)) {
+      collectionItemDepth++;
+      continue;
+    }
+    const start = line.match(/^(object|inherited|inline)\s+([^:]+)(?::\s*(\S+))?/i);
+    if (start) {
+      const node = { name: start[2].trim(), type: start[3] ?? (start[1].toLowerCase() === "object" ? "TForm" : ""), props: {}, children: [] };
+      if (stack.length) stack.at(-1).children.push(node);
+      else root = node;
+      stack.push(node);
+      continue;
+    }
+    if (/^end\s*$/i.test(line)) {
+      if (collectionItemDepth > 0) collectionItemDepth--;
+      else stack.pop();
+      continue;
+    }
+    const prop = line.match(/^([\w.]+)\s*=\s*(.*)$/);
+    if (prop && stack.length) stack.at(-1).props[prop[1]] = prop[2];
+  }
+  return root;
+}
+function render(root, title) {
+  const body = root ? controlHtml(root, true) : "<p>\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C \u0441\u0442\u0440\u0443\u043A\u0442\u0443\u0440\u0443 DFM.</p>";
+  return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+	body{margin:0;padding:20px;background:var(--vscode-editor-background);color:var(--vscode-editor-foreground);font-family:var(--vscode-font-family)}
+	.stage{position:relative;min-width:100%;min-height:calc(100vh - 40px);overflow:auto}.form{position:relative;background:var(--vscode-input-background);border:1px solid var(--vscode-panel-border);box-shadow:0 8px 24px #0004}.caption{height:28px;padding:5px 9px;box-sizing:border-box;background:var(--vscode-titleBar-activeBackground);border-bottom:1px solid var(--vscode-panel-border)}.client{position:absolute;left:0;top:28px;overflow:hidden}
+	.control{position:absolute;box-sizing:border-box;font:12px var(--vscode-font-family)}.label{border:0;background:transparent;white-space:normal;line-height:14px}.button{display:flex;align-items:center;justify-content:center;border:1px solid var(--vscode-button-border,var(--vscode-panel-border));background:var(--vscode-button-secondaryBackground);padding:2px 6px}.input,.memo,.combo{border:1px solid var(--vscode-input-border,var(--vscode-panel-border));background:var(--vscode-input-background);padding:2px 4px;color:var(--vscode-input-foreground)}.combo{display:flex;align-items:center;justify-content:space-between}.checkbox{display:flex;align-items:flex-start;gap:4px}.checkmark{width:13px;height:13px;flex:none;border:1px solid var(--vscode-checkbox-border,var(--vscode-input-border));background:var(--vscode-checkbox-background)}.group{border:1px solid var(--vscode-panel-border);background:transparent;padding:10px 4px 4px}.group>legend{font-size:12px;padding:0 3px}.panel{border:1px solid var(--vscode-panel-border);background:transparent}.memo{white-space:pre-wrap}.unknown{border:1px dashed var(--vscode-descriptionForeground);padding:2px 4px}.hint{opacity:.7;font-size:10px}
+	</style><title>${esc(title)}</title></head><body><div class="stage">${body}</div></body></html>`;
+}
+function controlHtml(node, isRoot = false) {
+  const type = node.type.toLowerCase();
+  const caption = clean(node.props.Caption ?? node.props.Text ?? "");
+  if (!isRoot && (!isVisible(node) || isNonVisual(type))) return "";
+  const defaultWidth = /label|statictext/.test(type) ? Math.max(20, caption.length * 7) : 100;
+  const defaultHeight = /label|statictext/.test(type) ? 16 : /checkbox|radiobutton/.test(type) ? 17 : 24;
+  const width = numberProp(node, "ClientWidth", numberProp(node, "Width", isRoot ? 500 : defaultWidth));
+  const height = numberProp(node, "ClientHeight", numberProp(node, "Height", isRoot ? 350 : defaultHeight));
+  if (isRoot) return `<section class="form" style="width:${width}px;height:${height + 28}px"><header class="caption">${esc(caption || node.name)}</header><div class="client" style="width:${width}px;height:${height}px">${node.children.map((child) => controlHtml(child)).join("")}</div></section>`;
+  const left = numberProp(node, "Left", 0);
+  const top = numberProp(node, "Top", 0);
+  let kind = "unknown";
+  let tag = "div";
+  if (/label|statictext/.test(type)) kind = "label";
+  else if (/button/.test(type)) kind = "button";
+  else if (/groupbox/.test(type)) {
+    kind = "group";
+    tag = "fieldset";
+  } else if (/panel/.test(type)) kind = "panel";
+  else if (/memo/.test(type)) kind = "memo";
+  else if (/combobox|lookupcombo/.test(type)) kind = "combo";
+  else if (/checkbox|radiobutton/.test(type)) kind = "checkbox";
+  else if (/edit|datetime|spin/.test(type)) kind = "input";
+  const children = node.children.map((child) => controlHtml(child)).join("");
+  const hint = kind === "unknown" && caption ? `<span class="hint">${esc(node.type)}</span>` : "";
+  const content = kind === "checkbox" ? `<span class="checkmark"></span><span>${esc(caption)}</span>` : kind === "combo" ? `<span>${esc(caption)}</span><span>\u2304</span>` : tag === "fieldset" ? `<legend>${esc(caption)}</legend>` : esc(caption);
+  return `<${tag} class="control ${kind}" title="${esc(node.name + ": " + node.type)}" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px">${content}${hint}${children}</${tag}>`;
+}
+function isVisible(node) {
+  const value = clean(node.props.Visible ?? "").trim().toLocaleLowerCase("ru");
+  return value !== "false" && value !== "\u043B\u043E\u0436\u044C" && value !== "0";
+}
+function isNonVisual(type) {
+  return /(action|menuitem|popupmenu|mainmenu|imagelist|datasource|timer|applicationevents|openpicturedialog|savedialog|opendialog|colorDialog|fontdialog|dataset|query|table|connection|transaction|provider)/i.test(type);
+}
+function numberProp(node, name, fallback) {
+  const value = Number.parseInt(node.props[name] ?? "", 10);
+  return Number.isFinite(value) ? Math.max(0, value) : fallback;
+}
+function clean(value) {
+  return value.replace(/^'(.*)'$/, "$1").replace(/''/g, "'");
+}
+function esc(value) {
+  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+}
+
+// src/features/dfm/dfmLanguageFeatures.ts
+var vscode20 = __toESM(require("vscode"));
+var selector2 = [{ scheme: "vc-ve-dfm", language: "ve-dfm" }];
+function registerDfmLanguageFeatures(context, editor) {
+  const cache = /* @__PURE__ */ new Map();
+  context.subscriptions.push(vscode20.languages.registerCompletionItemProvider(selector2, {
+    provideCompletionItems: async (document, position) => {
+      const source = await editor.getSource(document.uri);
+      let attributes = cache.get(source.classId);
+      if (!attributes) {
+        attributes = getClassAttributes(source.classId, source.className, true);
+        cache.set(source.classId, attributes);
+        attributes.catch(() => cache.delete(source.classId));
+      }
+      const range = attributeRange(document, position);
+      return (await attributes).map((attribute) => attributeCompletion(attribute, range));
+    }
+  }, "'", "="));
+}
+function attributeCompletion(attribute, range) {
+  const item = new vscode20.CompletionItem(attribute.name, vscode20.CompletionItemKind.Field);
+  item.range = range;
+  item.insertText = attribute.name;
+  item.detail = [attribute.type, attribute.inherited ? `\u0443\u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D \u043E\u0442 ${attribute.owner}` : "\u0430\u0442\u0440\u0438\u0431\u0443\u0442 \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u043A\u043B\u0430\u0441\u0441\u0430", `ID ${attribute.id}`].filter(Boolean).join(" \xB7 ");
+  item.documentation = new vscode20.MarkdownString([
+    `**${escapeMarkdown2(attribute.name)}**`,
+    attribute.owner ? `\u041A\u043B\u0430\u0441\u0441: ${escapeMarkdown2(attribute.owner)}` : "",
+    attribute.type ? `\u0422\u0438\u043F: ${escapeMarkdown2(attribute.type)}` : "",
+    `ID: ${escapeMarkdown2(attribute.id)}`
+  ].filter(Boolean).join("  \n"));
+  item.sortText = `${attribute.inherited ? "1" : "0"}-${attribute.name.toLocaleLowerCase("ru")}`;
+  return item;
+}
+function attributeRange(document, position) {
+  const prefix = document.lineAt(position.line).text.slice(0, position.character);
+  const token = prefix.match(/[\p{L}\p{N}_]*$/u)?.[0] ?? "";
+  return new vscode20.Range(position.translate(0, -token.length), position);
+}
+function escapeMarkdown2(value) {
+  return value.replace(/[\\`*_{}\[\]()<>#+.!|\-]/g, "\\$&");
+}
+
 // src/application/activate.ts
 async function activate(context) {
-  const databaseMcpServerRegistration = registerDatabaseMcpServer(context);
+  const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
+  await extensionLogger.initialize();
+  let navigationBridge;
   const methodEditor = registerMethodEditor(context);
+  const dfmEditor = registerDfmEditor(context);
+  registerDfmLanguageFeatures(context, dfmEditor);
   registerCodeHistory(context, methodEditor);
-  const extensionConfiguration = vscode16.workspace.getConfiguration("vcVeTools");
+  const extensionConfiguration = vscode21.workspace.getConfiguration("vcVeTools");
   let isUpdatingSetting = false;
   const updateProjectRootSetting = async (enabled) => {
-    if (!vscode16.workspace.workspaceFolders?.length) {
-      void vscode16.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+    if (!vscode21.workspace.workspaceFolders?.length) {
+      void vscode21.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       return;
     }
     try {
       isUpdatingSetting = true;
-      await vscode16.workspace.getConfiguration("vcVeTools").update(
+      await vscode21.workspace.getConfiguration("vcVeTools").update(
         projectRootSetting,
         enabled,
-        vscode16.ConfigurationTarget.Workspace
+        vscode21.ConfigurationTarget.Workspace
       );
       await applyProjectEncoding(context, enabled);
-      void vscode16.window.showInformationMessage(
+      void vscode21.window.showInformationMessage(
         enabled ? "PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u044B \u0431\u0443\u0434\u0443\u0442 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C\u0441\u044F \u0432 \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0435 Cyrillic (Windows 1251)." : "\u041A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0430 PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u043E\u0432 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430."
       );
     } catch (error) {
-      void vscode16.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+      void vscode21.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
     } finally {
       isUpdatingSetting = false;
     }
   };
-  const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting);
-  const settingsRegistration = vscode16.window.registerWebviewViewProvider(
+  const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge);
+  const settingsRegistration = vscode21.window.registerWebviewViewProvider(
     SettingsViewProvider.viewType,
     settingsProvider,
     { webviewOptions: { retainContextWhenHidden: true } }
@@ -12206,14 +12888,27 @@ async function activate(context) {
     context.workspaceState,
     context.extensionUri,
     loadClasses,
-    (id, pinned) => openClassDetails(context, methodEditor, id, pinned)
+    (id, pinned) => openClassDetails(context, methodEditor, id, pinned),
+    (id) => dfmEditor.open(id),
+    (id) => openDfmPreview(context, id)
   );
-  const explorerRegistration = vscode16.window.registerWebviewViewProvider(
+  const explorerRegistration = vscode21.window.registerWebviewViewProvider(
     "vc-ve-tools.explorer",
     explorerProvider
   );
+  const navigationActions = {
+    revealClass: (id) => explorerProvider.revealClass(id),
+    openClass: (id) => openClassDetails(context, methodEditor, id, true),
+    openMethod: (id) => methodEditor.open(id)
+  };
+  registerNavigationTools(context, navigationActions);
+  navigationBridge = await startNavigationBridge(
+    navigationActions,
+    vscode21.Uri.joinPath(context.globalStorageUri, "navigation-bridge.json").fsPath
+  );
+  const databaseMcpServerRegistration = registerDatabaseMcpServer(context, extensionLogger.logUri.fsPath, navigationBridge);
   const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncItems);
-  const openPackageSyncCommand = vscode16.commands.registerCommand(
+  const openPackageSyncCommand = vscode21.commands.registerCommand(
     "vc-ve-tools.openPackageSync",
     () => packageSyncProvider.show()
   );
@@ -12225,61 +12920,61 @@ async function activate(context) {
     console.error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u0438 \u043A\u043B\u0430\u0441\u0441\u043E\u0432:", error);
   });
   const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
-  const sqlExecutorRegistration = vscode16.window.registerWebviewViewProvider(
+  const sqlExecutorRegistration = vscode21.window.registerWebviewViewProvider(
     SqlExecutorViewProvider.viewType,
     sqlExecutorProvider,
     { webviewOptions: { retainContextWhenHidden: true } }
   );
-  const configurationListener = vscode16.workspace.onDidChangeConfiguration(async (event) => {
+  const configurationListener = vscode21.workspace.onDidChangeConfiguration(async (event) => {
     if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
       closeClassDetailPanels();
       explorerProvider.refreshClasses();
       packageSyncProvider.refreshForDatabaseChange();
     }
     if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${projectRootSetting}`)) {
-      const enabled = vscode16.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
+      const enabled = vscode21.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       try {
         await applyProjectEncoding(context, enabled);
       } catch (error) {
-        void vscode16.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+        void vscode21.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
       }
     }
   });
-  if (extensionConfiguration.get(projectRootSetting, false) && vscode16.workspace.workspaceFolders?.length) {
+  if (extensionConfiguration.get(projectRootSetting, false) && vscode21.workspace.workspaceFolders?.length) {
     await applyProjectEncoding(context, true);
   }
   console.log('Congratulations, your extension "vc-ve-tools" is now active!');
-  const disposable = vscode16.commands.registerCommand("vc-ve-tools.helloWorld", () => {
-    vscode16.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
+  const disposable = vscode21.commands.registerCommand("vc-ve-tools.helloWorld", () => {
+    vscode21.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
   });
-  const testDatabaseConnectionCommand = vscode16.commands.registerCommand(
+  const testDatabaseConnectionCommand = vscode21.commands.registerCommand(
     "vc-ve-tools.testDatabaseConnection",
     async () => {
       try {
-        const result = await vscode16.window.withProgress(
+        const result = await vscode21.window.withProgress(
           {
-            location: vscode16.ProgressLocation.Notification,
+            location: vscode21.ProgressLocation.Notification,
             title: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0431\u0430\u0437\u0435"
           },
           testDatabaseConnection
         );
-        void vscode16.window.showInformationMessage(
+        void vscode21.window.showInformationMessage(
           `\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${result.database}, \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${result.user}.`
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        void vscode16.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
+        void vscode21.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
       }
     }
   );
-  const selectDatabaseRoleCommand = vscode16.commands.registerCommand(
+  const selectDatabaseRoleCommand = vscode21.commands.registerCommand(
     "vc-ve-tools.selectDatabaseRole",
     async () => {
-      if (!vscode16.workspace.workspaceFolders?.length) {
-        void vscode16.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      if (!vscode21.workspace.workspaceFolders?.length) {
+        void vscode21.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
         return;
       }
-      const selected = await vscode16.window.showQuickPick(
+      const selected = await vscode21.window.showQuickPick(
         [
           { label: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F", description: "devDBName_main", role: "main" },
           { label: "\u0422\u0435\u0441\u0442\u043E\u0432\u0430\u044F", description: "devDBName_test", role: "test" }
@@ -12289,28 +12984,28 @@ async function activate(context) {
       if (!selected || selected.role === getDatabaseRole()) {
         return;
       }
-      await vscode16.workspace.getConfiguration("vcVeTools").update(
+      await vscode21.workspace.getConfiguration("vcVeTools").update(
         databaseRoleSetting,
         selected.role,
-        vscode16.ConfigurationTarget.Workspace
+        vscode21.ConfigurationTarget.Workspace
       );
     }
   );
-  const openSqlMonitorCommand = vscode16.commands.registerCommand(
+  const openSqlMonitorCommand = vscode21.commands.registerCommand(
     "vc-ve-tools.openSqlMonitor",
     () => openSqlMonitor(context)
   );
-  const copySelectedExplorerIdCommand = vscode16.commands.registerCommand(
+  const copySelectedExplorerIdCommand = vscode21.commands.registerCommand(
     "vc-ve-tools.copySelectedExplorerId",
     () => explorerProvider.copySelectedEntityId()
   );
-  const setUserIdCommand = vscode16.commands.registerCommand(
+  const setUserIdCommand = vscode21.commands.registerCommand(
     "vc-ve-tools.setUserId",
     async () => {
-      const input = await vscode16.window.showInputBox({
+      const input = await vscode21.window.showInputBox({
         placeHolder: "3130673",
         prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B Users \u0434\u043B\u044F \u043B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439 \u043C\u0435\u0442\u043E\u0434\u043E\u0432",
-        value: vscode16.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
+        value: vscode21.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
         validateInput: (value) => {
           if (!value.trim()) {
             return "ID \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C";
@@ -12326,16 +13021,18 @@ async function activate(context) {
         return;
       }
       const userId = Number.parseInt(input, 10);
-      await vscode16.workspace.getConfiguration("vcVeTools").update(
+      await vscode21.workspace.getConfiguration("vcVeTools").update(
         "userId",
         userId,
-        vscode16.ConfigurationTarget.Workspace
+        vscode21.ConfigurationTarget.Workspace
       );
       settingsProvider.refresh();
-      void vscode16.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
+      void vscode21.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
     }
   );
   context.subscriptions.push(
+    extensionLogger,
+    navigationBridge,
     databaseMcpServerRegistration,
     settingsProvider,
     settingsRegistration,

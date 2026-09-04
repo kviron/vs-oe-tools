@@ -35,6 +35,12 @@
           ".pas"
         ],
         "configuration": "./syntaxes/pascal-language-configuration.json"
+	  },
+	  {
+		"id": "ve-dfm",
+		"aliases": ["DFM", "Delphi Form"],
+		"extensions": [".dfm"],
+		"configuration": "./syntaxes/dfm-language-configuration.json"
       }
     ],
     "grammars": [
@@ -47,6 +53,11 @@
         "language": "ve-pascal",
         "scopeName": "source.pascal.delphi",
         "path": "./syntaxes/pascal.tmLanguage.json"
+	  },
+	  {
+		"language": "ve-dfm",
+		"scopeName": "source.dfm",
+		"path": "./syntaxes/dfm.tmLanguage.json"
       }
     ],
     "configuration": {
@@ -249,6 +260,59 @@
       {
         "id": "vc-ve-tools.database",
         "label": "East Express Database"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "vcVeTools_reveal_class",
+        "tags": ["east-express", "navigation", "classes"],
+        "toolReferenceName": "veRevealClass",
+        "displayName": "Показать класс Восточного Экспресса",
+        "modelDescription": "Reveal an East Express class in the vc-ve-tools Explorer. Use a classId returned by the vc-ve-tools MCP search_classes tool.",
+        "userDescription": "Показывает найденный класс в проводнике расширения.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(list-tree)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "classId": { "type": "integer", "minimum": 1, "description": "ID класса Восточного Экспресса" }
+          },
+          "required": ["classId"]
+        }
+      },
+      {
+        "name": "vcVeTools_open_class",
+        "tags": ["east-express", "navigation", "classes"],
+        "toolReferenceName": "veOpenClass",
+        "displayName": "Открыть класс Восточного Экспресса",
+        "modelDescription": "Reveal an East Express class in the vc-ve-tools Explorer and open its details panel. Use a classId returned by the vc-ve-tools MCP search_classes tool.",
+        "userDescription": "Показывает класс в проводнике и открывает его карточку.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(symbol-class)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "classId": { "type": "integer", "minimum": 1, "description": "ID класса Восточного Экспресса" }
+          },
+          "required": ["classId"]
+        }
+      },
+      {
+        "name": "vcVeTools_open_method",
+        "tags": ["east-express", "navigation", "methods"],
+        "toolReferenceName": "veOpenMethod",
+        "displayName": "Открыть метод Восточного Экспресса",
+        "modelDescription": "Open an East Express database method in the VS Code virtual editor. Use a methodId returned by the vc-ve-tools MCP search_methods tool.",
+        "userDescription": "Открывает найденный метод в редакторе VS Code.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(symbol-method)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "methodId": { "type": "integer", "minimum": 1, "description": "ID метода Восточного Экспресса" }
+          },
+          "required": ["methodId"]
+        }
       }
     ],
     "keybindings": [

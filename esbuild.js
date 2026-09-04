@@ -35,6 +35,9 @@ async function main() {
 		sourcemap: !production,
 		sourcesContent: false,
 		platform: 'node',
+		define: {
+			navigator: 'undefined',
+		},
 		outdir: 'dist',
 		external: ['vscode'],
 		logLevel: 'silent',
