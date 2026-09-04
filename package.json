@@ -180,6 +180,10 @@
         "title": "Восточный Экспресс: Копировать ID выделенного объекта"
       },
       {
+        "command": "vc-ve-tools.installAgentSkills",
+        "title": "Восточный Экспресс: Установить навыки для ИИ-агентов"
+      },
+      {
         "command": "vc-ve-tools.showSelectionHistory",
         "title": "История выделенного кода",
         "category": "Восточный Экспресс"
