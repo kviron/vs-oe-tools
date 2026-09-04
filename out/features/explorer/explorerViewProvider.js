@@ -114,6 +114,10 @@ class ExplorerViewProvider {
                 vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
                 return;
             }
+            if (message.command === 'openClientEntity') {
+                void vscode.commands.executeCommand('vc-ve-tools.openClientEntity', message.role, message.entityType, message.id);
+                return;
+            }
             if (message.command === 'selectExplorerEntity') {
                 this.selectedEntityId = message.id;
                 this.log(`Выделение изменено: ID=${message.id ?? 'нет'}.`);

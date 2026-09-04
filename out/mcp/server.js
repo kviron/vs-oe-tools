@@ -61,7 +61,7 @@ const logsPath = readOptionalArgument('--logs');
 const sqlMonitorHistoryPath = readOptionalArgument('--sql-monitor-history');
 const databaseSelectionPath = readOptionalArgument('--database-selection');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? (0, navigationInfo_1.getNavigationInfoPath)(workspacePath);
-const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.16.0' }, {
+const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.17.0' }, {
     instructions: [
         'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
         'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
@@ -497,6 +497,15 @@ server.registerTool('start_client', {
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
 }, async ({ role }) => bridgeToolResult({ action: 'start_client', role }));
+server.registerTool('open_client_entity', {
+    description: 'Open an East Express entity in the original client by stable ID. If the client is not running, it is launched with the credentials saved in VS Code settings. Use entityType names accepted by client deep links, for example Метод or Класс.',
+    inputSchema: {
+        id: z.number().int().positive().describe('Stable East Express object ID'),
+        entityType: z.string().min(1).max(100).describe('Entity type for the client link, for example Метод, Класс, or another East Express class name'),
+        role: z.enum(['main', 'test']).optional().describe('Database role, default main'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, async ({ id, entityType, role }) => bridgeToolResult({ action: 'open_client_entity', id, entityType, role: role ?? 'main' }));
 server.registerTool('get_svn_file_history', {
     description: 'Read SVN history for a file inside the currently open East Express workspace using the extension SVN integration.',
     inputSchema: {

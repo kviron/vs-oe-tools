@@ -7,7 +7,7 @@ import { formatSqlResult } from '../features/sql-executor/sqlResultExport';
 import { adaptCompositeDateTimeFields } from '../features/sql-executor/sqlDialectAdapter';
 import { parseVarsFile } from '../infrastructure/configuration/projectDatabaseOptions';
 import { parseRdboadmIni, rdboadmDatabaseOptions, updateRdboadmSection } from '../infrastructure/configuration/rdboadmIni';
-import { applyClientCredentials, extractBatchCommand } from '../features/project/projectCommandService';
+import { applyClientCredentials, applyClientOpenUri, extractBatchCommand } from '../features/project/projectCommandService';
 // import * as myExtension from '../../extension';
 
 suite('Extension Test Suite', () => {
@@ -55,6 +55,13 @@ suite('Extension Test Suite', () => {
 		assert.strictEqual(
 			applyClientCredentials('call _fme.bat -l "host=localhost,db=oetest,username=old,password=oldpass" -ok', { username: 'ВЭ_Пользователь', password: 'secret' }),
 			'call _fme.bat -l "host=localhost,db=oetest,username=ВЭ_Пользователь,password=secret" -ok',
+		);
+	});
+
+	test('client deep link is passed before login arguments', () => {
+		assert.strictEqual(
+			applyClientOpenUri('call "C:\\OE\\trunk\\_fme.bat" -l "host=localhost,db=oetrunk" -ok', 'oe-oetrunk:/open/Метод/11158589'),
+			'call "C:\\OE\\trunk\\_fme.bat" "oe-oetrunk:/open/Метод/11158589" -l "host=localhost,db=oetrunk" -ok',
 		);
 	});
 

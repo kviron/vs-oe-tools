@@ -35,8 +35,10 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractBatchCommand = extractBatchCommand;
 exports.applyClientCredentials = applyClientCredentials;
+exports.applyClientOpenUri = applyClientOpenUri;
 exports.updateProjectDatabase = updateProjectDatabase;
 exports.startProjectClient = startProjectClient;
+exports.openProjectClientEntity = openProjectClientEntity;
 const promises_1 = require("node:fs/promises");
 const path = __importStar(require("node:path"));
 const iconv = __importStar(require("iconv-lite"));
@@ -66,6 +68,16 @@ function applyClientCredentials(command, credentials) {
     }
     return result;
 }
+function applyClientOpenUri(command, openUri) {
+    if (!/^oe-[a-z0-9_-]+:\/open\/[^/]+\/[1-9]\d*$/iu.test(openUri) || /["\r\n]/.test(openUri)) {
+        throw new Error(`Некорректная ссылка открытия объекта ВЭ: ${openUri}`);
+    }
+    const call = command.match(/^call\s+(?:"[^"]+"|\S+)/i)?.[0];
+    if (!call) {
+        throw new Error('Не удалось добавить ссылку объекта в команду запуска клиента.');
+    }
+    return `${call} "${openUri}"${command.slice(call.length)}`;
+}
 async function readProjectCommand(workspacePath, fileName, encoding) {
     const sourcePath = path.join(workspacePath, fileName);
     const content = iconv.decode(await (0, promises_1.readFile)(sourcePath), encoding);
@@ -88,10 +100,13 @@ async function updateProjectDatabase(role) {
     terminal.show();
     terminal.sendText(command, true);
 }
-async function startProjectClient(role, credentials = {}) {
+async function startProjectClient(role, credentials = {}, openUri) {
     const workspacePath = requireWorkspacePath();
     const fileName = role === 'test' ? 'start_test.bat' : 'start.bat';
-    const command = applyClientCredentials(await readProjectCommand(workspacePath, fileName, 'cp866'), credentials);
+    let command = applyClientCredentials(await readProjectCommand(workspacePath, fileName, 'cp866'), credentials);
+    if (openUri) {
+        command = applyClientOpenUri(command, openUri);
+    }
     const terminal = vscode.window.createTerminal({
         name: `ВЭ: запуск клиента (${role})`,
         cwd: workspacePath,
@@ -100,7 +115,21 @@ async function startProjectClient(role, credentials = {}) {
     });
     terminal.show();
     terminal.sendText(command, true);
-    void vscode.window.showInformationMessage(`Команда запуска клиента ВЭ отправлена: ${role === 'test' ? 'тестовая' : 'основная'} база.`);
+    void vscode.window.showInformationMessage(openUri
+        ? `Команда открытия объекта в клиенте ВЭ отправлена: ${openUri}`
+        : `Команда запуска клиента ВЭ отправлена: ${role === 'test' ? 'тестовая' : 'основная'} база.`);
+}
+async function openProjectClientEntity(role, entityType, id, credentials = {}) {
+    if (!Number.isSafeInteger(id) || id <= 0) {
+        throw new Error('ID объекта должен быть положительным целым числом.');
+    }
+    const normalizedType = entityType.trim();
+    if (!normalizedType || /[\/"\r\n]/.test(normalizedType)) {
+        throw new Error('Тип сущности ВЭ указан некорректно.');
+    }
+    const uri = `oe-${role === 'test' ? 'oetest' : 'oetrunk'}:/open/${normalizedType}/${id}`;
+    await startProjectClient(role, credentials, uri);
+    return uri;
 }
 function requireWorkspacePath() {
     const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;

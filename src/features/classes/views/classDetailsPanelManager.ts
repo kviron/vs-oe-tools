@@ -82,6 +82,10 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				}
 				return;
 			}
+			if (message.command === 'openClientEntity') {
+				await vscode.commands.executeCommand('vc-ve-tools.openClientEntity', message.role, message.entityType, message.id);
+				return;
+			}
 			if (message.command === 'copyTableCells') {
 				logTableSelection('Класс', `extension host получил copyTableCells: символов=${message.text.length}, текст=${JSON.stringify(message.text.slice(0, 300))}.`);
 				try {

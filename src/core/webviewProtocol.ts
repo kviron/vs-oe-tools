@@ -19,7 +19,8 @@ export type ExplorerWebviewMessage =
 	| { command: 'selectExplorerEntity'; id?: number }
 	| { command: 'setExplorerCopyContext'; active: boolean }
 	| { command: 'explorerDebugLog'; message: string }
-	| CopyEntityIdMessage;
+	| CopyEntityIdMessage
+	| OpenClientEntityMessage;
 
 export type ExplorerHostMessage =
 	| { command: 'restoreExplorerState'; activeTab: string; selectedClassId?: number }
@@ -46,11 +47,18 @@ export type ClassDetailsWebviewMessage =
 	| { command: 'methodSvnAction'; id: number; action: 'localDiff' | 'history' | 'blame' }
 	| CopyTableCellsMessage
 	| CopyEntityIdMessage
+	| OpenClientEntityMessage
 	| TableSelectionDebugMessage;
 
 export interface CopyEntityIdMessage {
 	command: 'copyEntityId';
 	id: number | string;
+}
+export interface OpenClientEntityMessage {
+	command: 'openClientEntity';
+	role: 'main' | 'test';
+	entityType: string;
+	id: number;
 }
 export interface TableSelectionDebugMessage {
 	command: 'tableSelectionDebug';
@@ -81,7 +89,9 @@ export type ClassObjectsWebviewMessage =
 	| { command: 'loadMoreClassObjects'; offset: number }
 	| { command: 'viewObject'; id: number }
 	| { command: 'viewEntityProperties'; id: number }
-	| CopyTableCellsMessage;
+	| CopyTableCellsMessage
+	| CopyEntityIdMessage
+	| OpenClientEntityMessage;
 export type ClassObjectsHostMessage =
 	| { command: 'classObjectsLoading'; append: boolean }
 	| { command: 'classObjectsLoaded'; result: ClassObjectsResult; append: boolean }
@@ -272,6 +282,9 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (isCopyEntityIdMessage(message)) {
 		return true;
 	}
+	if (isOpenClientEntityMessage(message)) {
+		return true;
+	}
 	return (message.command === 'loadClassMethods' || message.command === 'loadClassProperties')
 		&& 'includeInherited' in message
 		&& typeof message.includeInherited === 'boolean';
@@ -295,7 +308,8 @@ export function isClassObjectsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
 		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
 	}
-	return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message);
+	return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects'
+		|| isCopyTableCellsMessage(message) || isCopyEntityIdMessage(message) || isOpenClientEntityMessage(message);
 }
 
 export function isObjectViewWebviewMessage(message: unknown): message is ObjectViewWebviewMessage {
@@ -343,6 +357,9 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	if (isCopyEntityIdMessage(message)) {
 		return true;
 	}
+	if (isOpenClientEntityMessage(message)) {
+		return true;
+	}
 	if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
 		return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
 	}
@@ -363,6 +380,21 @@ export function isCopyEntityIdMessage(message: unknown): message is CopyEntityId
 		&& message.command === 'copyEntityId'
 		&& 'id' in message
 		&& (typeof message.id === 'number' || typeof message.id === 'string');
+}
+
+export function isOpenClientEntityMessage(message: unknown): message is OpenClientEntityMessage {
+	return typeof message === 'object'
+		&& message !== null
+		&& 'command' in message
+		&& message.command === 'openClientEntity'
+		&& 'role' in message
+		&& (message.role === 'main' || message.role === 'test')
+		&& 'entityType' in message
+		&& typeof message.entityType === 'string'
+		&& message.entityType.trim().length > 0
+		&& 'id' in message
+		&& typeof message.id === 'number'
+		&& Number.isSafeInteger(message.id);
 }
 
 export function isSqlMonitorWebviewMessage(message: unknown): message is SqlMonitorWebviewMessage {

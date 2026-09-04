@@ -124,6 +124,7 @@ async function activate(context) {
     const updateTestDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateTestDatabase', () => (0, projectCommandService_1.updateProjectDatabase)('test'));
     const startMainClientCommand = vscode.commands.registerCommand('vc-ve-tools.startMainClient', async () => (0, projectCommandService_1.startProjectClient)('main', await getClientCredentials()));
     const startTestClientCommand = vscode.commands.registerCommand('vc-ve-tools.startTestClient', async () => (0, projectCommandService_1.startProjectClient)('test', await getClientCredentials()));
+    const openClientEntityCommand = vscode.commands.registerCommand('vc-ve-tools.openClientEntity', async (role, entityType, id) => (0, projectCommandService_1.openProjectClientEntity)(role, entityType, id, await getClientCredentials()));
     const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id), objectSearchRepository_1.searchDatabaseObjects, id => methodEditor.open(id), id => (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, id), id => (0, classObjectsPanelManager_1.openClassObjects)(context, id), id => (0, objectViewPanelManager_1.openObjectView)(context, id), id => (0, entityPropertiesPanelManager_1.openEntityProperties)(context, id));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
     const navigationActions = {
@@ -169,6 +170,7 @@ async function activate(context) {
         },
         updateDatabase: role => (0, projectCommandService_1.updateProjectDatabase)(role),
         startClient: async (role) => (0, projectCommandService_1.startProjectClient)(role, await getClientCredentials()),
+        openClientEntity: async (role, entityType, id) => (0, projectCommandService_1.openProjectClientEntity)(role, entityType, id, await getClientCredentials()),
     };
     (0, navigationTools_1.registerNavigationTools)(context, navigationActions);
     navigationBridge = await (0, navigationBridge_1.startNavigationBridge)(navigationActions, vscode.workspace.workspaceFolders?.[0]
@@ -283,6 +285,6 @@ async function activate(context) {
         settingsProvider.refresh();
         void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
     });
-    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, explorerProvider, explorerRegistration, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
+    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
 }
 //# sourceMappingURL=activate.js.map

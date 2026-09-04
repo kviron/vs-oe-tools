@@ -10115,6 +10115,9 @@ function isClassDetailsWebviewMessage(message) {
   if (isCopyEntityIdMessage(message)) {
     return true;
   }
+  if (isOpenClientEntityMessage(message)) {
+    return true;
+  }
   return (message.command === "loadClassMethods" || message.command === "loadClassProperties") && "includeInherited" in message && typeof message.includeInherited === "boolean";
 }
 function isAttributeDetailsWebviewMessage(message) {
@@ -10133,7 +10136,7 @@ function isClassObjectsWebviewMessage(message) {
   if (message.command === "viewObject" || message.command === "viewEntityProperties") {
     return "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id);
   }
-  return message.command === "classObjectsReady" || message.command === "refreshClassObjects" || isCopyTableCellsMessage(message);
+  return message.command === "classObjectsReady" || message.command === "refreshClassObjects" || isCopyTableCellsMessage(message) || isCopyEntityIdMessage(message) || isOpenClientEntityMessage(message);
 }
 function isObjectViewWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
@@ -10172,6 +10175,9 @@ function isExplorerWebviewMessage(message) {
   if (isCopyEntityIdMessage(message)) {
     return true;
   }
+  if (isOpenClientEntityMessage(message)) {
+    return true;
+  }
   if (message.command === "openDfmEditor" || message.command === "openDfmPreview") {
     return "classId" in message && typeof message.classId === "number" && Number.isSafeInteger(message.classId);
   }
@@ -10185,6 +10191,9 @@ function isExplorerWebviewMessage(message) {
 }
 function isCopyEntityIdMessage(message) {
   return typeof message === "object" && message !== null && "command" in message && message.command === "copyEntityId" && "id" in message && (typeof message.id === "number" || typeof message.id === "string");
+}
+function isOpenClientEntityMessage(message) {
+  return typeof message === "object" && message !== null && "command" in message && message.command === "openClientEntity" && "role" in message && (message.role === "main" || message.role === "test") && "entityType" in message && typeof message.entityType === "string" && message.entityType.trim().length > 0 && "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id);
 }
 function isSqlMonitorWebviewMessage(message) {
   return typeof message === "object" && message !== null && "command" in message && (message.command === "sqlMonitorReady" || message.command === "clearSqlMonitor" || message.command === "setSqlMonitorPaused" && "paused" in message && typeof message.paused === "boolean" || isTableSelectionDebugMessage(message) || isCopyTableCellsMessage(message));
@@ -10248,6 +10257,16 @@ function applyClientCredentials(command, credentials) {
   }
   return result;
 }
+function applyClientOpenUri(command, openUri) {
+  if (!/^oe-[a-z0-9_-]+:\/open\/[^/]+\/[1-9]\d*$/iu.test(openUri) || /["\r\n]/.test(openUri)) {
+    throw new Error(`\u041D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u0430\u044F \u0441\u0441\u044B\u043B\u043A\u0430 \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u044F \u043E\u0431\u044A\u0435\u043A\u0442\u0430 \u0412\u042D: ${openUri}`);
+  }
+  const call = command.match(/^call\s+(?:"[^"]+"|\S+)/i)?.[0];
+  if (!call) {
+    throw new Error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0443 \u043E\u0431\u044A\u0435\u043A\u0442\u0430 \u0432 \u043A\u043E\u043C\u0430\u043D\u0434\u0443 \u0437\u0430\u043F\u0443\u0441\u043A\u0430 \u043A\u043B\u0438\u0435\u043D\u0442\u0430.");
+  }
+  return `${call} "${openUri}"${command.slice(call.length)}`;
+}
 async function readProjectCommand(workspacePath, fileName, encoding) {
   const sourcePath = path3.join(workspacePath, fileName);
   const content = iconv4.decode(await (0, import_promises4.readFile)(sourcePath), encoding);
@@ -10274,10 +10293,13 @@ async function updateProjectDatabase(role) {
   terminal.show();
   terminal.sendText(command, true);
 }
-async function startProjectClient(role, credentials = {}) {
+async function startProjectClient(role, credentials = {}, openUri) {
   const workspacePath = requireWorkspacePath();
   const fileName = role === "test" ? "start_test.bat" : "start.bat";
-  const command = applyClientCredentials(await readProjectCommand(workspacePath, fileName, "cp866"), credentials);
+  let command = applyClientCredentials(await readProjectCommand(workspacePath, fileName, "cp866"), credentials);
+  if (openUri) {
+    command = applyClientOpenUri(command, openUri);
+  }
   const terminal = vscode3.window.createTerminal({
     name: `\u0412\u042D: \u0437\u0430\u043F\u0443\u0441\u043A \u043A\u043B\u0438\u0435\u043D\u0442\u0430 (${role})`,
     cwd: workspacePath,
@@ -10286,7 +10308,19 @@ async function startProjectClient(role, credentials = {}) {
   });
   terminal.show();
   terminal.sendText(command, true);
-  void vscode3.window.showInformationMessage(`\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u0437\u0430\u043F\u0443\u0441\u043A\u0430 \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u0412\u042D \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0430: ${role === "test" ? "\u0442\u0435\u0441\u0442\u043E\u0432\u0430\u044F" : "\u043E\u0441\u043D\u043E\u0432\u043D\u0430\u044F"} \u0431\u0430\u0437\u0430.`);
+  void vscode3.window.showInformationMessage(openUri ? `\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u044F \u043E\u0431\u044A\u0435\u043A\u0442\u0430 \u0432 \u043A\u043B\u0438\u0435\u043D\u0442\u0435 \u0412\u042D \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0430: ${openUri}` : `\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u0437\u0430\u043F\u0443\u0441\u043A\u0430 \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u0412\u042D \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0430: ${role === "test" ? "\u0442\u0435\u0441\u0442\u043E\u0432\u0430\u044F" : "\u043E\u0441\u043D\u043E\u0432\u043D\u0430\u044F"} \u0431\u0430\u0437\u0430.`);
+}
+async function openProjectClientEntity(role, entityType, id, credentials = {}) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error("ID \u043E\u0431\u044A\u0435\u043A\u0442\u0430 \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u043C \u0446\u0435\u043B\u044B\u043C \u0447\u0438\u0441\u043B\u043E\u043C.");
+  }
+  const normalizedType = entityType.trim();
+  if (!normalizedType || /[\/"\r\n]/.test(normalizedType)) {
+    throw new Error("\u0422\u0438\u043F \u0441\u0443\u0449\u043D\u043E\u0441\u0442\u0438 \u0412\u042D \u0443\u043A\u0430\u0437\u0430\u043D \u043D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u043E.");
+  }
+  const uri = `oe-${role === "test" ? "oetest" : "oetrunk"}:/open/${normalizedType}/${id}`;
+  await startProjectClient(role, credentials, uri);
+  return uri;
 }
 function requireWorkspacePath() {
   const workspacePath = vscode3.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -11071,6 +11105,14 @@ async function openClassObjects(context, classId) {
       await vscode10.env.clipboard.writeText(message.text);
       return;
     }
+    if (message.command === "copyEntityId") {
+      await vscode10.env.clipboard.writeText(String(message.id));
+      return;
+    }
+    if (message.command === "openClientEntity") {
+      await vscode10.commands.executeCommand("vc-ve-tools.openClientEntity", message.role, message.entityType, message.id);
+      return;
+    }
     if (message.command === "viewObject") {
       await openObjectView(context, message.id);
       return;
@@ -11152,6 +11194,10 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = "c
           logTableSelection("\u041A\u043B\u0430\u0441\u0441", `\u041E\u0448\u0438\u0431\u043A\u0430 \u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F ID: ${error instanceof Error ? error.message : String(error)}.`);
           void vscode11.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C ID: ${error instanceof Error ? error.message : String(error)}`);
         }
+        return;
+      }
+      if (message.command === "openClientEntity") {
+        await vscode11.commands.executeCommand("vc-ve-tools.openClientEntity", message.role, message.entityType, message.id);
         return;
       }
       if (message.command === "copyTableCells") {
@@ -11415,6 +11461,10 @@ var ExplorerViewProvider = class {
         this.log(`\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u0430 \u043A\u043E\u043C\u0430\u043D\u0434\u0430 \u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F ID=${message.id}.`);
         void vscode12.env.clipboard.writeText(String(message.id));
         vscode12.window.setStatusBarMessage(`ID ${message.id} \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D`, 1500);
+        return;
+      }
+      if (message.command === "openClientEntity") {
+        void vscode12.commands.executeCommand("vc-ve-tools.openClientEntity", message.role, message.entityType, message.id);
         return;
       }
       if (message.command === "selectExplorerEntity") {
@@ -14044,9 +14094,13 @@ async function handleRequest(request, response, token, actions) {
       await actions.updateDatabase(input.role);
       respond(response, 200, { ok: true, action: input.action, role: input.role });
       return;
-    } else {
+    } else if (input.action === "start_client") {
       await actions.startClient(input.role);
       respond(response, 200, { ok: true, action: input.action, role: input.role });
+      return;
+    } else {
+      const uri = await actions.openClientEntity(input.role, input.entityType, input.id);
+      respond(response, 200, { ok: true, action: input.action, role: input.role, entityType: input.entityType, id: input.id, uri });
       return;
     }
     respond(response, 200, { ok: true, action: input.action, id: input.id });
@@ -14078,7 +14132,7 @@ function validateRequest(value) {
     throw new Error("Invalid navigation request.");
   }
   const { action, id } = value;
-  if (action !== "reveal_class" && action !== "open_class" && action !== "open_method" && action !== "reveal_method" && action !== "update_method_source" && action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client") {
+  if (action !== "reveal_class" && action !== "open_class" && action !== "open_method" && action !== "reveal_method" && action !== "update_method_source" && action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && action !== "open_client_entity") {
     throw new Error("Unknown navigation action.");
   }
   if (action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
@@ -14112,10 +14166,14 @@ function validateRequest(value) {
     throw new Error("Package synchronization limit must be an integer from 1 to 500.");
   }
   const role = value.role;
-  if ((action === "update_database" || action === "start_client") && role !== "main" && role !== "test") {
+  if ((action === "update_database" || action === "start_client" || action === "open_client_entity") && role !== "main" && role !== "test") {
     throw new Error(`Role must be main or test for ${action}.`);
   }
-  return { action, id, classId, code, filePath, limit, query, offset, role };
+  const entityType = value.entityType;
+  if (action === "open_client_entity" && (typeof entityType !== "string" || !entityType.trim())) {
+    throw new Error("entityType is required for open_client_entity.");
+  }
+  return { action, id, classId, code, filePath, limit, query, offset, role, entityType };
 }
 function respond(response, statusCode, body) {
   response.writeHead(statusCode, { "content-type": "application/json; charset=utf-8" });
@@ -14809,6 +14867,10 @@ async function activate(context) {
   const updateTestDatabaseCommand = vscode29.commands.registerCommand("vc-ve-tools.updateTestDatabase", () => updateProjectDatabase("test"));
   const startMainClientCommand = vscode29.commands.registerCommand("vc-ve-tools.startMainClient", async () => startProjectClient("main", await getClientCredentials()));
   const startTestClientCommand = vscode29.commands.registerCommand("vc-ve-tools.startTestClient", async () => startProjectClient("test", await getClientCredentials()));
+  const openClientEntityCommand = vscode29.commands.registerCommand(
+    "vc-ve-tools.openClientEntity",
+    async (role, entityType, id) => openProjectClientEntity(role, entityType, id, await getClientCredentials())
+  );
   const explorerProvider = new ExplorerViewProvider(
     context.workspaceState,
     context.extensionUri,
@@ -14866,7 +14928,8 @@ async function activate(context) {
       };
     },
     updateDatabase: (role) => updateProjectDatabase(role),
-    startClient: async (role) => startProjectClient(role, await getClientCredentials())
+    startClient: async (role) => startProjectClient(role, await getClientCredentials()),
+    openClientEntity: async (role, entityType, id) => openProjectClientEntity(role, entityType, id, await getClientCredentials())
   };
   registerNavigationTools(context, navigationActions);
   navigationBridge = await startNavigationBridge(
@@ -15014,6 +15077,7 @@ async function activate(context) {
     updateTestDatabaseCommand,
     startMainClientCommand,
     startTestClientCommand,
+    openClientEntityCommand,
     explorerProvider,
     explorerRegistration,
     packageSyncProvider,

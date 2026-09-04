@@ -281,6 +281,7 @@ vscode.postMessage({ command: 'explorerReady' });
             v-for="item in objectSearchResults"
             :key="item.id"
             :entity-id="item.id"
+            :entity-type="item.metaClassName"
             :edit="item.kind !== 'object'"
             @edit="selectDatabaseObject(item, true)"
           >
@@ -328,7 +329,7 @@ vscode.postMessage({ command: 'explorerReady' });
           />
         </div>
         <div v-if="normalizedSearchQuery" class="flex min-h-0 flex-1 flex-col overflow-auto p-1">
-		  <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" :class-id="item.hasDfm ? item.id : undefined" :view-objects-class-id="!item.virtual && item.dbtablename ? item.id : undefined" copy-shortcut="Ctrl+C">
+		  <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" entity-type="Класс" :class-id="item.hasDfm ? item.id : undefined" :view-objects-class-id="!item.virtual && item.dbtablename ? item.id : undefined" copy-shortcut="Ctrl+C">
           <button
             type="button"
             class="flex min-h-7 items-center gap-2 px-2 text-left hover:bg-accent"

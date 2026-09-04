@@ -22,6 +22,7 @@ export interface NavigationActions {
 	getPackageSyncChanges(query: string | undefined, offset: number, limit: number): Promise<Record<string, unknown>>;
 	updateDatabase(role: 'main' | 'test'): Promise<void>;
 	startClient(role: 'main' | 'test'): Promise<void>;
+	openClientEntity(role: 'main' | 'test', entityType: string, id: number): Promise<string>;
 }
 
 export function registerNavigationTools(context: vscode.ExtensionContext, actions: NavigationActions): void {

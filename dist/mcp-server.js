@@ -47648,7 +47648,7 @@ var sqlMonitorHistoryPath = readOptionalArgument("--sql-monitor-history");
 var databaseSelectionPath = readOptionalArgument("--database-selection");
 var navigationInfoPath = readOptionalArgument("--navigation-info") ?? getNavigationInfoPath(workspacePath);
 var server = new McpServer(
-  { name: "vc-ve-tools-database", version: "0.16.0" },
+  { name: "vc-ve-tools-database", version: "0.17.0" },
   {
     instructions: [
       "East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.",
@@ -48136,6 +48136,15 @@ server.registerTool("start_client", {
   },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false }
 }, async ({ role }) => bridgeToolResult({ action: "start_client", role }));
+server.registerTool("open_client_entity", {
+  description: "Open an East Express entity in the original client by stable ID. If the client is not running, it is launched with the credentials saved in VS Code settings. Use entityType names accepted by client deep links, for example \u041C\u0435\u0442\u043E\u0434 or \u041A\u043B\u0430\u0441\u0441.",
+  inputSchema: {
+    id: z.number().int().positive().describe("Stable East Express object ID"),
+    entityType: z.string().min(1).max(100).describe("Entity type for the client link, for example \u041C\u0435\u0442\u043E\u0434, \u041A\u043B\u0430\u0441\u0441, or another East Express class name"),
+    role: z.enum(["main", "test"]).optional().describe("Database role, default main")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false }
+}, async ({ id, entityType, role }) => bridgeToolResult({ action: "open_client_entity", id, entityType, role: role ?? "main" }));
 server.registerTool("get_svn_file_history", {
   description: "Read SVN history for a file inside the currently open East Express workspace using the extension SVN integration.",
   inputSchema: {

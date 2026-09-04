@@ -79,6 +79,14 @@ async function openClassObjects(context, classId) {
             await vscode.env.clipboard.writeText(message.text);
             return;
         }
+        if (message.command === 'copyEntityId') {
+            await vscode.env.clipboard.writeText(String(message.id));
+            return;
+        }
+        if (message.command === 'openClientEntity') {
+            await vscode.commands.executeCommand('vc-ve-tools.openClientEntity', message.role, message.entityType, message.id);
+            return;
+        }
         if (message.command === 'viewObject') {
             await (0, objectViewPanelManager_1.openObjectView)(context, message.id);
             return;

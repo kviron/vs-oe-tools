@@ -53,7 +53,19 @@ async function getSessionContext(client, databaseName) {
     });
     const changeDate = timeResult.rows[0]?.now ?? new Date();
     // Получаем имя компьютера из ОС
-    const computerName = (0, node_os_1.hostname)();
+    const localComputerName = (0, node_os_1.hostname)();
+    const computerResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+        text: `SELECT computername
+		 FROM packagestune
+		 WHERE upper(computername) = upper($1)
+		    OR upper(computername) LIKE upper($1) || '.%'
+		 ORDER BY CASE WHEN upper(computername) = upper($1) THEN 0 ELSE 1 END
+		 LIMIT 1`,
+        values: [localComputerName],
+        source: 'Получение имени компьютера ВЭ',
+        database: databaseName,
+    });
+    const computerName = computerResult.rows[0]?.computername ?? localComputerName;
     // Получаем UserID из настроек расширения
     const userId = await getUserId();
     return {

@@ -77,6 +77,9 @@ suite('Extension Test Suite', () => {
     test('client credentials replace values from start.bat', () => {
         assert.strictEqual((0, projectCommandService_1.applyClientCredentials)('call _fme.bat -l "host=localhost,db=oetest,username=old,password=oldpass" -ok', { username: 'ВЭ_Пользователь', password: 'secret' }), 'call _fme.bat -l "host=localhost,db=oetest,username=ВЭ_Пользователь,password=secret" -ok');
     });
+    test('client deep link is passed before login arguments', () => {
+        assert.strictEqual((0, projectCommandService_1.applyClientOpenUri)('call "C:\\OE\\trunk\\_fme.bat" -l "host=localhost,db=oetrunk" -ok', 'oe-oetrunk:/open/Метод/11158589'), 'call "C:\\OE\\trunk\\_fme.bat" "oe-oetrunk:/open/Метод/11158589" -l "host=localhost,db=oetrunk" -ok');
+    });
     test('SQL result export produces readable Markdown and valid JSON', () => {
         const result = {
             rowCount: 2,

@@ -52,6 +52,7 @@ function openClass(pinned: boolean): void {
   <Collapsible v-model:open="open">
     <EntityContextMenu
       :entity-id="node.entityId"
+	  :entity-type="node.kind === 'class' ? 'Класс' : node.kind === 'comment' ? 'Комментарий' : undefined"
 	  :class-id="node.kind === 'class' && node.hasDfm && typeof node.id === 'number' ? node.id : undefined"
       :view-objects-class-id="node.kind === 'class' && !node.virtual && node.dbtablename && typeof node.id === 'number' ? node.id : undefined"
       copy-shortcut="Ctrl+C"

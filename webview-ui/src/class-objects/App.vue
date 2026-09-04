@@ -125,7 +125,7 @@ vscode.postMessage({ command: 'classObjectsReady' });
         </TableRow>
       </TableHeader>
       <TableBody>
-        <EntityContextMenu v-for="(row, index) in rows" :key="String(row.ID ?? row.id ?? index)" :entity-id="String(row.ID ?? row.id ?? '')">
+        <EntityContextMenu v-for="(row, index) in rows" :key="String(row.ID ?? row.id ?? index)" :entity-id="String(row.ID ?? row.id ?? '')" :entity-type="result?.className">
         <TableRow :data-entity-id="String(row.ID ?? row.id ?? '')">
           <TableCell v-for="column in result.columns" :key="column.key" class="max-w-80 whitespace-nowrap" :title="display(row[column.key])">
             {{ display(row[column.key]) }}

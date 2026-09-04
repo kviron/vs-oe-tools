@@ -7,6 +7,7 @@ import { vscode } from '@/vscode';
 
 const props = defineProps<{
   entityId?: number | string;
+  entityType?: string;
   copyShortcut?: string;
   svn?: boolean;
 	edit?: boolean;
@@ -36,6 +37,11 @@ function copyId(): void {
   const currentId = String(props.entityId);
   const ids = selectedIds.value.includes(currentId) ? selectedIds.value : undefined;
   vscode.postMessage({ command: 'copyEntityId', id: ids?.join(';') ?? currentId });
+}
+function openInClient(role: 'main' | 'test'): void {
+  if (props.entityId === undefined || !props.entityType) return;
+  const id = Number(props.entityId);
+  if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openClientEntity', role, entityType: props.entityType, id });
 }
 function openDfm(command: 'openDfmEditor' | 'openDfmPreview'): void {
   if (props.classId !== undefined) vscode.postMessage({ command, classId: props.classId });
@@ -82,6 +88,16 @@ function viewProperties(): void {
         {{ selectedIds.includes(String(entityId)) && selectedIds.length > 1 ? `Скопировать ID (${selectedIds.length})` : 'Скопировать ID' }}
         <ContextMenuShortcut v-if="copyShortcut">{{ copyShortcut }}</ContextMenuShortcut>
       </ContextMenuItem>
+      <ContextMenuSub v-if="entityType">
+        <ContextMenuSubTrigger>
+          <HugeiconsIcon :icon="ViewIcon" data-icon="inline-start" />
+          Открыть в клиенте
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuItem @select="openInClient('test')">В тестовой базе</ContextMenuItem>
+          <ContextMenuItem @select="openInClient('main')">В основной базе</ContextMenuItem>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
       <template v-if="classId !== undefined">
         <ContextMenuItem @select="openDfm('openDfmEditor')">
           <HugeiconsIcon :icon="SourceCodeIcon" data-icon="inline-start" />

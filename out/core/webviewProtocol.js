@@ -10,6 +10,7 @@ exports.isClassObjectsWebviewMessage = isClassObjectsWebviewMessage;
 exports.isObjectViewWebviewMessage = isObjectViewWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
 exports.isCopyEntityIdMessage = isCopyEntityIdMessage;
+exports.isOpenClientEntityMessage = isOpenClientEntityMessage;
 exports.isSqlMonitorWebviewMessage = isSqlMonitorWebviewMessage;
 exports.isSqlExecutorWebviewMessage = isSqlExecutorWebviewMessage;
 function isSettingsWebviewMessage(message) {
@@ -96,6 +97,9 @@ function isClassDetailsWebviewMessage(message) {
     if (isCopyEntityIdMessage(message)) {
         return true;
     }
+    if (isOpenClientEntityMessage(message)) {
+        return true;
+    }
     return (message.command === 'loadClassMethods' || message.command === 'loadClassProperties')
         && 'includeInherited' in message
         && typeof message.includeInherited === 'boolean';
@@ -116,7 +120,8 @@ function isClassObjectsWebviewMessage(message) {
     if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
         return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
     }
-    return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message);
+    return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects'
+        || isCopyTableCellsMessage(message) || isCopyEntityIdMessage(message) || isOpenClientEntityMessage(message);
 }
 function isObjectViewWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -162,6 +167,9 @@ function isExplorerWebviewMessage(message) {
     if (isCopyEntityIdMessage(message)) {
         return true;
     }
+    if (isOpenClientEntityMessage(message)) {
+        return true;
+    }
     if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
         return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
     }
@@ -181,6 +189,20 @@ function isCopyEntityIdMessage(message) {
         && message.command === 'copyEntityId'
         && 'id' in message
         && (typeof message.id === 'number' || typeof message.id === 'string');
+}
+function isOpenClientEntityMessage(message) {
+    return typeof message === 'object'
+        && message !== null
+        && 'command' in message
+        && message.command === 'openClientEntity'
+        && 'role' in message
+        && (message.role === 'main' || message.role === 'test')
+        && 'entityType' in message
+        && typeof message.entityType === 'string'
+        && message.entityType.trim().length > 0
+        && 'id' in message
+        && typeof message.id === 'number'
+        && Number.isSafeInteger(message.id);
 }
 function isSqlMonitorWebviewMessage(message) {
     return typeof message === 'object'

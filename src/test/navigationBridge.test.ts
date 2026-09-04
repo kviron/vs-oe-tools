@@ -25,6 +25,7 @@ suite('Navigation bridge', () => {
 			getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
 			updateDatabase: async role => { updatedDatabase = role; },
 			startClient: async role => { startedClient = role; },
+			openClientEntity: async (role, entityType, id) => `oe-${role}:/open/${entityType}/${id}`,
 		}, infoPath);
 		try {
 			const connection = JSON.parse(await readFile(infoPath, 'utf8')) as { url: string; token: string };

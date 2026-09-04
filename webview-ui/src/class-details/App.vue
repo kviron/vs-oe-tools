@@ -391,7 +391,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
         <TabsTrigger value="methods">Методы</TabsTrigger>
         <TabsTrigger value="properties">Свойства</TabsTrigger>
       </TabsList>
-      <EntityContextMenu :entity-id="details.id" :view-objects-class-id="!details.virtual && details.dbtablename ? details.id : undefined">
+      <EntityContextMenu :entity-id="details.id" entity-type="Класс" :view-objects-class-id="!details.virtual && details.dbtablename ? details.id : undefined">
       <TabsContent value="class" class="flex max-w-4xl flex-col gap-2 p-1">
         <FieldGroup class="grid gap-x-5 gap-y-2 lg:grid-cols-2">
           <FieldGroup class="gap-2">
@@ -458,7 +458,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
           </TableRow></TableHeader>
           <TableBody>
             <template v-if="classPropertiesLoading"><TableRow v-for="row in 8" :key="row"><TableCell v-for="column in 8" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell></TableRow></template>
-            <EntityContextMenu v-for="property in classPropertiesLoading ? [] : sortedProperties" :key="property.id" :entity-id="property.id" edit @edit="openProperty(property)" @properties="viewEntityProperties(property.id)">
+            <EntityContextMenu v-for="property in classPropertiesLoading ? [] : sortedProperties" :key="property.id" :entity-id="property.id" entity-type="Свойство" edit @edit="openProperty(property)" @properties="viewEntityProperties(property.id)">
               <TableRow :data-entity-id="property.id" class="cursor-default" title="Двойной щелчок — открыть карточку свойства" @dblclick="openProperty(property)">
                 <TableCell class="max-w-64 px-1 py-0.5" :title="property.name"><span v-if="property.inherited" class="mr-1 text-muted-foreground" title="Наследуемое свойство">↥</span>{{ property.name }}</TableCell>
                 <TableCell class="max-w-48 truncate px-1 py-0.5" :title="property.aliases">{{ property.aliases }}</TableCell>
@@ -510,7 +510,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
               </TableRow>
             </template>
             <TableRow v-if="!attributesLoading && attributeVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${attributeVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
-            <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id" edit @edit="openAttribute(attribute)" @properties="viewEntityProperties(attribute.id)">
+            <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id" entity-type="Атрибут" edit @edit="openAttribute(attribute)" @properties="viewEntityProperties(attribute.id)">
             <TableRow :data-entity-id="attribute.id" class="cursor-default" title="Двойной щелчок — открыть карточку атрибута" @dblclick="openAttribute(attribute)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="attribute.name">
                 <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
@@ -581,7 +581,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
               </TableRow>
             </template>
             <TableRow v-if="!methodsLoading && methodVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${methodVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
-            <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" edit svn @edit="openMethod(method)" @properties="viewEntityProperties(method.id)" @svn-action="methodSvnAction(method, $event)">
+            <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" entity-type="Метод" edit svn @edit="openMethod(method)" @properties="viewEntityProperties(method.id)" @svn-action="methodSvnAction(method, $event)">
             <TableRow :data-entity-id="method.id" class="cursor-default" :class="{ 'bg-primary/15 text-primary': method.id === revealedMethodId }" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>

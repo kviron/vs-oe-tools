@@ -33,7 +33,7 @@ import { getNavigationInfoPath } from '../core/navigationInfo';
 import { svnLog } from '../features/code-history/svnClient';
 import { loadRdboadmDatabases } from '../infrastructure/configuration/rdboadmIni';
 import { getDatabaseSelectionPath, writeDatabaseSelection } from '../core/databaseSelection';
-import { startProjectClient, updateProjectDatabase } from '../features/project/projectCommandService';
+import { openProjectClientEntity, startProjectClient, updateProjectDatabase } from '../features/project/projectCommandService';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
@@ -93,6 +93,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	const updateTestDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateTestDatabase', () => updateProjectDatabase('test'));
 	const startMainClientCommand = vscode.commands.registerCommand('vc-ve-tools.startMainClient', async () => startProjectClient('main', await getClientCredentials()));
 	const startTestClientCommand = vscode.commands.registerCommand('vc-ve-tools.startTestClient', async () => startProjectClient('test', await getClientCredentials()));
+	const openClientEntityCommand = vscode.commands.registerCommand(
+		'vc-ve-tools.openClientEntity',
+		async (role: 'main' | 'test', entityType: string, id: number) => openProjectClientEntity(role, entityType, id, await getClientCredentials()),
+	);
 
 	const explorerProvider = new ExplorerViewProvider(
 		context.workspaceState,
@@ -155,6 +159,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		},
 		updateDatabase: role => updateProjectDatabase(role),
 		startClient: async role => startProjectClient(role, await getClientCredentials()),
+		openClientEntity: async (role, entityType, id) => openProjectClientEntity(role, entityType, id, await getClientCredentials()),
 	};
 	registerNavigationTools(context, navigationActions);
 	navigationBridge = await startNavigationBridge(
@@ -315,6 +320,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		updateTestDatabaseCommand,
 		startMainClientCommand,
 		startTestClientCommand,
+		openClientEntityCommand,
 		explorerProvider,
 		explorerRegistration,
 		packageSyncProvider,

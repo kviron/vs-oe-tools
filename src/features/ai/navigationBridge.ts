@@ -7,7 +7,8 @@ import type { Disposable } from 'vscode';
 import type { NavigationActions } from './navigationTools';
 
 type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source'
-	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client';
+	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client'
+	| 'open_client_entity';
 
 interface NavigationRequest {
 	action: NavigationAction;
@@ -19,6 +20,7 @@ interface NavigationRequest {
 	query?: string;
 	offset?: number;
 	role?: 'main' | 'test';
+	entityType?: string;
 }
 
 export interface NavigationBridge extends Disposable {
@@ -104,9 +106,13 @@ async function handleRequest(
 			await actions.updateDatabase(input.role as 'main' | 'test');
 			respond(response, 200, { ok: true, action: input.action, role: input.role });
 			return;
-		} else {
+		} else if (input.action === 'start_client') {
 			await actions.startClient(input.role as 'main' | 'test');
 			respond(response, 200, { ok: true, action: input.action, role: input.role });
+			return;
+		} else {
+			const uri = await actions.openClientEntity(input.role as 'main' | 'test', input.entityType as string, input.id as number);
+			respond(response, 200, { ok: true, action: input.action, role: input.role, entityType: input.entityType, id: input.id, uri });
 			return;
 		}
 		respond(response, 200, { ok: true, action: input.action, id: input.id });
@@ -143,7 +149,7 @@ function validateRequest(value: unknown): NavigationRequest {
 	const { action, id } = value as Partial<NavigationRequest>;
 	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
 		&& action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
-		&& action !== 'update_database' && action !== 'start_client') {
+		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity') {
 		throw new Error('Unknown navigation action.');
 	}
 	if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
@@ -178,10 +184,14 @@ function validateRequest(value: unknown): NavigationRequest {
 		throw new Error('Package synchronization limit must be an integer from 1 to 500.');
 	}
 	const role = (value as Partial<NavigationRequest>).role;
-	if ((action === 'update_database' || action === 'start_client') && role !== 'main' && role !== 'test') {
+	if ((action === 'update_database' || action === 'start_client' || action === 'open_client_entity') && role !== 'main' && role !== 'test') {
 		throw new Error(`Role must be main or test for ${action}.`);
 	}
-	return { action, id, classId, code, filePath, limit, query, offset, role };
+	const entityType = (value as Partial<NavigationRequest>).entityType;
+	if (action === 'open_client_entity' && (typeof entityType !== 'string' || !entityType.trim())) {
+		throw new Error('entityType is required for open_client_entity.');
+	}
+	return { action, id, classId, code, filePath, limit, query, offset, role, entityType };
 }
 
 function respond(response: ServerResponse, statusCode: number, body: Record<string, unknown>): void {
