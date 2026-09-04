@@ -54,6 +54,7 @@ suite('Navigation bridge', () => {
                 return { methodId, changed: true };
             },
             getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
+            getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
         }, infoPath);
         try {
             const connection = JSON.parse(await (0, promises_1.readFile)(infoPath, 'utf8'));
@@ -85,6 +86,13 @@ suite('Navigation bridge', () => {
             });
             assert.equal(historyResponse.status, 200);
             assert.deepEqual((await historyResponse.json()).entries, [{ revision: 42 }]);
+            const syncResponse = await fetch(connection.url, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ action: 'get_package_sync_changes', query: 'method', offset: 10, limit: 50 }),
+            });
+            assert.equal(syncResponse.status, 200);
+            assert.deepEqual((await syncResponse.json()).items, [{ objectId: 7 }]);
         }
         finally {
             bridge.dispose();

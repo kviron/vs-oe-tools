@@ -121,6 +121,23 @@ async function activate(context) {
                 entries: entries.map(entry => ({ revision: entry.revision, author: entry.author, date: entry.date.toISOString(), message: entry.message })),
             };
         },
+        getPackageSyncChanges: async (query, offset, limit) => {
+            const items = await (0, packageSyncRepository_1.loadPackageSyncItems)();
+            const normalizedQuery = query?.trim().toLocaleLowerCase('ru');
+            const filtered = normalizedQuery
+                ? items.filter(item => [item.objectId, item.objectName, item.objectPath, item.packagePath, item.changeState, item.localPath]
+                    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(normalizedQuery)))
+                : items;
+            return {
+                query: query ?? null,
+                offset,
+                limit,
+                totalCount: filtered.length,
+                count: Math.min(limit, Math.max(0, filtered.length - offset)),
+                hasMore: offset + limit < filtered.length,
+                items: filtered.slice(offset, offset + limit),
+            };
+        },
     };
     (0, navigationTools_1.registerNavigationTools)(context, navigationActions);
     navigationBridge = await (0, navigationBridge_1.startNavigationBridge)(navigationActions, vscode.workspace.workspaceFolders?.[0]

@@ -19,6 +19,7 @@ export interface NavigationActions {
 	revealMethod(classId: number, methodId: number): Promise<void>;
 	updateMethodSource(methodId: number, code: string): Promise<Record<string, unknown>>;
 	getSvnFileHistory(filePath: string, limit: number): Promise<Record<string, unknown>>;
+	getPackageSyncChanges(query: string | undefined, offset: number, limit: number): Promise<Record<string, unknown>>;
 }
 
 export function registerNavigationTools(context: vscode.ExtensionContext, actions: NavigationActions): void {

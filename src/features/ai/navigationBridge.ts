@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import type { Disposable } from 'vscode';
 import type { NavigationActions } from './navigationTools';
 
-type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source' | 'get_svn_file_history';
+type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source' | 'get_svn_file_history' | 'get_package_sync_changes';
 
 interface NavigationRequest {
 	action: NavigationAction;
@@ -15,6 +15,8 @@ interface NavigationRequest {
 	code?: string;
 	filePath?: string;
 	limit?: number;
+	query?: string;
+	offset?: number;
 }
 
 export interface NavigationBridge extends Disposable {
@@ -88,8 +90,12 @@ async function handleRequest(
 			const result = await actions.updateMethodSource(input.id, input.code as string);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
-		} else {
+		} else if (input.action === 'get_svn_file_history') {
 			const result = await actions.getSvnFileHistory(input.filePath as string, input.limit as number);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else {
+			const result = await actions.getPackageSyncChanges(input.query, input.offset as number, input.limit as number);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
 		}
@@ -126,10 +132,10 @@ function validateRequest(value: unknown): NavigationRequest {
 	}
 	const { action, id } = value as Partial<NavigationRequest>;
 	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
-		&& action !== 'update_method_source' && action !== 'get_svn_file_history') {
+		&& action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes') {
 		throw new Error('Unknown navigation action.');
 	}
-	if (action !== 'get_svn_file_history' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
+	if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
 		throw new Error('Navigation ID must be a positive integer.');
 	}
 	const classId = (value as Partial<NavigationRequest>).classId;
@@ -148,7 +154,18 @@ function validateRequest(value: unknown): NavigationRequest {
 	if (action === 'get_svn_file_history' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
 		throw new Error('SVN history limit must be an integer from 1 to 500.');
 	}
-	return { action, id: id as number, classId, code, filePath, limit };
+	const query = (value as Partial<NavigationRequest>).query;
+	const offset = (value as Partial<NavigationRequest>).offset;
+	if (action === 'get_package_sync_changes' && query !== undefined && typeof query !== 'string') {
+		throw new Error('Package synchronization query must be a string.');
+	}
+	if (action === 'get_package_sync_changes' && (!Number.isSafeInteger(offset) || (offset ?? -1) < 0)) {
+		throw new Error('Package synchronization offset must be a non-negative integer.');
+	}
+	if (action === 'get_package_sync_changes' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
+		throw new Error('Package synchronization limit must be an integer from 1 to 500.');
+	}
+	return { action, id: id as number, classId, code, filePath, limit, query, offset };
 }
 
 function respond(response: ServerResponse, statusCode: number, body: Record<string, unknown>): void {

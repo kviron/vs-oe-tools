@@ -18,12 +18,13 @@ const workspacePath = readArgument('--workspace');
 const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? (0, navigationInfo_1.getNavigationInfoPath)(workspacePath);
-const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.13.0' }, {
+const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.14.0' }, {
     instructions: [
         'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
         'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
         'Use get_class_dictionary for paged dictionary rows and search_class_dictionary to find elements by ID, name, or any mapped class attribute.',
         'Before update_method_source, read the complete current method body with get_method_source. Send only the method body, never its name or declaration wrapper.',
+        'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
         'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
         'Direct SQL access is read-only. The only database mutation is update_method_source through the VS Code extension save pipeline. Include relevant object IDs in analysis so navigation can continue.',
     ].join(' '),
@@ -334,6 +335,17 @@ server.registerTool('get_svn_file_history', {
     },
     annotations: { readOnlyHint: true },
 }, async ({ filePath, limit }) => bridgeToolResult({ action: 'get_svn_file_history', filePath, limit: limit ?? 100 }));
+server.registerTool('get_package_sync_changes', {
+    description: 'Return the changed-file/object list shown by East Express package synchronization. Includes IDs, state, revision, MD5, user, date and resolved paths, but never file contents.',
+    inputSchema: {
+        query: z.string().optional().describe('Optional filter by object ID, name, state, package or path'),
+        offset: z.number().int().min(0).optional().describe('Zero-based result offset, default 0'),
+        limit: z.number().int().min(1).max(500).optional().describe('Maximum entries, default 100'),
+    },
+    annotations: { readOnlyHint: true },
+}, async ({ query, offset, limit }) => bridgeToolResult({
+    action: 'get_package_sync_changes', query, offset: offset ?? 0, limit: limit ?? 100,
+}));
 server.registerTool('get_dfm_source', {
     description: 'Read the decoded Windows-1251 DFM source owned by an East Express class. Returns numbered lines and pagination metadata.',
     inputSchema: {

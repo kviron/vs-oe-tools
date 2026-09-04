@@ -69,8 +69,13 @@ async function handleRequest(request, response, token, actions) {
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
-        else {
+        else if (input.action === 'get_svn_file_history') {
             const result = await actions.getSvnFileHistory(input.filePath, input.limit);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else {
+            const result = await actions.getPackageSyncChanges(input.query, input.offset, input.limit);
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
@@ -105,10 +110,10 @@ function validateRequest(value) {
     }
     const { action, id } = value;
     if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
-        && action !== 'update_method_source' && action !== 'get_svn_file_history') {
+        && action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes') {
         throw new Error('Unknown navigation action.');
     }
-    if (action !== 'get_svn_file_history' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
+    if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
         throw new Error('Navigation ID must be a positive integer.');
     }
     const classId = value.classId;
@@ -127,7 +132,18 @@ function validateRequest(value) {
     if (action === 'get_svn_file_history' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
         throw new Error('SVN history limit must be an integer from 1 to 500.');
     }
-    return { action, id: id, classId, code, filePath, limit };
+    const query = value.query;
+    const offset = value.offset;
+    if (action === 'get_package_sync_changes' && query !== undefined && typeof query !== 'string') {
+        throw new Error('Package synchronization query must be a string.');
+    }
+    if (action === 'get_package_sync_changes' && (!Number.isSafeInteger(offset) || (offset ?? -1) < 0)) {
+        throw new Error('Package synchronization offset must be a non-negative integer.');
+    }
+    if (action === 'get_package_sync_changes' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
+        throw new Error('Package synchronization limit must be an integer from 1 to 500.');
+    }
+    return { action, id: id, classId, code, filePath, limit, query, offset };
 }
 function respond(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });
