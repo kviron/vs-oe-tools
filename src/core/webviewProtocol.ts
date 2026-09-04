@@ -1,4 +1,4 @@
-import type { ClassAttribute, ClassDetails, ClassMethod, ClassTreeRow } from '../features/classes/models';
+import type { AttributeDetails, ClassAttribute, ClassDetails, ClassMethod, ClassTreeRow } from '../features/classes/models';
 import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 import type { PackageSyncItem } from '../features/package-sync/models';
@@ -28,6 +28,7 @@ export type ClassDetailsWebviewMessage =
 	| { command: 'loadClassAttributes'; includeInherited: boolean }
 	| { command: 'loadClassMethods'; includeInherited: boolean }
 	| { command: 'openMethod'; id: number }
+	| { command: 'openAttribute'; id: number }
 	| { command: 'methodSvnAction'; id: number; action: 'localDiff' | 'history' | 'blame' }
 	| CopyTableCellsMessage
 	| CopyEntityIdMessage
@@ -51,6 +52,8 @@ export type ClassDetailsHostMessage =
 	| { command: 'classAttributesLoadFailed'; message: string; includeInherited: boolean }
 	| { command: 'classMethodsLoaded'; methods: ClassMethod[]; includeInherited: boolean }
 	| { command: 'classMethodsLoadFailed'; message: string; includeInherited: boolean };
+export type AttributeDetailsWebviewMessage = { command: 'attributeDetailsReady' };
+export type AttributeDetailsHostMessage = { command: 'attributeDetailsLoaded'; details: AttributeDetails };
 export type SqlMonitorWebviewMessage =
 	| { command: 'sqlMonitorReady' }
 	| { command: 'clearSqlMonitor' }
@@ -111,7 +114,7 @@ export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage;
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage;
 
 export function isSettingsWebviewMessage(message: unknown): message is SettingsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -184,7 +187,7 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'loadClassAttributes') {
 		return 'includeInherited' in message && typeof message.includeInherited === 'boolean';
 	}
-	if (message.command === 'openMethod') {
+	if (message.command === 'openMethod' || message.command === 'openAttribute') {
 		return 'id' in message && typeof message.id === 'number';
 	}
 	if (message.command === 'copyTableCells') {
@@ -200,6 +203,10 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	return message.command === 'loadClassMethods'
 		&& 'includeInherited' in message
 		&& typeof message.includeInherited === 'boolean';
+}
+
+export function isAttributeDetailsWebviewMessage(message: unknown): message is AttributeDetailsWebviewMessage {
+	return typeof message === 'object' && message !== null && 'command' in message && message.command === 'attributeDetailsReady';
 }
 
 export function isExplorerWebviewMessage(message: unknown): message is ExplorerWebviewMessage {

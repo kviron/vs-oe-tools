@@ -330,7 +330,7 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
-    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings",
+    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode attribute-details && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",

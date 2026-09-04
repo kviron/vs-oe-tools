@@ -37,6 +37,7 @@ exports.testDatabaseConnection = testDatabaseConnection;
 exports.loadClasses = loadClasses;
 exports.getClassDetails = getClassDetails;
 exports.getClassAttributes = getClassAttributes;
+exports.getClassAttributeDetails = getClassAttributeDetails;
 exports.getClassMethods = getClassMethods;
 const pg_1 = require("pg");
 const iconv = __importStar(require("iconv-lite"));
@@ -76,8 +77,13 @@ async function loadClasses() {
     try {
         await client.connect();
         const classesResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT id, name, seniorid, ord
-			 FROM classes
+            text: `SELECT class.id, class.name, class.seniorid, class.ord,
+			 EXISTS (
+			   SELECT 1 FROM dfltvalues value
+			   JOIN attributes attribute ON attribute.id = value.attrid
+			   WHERE value.seniorid = class.id AND upper(attribute.name) = 'DFM'
+			 ) AS "hasDfm"
+			 FROM classes class
 			 ORDER BY ord NULLS LAST, name`,
             source: 'Загрузка классов',
             database: options.database,
@@ -235,7 +241,7 @@ async function getClassAttributes(classId, className, includeInherited) {
             name: readValue(data, 'name'),
             owner: ownername ?? (readValue(data, 'owner', 'ownername', 'classname') || className),
             signature: readValue(data, 'signature', 'parameters', 'params', 'args', 'declaration'),
-            type: readValue(data, 'type', 'typename', 'attributetype', 'kind'),
+            type: readValue(data, 'type', 'typename', 'attrtype', 'attributetype', 'kind'),
             visibility: readValue(data, 'visibility', 'access', 'scope'),
             package: readValue(data, 'package', 'packagename'),
             line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
@@ -254,6 +260,69 @@ async function getClassAttributes(classId, className, includeInherited) {
             }
         }
         return [...visibleAttributes.values()].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+async function getClassAttributeDetails(attributeId) {
+    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+    try {
+        await client.connect();
+        const cacheKey = databaseCacheKey(options);
+        const table = await cachedLookup(attributeTableCache, cacheKey, async () => {
+            const tables = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
+				 FROM information_schema.columns
+				 WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+				 GROUP BY table_schema, table_name
+				 HAVING lower(table_name) LIKE '%attr%'
+				    AND bool_or(lower(column_name) = 'id')
+				    AND bool_or(lower(column_name) = 'name')
+				    AND bool_or(lower(column_name) IN ('seniorid', 'classid', 'ownerid'))
+				 ORDER BY CASE lower(table_name)
+				   WHEN 'attributes' THEN 0 WHEN 'classattributes' THEN 1 WHEN 'objattributes' THEN 2 ELSE 3 END,
+				   table_name`,
+                source: 'Поиск таблицы атрибутов',
+                database: options.database,
+            });
+            return tables.rows[0];
+        });
+        if (!table) {
+            throw new Error('В схеме базы данных не найдена таблица атрибутов классов.');
+        }
+        const ownerColumn = ['seniorid', 'classid', 'ownerid'].find(column => table.columns.includes(column));
+        if (!ownerColumn) {
+            throw new Error('В таблице атрибутов не найдена ссылка на класс.');
+        }
+        const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
+        const typeJoin = table.columns.includes('attrtype') ? 'LEFT JOIN classes AS attribute_type ON attribute_type.id = attribute.attrtype' : '';
+        const typeColumn = table.columns.includes('attrtype') ? ', attribute_type.name AS attributetypename' : ", ''::text AS attributetypename";
+        const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `SELECT to_jsonb(attribute) AS data, owner.id AS ownerclassid, owner.name AS ownerclassname${typeColumn}
+			 FROM ${source} AS attribute
+			 LEFT JOIN classes AS owner ON owner.id = attribute.${quoteIdentifier(ownerColumn)}
+			 ${typeJoin}
+			 WHERE attribute.id = $1`,
+            values: [attributeId],
+            source: `Карточка атрибута ${attributeId}`,
+            database: options.database,
+        });
+        const row = result.rows[0];
+        if (!row) {
+            throw new Error(`Атрибут ${attributeId} не найден.`);
+        }
+        const creators = await getObjectCreators(client, options.database, cacheKey, [String(attributeId)], 4);
+        return {
+            id: readValue(row.data, 'id'),
+            name: decodeDatabaseText(readValue(row.data, 'name')),
+            ownerClassId: String(row.ownerclassid ?? ''),
+            ownerClassName: row.ownerclassname ?? '',
+            attributeTypeName: row.attributetypename ?? '',
+            createdBy: creators.get(String(attributeId))?.name ?? '',
+            data: decodeAttributeData(row.data),
+        };
     }
     finally {
         await client.end().catch(() => undefined);
@@ -387,5 +456,8 @@ function decodeDatabaseText(value) {
         return value;
     }
     return iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251');
+}
+function decodeAttributeData(data) {
+    return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, typeof value === 'string' ? decodeDatabaseText(value) : value]));
 }
 //# sourceMappingURL=classRepository.js.map

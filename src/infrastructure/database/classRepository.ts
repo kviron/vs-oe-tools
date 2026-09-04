@@ -1,6 +1,6 @@
 import { Client } from 'pg';
 import * as iconv from 'iconv-lite';
-import type { ClassAttribute, ClassCommentRow, ClassDetails, ClassMethod, ClassRow, ClassTreeRow, ObjectMetaDataCountRow } from '../../features/classes/models';
+import type { AttributeDetails, ClassAttribute, ClassCommentRow, ClassDetails, ClassMethod, ClassRow, ClassTreeRow, ObjectMetaDataCountRow } from '../../features/classes/models';
 import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 
@@ -268,6 +268,69 @@ export async function getClassAttributes(classId: number, className: string, inc
 	}
 }
 
+export async function getClassAttributeDetails(attributeId: number): Promise<AttributeDetails> {
+	const options = await getProjectDatabaseOptions();
+	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	try {
+		await client.connect();
+		const cacheKey = databaseCacheKey(options);
+		const table = await cachedLookup(attributeTableCache, cacheKey, async () => {
+			const tables = await executeMonitoredQuery<AttributeTableInfo>(client, {
+				text: `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
+				 FROM information_schema.columns
+				 WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+				 GROUP BY table_schema, table_name
+				 HAVING lower(table_name) LIKE '%attr%'
+				    AND bool_or(lower(column_name) = 'id')
+				    AND bool_or(lower(column_name) = 'name')
+				    AND bool_or(lower(column_name) IN ('seniorid', 'classid', 'ownerid'))
+				 ORDER BY CASE lower(table_name)
+				   WHEN 'attributes' THEN 0 WHEN 'classattributes' THEN 1 WHEN 'objattributes' THEN 2 ELSE 3 END,
+				   table_name`,
+				source: 'Поиск таблицы атрибутов',
+				database: options.database,
+			});
+			return tables.rows[0];
+		});
+		if (!table) {
+			throw new Error('В схеме базы данных не найдена таблица атрибутов классов.');
+		}
+		const ownerColumn = ['seniorid', 'classid', 'ownerid'].find(column => table.columns.includes(column));
+		if (!ownerColumn) {
+			throw new Error('В таблице атрибутов не найдена ссылка на класс.');
+		}
+		const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
+		const typeJoin = table.columns.includes('attrtype') ? 'LEFT JOIN classes AS attribute_type ON attribute_type.id = attribute.attrtype' : '';
+		const typeColumn = table.columns.includes('attrtype') ? ', attribute_type.name AS attributetypename' : ", ''::text AS attributetypename";
+		const result = await executeMonitoredQuery<{ data: Record<string, unknown>; ownerclassid: string; ownerclassname: string; attributetypename: string }, [number]>(client, {
+			text: `SELECT to_jsonb(attribute) AS data, owner.id AS ownerclassid, owner.name AS ownerclassname${typeColumn}
+			 FROM ${source} AS attribute
+			 LEFT JOIN classes AS owner ON owner.id = attribute.${quoteIdentifier(ownerColumn)}
+			 ${typeJoin}
+			 WHERE attribute.id = $1`,
+			values: [attributeId],
+			source: `Карточка атрибута ${attributeId}`,
+			database: options.database,
+		});
+		const row = result.rows[0];
+		if (!row) {
+			throw new Error(`Атрибут ${attributeId} не найден.`);
+		}
+		const creators = await getObjectCreators(client, options.database, cacheKey, [String(attributeId)], 4);
+		return {
+			id: readValue(row.data, 'id'),
+			name: decodeDatabaseText(readValue(row.data, 'name')),
+			ownerClassId: String(row.ownerclassid ?? ''),
+			ownerClassName: row.ownerclassname ?? '',
+			attributeTypeName: row.attributetypename ?? '',
+			createdBy: creators.get(String(attributeId))?.name ?? '',
+			data: decodeAttributeData(row.data),
+		};
+	} finally {
+		await client.end().catch(() => undefined);
+	}
+}
+
 interface ClassMethodRow {
 	data: Record<string, unknown>;
 	ownername: string | null;
@@ -408,4 +471,8 @@ function decodeDatabaseText(value: string): string {
 		return value;
 	}
 	return iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251');
+}
+
+function decodeAttributeData(data: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, typeof value === 'string' ? decodeDatabaseText(value) : value]));
 }

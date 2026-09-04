@@ -5,6 +5,7 @@ const promises_1 = require("node:fs/promises");
 const databaseConfig_1 = require("./databaseConfig");
 const readOnlyQuery_1 = require("./readOnlyQuery");
 const sourceContent_1 = require("./sourceContent");
+const classAttributes_1 = require("./classAttributes");
 // The SDK currently publishes declarations that require DOM and NodeNext types.
 // Runtime imports keep this standalone entrypoint compatible with the extension's Node16 tsconfig.
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
@@ -14,7 +15,7 @@ const workspacePath = readArgument('--workspace');
 const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
 const navigationInfoPath = readOptionalArgument('--navigation-info');
-const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.5.0' });
+const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.7.0' });
 server.registerTool('search_classes', {
     description: 'Find East Express classes by name, title, alias, or numeric ID. Returns stable class IDs that can be passed to VS Code navigation tools.',
     inputSchema: {
@@ -45,6 +46,89 @@ server.registerTool('get_class_details', {
 		   LEFT JOIN classes AS parent ON parent.id = class.parentclassid
 		  WHERE class.id = $1`, [classId]);
     return { found: rows.length === 1, class: rows[0] ?? null };
+}));
+server.registerTool('get_class_attributes', {
+    description: 'Read East Express class attributes for code analysis, including logical type, physical database field, owner and inheritance depth.',
+    inputSchema: {
+        classId: z.number().int().positive().describe('Class ID returned by search_classes'),
+        includeInherited: z.boolean().optional().describe('Include inherited attributes, default true'),
+        includeShadowed: z.boolean().optional().describe('Include overridden ancestor definitions, default false'),
+        query: z.string().optional().describe('Optional case-insensitive filter by attribute name, ID, type or physical database field'),
+        limit: z.number().int().min(1).max(500).optional().describe('Maximum attributes to return, default 200'),
+    },
+    annotations: { readOnlyHint: true },
+}, async ({ classId, includeInherited, includeShadowed, query, limit }) => databaseToolResult(async () => {
+    const classRows = await queryDatabaseRaw('SELECT id, name FROM classes WHERE id = $1', [classId]);
+    const selectedClass = classRows[0];
+    if (!selectedClass) {
+        throw new Error(`Class ${classId} was not found.`);
+    }
+    const tableRows = await queryDatabaseRaw(attributeTableDiscoveryQuery, []);
+    const table = tableRows[0];
+    if (!table) {
+        throw new Error('A class attribute table was not found in the database schema.');
+    }
+    const ownerColumn = ['seniorid', 'classid', 'ownerid'].find(column => table.columns.includes(column));
+    if (!ownerColumn) {
+        throw new Error('The class attribute table does not contain an owner column.');
+    }
+    const orderColumn = ['ord', 'line', 'linenumber', 'name'].find(column => table.columns.includes(column)) ?? 'id';
+    const tableName = `${(0, classAttributes_1.quotePostgresIdentifier)(table.table_schema)}.${(0, classAttributes_1.quotePostgresIdentifier)(table.table_name)}`;
+    const rows = await queryDatabaseRaw(createClassAttributesQuery(tableName, ownerColumn, orderColumn, includeInherited !== false), [classId]);
+    let attributes = rows.map(row => toMcpClassAttribute(row));
+    attributes = (0, classAttributes_1.selectVisibleAttributes)(attributes, includeShadowed === true);
+    const normalizedQuery = query?.trim().toLocaleLowerCase('ru');
+    if (normalizedQuery) {
+        attributes = attributes.filter(attribute => [attribute.id, attribute.name, attribute.type, attribute.dbFieldName, attribute.ownerClassName]
+            .some(value => value.toLocaleLowerCase('ru').includes(normalizedQuery)));
+    }
+    attributes.sort((left, right) => left.name.localeCompare(right.name, 'ru') || left.depth - right.depth);
+    const maximum = limit ?? 200;
+    return {
+        classId: String(selectedClass.id),
+        className: selectedClass.name,
+        includeInherited: includeInherited !== false,
+        includeShadowed: includeShadowed === true,
+        table: `${table.table_schema}.${table.table_name}`,
+        totalCount: attributes.length,
+        count: Math.min(attributes.length, maximum),
+        truncated: attributes.length > maximum,
+        attributes: attributes.slice(0, maximum),
+    };
+}));
+server.registerTool('get_attribute_details', {
+    description: 'Read the complete database record of one East Express class attribute by ID, including its owner, logical type and physical database field.',
+    inputSchema: {
+        attributeId: z.number().int().positive().describe('Attribute ID returned by get_class_attributes'),
+    },
+    annotations: { readOnlyHint: true },
+}, async ({ attributeId }) => databaseToolResult(async () => {
+    const tableRows = await queryDatabaseRaw(attributeTableDiscoveryQuery, []);
+    const table = tableRows[0];
+    if (!table) {
+        throw new Error('A class attribute table was not found in the database schema.');
+    }
+    const ownerColumn = ['seniorid', 'classid', 'ownerid'].find(column => table.columns.includes(column));
+    if (!ownerColumn) {
+        throw new Error('The class attribute table does not contain an owner column.');
+    }
+    const tableName = `${(0, classAttributes_1.quotePostgresIdentifier)(table.table_schema)}.${(0, classAttributes_1.quotePostgresIdentifier)(table.table_name)}`;
+    const typeJoin = table.columns.includes('attrtype') ? 'LEFT JOIN classes AS attribute_type ON attribute_type.id = attribute.attrtype' : '';
+    const typeColumn = table.columns.includes('attrtype') ? ', attribute_type.name AS attributetypename' : ", ''::text AS attributetypename";
+    const rows = await queryDatabaseRaw(`SELECT to_jsonb(attribute) AS data, owner.id AS ownerclassid, owner.name AS ownerclassname, 0 AS depth${typeColumn}
+		 FROM ${tableName} AS attribute
+		 LEFT JOIN classes AS owner ON owner.id = attribute.${(0, classAttributes_1.quotePostgresIdentifier)(ownerColumn)}
+		 ${typeJoin}
+		 WHERE attribute.id = $1`, [attributeId]);
+    const row = rows[0];
+    if (!row) {
+        throw new Error(`Attribute ${attributeId} was not found.`);
+    }
+    return {
+        found: true,
+        table: `${table.table_schema}.${table.table_name}`,
+        attribute: { ...toMcpClassAttribute(row), attributeTypeName: row.attributetypename },
+    };
 }));
 server.registerTool('search_methods', {
     description: 'Find East Express methods by name or numeric ID, optionally within one class. Returns method IDs that can be opened by the VS Code navigation tool.',
@@ -84,8 +168,9 @@ server.registerTool('get_method_source', {
 		   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
 		  WHERE method.id = $1`, [methodId]);
     const method = rows[0];
-    if (!method)
+    if (!method) {
         throw new Error(`Method ${methodId} was not found.`);
+    }
     return {
         found: true,
         methodId: String(method.id),
@@ -107,8 +192,9 @@ server.registerTool('get_dfm_source', {
 }, async ({ classId, startLine, maxLines }) => databaseToolResult(async () => {
     const rows = await queryDatabaseRaw(dfmSourceQuery, [classId]);
     const dfm = rows[0];
-    if (!dfm)
+    if (!dfm) {
         throw new Error(`Class ${classId} does not have its own DFM source.`);
+    }
     return { found: true, ...formatDfmSource(dfm, startLine, maxLines) };
 }));
 server.registerTool('get_dfm_inheritance', {
@@ -269,6 +355,59 @@ async function queryDatabaseRaw(text, values) {
         await client.query('ROLLBACK').catch(() => undefined);
         await client.end().catch(() => undefined);
     }
+}
+const attributeTableDiscoveryQuery = `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
+	FROM information_schema.columns
+	WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+	GROUP BY table_schema, table_name
+	HAVING lower(table_name) LIKE '%attr%'
+	   AND bool_or(lower(column_name) = 'id')
+	   AND bool_or(lower(column_name) = 'name')
+	   AND bool_or(lower(column_name) IN ('seniorid', 'classid', 'ownerid'))
+	ORDER BY CASE lower(table_name)
+	  WHEN 'attributes' THEN 0 WHEN 'classattributes' THEN 1 WHEN 'objattributes' THEN 2 ELSE 3 END,
+	  table_name`;
+function createClassAttributesQuery(tableName, ownerColumn, orderColumn, includeInherited) {
+    const owner = (0, classAttributes_1.quotePostgresIdentifier)(ownerColumn);
+    const order = (0, classAttributes_1.quotePostgresIdentifier)(orderColumn);
+    if (!includeInherited) {
+        return `SELECT to_jsonb(attribute) AS data, class.id AS ownerclassid, class.name AS ownerclassname, 0 AS depth
+			FROM ${tableName} AS attribute
+			JOIN classes AS class ON class.id = attribute.${owner}
+			WHERE attribute.${owner} = $1
+			ORDER BY attribute.${order} NULLS LAST, attribute.id`;
+    }
+    return `WITH RECURSIVE class_chain AS (
+		SELECT class.id, class.seniorid, class.name, 0 AS depth, ARRAY[class.id] AS path
+		FROM classes AS class WHERE class.id = $1
+		UNION ALL
+		SELECT parent.id, parent.seniorid, parent.name, chain.depth + 1, chain.path || parent.id
+		FROM classes AS parent JOIN class_chain AS chain ON parent.id = chain.seniorid
+		WHERE NOT parent.id = ANY(chain.path)
+	)
+	SELECT to_jsonb(attribute) AS data, chain.id AS ownerclassid, chain.name AS ownerclassname, chain.depth
+	FROM class_chain AS chain
+	JOIN ${tableName} AS attribute ON attribute.${owner} = chain.id
+	ORDER BY chain.depth, attribute.${order} NULLS LAST, attribute.id`;
+}
+function toMcpClassAttribute(row) {
+    return {
+        id: (0, classAttributes_1.readAttributeValue)(row.data, 'id'),
+        name: (0, classAttributes_1.readAttributeValue)(row.data, 'name'),
+        ownerClassId: String(row.ownerclassid),
+        ownerClassName: row.ownerclassname,
+        depth: row.depth,
+        inherited: row.depth > 0,
+        type: (0, classAttributes_1.readAttributeValue)(row.data, 'type', 'typename', 'attrtype', 'attributetype', 'kind'),
+        dbFieldName: (0, classAttributes_1.readAttributeValue)(row.data, 'dbfieldname', 'dbfield', 'fieldname', 'columnname'),
+        data: normalizeAttributeRecord(row.data),
+    };
+}
+function normalizeAttributeRecord(data) {
+    return Object.fromEntries(Object.entries(data).map(([key, value]) => [
+        key,
+        typeof value === 'string' && /^\\x[\da-f]+$/i.test(value) ? (0, sourceContent_1.decodeSourceValue)(value) : normalizeValue(value),
+    ]));
 }
 const dfmSourceQuery = `WITH RECURSIVE class_chain AS (
 	SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1

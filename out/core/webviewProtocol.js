@@ -4,6 +4,7 @@ exports.isSettingsWebviewMessage = isSettingsWebviewMessage;
 exports.isPackageSyncWebviewMessage = isPackageSyncWebviewMessage;
 exports.isCodeHistoryWebviewMessage = isCodeHistoryWebviewMessage;
 exports.isClassDetailsWebviewMessage = isClassDetailsWebviewMessage;
+exports.isAttributeDetailsWebviewMessage = isAttributeDetailsWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
 exports.isCopyEntityIdMessage = isCopyEntityIdMessage;
 exports.isSqlMonitorWebviewMessage = isSqlMonitorWebviewMessage;
@@ -57,7 +58,7 @@ function isClassDetailsWebviewMessage(message) {
     if (message.command === 'loadClassAttributes') {
         return 'includeInherited' in message && typeof message.includeInherited === 'boolean';
     }
-    if (message.command === 'openMethod') {
+    if (message.command === 'openMethod' || message.command === 'openAttribute') {
         return 'id' in message && typeof message.id === 'number';
     }
     if (message.command === 'copyTableCells') {
@@ -73,6 +74,9 @@ function isClassDetailsWebviewMessage(message) {
     return message.command === 'loadClassMethods'
         && 'includeInherited' in message
         && typeof message.includeInherited === 'boolean';
+}
+function isAttributeDetailsWebviewMessage(message) {
+    return typeof message === 'object' && message !== null && 'command' in message && message.command === 'attributeDetailsReady';
 }
 function isExplorerWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -99,6 +103,9 @@ function isExplorerWebviewMessage(message) {
     }
     if (isCopyEntityIdMessage(message)) {
         return true;
+    }
+    if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
+        return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
     }
     return message.command === 'openClass' && 'id' in message && 'pinned' in message
         && typeof message.id === 'number' && typeof message.pinned === 'boolean';

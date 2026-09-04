@@ -20,6 +20,7 @@ import { startNavigationBridge, type NavigationBridge } from '../features/ai/nav
 import { registerDfmEditor } from '../features/dfm/dfmEditorProvider';
 import { openDfmPreview } from '../features/dfm/dfmPreview';
 import { registerDfmLanguageFeatures } from '../features/dfm/dfmLanguageFeatures';
+import { closeAttributeDetailPanels } from '../features/classes/views/attributeDetailsPanelManager';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
@@ -108,6 +109,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
 		if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
 			closeClassDetailPanels();
+			closeAttributeDetailPanels();
 			explorerProvider.refreshClasses();
 			packageSyncProvider.refreshForDatabaseChange();
 		}

@@ -5,6 +5,7 @@ import { getClassAttributes, getClassDetails, getClassMethods } from '../../../i
 import type { ClassDetails } from '../models';
 import type { MethodEditorProvider } from '../../methods/methodEditorProvider';
 import { logTableSelection } from '../../../core/tableSelectionLogger';
+import { openAttributeDetails } from './attributeDetailsPanelManager';
 
 interface ClassDetailPanel {
 	panel: vscode.WebviewPanel;
@@ -84,6 +85,14 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 			}
 			if (message.command === 'openMethod') {
 				await methodEditor.open(message.id);
+				return;
+			}
+			if (message.command === 'openAttribute') {
+				try {
+					await openAttributeDetails(context, message.id);
+				} catch (error) {
+					void vscode.window.showErrorMessage(`Не удалось открыть атрибут: ${error instanceof Error ? error.message : String(error)}`);
+				}
 				return;
 			}
 			if (message.command === 'methodSvnAction') {

@@ -77,6 +77,16 @@ export interface ClassAttribute {
 	inherited: boolean;
 }
 
+export interface AttributeDetails {
+	id: string;
+	name: string;
+	ownerClassId: string;
+	ownerClassName: string;
+	attributeTypeName: string;
+	createdBy: string;
+	data: Record<string, unknown>;
+}
+
 export interface ClassMethod {
 	id: string;
 	name: string;

@@ -40,6 +40,7 @@ const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
 const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
+const attributeDetailsPanelManager_1 = require("./attributeDetailsPanelManager");
 const classDetailPanels = new Map();
 let previewClassPanelId;
 function postDetails(entry) {
@@ -104,6 +105,15 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
             }
             if (message.command === 'openMethod') {
                 await methodEditor.open(message.id);
+                return;
+            }
+            if (message.command === 'openAttribute') {
+                try {
+                    await (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, message.id);
+                }
+                catch (error) {
+                    void vscode.window.showErrorMessage(`Не удалось открыть атрибут: ${error instanceof Error ? error.message : String(error)}`);
+                }
                 return;
             }
             if (message.command === 'methodSvnAction') {

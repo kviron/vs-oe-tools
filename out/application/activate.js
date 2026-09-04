@@ -53,11 +53,17 @@ const registerMcpServer_1 = require("../mcp/registerMcpServer");
 const extensionLogService_1 = require("../infrastructure/logging/extensionLogService");
 const navigationTools_1 = require("../features/ai/navigationTools");
 const navigationBridge_1 = require("../features/ai/navigationBridge");
+const dfmEditorProvider_1 = require("../features/dfm/dfmEditorProvider");
+const dfmPreview_1 = require("../features/dfm/dfmPreview");
+const dfmLanguageFeatures_1 = require("../features/dfm/dfmLanguageFeatures");
+const attributeDetailsPanelManager_1 = require("../features/classes/views/attributeDetailsPanelManager");
 async function activate(context) {
     const extensionLogger = new extensionLogService_1.ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
     await extensionLogger.initialize();
     let navigationBridge;
     const methodEditor = (0, methodEditorProvider_1.registerMethodEditor)(context);
+    const dfmEditor = (0, dfmEditorProvider_1.registerDfmEditor)(context);
+    (0, dfmLanguageFeatures_1.registerDfmLanguageFeatures)(context, dfmEditor);
     (0, codeHistoryService_1.registerCodeHistory)(context, methodEditor);
     const extensionConfiguration = vscode.workspace.getConfiguration('vcVeTools');
     let isUpdatingSetting = false;
@@ -83,7 +89,7 @@ async function activate(context) {
     };
     const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge);
     const settingsRegistration = vscode.window.registerWebviewViewProvider(settingsViewProvider_1.SettingsViewProvider.viewType, settingsProvider, { webviewOptions: { retainContextWhenHidden: true } });
-    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned));
+    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
     const navigationActions = {
         revealClass: id => explorerProvider.revealClass(id),
@@ -107,6 +113,7 @@ async function activate(context) {
     const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
         if (event.affectsConfiguration(`vcVeTools.${constants_1.databaseRoleSetting}`)) {
             (0, classDetailsPanelManager_1.closeClassDetailPanels)();
+            (0, attributeDetailsPanelManager_1.closeAttributeDetailPanels)();
             explorerProvider.refreshClasses();
             packageSyncProvider.refreshForDatabaseChange();
         }
