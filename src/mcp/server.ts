@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import type { DatabaseRole } from '../features/classes/models';
 import { loadMcpDatabaseOptions } from './databaseConfig';
 import { defaultMcpRowLimit, prepareReadOnlyQuery } from './readOnlyQuery';
+import { createSourceExcerpt, decodeSourceValue, defaultSourceLineLimit, maximumSourceLineLimit } from './sourceContent';
 
 // The SDK currently publishes declarations that require DOM and NodeNext types.
 // Runtime imports keep this standalone entrypoint compatible with the extension's Node16 tsconfig.
@@ -14,7 +15,7 @@ const workspacePath = readArgument('--workspace');
 const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
 const navigationInfoPath = readOptionalArgument('--navigation-info');
-const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.4.0' });
+const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.5.0' });
 
 server.registerTool('search_classes', {
 	description: 'Find East Express classes by name, title, alias, or numeric ID. Returns stable class IDs that can be passed to VS Code navigation tools.',
@@ -77,6 +78,75 @@ server.registerTool('search_methods', {
 		[query.trim(), `%${query.trim()}%`, classId ?? null, limit ?? 20],
 	);
 	return { query, classId: classId ?? null, count: rows.length, methods: rows };
+}));
+
+const sourceExcerptSchema = {
+	startLine: z.number().int().min(1).optional().describe('First source line to return, default 1'),
+	maxLines: z.number().int().min(1).max(maximumSourceLineLimit).optional().describe(`Maximum source lines to return, default ${defaultSourceLineLimit}`),
+};
+
+server.registerTool('get_method_source', {
+	description: 'Read decoded Windows-1251 source code of an East Express method for analysis. Returns numbered lines and pagination metadata.',
+	inputSchema: {
+		methodId: z.number().int().positive().describe('Method ID returned by search_methods'),
+		...sourceExcerptSchema,
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ methodId, startLine, maxLines }: { methodId: number; startLine?: number; maxLines?: number }) => databaseToolResult(async () => {
+	const rows = await queryDatabaseRaw<MethodSourceRow>(
+		`SELECT method.id, method.name, method.seniorid AS classid, owner.name AS classname,
+		        method.methtype, method.code, pg_typeof(method.code)::text AS codetype
+		   FROM methods AS method
+		   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+		  WHERE method.id = $1`,
+		[methodId],
+	);
+	const method = rows[0];
+	if (!method) {
+		throw new Error(`Method ${methodId} was not found.`);
+	}
+	return {
+		found: true,
+		methodId: String(method.id),
+		name: method.name,
+		classId: String(method.classid),
+		className: method.classname,
+		methodType: method.methtype,
+		codeType: method.codetype,
+		source: createSourceExcerpt(decodeSourceValue(method.code), startLine, maxLines),
+	};
+}));
+
+server.registerTool('get_dfm_source', {
+	description: 'Read the decoded Windows-1251 DFM source owned by an East Express class. Returns numbered lines and pagination metadata.',
+	inputSchema: {
+		classId: z.number().int().positive().describe('Class ID returned by search_classes'),
+		...sourceExcerptSchema,
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ classId, startLine, maxLines }: { classId: number; startLine?: number; maxLines?: number }) => databaseToolResult(async () => {
+	const rows = await queryDatabaseRaw<DfmSourceRow>(dfmSourceQuery, [classId]);
+	const dfm = rows[0];
+	if (!dfm) {
+		throw new Error(`Class ${classId} does not have its own DFM source.`);
+	}
+	return { found: true, ...formatDfmSource(dfm, startLine, maxLines) };
+}));
+
+server.registerTool('get_dfm_inheritance', {
+	description: 'Read decoded DFM sources across the inheritance chain of an East Express class, ordered from ancestor to selected class.',
+	inputSchema: {
+		classId: z.number().int().positive().describe('Class ID returned by search_classes'),
+		...sourceExcerptSchema,
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ classId, startLine, maxLines }: { classId: number; startLine?: number; maxLines?: number }) => databaseToolResult(async () => {
+	const rows = await queryDatabaseRaw<DfmSourceRow & { depth: number }>(dfmInheritanceQuery, [classId]);
+	return {
+		classId: String(classId),
+		count: rows.length,
+		sources: rows.map(row => ({ depth: row.depth, ...formatDfmSource(row, startLine, maxLines) })),
+	};
 }));
 
 server.registerTool('reveal_class', {
@@ -210,6 +280,10 @@ function normalizeValue(value: unknown): unknown {
 }
 
 async function queryDatabase(text: string, values: unknown[]): Promise<Record<string, unknown>[]> {
+	return (await queryDatabaseRaw<Record<string, unknown>>(text, values)).map(normalizeRow);
+}
+
+async function queryDatabaseRaw<Row extends Record<string, unknown>>(text: string, values: unknown[]): Promise<Row[]> {
 	const options = await loadMcpDatabaseOptions(workspacePath, databaseRole);
 	const client = new Client({ ...options, application_name: 'vc-ve-tools-mcp', connectionTimeoutMillis: 5000 });
 	try {
@@ -217,12 +291,82 @@ async function queryDatabase(text: string, values: unknown[]): Promise<Record<st
 		await client.query('BEGIN READ ONLY');
 		await client.query("SET LOCAL statement_timeout = '10s'");
 		await client.query("SET LOCAL lock_timeout = '2s'");
-		const result = await client.query<Record<string, unknown>>(text, values);
-		return result.rows.map(normalizeRow);
+		const result = await client.query<Row>(text, values);
+		return result.rows;
 	} finally {
 		await client.query('ROLLBACK').catch(() => undefined);
 		await client.end().catch(() => undefined);
 	}
+}
+
+interface MethodSourceRow extends Record<string, unknown> {
+	id: number | string;
+	name: string;
+	classid: number | string;
+	classname: string | null;
+	methtype: number | null;
+	code: unknown;
+	codetype: string;
+}
+
+interface DfmSourceRow extends Record<string, unknown> {
+	classid: number | string;
+	classname: string;
+	attrid: number | string;
+	valueid: number | string;
+	valuename: string | null;
+	defvalue: unknown;
+	valuetype: string;
+}
+
+const dfmSourceQuery = `WITH RECURSIVE class_chain AS (
+	SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+	UNION ALL
+	SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+	FROM classes parent JOIN class_chain chain ON parent.id = chain.seniorid
+	WHERE NOT parent.id = ANY(chain.path)
+), dfm_attribute AS (
+	SELECT attribute.id, chain.depth
+	FROM class_chain chain JOIN attributes attribute ON attribute.seniorid = chain.id
+	WHERE upper(attribute.name) = 'DFM'
+	ORDER BY chain.depth LIMIT 1
+)
+SELECT class.id AS classid, class.name AS classname, attribute.id AS attrid,
+	value.id AS valueid, value.name AS valuename, value.defvalue,
+	pg_typeof(value.defvalue)::text AS valuetype
+FROM classes class CROSS JOIN dfm_attribute attribute
+JOIN dfltvalues value ON value.seniorid = class.id AND value.attrid = attribute.id
+WHERE class.id = $1`;
+
+const dfmInheritanceQuery = `WITH RECURSIVE class_chain AS (
+	SELECT id, name, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+	UNION ALL
+	SELECT parent.id, parent.name, parent.seniorid, chain.depth + 1, chain.path || parent.id
+	FROM classes parent JOIN class_chain chain ON parent.id = chain.seniorid
+	WHERE NOT parent.id = ANY(chain.path)
+), dfm_attributes AS (
+	SELECT attribute.id FROM class_chain chain
+	JOIN attributes attribute ON attribute.seniorid = chain.id
+	WHERE upper(attribute.name) = 'DFM'
+)
+SELECT chain.id AS classid, chain.name AS classname, value.attrid,
+	value.id AS valueid, value.name AS valuename, value.defvalue,
+	pg_typeof(value.defvalue)::text AS valuetype, chain.depth
+FROM class_chain chain
+JOIN dfltvalues value ON value.seniorid = chain.id
+WHERE value.attrid IN (SELECT id FROM dfm_attributes)
+ORDER BY chain.depth DESC`;
+
+function formatDfmSource(row: DfmSourceRow, startLine?: number, maxLines?: number): Record<string, unknown> {
+	return {
+		classId: String(row.classid),
+		className: row.classname,
+		attributeId: String(row.attrid),
+		valueId: String(row.valueid),
+		valueName: row.valuename ?? 'DFM',
+		valueType: row.valuetype,
+		source: createSourceExcerpt(decodeSourceValue(row.defvalue), startLine, maxLines),
+	};
 }
 
 async function databaseToolResult(load: () => Promise<Record<string, unknown>>) {

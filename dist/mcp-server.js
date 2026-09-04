@@ -5452,7 +5452,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv2) {
+    function InternalCodec(codecOptions, iconv3) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5464,7 +5464,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv2.defaultCharUnicode;
+          this.defaultCharUnicode = iconv3.defaultCharUnicode;
         }
       }
     }
@@ -5621,8 +5621,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv2) {
-      this.iconv = iconv2;
+    function Utf32Codec(codecOptions, iconv3) {
+      this.iconv = iconv3;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5750,8 +5750,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv2) {
-      this.iconv = iconv2;
+    function Utf32AutoCodec(options, iconv3) {
+      this.iconv = iconv3;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5901,8 +5901,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv2) {
-      this.iconv = iconv2;
+    function Utf16Codec(codecOptions, iconv3) {
+      this.iconv = iconv3;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6000,8 +6000,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv2) {
-      this.iconv = iconv2;
+    function Utf7Codec(codecOptions, iconv3) {
+      this.iconv = iconv3;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6083,8 +6083,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv2) {
-      this.iconv = iconv2;
+    function Utf7IMAPCodec(codecOptions, iconv3) {
+      this.iconv = iconv3;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6217,7 +6217,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv2) {
+    function SBCSCodec(codecOptions, iconv3) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6232,7 +6232,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv2.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv3.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6899,7 +6899,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv2) {
+    function DBCSCodec(codecOptions, iconv3) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6948,7 +6948,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv2.defaultCharUnicode;
+      this.defaultCharUnicode = iconv3.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6972,7 +6972,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv2.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv3.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8977,7 +8977,7 @@ var require_lib3 = __commonJS({
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode2(buf, encoding, options) {
+    module2.exports.decode = function decode3(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -47314,6 +47314,35 @@ function stripLeadingComments(sql) {
   }
 }
 
+// src/mcp/sourceContent.ts
+var iconv2 = __toESM(require_lib3());
+var defaultSourceLineLimit = 1e3;
+var maximumSourceLineLimit = 5e3;
+function decodeSourceValue(value) {
+  if (Buffer.isBuffer(value)) {
+    return iconv2.decode(value, "win1251");
+  }
+  const text = value === null || value === void 0 ? "" : String(value);
+  const bytea = text.match(/^\\x([\da-f]+)$/i);
+  return bytea && bytea[1].length % 2 === 0 ? iconv2.decode(Buffer.from(bytea[1], "hex"), "win1251") : text;
+}
+function createSourceExcerpt(source, requestedStartLine = 1, requestedMaxLines = defaultSourceLineLimit) {
+  const lines = source.split(/\r?\n/);
+  const totalLines = lines.length;
+  const startLine = Math.min(Math.max(Math.trunc(requestedStartLine), 1), totalLines);
+  const maxLines = Math.min(Math.max(Math.trunc(requestedMaxLines), 1), maximumSourceLineLimit);
+  const selected = lines.slice(startLine - 1, startLine - 1 + maxLines);
+  const endLine = startLine + selected.length - 1;
+  const width = String(endLine).length;
+  return {
+    text: selected.map((line, index) => `${String(startLine + index).padStart(width, " ")} | ${line}`).join("\n"),
+    totalLines,
+    startLine,
+    endLine,
+    truncated: startLine > 1 || endLine < totalLines
+  };
+}
+
 // src/mcp/server.ts
 var { McpServer } = require_mcp();
 var { StdioServerTransport } = require_stdio2();
@@ -47322,7 +47351,7 @@ var workspacePath = readArgument("--workspace");
 var databaseRole = readRoleArgument();
 var logsPath = readOptionalArgument("--logs");
 var navigationInfoPath = readOptionalArgument("--navigation-info");
-var server = new McpServer({ name: "vc-ve-tools-database", version: "0.4.0" });
+var server = new McpServer({ name: "vc-ve-tools-database", version: "0.5.0" });
 server.registerTool("search_classes", {
   description: "Find East Express classes by name, title, alias, or numeric ID. Returns stable class IDs that can be passed to VS Code navigation tools.",
   inputSchema: {
@@ -47382,6 +47411,71 @@ server.registerTool("search_methods", {
     [query.trim(), `%${query.trim()}%`, classId ?? null, limit ?? 20]
   );
   return { query, classId: classId ?? null, count: rows.length, methods: rows };
+}));
+var sourceExcerptSchema = {
+  startLine: z.number().int().min(1).optional().describe("First source line to return, default 1"),
+  maxLines: z.number().int().min(1).max(maximumSourceLineLimit).optional().describe(`Maximum source lines to return, default ${defaultSourceLineLimit}`)
+};
+server.registerTool("get_method_source", {
+  description: "Read decoded Windows-1251 source code of an East Express method for analysis. Returns numbered lines and pagination metadata.",
+  inputSchema: {
+    methodId: z.number().int().positive().describe("Method ID returned by search_methods"),
+    ...sourceExcerptSchema
+  },
+  annotations: { readOnlyHint: true }
+}, async ({ methodId, startLine, maxLines }) => databaseToolResult(async () => {
+  const rows = await queryDatabaseRaw(
+    `SELECT method.id, method.name, method.seniorid AS classid, owner.name AS classname,
+		        method.methtype, method.code, pg_typeof(method.code)::text AS codetype
+		   FROM methods AS method
+		   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+		  WHERE method.id = $1`,
+    [methodId]
+  );
+  const method = rows[0];
+  if (!method) {
+    throw new Error(`Method ${methodId} was not found.`);
+  }
+  return {
+    found: true,
+    methodId: String(method.id),
+    name: method.name,
+    classId: String(method.classid),
+    className: method.classname,
+    methodType: method.methtype,
+    codeType: method.codetype,
+    source: createSourceExcerpt(decodeSourceValue(method.code), startLine, maxLines)
+  };
+}));
+server.registerTool("get_dfm_source", {
+  description: "Read the decoded Windows-1251 DFM source owned by an East Express class. Returns numbered lines and pagination metadata.",
+  inputSchema: {
+    classId: z.number().int().positive().describe("Class ID returned by search_classes"),
+    ...sourceExcerptSchema
+  },
+  annotations: { readOnlyHint: true }
+}, async ({ classId, startLine, maxLines }) => databaseToolResult(async () => {
+  const rows = await queryDatabaseRaw(dfmSourceQuery, [classId]);
+  const dfm = rows[0];
+  if (!dfm) {
+    throw new Error(`Class ${classId} does not have its own DFM source.`);
+  }
+  return { found: true, ...formatDfmSource(dfm, startLine, maxLines) };
+}));
+server.registerTool("get_dfm_inheritance", {
+  description: "Read decoded DFM sources across the inheritance chain of an East Express class, ordered from ancestor to selected class.",
+  inputSchema: {
+    classId: z.number().int().positive().describe("Class ID returned by search_classes"),
+    ...sourceExcerptSchema
+  },
+  annotations: { readOnlyHint: true }
+}, async ({ classId, startLine, maxLines }) => databaseToolResult(async () => {
+  const rows = await queryDatabaseRaw(dfmInheritanceQuery, [classId]);
+  return {
+    classId: String(classId),
+    count: rows.length,
+    sources: rows.map((row) => ({ depth: row.depth, ...formatDfmSource(row, startLine, maxLines) }))
+  };
 }));
 server.registerTool("reveal_class", {
   description: "Reveal an East Express class in the vc-ve-tools Explorer without using mouse or keyboard automation. First resolve the class ID with search_classes.",
@@ -47505,6 +47599,9 @@ function normalizeValue(value) {
   return value;
 }
 async function queryDatabase(text, values) {
+  return (await queryDatabaseRaw(text, values)).map(normalizeRow);
+}
+async function queryDatabaseRaw(text, values) {
   const options = await loadMcpDatabaseOptions(workspacePath, databaseRole);
   const client = new Client({ ...options, application_name: "vc-ve-tools-mcp", connectionTimeoutMillis: 5e3 });
   try {
@@ -47513,11 +47610,58 @@ async function queryDatabase(text, values) {
     await client.query("SET LOCAL statement_timeout = '10s'");
     await client.query("SET LOCAL lock_timeout = '2s'");
     const result = await client.query(text, values);
-    return result.rows.map(normalizeRow);
+    return result.rows;
   } finally {
     await client.query("ROLLBACK").catch(() => void 0);
     await client.end().catch(() => void 0);
   }
+}
+var dfmSourceQuery = `WITH RECURSIVE class_chain AS (
+	SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+	UNION ALL
+	SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+	FROM classes parent JOIN class_chain chain ON parent.id = chain.seniorid
+	WHERE NOT parent.id = ANY(chain.path)
+), dfm_attribute AS (
+	SELECT attribute.id, chain.depth
+	FROM class_chain chain JOIN attributes attribute ON attribute.seniorid = chain.id
+	WHERE upper(attribute.name) = 'DFM'
+	ORDER BY chain.depth LIMIT 1
+)
+SELECT class.id AS classid, class.name AS classname, attribute.id AS attrid,
+	value.id AS valueid, value.name AS valuename, value.defvalue,
+	pg_typeof(value.defvalue)::text AS valuetype
+FROM classes class CROSS JOIN dfm_attribute attribute
+JOIN dfltvalues value ON value.seniorid = class.id AND value.attrid = attribute.id
+WHERE class.id = $1`;
+var dfmInheritanceQuery = `WITH RECURSIVE class_chain AS (
+	SELECT id, name, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+	UNION ALL
+	SELECT parent.id, parent.name, parent.seniorid, chain.depth + 1, chain.path || parent.id
+	FROM classes parent JOIN class_chain chain ON parent.id = chain.seniorid
+	WHERE NOT parent.id = ANY(chain.path)
+), dfm_attributes AS (
+	SELECT attribute.id FROM class_chain chain
+	JOIN attributes attribute ON attribute.seniorid = chain.id
+	WHERE upper(attribute.name) = 'DFM'
+)
+SELECT chain.id AS classid, chain.name AS classname, value.attrid,
+	value.id AS valueid, value.name AS valuename, value.defvalue,
+	pg_typeof(value.defvalue)::text AS valuetype, chain.depth
+FROM class_chain chain
+JOIN dfltvalues value ON value.seniorid = chain.id
+WHERE value.attrid IN (SELECT id FROM dfm_attributes)
+ORDER BY chain.depth DESC`;
+function formatDfmSource(row, startLine, maxLines) {
+  return {
+    classId: String(row.classid),
+    className: row.classname,
+    attributeId: String(row.attrid),
+    valueId: String(row.valueid),
+    valueName: row.valuename ?? "DFM",
+    valueType: row.valuetype,
+    source: createSourceExcerpt(decodeSourceValue(row.defvalue), startLine, maxLines)
+  };
 }
 async function databaseToolResult(load) {
   try {
