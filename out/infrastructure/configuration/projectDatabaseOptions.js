@@ -40,6 +40,7 @@ const promises_1 = require("node:fs/promises");
 const vscode = __importStar(require("vscode"));
 const iconv = __importStar(require("iconv-lite"));
 const constants_1 = require("../../core/constants");
+const rdboadmIni_1 = require("./rdboadmIni");
 function parseVarsFile(content) {
     const variables = new Map();
     for (const sourceLine of content.split(/\r?\n/)) {
@@ -73,6 +74,19 @@ async function getProjectDatabaseOptions() {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
         throw new Error('Сначала откройте папку проекта.');
+    }
+    const selectedProfile = vscode.workspace.getConfiguration('vcVeTools').get(constants_1.databaseProfileSetting, '');
+    try {
+        const { databases } = await (0, rdboadmIni_1.loadRdboadmDatabases)(workspaceFolder.uri.fsPath);
+        const selected = databases.find(database => database.id.toLowerCase() === selectedProfile.toLowerCase()) ?? databases[0];
+        if (selected) {
+            return (0, rdboadmIni_1.rdboadmDatabaseOptions)(selected);
+        }
+    }
+    catch (error) {
+        if (selectedProfile) {
+            throw error;
+        }
     }
     const varsPath = vscode.Uri.joinPath(workspaceFolder.uri, 'Vars.bat');
     let varsContent;

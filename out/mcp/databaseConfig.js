@@ -37,7 +37,20 @@ exports.loadMcpDatabaseOptions = loadMcpDatabaseOptions;
 const promises_1 = require("node:fs/promises");
 const path = __importStar(require("node:path"));
 const iconv = __importStar(require("iconv-lite"));
-async function loadMcpDatabaseOptions(workspacePath, role) {
+const rdboadmIni_1 = require("../infrastructure/configuration/rdboadmIni");
+async function loadMcpDatabaseOptions(workspacePath, role, profile) {
+    try {
+        const { databases } = await (0, rdboadmIni_1.loadRdboadmDatabases)(workspacePath);
+        const selected = databases.find(database => database.id.toLowerCase() === profile?.toLowerCase()) ?? databases[0];
+        if (selected) {
+            return (0, rdboadmIni_1.rdboadmDatabaseOptions)(selected);
+        }
+    }
+    catch (error) {
+        if (profile) {
+            throw error;
+        }
+    }
     const varsContent = iconv.decode(await (0, promises_1.readFile)(path.join(workspacePath, 'Vars.bat')), 'win1251');
     const variables = parseVarsFile(varsContent);
     const password = roleVariable(variables, 'oedbmspassword', role);

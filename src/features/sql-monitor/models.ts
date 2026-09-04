@@ -1,5 +1,6 @@
 export type SqlOperation = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'DDL' | 'OTHER';
 export type SqlQueryStatus = 'running' | 'success' | 'error';
+export type { SqlQueryCategory } from './queryCategory';
 export type SqlMonitorValue = string | number | boolean | null;
 
 export interface SqlQueryRecord {
@@ -17,5 +18,15 @@ export interface SqlQueryRecord {
 	rows: Record<string, SqlMonitorValue>[];
 	resultTruncated: boolean;
 	error?: string;
+	externalQueryId?: number;
+	externalFingerprint?: string;
+	userId?: number;
+	userName?: string;
+	computerName?: string;
+	threadId?: number;
+	sqlPattern?: string;
+	creationTimeLabel?: string;
+	firstTable?: string;
+	openTimeMs?: number;
+	execTimeMs?: number;
 }
-

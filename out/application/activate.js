@@ -44,6 +44,7 @@ const settingsViewProvider_1 = require("../features/settings/settingsViewProvide
 const classDetailsPanelManager_1 = require("../features/classes/views/classDetailsPanelManager");
 const explorerViewProvider_1 = require("../features/explorer/explorerViewProvider");
 const sqlMonitorPanelManager_1 = require("../features/sql-monitor/views/sqlMonitorPanelManager");
+const sqlMonitorService_1 = require("../features/sql-monitor/sqlMonitorService");
 const sqlExecutorViewProvider_1 = require("../features/sql-executor/sqlExecutorViewProvider");
 const methodEditorProvider_1 = require("../features/methods/methodEditorProvider");
 const methodLanguageFeatures_1 = require("../features/methods/methodLanguageFeatures");
@@ -58,16 +59,39 @@ const dfmEditorProvider_1 = require("../features/dfm/dfmEditorProvider");
 const dfmPreview_1 = require("../features/dfm/dfmPreview");
 const dfmLanguageFeatures_1 = require("../features/dfm/dfmLanguageFeatures");
 const attributeDetailsPanelManager_1 = require("../features/classes/views/attributeDetailsPanelManager");
+const propertyDetailsPanelManager_1 = require("../features/classes/views/propertyDetailsPanelManager");
+const entityPropertiesPanelManager_1 = require("../features/classes/views/entityPropertiesPanelManager");
 const objectSearchRepository_1 = require("../infrastructure/database/objectSearchRepository");
 const agentSkillInstaller_1 = require("../features/ai/agentSkillInstaller");
 const classObjectsPanelManager_1 = require("../features/classes/views/classObjectsPanelManager");
 const objectViewPanelManager_1 = require("../features/classes/views/objectViewPanelManager");
 const navigationInfo_1 = require("../core/navigationInfo");
 const svnClient_1 = require("../features/code-history/svnClient");
+const rdboadmIni_1 = require("../infrastructure/configuration/rdboadmIni");
+const databaseSelection_1 = require("../core/databaseSelection");
+const projectCommandService_1 = require("../features/project/projectCommandService");
 async function activate(context) {
+    const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
+    await sqlMonitorService_1.sqlMonitorService.initialize(sqlMonitorHistoryPath);
     const extensionLogger = new extensionLogService_1.ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
     await extensionLogger.initialize();
     let navigationBridge;
+    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const databaseSelectionPath = workspacePath ? (0, databaseSelection_1.getDatabaseSelectionPath)(context.globalStorageUri.fsPath, workspacePath) : undefined;
+    const clientPasswordKey = `vcVeTools.clientPassword:${workspacePath?.toLowerCase() ?? 'default'}`;
+    const getClientCredentials = async () => ({
+        username: vscode.workspace.getConfiguration('vcVeTools').get(constants_1.clientUsernameSetting, ''),
+        password: await context.secrets.get(clientPasswordKey),
+    });
+    const setClientCredentials = async (credentials) => {
+        await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.clientUsernameSetting, credentials.username ?? '', vscode.ConfigurationTarget.Workspace);
+        if (credentials.password) {
+            await context.secrets.store(clientPasswordKey, credentials.password);
+        }
+    };
+    if (workspacePath && databaseSelectionPath) {
+        await (0, databaseSelection_1.writeDatabaseSelection)(databaseSelectionPath, workspacePath, vscode.workspace.getConfiguration('vcVeTools').get(constants_1.databaseProfileSetting, ''));
+    }
     const methodEditor = (0, methodEditorProvider_1.registerMethodEditor)(context);
     const dfmEditor = (0, dfmEditorProvider_1.registerDfmEditor)(context);
     (0, dfmLanguageFeatures_1.registerDfmLanguageFeatures)(context, dfmEditor);
@@ -94,9 +118,13 @@ async function activate(context) {
             isUpdatingSetting = false;
         }
     };
-    const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge);
-    const settingsRegistration = vscode.window.registerWebviewViewProvider(settingsViewProvider_1.SettingsViewProvider.viewType, settingsProvider, { webviewOptions: { retainContextWhenHidden: true } });
-    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id), objectSearchRepository_1.searchDatabaseObjects, id => methodEditor.open(id), id => (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, id), id => (0, classObjectsPanelManager_1.openClassObjects)(context, id), id => (0, objectViewPanelManager_1.openObjectView)(context, id));
+    const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials);
+    const openSettingsCommand = vscode.commands.registerCommand('vc-ve-tools.openSettings', () => settingsProvider.show());
+    const updateMainDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateMainDatabase', () => (0, projectCommandService_1.updateProjectDatabase)('main'));
+    const updateTestDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateTestDatabase', () => (0, projectCommandService_1.updateProjectDatabase)('test'));
+    const startMainClientCommand = vscode.commands.registerCommand('vc-ve-tools.startMainClient', async () => (0, projectCommandService_1.startProjectClient)('main', await getClientCredentials()));
+    const startTestClientCommand = vscode.commands.registerCommand('vc-ve-tools.startTestClient', async () => (0, projectCommandService_1.startProjectClient)('test', await getClientCredentials()));
+    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id), objectSearchRepository_1.searchDatabaseObjects, id => methodEditor.open(id), id => (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, id), id => (0, classObjectsPanelManager_1.openClassObjects)(context, id), id => (0, objectViewPanelManager_1.openObjectView)(context, id), id => (0, entityPropertiesPanelManager_1.openEntityProperties)(context, id));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
     const navigationActions = {
         revealClass: id => explorerProvider.revealClass(id),
@@ -139,12 +167,14 @@ async function activate(context) {
                 items: filtered.slice(offset, offset + limit),
             };
         },
+        updateDatabase: role => (0, projectCommandService_1.updateProjectDatabase)(role),
+        startClient: async (role) => (0, projectCommandService_1.startProjectClient)(role, await getClientCredentials()),
     };
     (0, navigationTools_1.registerNavigationTools)(context, navigationActions);
     navigationBridge = await (0, navigationBridge_1.startNavigationBridge)(navigationActions, vscode.workspace.workspaceFolders?.[0]
         ? (0, navigationInfo_1.getNavigationInfoPath)(vscode.workspace.workspaceFolders[0].uri.fsPath)
         : vscode.Uri.joinPath(context.globalStorageUri, 'navigation-bridge.json').fsPath);
-    const databaseMcpServerRegistration = (0, registerMcpServer_1.registerDatabaseMcpServer)(context, extensionLogger.logUri.fsPath, navigationBridge);
+    const databaseMcpServerRegistration = (0, registerMcpServer_1.registerDatabaseMcpServer)(context, extensionLogger.logUri.fsPath, navigationBridge, databaseSelectionPath, sqlMonitorHistoryPath);
     const agentSkillInstaller = (0, agentSkillInstaller_1.registerAgentSkillInstaller)(context);
     const packageSyncProvider = new packageSyncViewProvider_1.PackageSyncPanelManager(context.extensionUri, packageSyncRepository_1.loadPackageSyncItems);
     const openPackageSyncCommand = vscode.commands.registerCommand('vc-ve-tools.openPackageSync', () => packageSyncProvider.show());
@@ -158,9 +188,14 @@ async function activate(context) {
     const sqlExecutorProvider = new sqlExecutorViewProvider_1.SqlExecutorViewProvider(context.extensionUri);
     const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(sqlExecutorViewProvider_1.SqlExecutorViewProvider.viewType, sqlExecutorProvider, { webviewOptions: { retainContextWhenHidden: true } });
     const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
-        if (event.affectsConfiguration(`vcVeTools.${constants_1.databaseRoleSetting}`)) {
+        if (event.affectsConfiguration(`vcVeTools.${constants_1.databaseRoleSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.databaseProfileSetting}`)) {
+            if (workspacePath && databaseSelectionPath) {
+                await (0, databaseSelection_1.writeDatabaseSelection)(databaseSelectionPath, workspacePath, vscode.workspace.getConfiguration('vcVeTools').get(constants_1.databaseProfileSetting, ''));
+            }
             (0, classDetailsPanelManager_1.closeClassDetailPanels)();
             (0, attributeDetailsPanelManager_1.closeAttributeDetailPanels)();
+            (0, propertyDetailsPanelManager_1.closePropertyDetailPanels)();
+            (0, entityPropertiesPanelManager_1.closeEntityPropertiesPanels)();
             (0, classObjectsPanelManager_1.closeClassObjectPanels)();
             (0, objectViewPanelManager_1.closeObjectViewPanels)();
             explorerProvider.refreshClasses();
@@ -208,14 +243,19 @@ async function activate(context) {
             void vscode.window.showWarningMessage('Сначала откройте папку проекта.');
             return;
         }
-        const selected = await vscode.window.showQuickPick([
-            { label: 'Основная', description: 'devDBName_main', role: 'main' },
-            { label: 'Тестовая', description: 'devDBName_test', role: 'test' },
-        ], { placeHolder: 'Выберите базу данных' });
-        if (!selected || selected.role === (0, projectDatabaseOptions_1.getDatabaseRole)()) {
-            return;
+        try {
+            const { databases } = await (0, rdboadmIni_1.loadRdboadmDatabases)(vscode.workspace.workspaceFolders[0].uri.fsPath);
+            const selected = await vscode.window.showQuickPick(databases.map(database => ({ label: database.name, description: `[${database.id}]`, profile: database.id })), { placeHolder: 'Выберите базу данных из rdboadm.ini' });
+            if (selected) {
+                await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseProfileSetting, selected.profile, vscode.ConfigurationTarget.Workspace);
+            }
         }
-        await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseRoleSetting, selected.role, vscode.ConfigurationTarget.Workspace);
+        catch {
+            const selected = await vscode.window.showQuickPick([{ label: 'Основная', role: 'main' }, { label: 'Тестовая', role: 'test' }], { placeHolder: 'Выберите базу данных' });
+            if (selected && selected.role !== (0, projectDatabaseOptions_1.getDatabaseRole)()) {
+                await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseRoleSetting, selected.role, vscode.ConfigurationTarget.Workspace);
+            }
+        }
     });
     const openSqlMonitorCommand = vscode.commands.registerCommand('vc-ve-tools.openSqlMonitor', () => (0, sqlMonitorPanelManager_1.openSqlMonitor)(context));
     const copySelectedExplorerIdCommand = vscode.commands.registerCommand('vc-ve-tools.copySelectedExplorerId', () => explorerProvider.copySelectedEntityId());
@@ -243,6 +283,6 @@ async function activate(context) {
         settingsProvider.refresh();
         void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
     });
-    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, settingsRegistration, explorerProvider, explorerRegistration, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
+    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, explorerProvider, explorerRegistration, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
 }
 //# sourceMappingURL=activate.js.map

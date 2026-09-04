@@ -37,7 +37,7 @@ exports.registerDatabaseMcpServer = registerDatabaseMcpServer;
 const vscode = __importStar(require("vscode"));
 const projectDatabaseOptions_1 = require("../infrastructure/configuration/projectDatabaseOptions");
 const constants_1 = require("../core/constants");
-function registerDatabaseMcpServer(context, logsPath, navigation) {
+function registerDatabaseMcpServer(context, logsPath, navigation, databaseSelectionPath, sqlMonitorHistoryPath) {
     const changeEmitter = new vscode.EventEmitter();
     const registration = vscode.lm.registerMcpServerDefinitionProvider('vc-ve-tools.database', {
         onDidChangeMcpServerDefinitions: changeEmitter.event,
@@ -53,15 +53,18 @@ function registerDatabaseMcpServer(context, logsPath, navigation) {
                 vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath,
                 '--workspace', workspaceFolder.uri.fsPath,
                 '--database-role', (0, projectDatabaseOptions_1.getDatabaseRole)(),
+                ...(() => { const profile = vscode.workspace.getConfiguration('vcVeTools').get(constants_1.databaseProfileSetting, ''); return profile ? ['--database-profile', profile] : []; })(),
+                ...(databaseSelectionPath ? ['--database-selection', databaseSelectionPath] : []),
                 '--logs', logsPath,
+                ...(sqlMonitorHistoryPath ? ['--sql-monitor-history', sqlMonitorHistoryPath] : []),
                 '--navigation-info', navigation.infoPath,
-            ], {}, '0.15.0');
+            ], {}, '0.16.0');
             server.cwd = workspaceFolder.uri;
             return [server];
         },
     });
     const configurationListener = vscode.workspace.onDidChangeConfiguration((event) => {
-        if (event.affectsConfiguration('vcVeTools.databaseRole') || event.affectsConfiguration(`vcVeTools.${constants_1.mcpEnabledSetting}`)) {
+        if (event.affectsConfiguration('vcVeTools.databaseRole') || event.affectsConfiguration(`vcVeTools.${constants_1.databaseProfileSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.mcpEnabledSetting}`)) {
             changeEmitter.fire();
         }
     });

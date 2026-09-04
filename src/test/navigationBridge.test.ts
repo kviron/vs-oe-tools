@@ -9,6 +9,8 @@ suite('Navigation bridge', () => {
 		let openedMethod: number | undefined;
 		let revealedMethod: { classId: number; methodId: number } | undefined;
 		let updatedMethod: { methodId: number; code: string } | undefined;
+		let updatedDatabase: 'main' | 'test' | undefined;
+		let startedClient: 'main' | 'test' | undefined;
 		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
 		const bridge = await startNavigationBridge({
 			revealClass: async () => undefined,
@@ -21,6 +23,8 @@ suite('Navigation bridge', () => {
 			},
 			getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
 			getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
+			updateDatabase: async role => { updatedDatabase = role; },
+			startClient: async role => { startedClient = role; },
 		}, infoPath);
 		try {
 			const connection = JSON.parse(await readFile(infoPath, 'utf8')) as { url: string; token: string };
@@ -59,6 +63,20 @@ suite('Navigation bridge', () => {
 			});
 			assert.equal(syncResponse.status, 200);
 			assert.deepEqual((await syncResponse.json() as { items: unknown[] }).items, [{ objectId: 7 }]);
+			const databaseResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'update_database', role: 'test' }),
+			});
+			assert.equal(databaseResponse.status, 200);
+			assert.equal(updatedDatabase, 'test');
+			const clientResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'start_client', role: 'main' }),
+			});
+			assert.equal(clientResponse.status, 200);
+			assert.equal(startedClient, 'main');
 		} finally {
 			bridge.dispose();
 		}

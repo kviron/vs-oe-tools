@@ -20,6 +20,8 @@ export interface NavigationActions {
 	updateMethodSource(methodId: number, code: string): Promise<Record<string, unknown>>;
 	getSvnFileHistory(filePath: string, limit: number): Promise<Record<string, unknown>>;
 	getPackageSyncChanges(query: string | undefined, offset: number, limit: number): Promise<Record<string, unknown>>;
+	updateDatabase(role: 'main' | 'test'): Promise<void>;
+	startClient(role: 'main' | 'test'): Promise<void>;
 }
 
 export function registerNavigationTools(context: vscode.ExtensionContext, actions: NavigationActions): void {

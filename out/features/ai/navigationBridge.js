@@ -74,9 +74,19 @@ async function handleRequest(request, response, token, actions) {
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
-        else {
+        else if (input.action === 'get_package_sync_changes') {
             const result = await actions.getPackageSyncChanges(input.query, input.offset, input.limit);
             respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else if (input.action === 'update_database') {
+            await actions.updateDatabase(input.role);
+            respond(response, 200, { ok: true, action: input.action, role: input.role });
+            return;
+        }
+        else {
+            await actions.startClient(input.role);
+            respond(response, 200, { ok: true, action: input.action, role: input.role });
             return;
         }
         respond(response, 200, { ok: true, action: input.action, id: input.id });
@@ -110,10 +120,12 @@ function validateRequest(value) {
     }
     const { action, id } = value;
     if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
-        && action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes') {
+        && action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
+        && action !== 'update_database' && action !== 'start_client') {
         throw new Error('Unknown navigation action.');
     }
-    if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
+    if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
+        && action !== 'start_client' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
         throw new Error('Navigation ID must be a positive integer.');
     }
     const classId = value.classId;
@@ -143,7 +155,11 @@ function validateRequest(value) {
     if (action === 'get_package_sync_changes' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
         throw new Error('Package synchronization limit must be an integer from 1 to 500.');
     }
-    return { action, id: id, classId, code, filePath, limit, query, offset };
+    const role = value.role;
+    if ((action === 'update_database' || action === 'start_client') && role !== 'main' && role !== 'test') {
+        throw new Error(`Role must be main or test for ${action}.`);
+    }
+    return { action, id, classId, code, filePath, limit, query, offset, role };
 }
 function respond(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });

@@ -1,21 +1,37 @@
 import type { SqlQueryRecord } from './models';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import * as path from 'node:path';
 
 type SqlMonitorListener = (record: SqlQueryRecord) => void;
 
-const closedLimit = 10;
-const openLimit = 1000;
+const recordLimit = 100;
 
 class SqlMonitorService {
 	private readonly records: SqlQueryRecord[] = [];
 	private readonly listeners = new Set<SqlMonitorListener>();
 	private nextId = 1;
-	private active = false;
+	private persistencePath: string | undefined;
+	private persistQueue = Promise.resolve();
+	private persistTimer: ReturnType<typeof setTimeout> | undefined;
+
+	public async initialize(persistencePath: string): Promise<void> {
+		this.persistencePath = persistencePath;
+		try {
+			const stored = JSON.parse(await readFile(persistencePath, 'utf8')) as unknown;
+			if (Array.isArray(stored)) {
+				const records = stored.filter(isSqlQueryRecord).slice(-recordLimit);
+				this.records.splice(0, this.records.length, ...records);
+				this.nextId = Math.max(0, ...records.map(record => record.id)) + 1;
+			}
+		} catch { /* The history file is created on the first query. */ }
+	}
 
 	public start(record: Omit<SqlQueryRecord, 'id'>): SqlQueryRecord {
 		const entry = { ...record, id: this.nextId++ };
 		this.records.push(entry);
 		this.trim();
 		this.emit(entry);
+		this.schedulePersist();
 		return entry;
 	}
 
@@ -26,6 +42,7 @@ class SqlMonitorService {
 		}
 		Object.assign(entry, changes);
 		this.emit(entry);
+		this.schedulePersist();
 	}
 
 	public getRecords(): SqlQueryRecord[] {
@@ -34,12 +51,10 @@ class SqlMonitorService {
 
 	public clear(): void {
 		this.records.length = 0;
+		this.schedulePersist();
 	}
 
-	public setActive(active: boolean): void {
-		this.active = active;
-		this.trim();
-	}
+	public setActive(_active: boolean): void { this.trim(); }
 
 	public subscribe(listener: SqlMonitorListener): { dispose(): void } {
 		this.listeners.add(listener);
@@ -47,10 +62,23 @@ class SqlMonitorService {
 	}
 
 	private trim(): void {
-		const limit = this.active ? openLimit : closedLimit;
-		if (this.records.length > limit) {
-			this.records.splice(0, this.records.length - limit);
+		if (this.records.length > recordLimit) {
+			this.records.splice(0, this.records.length - recordLimit);
 		}
+	}
+
+	private schedulePersist(): void {
+		if (!this.persistencePath || this.persistTimer) { return; }
+		this.persistTimer = setTimeout(() => {
+			this.persistTimer = undefined;
+			const snapshot = this.records.map(record => ({ ...record, rows: [] }));
+			this.persistQueue = this.persistQueue
+				.then(async () => {
+					await mkdir(path.dirname(this.persistencePath!), { recursive: true });
+					await writeFile(this.persistencePath!, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+				})
+				.catch(() => undefined);
+		}, 50);
 	}
 
 	private emit(record: SqlQueryRecord): void {
@@ -65,3 +93,13 @@ class SqlMonitorService {
 }
 
 export const sqlMonitorService = new SqlMonitorService();
+
+function isSqlQueryRecord(value: unknown): value is SqlQueryRecord {
+	return typeof value === 'object' && value !== null
+		&& 'id' in value && typeof value.id === 'number'
+		&& 'startedAt' in value && typeof value.startedAt === 'string'
+		&& 'source' in value && typeof value.source === 'string'
+		&& 'text' in value && typeof value.text === 'string'
+		&& 'rows' in value && Array.isArray(value.rows)
+		&& 'parameters' in value && Array.isArray(value.parameters);
+}

@@ -40,6 +40,8 @@ const vscode = __importStar(require("vscode"));
 const sqlResultExport_1 = require("../features/sql-executor/sqlResultExport");
 const sqlDialectAdapter_1 = require("../features/sql-executor/sqlDialectAdapter");
 const projectDatabaseOptions_1 = require("../infrastructure/configuration/projectDatabaseOptions");
+const rdboadmIni_1 = require("../infrastructure/configuration/rdboadmIni");
+const projectCommandService_1 = require("../features/project/projectCommandService");
 // import * as myExtension from '../../extension';
 suite('Extension Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.');
@@ -57,6 +59,23 @@ suite('Extension Test Suite', () => {
         assert.strictEqual(variables.get('devdbname_main'), 'production');
         assert.strictEqual(variables.get('devdbname_test'), 'test_database');
         assert.strictEqual(variables.get('oedbmsport'), '5433');
+    });
+    test('rdboadm.ini parser reads display names and connection options', () => {
+        const databases = (0, rdboadmIni_1.parseRdboadmIni)('[oetrunk]\r\nDispName = Основная база\r\ndbpath = localhost:5433/oetrunk\r\ndbusername = postgres\r\ndbpassword = root\r\n');
+        assert.strictEqual(databases[0].name, 'Основная база');
+        assert.deepStrictEqual((0, rdboadmIni_1.rdboadmDatabaseOptions)(databases[0]), { host: 'localhost', port: 5433, database: 'oetrunk', user: 'postgres', password: 'root' });
+    });
+    test('rdboadm.ini update preserves comments and formatting', () => {
+        const content = '; comment\r\n[oetrunk]\r\nDispName = Old name\r\nTCPport = 3060\r\n';
+        const updated = (0, rdboadmIni_1.updateRdboadmSection)(content, 'oetrunk', [{ key: 'DispName', value: 'Новое имя' }, { key: 'TCPport', value: '4000' }]);
+        assert.strictEqual(updated, '; comment\r\n[oetrunk]\r\nDispName = Новое имя\r\nTCPport = 4000\r\n');
+    });
+    test('project batch wrapper expands its own path without executing it', () => {
+        const sourcePath = 'C:\\OE\\trunk\\DBUpdate_test.bat';
+        assert.strictEqual((0, projectCommandService_1.extractBatchCommand)('@call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "%~0" test', sourcePath), 'call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "C:\\OE\\trunk\\DBUpdate_test.bat" test');
+    });
+    test('client credentials replace values from start.bat', () => {
+        assert.strictEqual((0, projectCommandService_1.applyClientCredentials)('call _fme.bat -l "host=localhost,db=oetest,username=old,password=oldpass" -ok', { username: 'ВЭ_Пользователь', password: 'secret' }), 'call _fme.bat -l "host=localhost,db=oetest,username=ВЭ_Пользователь,password=secret" -ok');
     });
     test('SQL result export produces readable Markdown and valid JSON', () => {
         const result = {

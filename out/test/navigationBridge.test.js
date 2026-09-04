@@ -43,6 +43,8 @@ suite('Navigation bridge', () => {
         let openedMethod;
         let revealedMethod;
         let updatedMethod;
+        let updatedDatabase;
+        let startedClient;
         const infoPath = (0, node_path_1.join)((0, node_os_1.tmpdir)(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
         const bridge = await (0, navigationBridge_1.startNavigationBridge)({
             revealClass: async () => undefined,
@@ -55,6 +57,8 @@ suite('Navigation bridge', () => {
             },
             getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
             getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
+            updateDatabase: async (role) => { updatedDatabase = role; },
+            startClient: async (role) => { startedClient = role; },
         }, infoPath);
         try {
             const connection = JSON.parse(await (0, promises_1.readFile)(infoPath, 'utf8'));
@@ -93,6 +97,20 @@ suite('Navigation bridge', () => {
             });
             assert.equal(syncResponse.status, 200);
             assert.deepEqual((await syncResponse.json()).items, [{ objectId: 7 }]);
+            const databaseResponse = await fetch(connection.url, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ action: 'update_database', role: 'test' }),
+            });
+            assert.equal(databaseResponse.status, 200);
+            assert.equal(updatedDatabase, 'test');
+            const clientResponse = await fetch(connection.url, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ action: 'start_client', role: 'main' }),
+            });
+            assert.equal(clientResponse.status, 200);
+            assert.equal(startedClient, 'main');
         }
         finally {
             bridge.dispose();

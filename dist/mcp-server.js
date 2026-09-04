@@ -3453,7 +3453,7 @@ var require_split2 = __commonJS({
 var require_helper = __commonJS({
   "node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
-    var path2 = require("path");
+    var path4 = require("path");
     var Stream = require("stream").Stream;
     var split = require_split2();
     var util = require("util");
@@ -3492,7 +3492,7 @@ var require_helper = __commonJS({
     };
     module2.exports.getFileName = function(rawEnv) {
       var env = rawEnv || process.env;
-      var file = env.PGPASSFILE || (isWin ? path2.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path2.join(env.HOME || "./", ".pgpass"));
+      var file = env.PGPASSFILE || (isWin ? path4.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path4.join(env.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -3624,7 +3624,7 @@ var require_helper = __commonJS({
 var require_lib = __commonJS({
   "node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
-    var path2 = require("path");
+    var path4 = require("path");
     var fs = require("fs");
     var helper = require_helper();
     module2.exports = function(connInfo, cb) {
@@ -5452,7 +5452,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv3) {
+    function InternalCodec(codecOptions, iconv4) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5464,7 +5464,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv3.defaultCharUnicode;
+          this.defaultCharUnicode = iconv4.defaultCharUnicode;
         }
       }
     }
@@ -5621,8 +5621,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv3) {
-      this.iconv = iconv3;
+    function Utf32Codec(codecOptions, iconv4) {
+      this.iconv = iconv4;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5750,8 +5750,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv3) {
-      this.iconv = iconv3;
+    function Utf32AutoCodec(options, iconv4) {
+      this.iconv = iconv4;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5901,8 +5901,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv3) {
-      this.iconv = iconv3;
+    function Utf16Codec(codecOptions, iconv4) {
+      this.iconv = iconv4;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6000,8 +6000,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv3) {
-      this.iconv = iconv3;
+    function Utf7Codec(codecOptions, iconv4) {
+      this.iconv = iconv4;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6083,8 +6083,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv3) {
-      this.iconv = iconv3;
+    function Utf7IMAPCodec(codecOptions, iconv4) {
+      this.iconv = iconv4;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6217,7 +6217,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv3) {
+    function SBCSCodec(codecOptions, iconv4) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6232,7 +6232,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv3.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv4.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6899,7 +6899,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv3) {
+    function DBCSCodec(codecOptions, iconv4) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6948,7 +6948,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv3.defaultCharUnicode;
+      this.defaultCharUnicode = iconv4.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6972,7 +6972,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv3.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv4.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8970,14 +8970,14 @@ var require_lib3 = __commonJS({
     module2.exports.encodings = null;
     module2.exports.defaultCharUnicode = "\uFFFD";
     module2.exports.defaultCharSingleByte = "?";
-    module2.exports.encode = function encode(str, encoding, options) {
+    module2.exports.encode = function encode2(str, encoding, options) {
       str = "" + (str || "");
       var encoder = module2.exports.getEncoder(encoding, options);
       var res = encoder.write(str);
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode3(buf, encoding, options) {
+    module2.exports.decode = function decode4(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -9509,8 +9509,8 @@ var require_parseUtil = __commonJS({
     var errors_js_1 = require_errors();
     var en_js_1 = __importDefault(require_en());
     var makeIssue = (params) => {
-      const { data, path: path2, errorMaps, issueData } = params;
-      const fullPath = [...path2, ...issueData.path || []];
+      const { data, path: path4, errorMaps, issueData } = params;
+      const fullPath = [...path4, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -9664,11 +9664,11 @@ var require_types = __commonJS({
     var parseUtil_js_1 = require_parseUtil();
     var util_js_1 = require_util();
     var ParseInputLazyPath = class {
-      constructor(parent, value, path2, key) {
+      constructor(parent, value, path4, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path2;
+        this._path = path4;
         this._key = key;
       }
       get path() {
@@ -13463,10 +13463,10 @@ var require_util2 = __commonJS({
         configurable: true
       });
     }
-    function getElementAtPath(obj, path2) {
-      if (!path2)
+    function getElementAtPath(obj, path4) {
+      if (!path4)
         return obj;
-      return path2.reduce((acc, key) => acc?.[key], obj);
+      return path4.reduce((acc, key) => acc?.[key], obj);
     }
     function promiseAllObject(promisesObj) {
       const keys = Object.keys(promisesObj);
@@ -13787,11 +13787,11 @@ var require_util2 = __commonJS({
       }
       return false;
     }
-    function prefixIssues(path2, issues) {
+    function prefixIssues(path4, issues) {
       return issues.map((iss) => {
         var _a;
         (_a = iss).path ?? (_a.path = []);
-        iss.path.unshift(path2);
+        iss.path.unshift(path4);
         return iss;
       });
     }
@@ -13970,7 +13970,7 @@ var require_errors2 = __commonJS({
         return issue.message;
       };
       const result = { errors: [] };
-      const processError = (error2, path2 = []) => {
+      const processError = (error2, path4 = []) => {
         var _a, _b;
         for (const issue of error2.issues) {
           if (issue.code === "invalid_union" && issue.errors.length) {
@@ -13980,7 +13980,7 @@ var require_errors2 = __commonJS({
           } else if (issue.code === "invalid_element") {
             processError({ issues: issue.issues }, issue.path);
           } else {
-            const fullpath = [...path2, ...issue.path];
+            const fullpath = [...path4, ...issue.path];
             if (fullpath.length === 0) {
               result.errors.push(mapper(issue));
               continue;
@@ -14010,9 +14010,9 @@ var require_errors2 = __commonJS({
       processError(error);
       return result;
     }
-    function toDotPath(path2) {
+    function toDotPath(path4) {
       const segs = [];
-      for (const seg of path2) {
+      for (const seg of path4) {
         if (typeof seg === "number")
           segs.push(`[${seg}]`);
         else if (typeof seg === "symbol")
@@ -26169,11 +26169,11 @@ var require_zod_compat = __commonJS({
       }
       return void 0;
     }
-    function getDotPath(path2) {
-      if (path2.length === 0) {
+    function getDotPath(path4) {
+      if (path4.length === 0) {
         return "object root";
       }
-      return path2.reduce((acc, seg, index) => {
+      return path4.reduce((acc, seg, index) => {
         if (index === 0) {
           return String(seg);
         }
@@ -35512,8 +35512,8 @@ var require_utils3 = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path4) {
+      let input = path4;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -35918,8 +35918,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path2 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const path4 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -47239,14 +47239,76 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 
 // src/mcp/server.ts
-var import_promises2 = require("node:fs/promises");
+var import_promises4 = require("node:fs/promises");
+var path3 = __toESM(require("node:path"));
 
 // src/mcp/databaseConfig.ts
+var import_promises2 = require("node:fs/promises");
+var path2 = __toESM(require("node:path"));
+var iconv2 = __toESM(require_lib3());
+
+// src/infrastructure/configuration/rdboadmIni.ts
 var import_promises = require("node:fs/promises");
 var path = __toESM(require("node:path"));
 var iconv = __toESM(require_lib3());
-async function loadMcpDatabaseOptions(workspacePath2, role) {
-  const varsContent = iconv.decode(await (0, import_promises.readFile)(path.join(workspacePath2, "Vars.bat")), "win1251");
+function parseRdboadmIni(content) {
+  const databases = [];
+  let current;
+  for (const line of content.split(/\r?\n/)) {
+    const section = line.match(/^\s*\[([^\]]+)\]\s*$/);
+    if (section) {
+      current = { id: section[1].trim(), name: section[1].trim(), fields: [] };
+      databases.push(current);
+      continue;
+    }
+    const assignment = line.match(/^\s*([^;#][^=]*?)\s*=\s*(.*?)\s*$/);
+    if (current && assignment) {
+      current.fields.push({ key: assignment[1].trim(), value: assignment[2] });
+      if (assignment[1].trim().toLowerCase() === "dispname" && assignment[2]) {
+        current.name = assignment[2];
+      }
+    }
+  }
+  return databases;
+}
+function resolveRdboadmPath(workspacePath2) {
+  return path.basename(workspacePath2).toLowerCase() === "trunk" ? path.join(workspacePath2, "bin", "rdboadm.ini") : path.join(workspacePath2, "trunk", "bin", "rdboadm.ini");
+}
+async function loadRdboadmDatabases(workspacePath2) {
+  const iniPath = resolveRdboadmPath(workspacePath2);
+  const content = iconv.decode(await (0, import_promises.readFile)(iniPath), "win1251");
+  return { path: iniPath, databases: parseRdboadmIni(content) };
+}
+function rdboadmDatabaseOptions(database) {
+  const fields = new Map(database.fields.map((field) => [field.key.toLowerCase(), field.value]));
+  const dbPath = fields.get("dbpath")?.trim();
+  const match = dbPath?.match(/^(.+?)(?::(\d+))?\/([^/]+)$/);
+  const user = fields.get("dbusername");
+  const password = fields.get("dbpassword");
+  if (!match || !user || password === void 0) {
+    throw new Error(`\u0412 \u0441\u0435\u043A\u0446\u0438\u0438 [${database.id}] \u043D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B dbpath, dbusername \u0438\u043B\u0438 dbpassword.`);
+  }
+  const port = Number(match[2] ?? "5432");
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`\u0412 \u0441\u0435\u043A\u0446\u0438\u0438 [${database.id}] \u0443\u043A\u0430\u0437\u0430\u043D \u043D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B\u0439 \u043F\u043E\u0440\u0442.`);
+  }
+  return { host: match[1], port, database: match[3], user, password };
+}
+
+// src/mcp/databaseConfig.ts
+async function loadMcpDatabaseOptions(workspacePath2, role, profile) {
+  try {
+    const { databases } = await loadRdboadmDatabases(workspacePath2);
+    const selected = databases.find((database2) => database2.id.toLowerCase() === profile?.toLowerCase()) ?? databases[0];
+    if (selected) {
+      return rdboadmDatabaseOptions(selected);
+    }
+  } catch (error) {
+    if (profile) {
+      throw error;
+    }
+  }
+  const varsContent = iconv2.decode(await (0, import_promises2.readFile)(path2.join(workspacePath2, "Vars.bat")), "win1251");
   const variables = parseVarsFile(varsContent);
   const password = roleVariable(variables, "oedbmspassword", role);
   const database = variables.get(`devdbname_${role}`);
@@ -47315,16 +47377,16 @@ function stripLeadingComments(sql) {
 }
 
 // src/mcp/sourceContent.ts
-var iconv2 = __toESM(require_lib3());
+var iconv3 = __toESM(require_lib3());
 var defaultSourceLineLimit = 1e3;
 var maximumSourceLineLimit = 5e3;
 function decodeSourceValue(value) {
   if (Buffer.isBuffer(value)) {
-    return iconv2.decode(value, "win1251");
+    return iconv3.decode(value, "win1251");
   }
   const text = value === null || value === void 0 ? "" : String(value);
   const bytea = text.match(/^\\x([\da-f]+)$/i);
-  return bytea && bytea[1].length % 2 === 0 ? iconv2.decode(Buffer.from(bytea[1], "hex"), "win1251") : text;
+  return bytea && bytea[1].length % 2 === 0 ? iconv3.decode(Buffer.from(bytea[1], "hex"), "win1251") : text;
 }
 function createSourceExcerpt(source, requestedStartLine = 1, requestedMaxLines = defaultSourceLineLimit) {
   const lines = source.split(/\r?\n/);
@@ -47536,29 +47598,114 @@ function selectVisibleProperties(properties, includeShadowed) {
   return [...visible.values()];
 }
 
+// src/core/databaseSelection.ts
+var import_promises3 = require("node:fs/promises");
+async function readDatabaseSelection(selectionPath) {
+  return JSON.parse(await (0, import_promises3.readFile)(selectionPath, "utf8"));
+}
+
+// src/features/sql-monitor/queryCategory.ts
+var metadataTables = /* @__PURE__ */ new Set([
+  "abstract",
+  "attributes",
+  "classes",
+  "methods",
+  "modules",
+  "objectmetadatamap",
+  "objcomments",
+  "properties",
+  "sysfile"
+]);
+function classifySqlQuery(record) {
+  const text = record.text.trim().toLocaleLowerCase("en");
+  const table = record.firstTable?.trim().toLocaleLowerCase("en") ?? "";
+  if (/^(?:start\s+transaction|commit|rollback)\b/.test(text)) {
+    return "transaction";
+  }
+  if (metadataTables.has(table)) {
+    return "metadata";
+  }
+  if (/\b(?:objectmetadatamap|objcomments)\b/.test(text) || /\b(?:from|join)\s+(?:abstract|attributes|classes|methods|modules|properties|sysfile)\b/.test(text)) {
+    return "metadata";
+  }
+  if (table.startsWith("oe_system_") || /\b(?:oe_system_|developerids|enum(?:paircommaitems)?|logusercolumnsoptionsusage|pg_catalog|information_schema|syncidranges)\b/.test(text)) {
+    return "system";
+  }
+  return "application";
+}
+
 // src/mcp/server.ts
 var { McpServer } = require_mcp();
 var { StdioServerTransport } = require_stdio2();
 var z = require_zod();
 var workspacePath = readArgument("--workspace");
 var databaseRole = readRoleArgument();
+var activeDatabaseProfile = readOptionalArgument("--database-profile");
+var lastDatabaseSelectionUpdate;
+var lastWorkspaceDatabaseProfile;
 var logsPath = readOptionalArgument("--logs");
+var sqlMonitorHistoryPath = readOptionalArgument("--sql-monitor-history");
+var databaseSelectionPath = readOptionalArgument("--database-selection");
 var navigationInfoPath = readOptionalArgument("--navigation-info") ?? getNavigationInfoPath(workspacePath);
 var server = new McpServer(
-  { name: "vc-ve-tools-database", version: "0.15.0" },
+  { name: "vc-ve-tools-database", version: "0.16.0" },
   {
     instructions: [
       "East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.",
       "Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.",
+      "Before database work, use get_active_database when the intended database matters. Use list_databases and switch_database to select another rdboadm.ini profile without restarting this MCP server.",
       "Use get_class_dictionary for paged dictionary rows and search_class_dictionary to find elements by ID, name, or any mapped class attribute.",
       "Use get_class_properties to inspect script properties declared by a class and optionally inherited from ancestors. Use get_property_details for the complete stored record.",
       "Before update_method_source, read the complete current method body with get_method_source. Send only the method body, never its name or declaration wrapper.",
       "Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.",
+      "Use get_recent_sql_queries to inspect the last 100 filtered queries captured by the SQL monitor without generating additional database traffic.",
       "For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.",
-      "Direct SQL access is read-only. The only database mutation is update_method_source through the VS Code extension save pipeline. Include relevant object IDs in analysis so navigation can continue."
+      "Direct SQL access is read-only. Controlled mutations are available only through update_method_source and the explicitly confirmed update_database command in VS Code. Database updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue."
     ].join(" ")
   }
 );
+server.registerTool("list_databases", {
+  description: "List database profiles from trunk/bin/rdboadm.ini, including section IDs, display names, safe connection details, and which profile is active in this MCP process.",
+  inputSchema: {},
+  annotations: { readOnlyHint: true }
+}, async () => databaseToolResult(async () => {
+  await synchronizeDatabaseSelection();
+  const { path: path4, databases } = await loadRdboadmDatabases(workspacePath);
+  return {
+    path: path4,
+    activeProfile: activeDatabaseProfile ?? databases[0]?.id ?? null,
+    databases: databases.map((database) => databaseSummary(database))
+  };
+}));
+server.registerTool("get_active_database", {
+  description: "Return the database profile and actual PostgreSQL connection currently used by this MCP process.",
+  inputSchema: {},
+  annotations: { readOnlyHint: true }
+}, async () => databaseToolResult(async () => {
+  await synchronizeDatabaseSelection();
+  const { databases } = await loadRdboadmDatabases(workspacePath);
+  const database = findDatabaseProfile(databases, activeDatabaseProfile);
+  return { active: databaseSummary(database) };
+}));
+server.registerTool("switch_database", {
+  description: "Switch this MCP process to another rdboadm.ini database profile. The connection is tested before the switch; all subsequent database tools use the selected profile.",
+  inputSchema: { profile: z.string().min(1).describe("Section ID from list_databases, for example oetest") },
+  annotations: { readOnlyHint: false, destructiveHint: false }
+}, async ({ profile }) => databaseToolResult(async () => {
+  await synchronizeDatabaseSelection();
+  const { databases } = await loadRdboadmDatabases(workspacePath);
+  const database = findDatabaseProfile(databases, profile);
+  const options = rdboadmDatabaseOptions(database);
+  const client = new Client({ ...options, application_name: "vc-ve-tools-mcp-switch-test", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const result = await client.query("SELECT current_database() AS database, inet_server_addr()::text AS server, inet_server_port() AS port, current_user AS user");
+    activeDatabaseProfile = database.id;
+    return { active: databaseSummary(database), connection: result.rows[0] };
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}));
 server.registerTool("lookup_object_by_id", {
   description: "Identify any East Express object by an otherwise unknown numeric ID. Returns its concrete kind, meta-class, owner and package context.",
   inputSchema: { id: z.number().int().positive().describe("Unknown East Express object ID") },
@@ -47975,6 +48122,20 @@ server.registerTool("update_method_source", {
   },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true }
 }, async ({ methodId, code }) => bridgeToolResult({ action: "update_method_source", id: methodId, code }));
+server.registerTool("update_database", {
+  description: "Update the main or test East Express database using the command from DBUpdate_main.bat or DBUpdate_test.bat in the open workspace. VS Code asks the user for confirmation, then runs the command in a visible terminal.",
+  inputSchema: {
+    role: z.enum(["main", "test"]).describe("Database role to update")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false }
+}, async ({ role }) => bridgeToolResult({ action: "update_database", role }));
+server.registerTool("start_client", {
+  description: "Launch the original East Express client for the main or test database using start.bat or start_test.bat and the client credentials saved in VS Code settings.",
+  inputSchema: {
+    role: z.enum(["main", "test"]).describe("Database role whose client should be launched")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false }
+}, async ({ role }) => bridgeToolResult({ action: "start_client", role }));
 server.registerTool("get_svn_file_history", {
   description: "Read SVN history for a file inside the currently open East Express workspace using the extension SVN integration.",
   inputSchema: {
@@ -48062,7 +48223,7 @@ server.registerTool("query_readonly", {
   }
 }, async ({ sql, maxRows }) => {
   try {
-    const options = await loadMcpDatabaseOptions(workspacePath, databaseRole);
+    const options = await loadActiveDatabaseOptions();
     const client = new Client({ ...options, application_name: "vc-ve-tools-mcp", connectionTimeoutMillis: 5e3 });
     try {
       await client.connect();
@@ -48074,8 +48235,8 @@ server.registerTool("query_readonly", {
       const truncated = result.rows.length > limit;
       const rows = result.rows.slice(0, limit).map(normalizeRow);
       return {
-        content: [{ type: "text", text: JSON.stringify({ database: options.database, rowCount: rows.length, truncated, rows }, null, 2) }],
-        structuredContent: { database: options.database, rowCount: rows.length, truncated, rows }
+        content: [{ type: "text", text: JSON.stringify({ profile: activeDatabaseProfile, database: options.database, rowCount: rows.length, truncated, rows }, null, 2) }],
+        structuredContent: { profile: activeDatabaseProfile, database: options.database, rowCount: rows.length, truncated, rows }
       };
     } finally {
       await client.query("ROLLBACK").catch(() => void 0);
@@ -48098,6 +48259,39 @@ server.registerTool("get_extension_logs", {
   },
   annotations: { readOnlyHint: true }
 }, async ({ level, limit }) => logToolResult(level, limit ?? 50));
+server.registerTool("get_recent_sql_queries", {
+  description: "Read the last filtered SQL queries captured from the East Express client and vc-ve-tools. Use this to diagnose what the client did without executing another database query.",
+  inputSchema: {
+    limit: z.number().int().min(1).max(100).optional().describe("Maximum queries to return, default 30"),
+    search: z.string().optional().describe("Optional case-insensitive filter over SQL text, source, user, and first table"),
+    operation: z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "DDL", "OTHER"]).optional(),
+    category: z.enum(["application", "metadata", "system", "transaction"]).optional().describe("Optional query category: application, metadata, system, or transaction")
+  },
+  annotations: { readOnlyHint: true }
+}, async ({ limit, search, operation, category }) => {
+  if (!sqlMonitorHistoryPath) {
+    return { content: [{ type: "text", text: "SQL monitor history path is not configured." }], isError: true };
+  }
+  try {
+    const records = JSON.parse(await (0, import_promises4.readFile)(sqlMonitorHistoryPath, "utf8"));
+    const needle = search?.trim().toLocaleLowerCase("ru");
+    const filtered = records.filter((record) => !operation || record.operation === operation).filter((record) => !category || classifySqlQuery({
+      text: String(record.text ?? ""),
+      firstTable: typeof record.firstTable === "string" ? record.firstTable : void 0
+    }) === category).filter((record) => !needle || [record.text, record.source, record.userName, record.firstTable].some((value) => String(value ?? "").toLocaleLowerCase("ru").includes(needle))).slice(-(limit ?? 30)).reverse();
+    const result = { count: filtered.length, totalStored: records.length, queries: filtered };
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      structuredContent: result
+    };
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      const result = { count: 0, totalStored: 0, queries: [] };
+      return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result };
+    }
+    return { content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }], isError: true };
+  }
+});
 async function main() {
   await server.connect(new StdioServerTransport());
 }
@@ -48118,7 +48312,7 @@ async function logToolResult(level, limit) {
     return { content: [{ type: "text", text: "Extension log path is not configured." }], isError: true };
   }
   try {
-    const content = await (0, import_promises2.readFile)(logsPath, "utf8");
+    const content = await (0, import_promises4.readFile)(logsPath, "utf8");
     const records = content.split(/\r?\n/).filter(Boolean).flatMap((line) => {
       try {
         return [JSON.parse(line)];
@@ -48164,7 +48358,7 @@ async function queryDatabase(text, values) {
   return (await queryDatabaseRaw(text, values)).map(normalizeRow);
 }
 async function queryDatabaseRaw(text, values) {
-  const options = await loadMcpDatabaseOptions(workspacePath, databaseRole);
+  const options = await loadActiveDatabaseOptions();
   const client = new Client({ ...options, application_name: "vc-ve-tools-mcp", connectionTimeoutMillis: 5e3 });
   try {
     await client.connect();
@@ -48482,12 +48676,68 @@ async function databaseToolResult(load) {
     return { content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }], isError: true };
   }
 }
+async function loadActiveDatabaseOptions() {
+  await synchronizeDatabaseSelection();
+  try {
+    const { databases } = await loadRdboadmDatabases(workspacePath);
+    const database = findDatabaseProfile(databases, activeDatabaseProfile);
+    activeDatabaseProfile = database.id;
+    return rdboadmDatabaseOptions(database);
+  } catch (error) {
+    if (activeDatabaseProfile) {
+      throw error;
+    }
+    return loadMcpDatabaseOptions(workspacePath, databaseRole);
+  }
+}
+async function synchronizeDatabaseSelection() {
+  if (databaseSelectionPath) {
+    try {
+      const selection = await readDatabaseSelection(databaseSelectionPath);
+      if (selection.updatedAt !== lastDatabaseSelectionUpdate) {
+        lastDatabaseSelectionUpdate = selection.updatedAt;
+        if (selection.profile) {
+          activeDatabaseProfile = selection.profile;
+        }
+      }
+      return;
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+  try {
+    const settings = await (0, import_promises4.readFile)(path3.join(workspacePath, ".vscode", "settings.json"), "utf8");
+    const match = settings.match(/["']vcVeTools\.databaseProfile["']\s*:\s*["']([^"']+)["']/);
+    const profile = match?.[1];
+    if (profile && profile !== lastWorkspaceDatabaseProfile) {
+      lastWorkspaceDatabaseProfile = profile;
+      activeDatabaseProfile = profile;
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+function findDatabaseProfile(databases, profile) {
+  const database = databases.find((item) => item.id.toLowerCase() === profile?.toLowerCase()) ?? (!profile ? databases[0] : void 0);
+  if (!database) {
+    throw new Error(`Database profile [${profile ?? ""}] was not found in rdboadm.ini. Use list_databases to get valid profile IDs.`);
+  }
+  return database;
+}
+function databaseSummary(database) {
+  const options = rdboadmDatabaseOptions(database);
+  return { profile: database.id, name: database.name, database: options.database, server: options.host, port: options.port, user: options.user };
+}
 async function navigationToolResult(action, id, classId) {
   return bridgeToolResult({ action, id, classId });
 }
 async function bridgeToolResult(body) {
   try {
-    const connection = JSON.parse(await (0, import_promises2.readFile)(navigationInfoPath, "utf8"));
+    const connection = JSON.parse(await (0, import_promises4.readFile)(navigationInfoPath, "utf8"));
     if (typeof connection.url !== "string" || typeof connection.token !== "string") {
       throw new Error("VS Code navigation bridge information is invalid.");
     }

@@ -39,37 +39,54 @@ const constants_1 = require("../../core/constants");
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const projectDatabaseOptions_1 = require("../../infrastructure/configuration/projectDatabaseOptions");
 const classRepository_1 = require("../../infrastructure/database/classRepository");
+const rdboadmIni_1 = require("../../infrastructure/configuration/rdboadmIni");
+const projectCommandService_1 = require("../project/projectCommandService");
 class SettingsViewProvider {
     extensionUri;
     setProjectRootEnabled;
     logger;
     getNavigationConnection;
-    static viewType = 'vc-ve-tools.settings';
-    view;
+    databaseSelectionPath;
+    getClientCredentials;
+    setClientCredentials;
+    panel;
     disposables = [];
-    constructor(extensionUri, setProjectRootEnabled, logger, getNavigationConnection) {
+    constructor(extensionUri, setProjectRootEnabled, logger, getNavigationConnection, databaseSelectionPath, getClientCredentials = async () => ({}), setClientCredentials = async () => undefined) {
         this.extensionUri = extensionUri;
         this.setProjectRootEnabled = setProjectRootEnabled;
         this.logger = logger;
         this.getNavigationConnection = getNavigationConnection;
+        this.databaseSelectionPath = databaseSelectionPath;
+        this.getClientCredentials = getClientCredentials;
+        this.setClientCredentials = setClientCredentials;
         this.disposables.push(this.logger.onDidChange(() => void this.postState()), vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration('vcVeTools')) {
                 void this.postState();
             }
         }), vscode.workspace.onDidChangeWorkspaceFolders(() => void this.postState()));
     }
-    resolveWebviewView(view) {
-        this.view = view;
+    show() {
+        if (this.panel) {
+            this.panel.reveal(vscode.ViewColumn.Active);
+            void this.postState();
+            return;
+        }
         const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
-        view.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
-        view.webview.html = this.getHtml(view.webview, assetsRoot);
-        view.webview.onDidReceiveMessage(message => void this.handleMessage(message));
-        view.onDidDispose(() => { this.view = undefined; });
+        const panel = vscode.window.createWebviewPanel('vc-ve-tools.settings', 'Настройки Восточного Экспресса', vscode.ViewColumn.Active, {
+            enableScripts: true,
+            retainContextWhenHidden: true,
+            localResourceRoots: [assetsRoot],
+        });
+        this.panel = panel;
+        panel.webview.html = this.getHtml(panel.webview, assetsRoot);
+        panel.webview.onDidReceiveMessage(message => void this.handleMessage(message));
+        panel.onDidDispose(() => { this.panel = undefined; });
     }
     refresh() {
         void this.postState();
     }
     dispose() {
+        this.panel?.dispose();
         this.disposables.forEach(disposable => disposable.dispose());
     }
     async handleMessage(message) {
@@ -85,8 +102,43 @@ class SettingsViewProvider {
         else if (message.command === 'setDatabaseRole') {
             await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseRoleSetting, message.role, vscode.ConfigurationTarget.Workspace);
         }
+        else if (message.command === 'setDatabaseProfile') {
+            await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseProfileSetting, message.profile, vscode.ConfigurationTarget.Workspace);
+        }
+        else if (message.command === 'saveDatabaseProfile') {
+            const workspace = vscode.workspace.workspaceFolders?.[0];
+            if (!workspace) {
+                throw new Error('Сначала откройте папку проекта.');
+            }
+            try {
+                await (0, rdboadmIni_1.saveRdboadmDatabase)(workspace.uri.fsPath, { id: message.profile, name: message.profile, fields: message.fields });
+                void vscode.window.showInformationMessage(`Настройки базы [${message.profile}] сохранены в rdboadm.ini.`);
+                await this.postState();
+            }
+            catch (error) {
+                void vscode.window.showErrorMessage(`Не удалось сохранить rdboadm.ini: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
+        else if (message.command === 'runProjectCommand') {
+            try {
+                if (message.action === 'updateDatabase') {
+                    await (0, projectCommandService_1.updateProjectDatabase)(message.role);
+                }
+                else {
+                    await (0, projectCommandService_1.startProjectClient)(message.role, await this.getClientCredentials());
+                }
+            }
+            catch (error) {
+                void vscode.window.showErrorMessage(`Не удалось выполнить команду проекта: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
         else if (message.command === 'setUserId') {
             await vscode.workspace.getConfiguration('vcVeTools').update('userId', message.userId, vscode.ConfigurationTarget.Workspace);
+        }
+        else if (message.command === 'setClientCredentials') {
+            await this.setClientCredentials({ username: message.username, password: message.password });
+            void vscode.window.showInformationMessage('Данные входа клиента ВЭ сохранены.');
+            await this.postState();
         }
         else if (message.command === 'setMcpEnabled') {
             await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.mcpEnabledSetting, message.enabled, vscode.ConfigurationTarget.Workspace);
@@ -115,7 +167,7 @@ class SettingsViewProvider {
         }
     }
     async postState() {
-        if (!this.view) {
+        if (!this.panel) {
             return;
         }
         this.post({ command: 'settingsState', state: await this.getState() });
@@ -125,6 +177,22 @@ class SettingsViewProvider {
         const workspace = vscode.workspace.workspaceFolders?.[0];
         const enabled = configuration.get(constants_1.mcpEnabledSetting, true);
         const role = (0, projectDatabaseOptions_1.getDatabaseRole)();
+        const clientCredentials = await this.getClientCredentials();
+        let databaseProfiles = [];
+        let rdboadmPath;
+        let rdboadmError;
+        if (workspace) {
+            try {
+                const result = await (0, rdboadmIni_1.loadRdboadmDatabases)(workspace.uri.fsPath);
+                databaseProfiles = result.databases;
+                rdboadmPath = result.path;
+            }
+            catch (error) {
+                rdboadmError = error instanceof Error ? error.message : String(error);
+            }
+        }
+        const configuredProfile = configuration.get(constants_1.databaseProfileSetting, '');
+        const databaseProfile = databaseProfiles.some(item => item.id === configuredProfile) ? configuredProfile : (databaseProfiles[0]?.id ?? '');
         const lastError = this.logger.getLastError();
         let status = enabled ? 'ready' : 'disabled';
         let statusText = enabled ? 'Готов к запуску агентом' : 'MCP-сервер выключен';
@@ -134,26 +202,34 @@ class SettingsViewProvider {
         }
         else if (enabled && workspace) {
             try {
-                await vscode.workspace.fs.stat(vscode.Uri.joinPath(workspace.uri, 'Vars.bat'));
+                if (databaseProfiles.length === 0) {
+                    await vscode.workspace.fs.stat(vscode.Uri.joinPath(workspace.uri, 'Vars.bat'));
+                }
                 await vscode.workspace.fs.stat(vscode.Uri.joinPath(this.extensionUri, 'dist', 'mcp-server.js'));
             }
             catch {
                 status = 'unavailable';
-                statusText = 'Не найден Vars.bat или сборка MCP-сервера';
+                statusText = 'Не найден rdboadm.ini/Vars.bat или сборка MCP-сервера';
             }
         }
         return {
             useFolderAsProjectRoot: configuration.get(constants_1.projectRootSetting, false),
             databaseRole: role,
+            databaseProfile,
+            databaseProfiles,
+            rdboadmPath,
+            rdboadmError,
             userId: configuration.get('userId', 0),
+            clientUsername: clientCredentials.username ?? '',
+            clientPasswordSet: Boolean(clientCredentials.password),
             mcpEnabled: enabled,
             mcpStatus: status,
             mcpStatusText: statusText,
-            mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role),
+            mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role, databaseProfile),
             lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
         };
     }
-    connectionCode(workspacePath, role) {
+    connectionCode(workspacePath, role, profile) {
         const navigation = this.getNavigationConnection();
         return JSON.stringify({
             mcpServers: {
@@ -163,6 +239,8 @@ class SettingsViewProvider {
                         vscode.Uri.joinPath(this.extensionUri, 'dist', 'mcp-server.js').fsPath,
                         '--workspace', workspacePath ?? '<PROJECT_PATH>',
                         '--database-role', role,
+                        ...(profile ? ['--database-profile', profile] : []),
+                        ...(this.databaseSelectionPath ? ['--database-selection', this.databaseSelectionPath] : []),
                         '--logs', this.logger.logUri.fsPath,
                         ...(navigation ? ['--navigation-info', navigation.infoPath] : []),
                     ],
@@ -171,7 +249,7 @@ class SettingsViewProvider {
         }, null, 2);
     }
     post(message) {
-        void this.view?.webview.postMessage(message);
+        void this.panel?.webview.postMessage(message);
     }
     getHtml(webview, assetsRoot) {
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'settings.js'));

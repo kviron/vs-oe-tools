@@ -2,6 +2,17 @@
 .vscode-test/**
 out/**
 node_modules/**
+!node_modules/node-pty/**
+node_modules/node-pty/**/*.pdb
+node_modules/node-pty/**/*.map
+node_modules/node-pty/deps/**
+node_modules/node-pty/scripts/**
+node_modules/node-pty/src/**
+node_modules/node-pty/third_party/**
+node_modules/node-pty/typings/**
+node_modules/node-pty/prebuilds/darwin-*/**
+node_modules/node-pty/build/**
+oesqlmon*.sqdb
 src/**
 .gitignore
 .yarnrc

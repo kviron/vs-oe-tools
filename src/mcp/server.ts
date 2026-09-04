@@ -1,5 +1,6 @@
 import { Client } from 'pg';
 import { readFile } from 'node:fs/promises';
+import * as path from 'node:path';
 import type { DatabaseRole } from '../features/classes/models';
 import { loadMcpDatabaseOptions } from './databaseConfig';
 import { defaultMcpRowLimit, prepareReadOnlyQuery } from './readOnlyQuery';
@@ -9,6 +10,9 @@ import { resolveMethodCandidates, type MethodResolutionCandidate } from './metho
 import { databaseObjectSearchSelect, mapDatabaseObject, type DatabaseObjectSearchRow } from '../core/objectSearch';
 import { getNavigationInfoPath } from '../core/navigationInfo';
 import { selectVisibleProperties, type McpClassProperty } from './classProperties';
+import { loadRdboadmDatabases, rdboadmDatabaseOptions, type RdboadmDatabase } from '../infrastructure/configuration/rdboadmIni';
+import { readDatabaseSelection } from '../core/databaseSelection';
+import { classifySqlQuery } from '../features/sql-monitor/queryCategory';
 
 // The SDK currently publishes declarations that require DOM and NodeNext types.
 // Runtime imports keep this standalone entrypoint compatible with the extension's Node16 tsconfig.
@@ -18,23 +22,75 @@ const z = require('zod');
 
 const workspacePath = readArgument('--workspace');
 const databaseRole = readRoleArgument();
+let activeDatabaseProfile = readOptionalArgument('--database-profile');
+let lastDatabaseSelectionUpdate: string | undefined;
+let lastWorkspaceDatabaseProfile: string | undefined;
 const logsPath = readOptionalArgument('--logs');
+const sqlMonitorHistoryPath = readOptionalArgument('--sql-monitor-history');
+const databaseSelectionPath = readOptionalArgument('--database-selection');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? getNavigationInfoPath(workspacePath);
 const server = new McpServer(
-	{ name: 'vc-ve-tools-database', version: '0.15.0' },
+	{ name: 'vc-ve-tools-database', version: '0.16.0' },
 	{
 		instructions: [
 			'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
 			'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
+			'Before database work, use get_active_database when the intended database matters. Use list_databases and switch_database to select another rdboadm.ini profile without restarting this MCP server.',
 			'Use get_class_dictionary for paged dictionary rows and search_class_dictionary to find elements by ID, name, or any mapped class attribute.',
 			'Use get_class_properties to inspect script properties declared by a class and optionally inherited from ancestors. Use get_property_details for the complete stored record.',
 			'Before update_method_source, read the complete current method body with get_method_source. Send only the method body, never its name or declaration wrapper.',
 			'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
+			'Use get_recent_sql_queries to inspect the last 100 filtered queries captured by the SQL monitor without generating additional database traffic.',
 			'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
-			'Direct SQL access is read-only. The only database mutation is update_method_source through the VS Code extension save pipeline. Include relevant object IDs in analysis so navigation can continue.',
+			'Direct SQL access is read-only. Controlled mutations are available only through update_method_source and the explicitly confirmed update_database command in VS Code. Database updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue.',
 		].join(' '),
 	},
 );
+
+server.registerTool('list_databases', {
+	description: 'List database profiles from trunk/bin/rdboadm.ini, including section IDs, display names, safe connection details, and which profile is active in this MCP process.',
+	inputSchema: {},
+	annotations: { readOnlyHint: true },
+}, async () => databaseToolResult(async () => {
+	await synchronizeDatabaseSelection();
+	const { path, databases } = await loadRdboadmDatabases(workspacePath);
+	return {
+		path,
+		activeProfile: activeDatabaseProfile ?? databases[0]?.id ?? null,
+		databases: databases.map(database => databaseSummary(database)),
+	};
+}));
+
+server.registerTool('get_active_database', {
+	description: 'Return the database profile and actual PostgreSQL connection currently used by this MCP process.',
+	inputSchema: {},
+	annotations: { readOnlyHint: true },
+}, async () => databaseToolResult(async () => {
+	await synchronizeDatabaseSelection();
+	const { databases } = await loadRdboadmDatabases(workspacePath);
+	const database = findDatabaseProfile(databases, activeDatabaseProfile);
+	return { active: databaseSummary(database) };
+}));
+
+server.registerTool('switch_database', {
+	description: 'Switch this MCP process to another rdboadm.ini database profile. The connection is tested before the switch; all subsequent database tools use the selected profile.',
+	inputSchema: { profile: z.string().min(1).describe('Section ID from list_databases, for example oetest') },
+	annotations: { readOnlyHint: false, destructiveHint: false },
+}, async ({ profile }: { profile: string }) => databaseToolResult(async () => {
+	await synchronizeDatabaseSelection();
+	const { databases } = await loadRdboadmDatabases(workspacePath);
+	const database = findDatabaseProfile(databases, profile);
+	const options = rdboadmDatabaseOptions(database);
+	const client = new Client({ ...options, application_name: 'vc-ve-tools-mcp-switch-test', connectionTimeoutMillis: 5000 });
+	try {
+		await client.connect();
+		const result = await client.query<{ database: string; server: string; port: number; user: string }>('SELECT current_database() AS database, inet_server_addr()::text AS server, inet_server_port() AS port, current_user AS user');
+		activeDatabaseProfile = database.id;
+		return { active: databaseSummary(database), connection: result.rows[0] };
+	} finally {
+		await client.end().catch(() => undefined);
+	}
+}));
 
 server.registerTool('lookup_object_by_id', {
 	description: 'Identify any East Express object by an otherwise unknown numeric ID. Returns its concrete kind, meta-class, owner and package context.',
@@ -478,6 +534,22 @@ server.registerTool('update_method_source', {
 	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
 }, async ({ methodId, code }: { methodId: number; code: string }) => bridgeToolResult({ action: 'update_method_source', id: methodId, code }));
 
+server.registerTool('update_database', {
+	description: 'Update the main or test East Express database using the command from DBUpdate_main.bat or DBUpdate_test.bat in the open workspace. VS Code asks the user for confirmation, then runs the command in a visible terminal.',
+	inputSchema: {
+		role: z.enum(['main', 'test']).describe('Database role to update'),
+	},
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+}, async ({ role }: { role: 'main' | 'test' }) => bridgeToolResult({ action: 'update_database', role }));
+
+server.registerTool('start_client', {
+	description: 'Launch the original East Express client for the main or test database using start.bat or start_test.bat and the client credentials saved in VS Code settings.',
+	inputSchema: {
+		role: z.enum(['main', 'test']).describe('Database role whose client should be launched'),
+	},
+	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, async ({ role }: { role: 'main' | 'test' }) => bridgeToolResult({ action: 'start_client', role }));
+
 server.registerTool('get_svn_file_history', {
 	description: 'Read SVN history for a file inside the currently open East Express workspace using the extension SVN integration.',
 	inputSchema: {
@@ -570,7 +642,7 @@ server.registerTool('query_readonly', {
 	},
 }, async ({ sql, maxRows }: { sql: string; maxRows?: number }) => {
 	try {
-		const options = await loadMcpDatabaseOptions(workspacePath, databaseRole);
+		const options = await loadActiveDatabaseOptions();
 		const client = new Client({ ...options, application_name: 'vc-ve-tools-mcp', connectionTimeoutMillis: 5000 });
 		try {
 			await client.connect();
@@ -582,8 +654,8 @@ server.registerTool('query_readonly', {
 			const truncated = result.rows.length > limit;
 			const rows = result.rows.slice(0, limit).map(normalizeRow);
 			return {
-				content: [{ type: 'text' as const, text: JSON.stringify({ database: options.database, rowCount: rows.length, truncated, rows }, null, 2) }],
-				structuredContent: { database: options.database, rowCount: rows.length, truncated, rows },
+				content: [{ type: 'text' as const, text: JSON.stringify({ profile: activeDatabaseProfile, database: options.database, rowCount: rows.length, truncated, rows }, null, 2) }],
+				structuredContent: { profile: activeDatabaseProfile, database: options.database, rowCount: rows.length, truncated, rows },
 			};
 		} finally {
 			await client.query('ROLLBACK').catch(() => undefined);
@@ -608,6 +680,47 @@ server.registerTool('get_extension_logs', {
 	},
 	annotations: { readOnlyHint: true },
 }, async ({ level, limit }: { level?: 'info' | 'warning' | 'error'; limit?: number }) => logToolResult(level, limit ?? 50));
+
+server.registerTool('get_recent_sql_queries', {
+	description: 'Read the last filtered SQL queries captured from the East Express client and vc-ve-tools. Use this to diagnose what the client did without executing another database query.',
+	inputSchema: {
+		limit: z.number().int().min(1).max(100).optional().describe('Maximum queries to return, default 30'),
+		search: z.string().optional().describe('Optional case-insensitive filter over SQL text, source, user, and first table'),
+		operation: z.enum(['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'DDL', 'OTHER']).optional(),
+		category: z.enum(['application', 'metadata', 'system', 'transaction']).optional()
+			.describe('Optional query category: application, metadata, system, or transaction'),
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ limit, search, operation, category }: { limit?: number; search?: string; operation?: string; category?: string }) => {
+	if (!sqlMonitorHistoryPath) {
+		return { content: [{ type: 'text' as const, text: 'SQL monitor history path is not configured.' }], isError: true };
+	}
+	try {
+		const records = JSON.parse(await readFile(sqlMonitorHistoryPath, 'utf8')) as Array<Record<string, unknown>>;
+		const needle = search?.trim().toLocaleLowerCase('ru');
+		const filtered = records
+			.filter(record => !operation || record.operation === operation)
+			.filter(record => !category || classifySqlQuery({
+				text: String(record.text ?? ''),
+				firstTable: typeof record.firstTable === 'string' ? record.firstTable : undefined,
+			}) === category)
+			.filter(record => !needle || [record.text, record.source, record.userName, record.firstTable]
+				.some(value => String(value ?? '').toLocaleLowerCase('ru').includes(needle)))
+			.slice(-(limit ?? 30))
+			.reverse();
+		const result = { count: filtered.length, totalStored: records.length, queries: filtered };
+		return {
+			content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+			structuredContent: result,
+		};
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+			const result = { count: 0, totalStored: 0, queries: [] };
+			return { content: [{ type: 'text' as const, text: JSON.stringify(result) }], structuredContent: result };
+		}
+		return { content: [{ type: 'text' as const, text: error instanceof Error ? error.message : String(error) }], isError: true };
+	}
+});
 
 async function main(): Promise<void> {
 	await server.connect(new StdioServerTransport());
@@ -679,7 +792,7 @@ async function queryDatabase(text: string, values: unknown[]): Promise<Record<st
 }
 
 async function queryDatabaseRaw<Row extends Record<string, unknown>>(text: string, values: unknown[]): Promise<Row[]> {
-	const options = await loadMcpDatabaseOptions(workspacePath, databaseRole);
+	const options = await loadActiveDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools-mcp', connectionTimeoutMillis: 5000 });
 	try {
 		await client.connect();
@@ -1093,6 +1206,61 @@ async function databaseToolResult(load: () => Promise<Record<string, unknown>>) 
 	} catch (error) {
 		return { content: [{ type: 'text' as const, text: error instanceof Error ? error.message : String(error) }], isError: true };
 	}
+}
+
+async function loadActiveDatabaseOptions() {
+	await synchronizeDatabaseSelection();
+	try {
+		const { databases } = await loadRdboadmDatabases(workspacePath);
+		const database = findDatabaseProfile(databases, activeDatabaseProfile);
+		activeDatabaseProfile = database.id;
+		return rdboadmDatabaseOptions(database);
+	} catch (error) {
+		if (activeDatabaseProfile) { throw error; }
+		return loadMcpDatabaseOptions(workspacePath, databaseRole);
+	}
+}
+
+async function synchronizeDatabaseSelection(): Promise<void> {
+	if (databaseSelectionPath) {
+		try {
+			const selection = await readDatabaseSelection(databaseSelectionPath);
+			if (selection.updatedAt !== lastDatabaseSelectionUpdate) {
+				lastDatabaseSelectionUpdate = selection.updatedAt;
+				if (selection.profile) { activeDatabaseProfile = selection.profile; }
+			}
+			return;
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') { throw error; }
+		}
+	}
+
+	// Older copied MCP configurations do not contain --database-selection.
+	// Read the workspace setting directly so an already configured agent still follows the UI.
+	try {
+		const settings = await readFile(path.join(workspacePath, '.vscode', 'settings.json'), 'utf8');
+		const match = settings.match(/["']vcVeTools\.databaseProfile["']\s*:\s*["']([^"']+)["']/);
+		const profile = match?.[1];
+		if (profile && profile !== lastWorkspaceDatabaseProfile) {
+			lastWorkspaceDatabaseProfile = profile;
+			activeDatabaseProfile = profile;
+		}
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') { throw error; }
+	}
+}
+
+function findDatabaseProfile(databases: RdboadmDatabase[], profile: string | undefined): RdboadmDatabase {
+	const database = databases.find(item => item.id.toLowerCase() === profile?.toLowerCase()) ?? (!profile ? databases[0] : undefined);
+	if (!database) {
+		throw new Error(`Database profile [${profile ?? ''}] was not found in rdboadm.ini. Use list_databases to get valid profile IDs.`);
+	}
+	return database;
+}
+
+function databaseSummary(database: RdboadmDatabase): Record<string, unknown> {
+	const options = rdboadmDatabaseOptions(database);
+	return { profile: database.id, name: database.name, database: options.database, server: options.host, port: options.port, user: options.user };
 }
 
 async function navigationToolResult(action: 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method', id: number, classId?: number) {

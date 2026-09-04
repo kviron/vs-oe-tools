@@ -45,9 +45,17 @@ async function getObjectView(objectId) {
         await client.connect();
         const identityResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT object.id::text, object.name, object.classid::text,
-			             class.name AS classname, class.dbtablename
+			             class.name AS classname, class.dbtablename,
+			             owner.name AS ownername, owner.id::text AS ownerid,
+			             object_group.name AS groupname, object_group.id::text AS groupid,
+			             file.filename, file_group.path AS grouppath, package.packagename
 			      FROM abstract AS object
 			      LEFT JOIN classes AS class ON class.id = object.classid
+			      LEFT JOIN abstract AS owner ON owner.id = object.seniorid
+			      LEFT JOIN abstract AS object_group ON object_group.id = owner.seniorid
+			      LEFT JOIN sysfile AS file ON file.id = object.sysfile
+			      LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			      LEFT JOIN syspackages AS package ON package.id = file_group.package
 			      WHERE object.id = $1`,
             values: [objectId], source: `Объект ${objectId}`, database: options.database,
         });
@@ -96,9 +104,40 @@ async function getObjectView(objectId) {
 			       ORDER BY chain.depth, attribute.ord NULLS LAST, attribute.id`,
             values: [Number(identity.classid)], source: `Атрибуты объекта ${objectId}`, database: options.database,
         });
+        const propertiesResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `WITH RECURSIVE class_chain AS (
+			         SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+			         UNION ALL SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+			         FROM classes parent JOIN class_chain chain ON chain.seniorid = parent.id
+			         WHERE NOT parent.id = ANY(chain.path)
+			       )
+			       SELECT property.id::text, property.name, property.aliases, read_attribute.dbfieldname
+			       FROM class_chain chain
+			       JOIN properties property ON property.seniorid = chain.id
+			       LEFT JOIN attributes read_attribute ON read_attribute.id = property.readmember
+			       ORDER BY chain.depth, lower(property.name), property.id`,
+            values: [Number(identity.classid)], source: `Свойства объекта ${objectId}`, database: options.database,
+        });
         const actualKeys = new Map(Object.keys(data).map(key => [key.toLocaleLowerCase(), key]));
         const used = new Set();
         const fields = [];
+        const systemProperties = [
+            ['_Группа', identity.groupname ? `${identity.groupname} (${identity.groupid})` : null, ''],
+            ['_Пакет', identity.packagename, ''],
+            ['_ПолныйПутьКФайлу', [identity.packagename, identity.grouppath, identity.filename].filter(Boolean).join('\\'), ''],
+            ['_ПутьКПакетам', identity.packagename, ''],
+            ['_ПутьКФайлу', [identity.packagename, identity.grouppath].filter(Boolean).join('\\'), ''],
+            ['_Файл', identity.filename, ''],
+            ['AsJsonString', null, ''],
+            ['Версия', data.lastchange ?? data.LastChange ?? null, ''],
+            ['Изменен', null, ''],
+            ['Проверен', null, ''],
+            ['ПроверятьПраваДоступа', null, ''],
+            ['СостояниеОбъекта', null, ''],
+        ];
+        for (const [name, value, tableField] of systemProperties) {
+            fields.push({ kind: 'property', attributeId: null, attributeName: name, value: serializable(value), tableField, distribution: '' });
+        }
         for (const attribute of attributesResult.rows) {
             const field = attribute.dbfieldname?.trim();
             const actual = field ? actualKeys.get(field.toLocaleLowerCase()) : undefined;
@@ -110,6 +149,19 @@ async function getObjectView(objectId) {
                 attributeName: attribute.title?.trim() || attribute.name,
                 value: actual ? serializable(data[actual]) : null,
                 tableField: field ?? '', distribution: display(attribute.distribution),
+            });
+        }
+        for (const property of propertiesResult.rows) {
+            const field = property.dbfieldname?.trim();
+            const actual = field ? actualKeys.get(field.toLocaleLowerCase()) : undefined;
+            if (actual) {
+                used.add(actual.toLocaleLowerCase());
+            }
+            fields.push({
+                kind: 'property', attributeId: property.id,
+                attributeName: property.aliases?.trim() || property.name,
+                value: actual ? serializable(data[actual]) : null,
+                tableField: field ?? '', distribution: '',
             });
         }
         for (const [key, value] of Object.entries(data)) {

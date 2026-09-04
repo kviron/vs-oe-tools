@@ -28,6 +28,7 @@ async function main() {
 		entryPoints: {
 			extension: 'src/extension.ts',
 			'mcp-server': 'src/mcp/server.ts',
+			'sql-monitor-helper': 'src/features/sql-monitor/oeSqlMonitorHelper.ts',
 		},
 		bundle: true,
 		format: 'cjs',
@@ -39,7 +40,7 @@ async function main() {
 			navigator: 'undefined',
 		},
 		outdir: 'dist',
-		external: ['vscode'],
+		external: ['vscode', 'node-pty'],
 		logLevel: 'silent',
 		plugins: [
 			/* add to the end of plugins array */

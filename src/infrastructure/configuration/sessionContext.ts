@@ -41,7 +41,19 @@ export async function getSessionContext(client: Client, databaseName: string): P
 	const changeDate = timeResult.rows[0]?.now ?? new Date();
 
 	// Получаем имя компьютера из ОС
-	const computerName = hostname();
+	const localComputerName = hostname();
+	const computerResult = await executeMonitoredQuery<{ computername: string }>(client, {
+		text: `SELECT computername
+		 FROM packagestune
+		 WHERE upper(computername) = upper($1)
+		    OR upper(computername) LIKE upper($1) || '.%'
+		 ORDER BY CASE WHEN upper(computername) = upper($1) THEN 0 ELSE 1 END
+		 LIMIT 1`,
+		values: [localComputerName],
+		source: 'Получение имени компьютера ВЭ',
+		database: databaseName,
+	});
+	const computerName = computerResult.rows[0]?.computername ?? localComputerName;
 
 	// Получаем UserID из настроек расширения
 	const userId = await getUserId();

@@ -5,6 +5,7 @@ exports.isPackageSyncWebviewMessage = isPackageSyncWebviewMessage;
 exports.isCodeHistoryWebviewMessage = isCodeHistoryWebviewMessage;
 exports.isClassDetailsWebviewMessage = isClassDetailsWebviewMessage;
 exports.isAttributeDetailsWebviewMessage = isAttributeDetailsWebviewMessage;
+exports.isPropertyDetailsWebviewMessage = isPropertyDetailsWebviewMessage;
 exports.isClassObjectsWebviewMessage = isClassObjectsWebviewMessage;
 exports.isObjectViewWebviewMessage = isObjectViewWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
@@ -24,8 +25,24 @@ function isSettingsWebviewMessage(message) {
     if (message.command === 'setDatabaseRole') {
         return 'role' in message && (message.role === 'main' || message.role === 'test');
     }
+    if (message.command === 'setDatabaseProfile') {
+        return 'profile' in message && typeof message.profile === 'string';
+    }
+    if (message.command === 'saveDatabaseProfile') {
+        return 'profile' in message && typeof message.profile === 'string'
+            && 'fields' in message && Array.isArray(message.fields)
+            && message.fields.every(field => typeof field === 'object' && field !== null && 'key' in field && typeof field.key === 'string' && 'value' in field && typeof field.value === 'string');
+    }
+    if (message.command === 'runProjectCommand') {
+        return 'action' in message && (message.action === 'updateDatabase' || message.action === 'startClient')
+            && 'role' in message && (message.role === 'main' || message.role === 'test');
+    }
     if (message.command === 'setUserId') {
         return 'userId' in message && typeof message.userId === 'number' && Number.isInteger(message.userId) && message.userId >= 0;
+    }
+    if (message.command === 'setClientCredentials') {
+        return 'username' in message && typeof message.username === 'string'
+            && (!('password' in message) || message.password === undefined || typeof message.password === 'string');
     }
     return message.command === 'copyMcpConnectionCode' && 'text' in message && typeof message.text === 'string';
 }
@@ -60,13 +77,13 @@ function isClassDetailsWebviewMessage(message) {
     if (message.command === 'loadClassAttributes') {
         return 'includeInherited' in message && typeof message.includeInherited === 'boolean';
     }
-    if (message.command === 'openMethod' || message.command === 'openAttribute') {
+    if (message.command === 'openMethod' || message.command === 'openAttribute' || message.command === 'openProperty') {
         return 'id' in message && typeof message.id === 'number';
     }
     if (message.command === 'openClassObjects') {
         return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
     }
-    if (message.command === 'viewObject') {
+    if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
         return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
     }
     if (message.command === 'copyTableCells') {
@@ -86,6 +103,9 @@ function isClassDetailsWebviewMessage(message) {
 function isAttributeDetailsWebviewMessage(message) {
     return typeof message === 'object' && message !== null && 'command' in message && message.command === 'attributeDetailsReady';
 }
+function isPropertyDetailsWebviewMessage(message) {
+    return typeof message === 'object' && message !== null && 'command' in message && message.command === 'propertyDetailsReady';
+}
 function isClassObjectsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
@@ -93,7 +113,7 @@ function isClassObjectsWebviewMessage(message) {
     if (message.command === 'loadMoreClassObjects') {
         return 'offset' in message && typeof message.offset === 'number' && Number.isInteger(message.offset) && message.offset >= 0;
     }
-    if (message.command === 'viewObject') {
+    if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
         return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
     }
     return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message);
@@ -148,7 +168,7 @@ function isExplorerWebviewMessage(message) {
     if (message.command === 'openClassObjects') {
         return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
     }
-    if (message.command === 'viewObject') {
+    if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
         return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
     }
     return message.command === 'openClass' && 'id' in message && 'pinned' in message
@@ -166,7 +186,11 @@ function isSqlMonitorWebviewMessage(message) {
     return typeof message === 'object'
         && message !== null
         && 'command' in message
-        && (message.command === 'sqlMonitorReady' || message.command === 'clearSqlMonitor' || isTableSelectionDebugMessage(message) || isCopyTableCellsMessage(message));
+        && (message.command === 'sqlMonitorReady'
+            || message.command === 'clearSqlMonitor'
+            || (message.command === 'setSqlMonitorPaused' && 'paused' in message && typeof message.paused === 'boolean')
+            || isTableSelectionDebugMessage(message)
+            || isCopyTableCellsMessage(message));
 }
 function isSqlExecutorWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {

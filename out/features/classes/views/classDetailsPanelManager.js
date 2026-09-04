@@ -42,8 +42,10 @@ const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
 const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
 const attributeDetailsPanelManager_1 = require("./attributeDetailsPanelManager");
+const propertyDetailsPanelManager_1 = require("./propertyDetailsPanelManager");
 const classObjectsPanelManager_1 = require("./classObjectsPanelManager");
 const objectViewPanelManager_1 = require("./objectViewPanelManager");
+const entityPropertiesPanelManager_1 = require("./entityPropertiesPanelManager");
 function postPendingMethod(entry) {
     if (!entry.ready || entry.pendingMethodId === undefined) {
         return;
@@ -129,12 +131,25 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
                 }
                 return;
             }
+            if (message.command === 'openProperty') {
+                try {
+                    await (0, propertyDetailsPanelManager_1.openPropertyDetails)(context, message.id);
+                }
+                catch (error) {
+                    void vscode.window.showErrorMessage(`Не удалось открыть свойство: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
             if (message.command === 'openClassObjects') {
                 await (0, classObjectsPanelManager_1.openClassObjects)(context, message.classId);
                 return;
             }
             if (message.command === 'viewObject') {
                 await (0, objectViewPanelManager_1.openObjectView)(context, message.id);
+                return;
+            }
+            if (message.command === 'viewEntityProperties') {
+                await (0, entityPropertiesPanelManager_1.openEntityProperties)(context, message.id);
                 return;
             }
             if (message.command === 'methodSvnAction') {

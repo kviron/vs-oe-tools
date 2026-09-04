@@ -39,6 +39,7 @@ const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classObjectRepository_1 = require("../../../infrastructure/database/classObjectRepository");
 const objectViewPanelManager_1 = require("./objectViewPanelManager");
+const entityPropertiesPanelManager_1 = require("./entityPropertiesPanelManager");
 const panels = new Map();
 async function openClassObjects(context, classId) {
     const existing = panels.get(classId);
@@ -80,6 +81,10 @@ async function openClassObjects(context, classId) {
         }
         if (message.command === 'viewObject') {
             await (0, objectViewPanelManager_1.openObjectView)(context, message.id);
+            return;
+        }
+        if (message.command === 'viewEntityProperties') {
+            await (0, entityPropertiesPanelManager_1.openEntityProperties)(context, message.id);
             return;
         }
         await load(message.command === 'loadMoreClassObjects' ? message.offset : 0);

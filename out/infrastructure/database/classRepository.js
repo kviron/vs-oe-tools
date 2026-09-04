@@ -39,6 +39,7 @@ exports.getClassDetails = getClassDetails;
 exports.getClassAttributes = getClassAttributes;
 exports.getClassAttributeDetails = getClassAttributeDetails;
 exports.getClassProperties = getClassProperties;
+exports.getClassPropertyDetails = getClassPropertyDetails;
 exports.getClassMethods = getClassMethods;
 const pg_1 = require("pg");
 const iconv = __importStar(require("iconv-lite"));
@@ -383,6 +384,42 @@ async function getClassProperties(classId, includeInherited) {
             }
         }
         return [...visible.values()];
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+async function getClassPropertyDetails(propertyId) {
+    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+    try {
+        await client.connect();
+        const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `SELECT property.id::text, property.name, property.aliases,
+			              owner.id::text AS ownerclassid, owner.name AS ownerclassname,
+			              visibility.name AS visibility,
+			              property.readmember::text AS readmemberid, read_member.name AS readmembername,
+			              property.writemember::text AS writememberid, write_member.name AS writemembername
+			       FROM properties AS property
+			       LEFT JOIN abstract AS owner ON owner.id = property.seniorid
+			       LEFT JOIN abstract AS read_member ON read_member.id = property.readmember
+			       LEFT JOIN abstract AS write_member ON write_member.id = property.writemember
+			       LEFT JOIN enum AS visibility ON visibility.classid = 12450282
+			         AND ((visibility.id = 12450286 AND (NULLIF(property.visibility, 0) IS NULL OR property.visibility = 12450283))
+			           OR (property.visibility <> 12450283 AND visibility.id = property.visibility))
+			       WHERE property.id = $1`,
+            values: [propertyId], source: `Карточка свойства ${propertyId}`, database: options.database,
+        });
+        const row = result.rows[0];
+        if (!row) {
+            throw new Error(`Свойство ${propertyId} не найдено.`);
+        }
+        return {
+            id: row.id, name: decodeDatabaseText(row.name), aliases: decodeDatabaseText(row.aliases ?? ''),
+            visibility: row.visibility ?? '', ownerClassId: row.ownerclassid, ownerClassName: row.ownerclassname ?? '',
+            readMemberId: row.readmemberid ?? '', readMemberName: row.readmembername ?? '',
+            writeMemberId: row.writememberid ?? '', writeMemberName: row.writemembername ?? '',
+        };
     }
     finally {
         await client.end().catch(() => undefined);

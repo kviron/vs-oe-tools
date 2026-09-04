@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import * as vscode from 'vscode';
 import * as iconv from 'iconv-lite';
-import { databaseRoleSetting } from '../../core/constants';
+import { databaseProfileSetting, databaseRoleSetting } from '../../core/constants';
 import type { DatabaseConnectionOptions, DatabaseRole } from '../../features/classes/models';
+import { loadRdboadmDatabases, rdboadmDatabaseOptions } from './rdboadmIni';
 
 export function parseVarsFile(content: string): Map<string, string> {
 	const variables = new Map<string, string>();
@@ -47,6 +48,15 @@ export async function getProjectDatabaseOptions(): Promise<DatabaseConnectionOpt
 		throw new Error('Сначала откройте папку проекта.');
 	}
 
+	const selectedProfile = vscode.workspace.getConfiguration('vcVeTools').get<string>(databaseProfileSetting, '');
+	try {
+		const { databases } = await loadRdboadmDatabases(workspaceFolder.uri.fsPath);
+		const selected = databases.find(database => database.id.toLowerCase() === selectedProfile.toLowerCase()) ?? databases[0];
+		if (selected) { return rdboadmDatabaseOptions(selected); }
+	} catch (error) {
+		if (selectedProfile) { throw error; }
+	}
+
 	const varsPath = vscode.Uri.joinPath(workspaceFolder.uri, 'Vars.bat');
 	let varsContent: string;
 	try {
@@ -79,4 +89,3 @@ export async function getProjectDatabaseOptions(): Promise<DatabaseConnectionOpt
 		password,
 	};
 }
-

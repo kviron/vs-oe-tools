@@ -2,8 +2,16 @@ import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as iconv from 'iconv-lite';
 import type { DatabaseConnectionOptions, DatabaseRole } from '../features/classes/models';
+import { loadRdboadmDatabases, rdboadmDatabaseOptions } from '../infrastructure/configuration/rdboadmIni';
 
-export async function loadMcpDatabaseOptions(workspacePath: string, role: DatabaseRole): Promise<DatabaseConnectionOptions> {
+export async function loadMcpDatabaseOptions(workspacePath: string, role: DatabaseRole, profile?: string): Promise<DatabaseConnectionOptions> {
+	try {
+		const { databases } = await loadRdboadmDatabases(workspacePath);
+		const selected = databases.find(database => database.id.toLowerCase() === profile?.toLowerCase()) ?? databases[0];
+		if (selected) { return rdboadmDatabaseOptions(selected); }
+	} catch (error) {
+		if (profile) { throw error; }
+	}
 	const varsContent = iconv.decode(await readFile(path.join(workspacePath, 'Vars.bat')), 'win1251');
 	const variables = parseVarsFile(varsContent);
 	const password = roleVariable(variables, 'oedbmspassword', role);

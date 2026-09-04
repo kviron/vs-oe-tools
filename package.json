@@ -88,11 +88,23 @@
           "scope": "window",
           "description": "База данных, к которой подключается Восточный Экспресс."
         },
+        "vcVeTools.databaseProfile": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "Секция базы данных из trunk\\bin\\rdboadm.ini. Пустое значение выбирает первую секцию."
+        },
         "vcVeTools.userId": {
           "type": "number",
           "default": 0,
           "scope": "window",
           "description": "ID пользователя в системе Восточного Экспресса для логирования изменений методов."
+        },
+        "vcVeTools.clientUsername": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "Логин пользователя для запуска оригинального клиента Восточного Экспресса."
         },
         "vcVeTools.mcp.enabled": {
           "type": "boolean",
@@ -128,11 +140,6 @@
         {
           "id": "vc-ve-tools.explorer",
           "name": "Проводник",
-          "type": "webview"
-        },
-        {
-          "id": "vc-ve-tools.settings",
-          "name": "Настройки",
           "type": "webview"
         }
       ],
@@ -179,6 +186,32 @@
         "title": "Синхронизация проектов",
         "category": "Восточный экспресс",
         "icon": "$(sync)"
+      },
+      {
+        "command": "vc-ve-tools.openSettings",
+        "title": "Настройки",
+        "category": "Восточный экспресс",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "vc-ve-tools.updateMainDatabase",
+        "title": "Обновить основную базу",
+        "category": "Восточный экспресс"
+      },
+      {
+        "command": "vc-ve-tools.updateTestDatabase",
+        "title": "Обновить тестовую базу",
+        "category": "Восточный экспресс"
+      },
+      {
+        "command": "vc-ve-tools.startMainClient",
+        "title": "Запустить клиент — основная база",
+        "category": "Восточный экспресс"
+      },
+      {
+        "command": "vc-ve-tools.startTestClient",
+        "title": "Запустить клиент — тестовая база",
+        "category": "Восточный экспресс"
       },
       {
         "command": "vc-ve-tools.copySelectedExplorerId",
@@ -262,6 +295,11 @@
           "command": "vc-ve-tools.openPackageSync",
           "when": "view == vc-ve-tools.explorer",
           "group": "navigation@2"
+        },
+        {
+          "command": "vc-ve-tools.openSettings",
+          "when": "view == vc-ve-tools.explorer",
+          "group": "navigation@3"
         }
       ]
     },
@@ -448,6 +486,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "iconv-lite": "^0.7.3",
+    "node-pty": "^1.1.0",
     "pg": "^8.23.0",
     "reka-ui": "^2.10.4",
     "shadcn-vue": "^2.8.2",

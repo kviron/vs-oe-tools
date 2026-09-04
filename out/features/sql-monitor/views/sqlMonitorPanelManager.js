@@ -39,6 +39,7 @@ const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const sqlMonitorService_1 = require("../sqlMonitorService");
 const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
+const oeSqlMonitorCollector_1 = require("../oeSqlMonitorCollector");
 let monitorPanel;
 function openSqlMonitor(context) {
     if (monitorPanel) {
@@ -49,6 +50,8 @@ function openSqlMonitor(context) {
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.sqlMonitor', 'SQL-монитор', vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot] });
     monitorPanel = panel;
     sqlMonitorService_1.sqlMonitorService.setActive(true);
+    const collector = new oeSqlMonitorCollector_1.OeSqlMonitorCollector(vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor').fsPath);
+    collector.start();
     const subscription = sqlMonitorService_1.sqlMonitorService.subscribe(record => {
         void panel.webview.postMessage({ command: 'sqlQueryChanged', record });
     });
@@ -68,13 +71,20 @@ function openSqlMonitor(context) {
             void panel.webview.postMessage({
                 command: 'sqlMonitorSnapshot',
                 records: sqlMonitorService_1.sqlMonitorService.getRecords(),
+                paused: collector.isPaused(),
             });
+            return;
+        }
+        if (message.command === 'setSqlMonitorPaused') {
+            collector.setPaused(message.paused);
+            void panel.webview.postMessage({ command: 'sqlMonitorPaused', paused: collector.isPaused() });
             return;
         }
         sqlMonitorService_1.sqlMonitorService.clear();
         void panel.webview.postMessage({ command: 'sqlMonitorCleared' });
     });
     panel.onDidDispose(() => {
+        collector.dispose();
         subscription.dispose();
         sqlMonitorService_1.sqlMonitorService.setActive(false);
         monitorPanel = undefined;

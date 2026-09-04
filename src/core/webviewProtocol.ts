@@ -99,11 +99,13 @@ export type ObjectViewHostMessage =
 export type SqlMonitorWebviewMessage =
 	| { command: 'sqlMonitorReady' }
 	| { command: 'clearSqlMonitor' }
+	| { command: 'setSqlMonitorPaused'; paused: boolean }
 	| TableSelectionDebugMessage
 	| CopyTableCellsMessage;
 export type SqlMonitorHostMessage =
-	| { command: 'sqlMonitorSnapshot'; records: SqlQueryRecord[] }
+	| { command: 'sqlMonitorSnapshot'; records: SqlQueryRecord[]; paused: boolean }
 	| { command: 'sqlQueryChanged'; record: SqlQueryRecord }
+	| { command: 'sqlMonitorPaused'; paused: boolean }
 	| { command: 'sqlMonitorCleared' };
 export interface SqlHistoryEntry {
 	id: number;
@@ -136,7 +138,13 @@ export type PackageSyncHostMessage =
 export interface SettingsState {
 	useFolderAsProjectRoot: boolean;
 	databaseRole: 'main' | 'test';
+	databaseProfile: string;
+	databaseProfiles: Array<{ id: string; name: string; fields: Array<{ key: string; value: string }> }>;
+	rdboadmPath?: string;
+	rdboadmError?: string;
 	userId: number;
+	clientUsername: string;
+	clientPasswordSet: boolean;
 	mcpEnabled: boolean;
 	mcpStatus: 'ready' | 'disabled' | 'unavailable';
 	mcpStatusText: string;
@@ -147,7 +155,11 @@ export type SettingsWebviewMessage =
 	| { command: 'settingsReady' }
 	| { command: 'setProjectRootEnabled'; enabled: boolean }
 	| { command: 'setDatabaseRole'; role: 'main' | 'test' }
+	| { command: 'setDatabaseProfile'; profile: string }
+	| { command: 'saveDatabaseProfile'; profile: string; fields: Array<{ key: string; value: string }> }
+	| { command: 'runProjectCommand'; action: 'updateDatabase' | 'startClient'; role: 'main' | 'test' }
 	| { command: 'setUserId'; userId: number }
+	| { command: 'setClientCredentials'; username: string; password?: string }
 	| { command: 'setMcpEnabled'; enabled: boolean }
 	| { command: 'testSettingsDatabaseConnection' }
 	| { command: 'copyMcpConnectionCode'; text: string }
@@ -171,8 +183,20 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	if (message.command === 'setDatabaseRole') {
 		return 'role' in message && (message.role === 'main' || message.role === 'test');
 	}
+	if (message.command === 'setDatabaseProfile') { return 'profile' in message && typeof message.profile === 'string'; }
+	if (message.command === 'saveDatabaseProfile') { return 'profile' in message && typeof message.profile === 'string'
+		&& 'fields' in message && Array.isArray(message.fields)
+		&& message.fields.every(field => typeof field === 'object' && field !== null && 'key' in field && typeof field.key === 'string' && 'value' in field && typeof field.value === 'string'); }
+	if (message.command === 'runProjectCommand') {
+		return 'action' in message && (message.action === 'updateDatabase' || message.action === 'startClient')
+			&& 'role' in message && (message.role === 'main' || message.role === 'test');
+	}
 	if (message.command === 'setUserId') {
 		return 'userId' in message && typeof message.userId === 'number' && Number.isInteger(message.userId) && message.userId >= 0;
+	}
+	if (message.command === 'setClientCredentials') {
+		return 'username' in message && typeof message.username === 'string'
+			&& (!('password' in message) || message.password === undefined || typeof message.password === 'string');
 	}
 	return message.command === 'copyMcpConnectionCode' && 'text' in message && typeof message.text === 'string';
 }
@@ -345,7 +369,11 @@ export function isSqlMonitorWebviewMessage(message: unknown): message is SqlMoni
 	return typeof message === 'object'
 		&& message !== null
 		&& 'command' in message
-		&& (message.command === 'sqlMonitorReady' || message.command === 'clearSqlMonitor' || isTableSelectionDebugMessage(message) || isCopyTableCellsMessage(message));
+		&& (message.command === 'sqlMonitorReady'
+			|| message.command === 'clearSqlMonitor'
+			|| (message.command === 'setSqlMonitorPaused' && 'paused' in message && typeof message.paused === 'boolean')
+			|| isTableSelectionDebugMessage(message)
+			|| isCopyTableCellsMessage(message));
 }
 
 export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExecutorWebviewMessage {

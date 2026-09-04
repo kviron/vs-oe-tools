@@ -21,6 +21,7 @@ interface MethodSourceRow {
 	methtype: number | null;
 	code: unknown;
 	codetype: string;
+	sysfile?: number | null;
 }
 
 export interface MethodReference {
@@ -86,8 +87,9 @@ export async function saveMethodSource(method: MethodSource, code: string, log: 
 
 		// Получаем старый код перед обновлением
 		const oldCodeResult = await executeMonitoredQuery<MethodSourceRow, [number]>(client, {
-			text: `SELECT method.code, pg_typeof(method.code)::text AS codetype
+			text: `SELECT method.code, pg_typeof(method.code)::text AS codetype, abstract.sysfile
 			 FROM methods AS method
+			 JOIN abstract ON abstract.id = method.id
 			 WHERE method.id = $1`,
 			values: [method.id],
 			source: `Получение старого кода метода ${method.id}`,
@@ -178,7 +180,7 @@ export async function saveMethodSource(method: MethodSource, code: string, log: 
 				lastChange,          // ChangeDate - дата изменения
 				oldValues,           // OldValues - сериализованные старые значения
 				'',                  // TransactionComment - пустой комментарий
-				new Date('1899-12-30'), // VersionObject - нулевая дата (версия объекта)
+				'1899-12-30 00:00:00', // Строка обязательна: JS Date искажает историческую дату часовым поясом.
 				method.seniorId,     // RootObjID - ID родительского класса (SeniorID)
 				3,                   // RootObjClassID - класс класса
 			],
@@ -189,6 +191,40 @@ export async function saveMethodSource(method: MethodSource, code: string, log: 
 
 		if (logResult.rowCount !== 1) {
 			throw new Error(`Ошибка при записи в LogCChangedObject для метода ${method.id}.`);
+		}
+
+		// Клиент ВЭ меняет версию класса после сохранения его метода. Конкретное число
+		// вычисляется клиентом из загруженной структуры; для сброса кэшей достаточно
+		// гарантированно изменить int32-версию.
+		const classVersionResult = await executeMonitoredQuery(client, {
+			text: `UPDATE classes
+			 SET classversion = CASE
+			   WHEN classversion = 2147483647 THEN -2147483648
+			   ELSE COALESCE(classversion, 0) + 1
+			 END
+			 WHERE id = $1`,
+			values: [method.seniorId],
+			source: `Обновление версии класса ${method.seniorId}`,
+			database: options.database,
+		});
+		log(`UPDATE Classes.ClassVersion выполнен: rowCount=${classVersionResult.rowCount}.`);
+		if (classVersionResult.rowCount !== 1) {
+			throw new Error(`Родительский класс ${method.seniorId} не найден при обновлении версии.`);
+		}
+
+		const sysFileId = oldCodeRow.sysfile === null || oldCodeRow.sysfile === undefined
+			? undefined
+			: Number(oldCodeRow.sysfile);
+		if (sysFileId !== undefined) {
+			const packageResult = await executeMonitoredQuery(client, {
+				text: `UPDATE syspackagebase
+				 SET objectchangestate = 1
+				 WHERE objectid = $1`,
+				values: [sysFileId],
+				source: `Отметка пакетного файла ${sysFileId} изменённым`,
+				database: options.database,
+			});
+			log(`UPDATE SysPackageBase.ObjectChangeState выполнен: objectId=${sysFileId}; rowCount=${packageResult.rowCount}.`);
 		}
 
 		await client.query('COMMIT');
