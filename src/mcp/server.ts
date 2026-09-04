@@ -20,11 +20,12 @@ const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? getNavigationInfoPath(workspacePath);
 const server = new McpServer(
-	{ name: 'vc-ve-tools-database', version: '0.11.0' },
+	{ name: 'vc-ve-tools-database', version: '0.12.0' },
 	{
 		instructions: [
 			'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
 			'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
+			'Use get_class_dictionary for paged dictionary rows and search_class_dictionary to find elements by ID, name, or any mapped class attribute.',
 			'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
 			'Database access is read-only. Include relevant object IDs in analysis so navigation can continue.',
 		].join(' '),
@@ -98,6 +99,73 @@ server.registerTool('get_class_details', {
 		[classId],
 	);
 	return { found: rows.length === 1, class: rows[0] ?? null };
+}));
+
+server.registerTool('get_class_dictionary', {
+	description: 'Read one page of objects from an East Express class dictionary. Returns logical attribute metadata, total count and stable pagination fields.',
+	inputSchema: {
+		classId: z.number().int().positive().describe('Non-virtual class ID returned by search_classes'),
+		offset: z.number().int().min(0).optional().describe('Zero-based row offset, default 0'),
+		limit: z.number().int().min(1).max(100).optional().describe('Page size, default and maximum 100'),
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ classId, offset, limit }: { classId: number; offset?: number; limit?: number }) => databaseToolResult(async () => {
+	const storage = await loadClassDictionaryStorage(classId);
+	const pageOffset = offset ?? 0;
+	const pageLimit = limit ?? 100;
+	const values: unknown[] = storage.classIdColumn ? [classId] : [];
+	const where = storage.classIdColumn ? ` WHERE ${quotePostgresIdentifier(storage.classIdColumn)} = $1` : '';
+	const countRows = await queryDatabaseRaw<{ count: string } & Record<string, unknown>>(`SELECT COUNT(*)::text AS count FROM ${storage.source}${where}`, values);
+	const rows = await queryDatabaseRaw<Record<string, unknown>>(
+		`SELECT * FROM ${storage.source}${where} ORDER BY ${quotePostgresIdentifier(storage.idColumn ?? storage.physicalColumns[0])}
+		 LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+		[...values, pageLimit, pageOffset],
+	);
+	const totalCount = Number(countRows[0]?.count ?? rows.length);
+	return dictionaryResult(storage, rows, pageOffset, pageLimit, totalCount);
+}));
+
+server.registerTool('search_class_dictionary', {
+	description: 'Find dictionary elements inside one East Express class by ID, name or any stored class attribute. Optionally restrict the search to one logical attribute name, attribute ID or database field.',
+	inputSchema: {
+		classId: z.number().int().positive().describe('Non-virtual class ID returned by search_classes'),
+		query: z.string().min(1).describe('Element ID, name or attribute value to find'),
+		attribute: z.string().min(1).optional().describe('Optional logical attribute name, attribute ID or physical database field'),
+		limit: z.number().int().min(1).max(100).optional().describe('Maximum matches, default and maximum 100'),
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ classId, query, attribute, limit }: { classId: number; query: string; attribute?: string; limit?: number }) => databaseToolResult(async () => {
+	const storage = await loadClassDictionaryStorage(classId);
+	const term = query.trim();
+	const normalizedAttribute = attribute?.trim().toLocaleLowerCase('ru');
+	const searchable = normalizedAttribute
+		? storage.columns.filter(column => [column.attributeId, column.attributeName, column.key].some(value => value.toLocaleLowerCase('ru') === normalizedAttribute))
+		: storage.columns;
+	if (searchable.length === 0) {
+		throw new Error(`Attribute ${attribute} was not found in class ${storage.className}.`);
+	}
+	const predicates: string[] = [];
+	const values: unknown[] = [];
+	if (storage.classIdColumn) {
+		values.push(classId);
+		predicates.push(`${quotePostgresIdentifier(storage.classIdColumn)} = $${values.length}`);
+	}
+	values.push(`%${term}%`);
+	const patternParameter = `$${values.length}`;
+	const valuePredicates = searchable.map(column => `${quotePostgresIdentifier(column.key)}::text ILIKE ${patternParameter}`);
+	if (/^\d+$/.test(term) && storage.idColumn && searchable.some(column => column.key.toLowerCase() === storage.idColumn?.toLowerCase())) {
+		values.push(term);
+		valuePredicates.unshift(`${quotePostgresIdentifier(storage.idColumn)}::text = $${values.length}`);
+	}
+	predicates.push(`(${valuePredicates.join(' OR ')})`);
+	const maximum = limit ?? 100;
+	values.push(maximum);
+	const rows = await queryDatabaseRaw<Record<string, unknown>>(
+		`SELECT * FROM ${storage.source} WHERE ${predicates.join(' AND ')}
+		 ORDER BY ${quotePostgresIdentifier(storage.idColumn ?? storage.physicalColumns[0])} LIMIT $${values.length}`,
+		values,
+	);
+	return { ...dictionaryResult(storage, rows, 0, maximum, rows.length), query: term, attribute: attribute ?? null, matchCount: rows.length };
 }));
 
 server.registerTool('get_class_attributes', {
@@ -599,6 +667,107 @@ interface AttributeTableRow extends Record<string, unknown> {
 	table_schema: string;
 	table_name: string;
 	columns: string[];
+}
+
+interface DictionaryClassRow extends Record<string, unknown> {
+	id: number | string;
+	name: string;
+	dbtablename: string | null;
+	virtual: number | null;
+}
+
+interface DictionaryColumn {
+	attributeId: string;
+	attributeName: string;
+	title: string;
+	key: string;
+}
+
+interface DictionaryStorage {
+	classId: number;
+	className: string;
+	source: string;
+	physicalColumns: string[];
+	idColumn?: string;
+	classIdColumn?: string;
+	columns: DictionaryColumn[];
+}
+
+async function loadClassDictionaryStorage(classId: number): Promise<DictionaryStorage> {
+	const classRows = await queryDatabaseRaw<DictionaryClassRow>('SELECT id, name, dbtablename, virtual FROM classes WHERE id = $1', [classId]);
+	const selectedClass = classRows[0];
+	if (!selectedClass) {
+		throw new Error(`Class ${classId} was not found.`);
+	}
+	if (selectedClass.virtual) {
+		throw new Error(`Class ${selectedClass.name} is virtual and has no dictionary storage.`);
+	}
+	if (!selectedClass.dbtablename?.trim()) {
+		throw new Error(`Class ${selectedClass.name} has no database table.`);
+	}
+	const physicalRows = await queryDatabaseRaw<{ table_schema: string; table_name: string; column_name: string } & Record<string, unknown>>(
+		`SELECT table_schema, table_name, column_name FROM information_schema.columns
+		 WHERE table_schema NOT IN ('pg_catalog', 'information_schema') AND lower(table_name) = lower($1)
+		 ORDER BY CASE WHEN table_schema = current_schema() THEN 0 ELSE 1 END, ordinal_position`,
+		[selectedClass.dbtablename],
+	);
+	if (physicalRows.length === 0) {
+		throw new Error(`Table ${selectedClass.dbtablename} was not found.`);
+	}
+	const schema = physicalRows[0].table_schema;
+	const table = physicalRows[0].table_name;
+	const physicalColumns = physicalRows.filter(row => row.table_schema === schema && row.table_name === table).map(row => row.column_name);
+	const physicalByName = new Map(physicalColumns.map(column => [column.toLowerCase(), column]));
+	const attributeRows = await queryDatabaseRaw<{ id: number | string; name: string; title: string | null; dbfieldname: string } & Record<string, unknown>>(
+		`WITH RECURSIVE class_chain AS (
+		 SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+		 UNION ALL SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+		 FROM classes parent JOIN class_chain chain ON chain.seniorid = parent.id WHERE NOT parent.id = ANY(chain.path)
+		)
+		SELECT attribute.id, attribute.name, attribute.title, attribute.dbfieldname
+		FROM class_chain chain JOIN attributes attribute ON attribute.seniorid = chain.id
+		WHERE COALESCE(attribute.dbfieldname, '') <> '' AND COALESCE(attribute.static, 0) = 0
+		ORDER BY chain.depth, attribute.ord NULLS LAST, attribute.id`,
+		[classId],
+	);
+	const used = new Set<string>();
+	const columns: DictionaryColumn[] = [];
+	for (const attributeRow of attributeRows) {
+		const key = physicalByName.get(attributeRow.dbfieldname.toLowerCase());
+		if (!key || used.has(key.toLowerCase())) {
+			continue;
+		}
+		used.add(key.toLowerCase());
+		columns.push({ attributeId: String(attributeRow.id), attributeName: attributeRow.name, title: attributeRow.title?.trim() || attributeRow.name, key });
+	}
+	const idColumn = physicalByName.get('id');
+	if (idColumn && !used.has(idColumn.toLowerCase())) {
+		columns.unshift({ attributeId: '', attributeName: '_Ид', title: '_Ид', key: idColumn });
+	}
+	if (columns.length === 0) {
+		throw new Error(`Class ${selectedClass.name} has no mapped stored attributes.`);
+	}
+	return {
+		classId,
+		className: selectedClass.name,
+		source: `${quotePostgresIdentifier(schema)}.${quotePostgresIdentifier(table)}`,
+		physicalColumns,
+		idColumn,
+		classIdColumn: physicalByName.get('classid'),
+		columns,
+	};
+}
+
+function dictionaryResult(storage: DictionaryStorage, rows: Record<string, unknown>[], offset: number, limit: number, totalCount: number): Record<string, unknown> {
+	const normalizedRows = rows.map(row => {
+		const values = new Map(Object.entries(row).map(([key, value]) => [key.toLowerCase(), normalizeValue(value)]));
+		return Object.fromEntries(storage.columns.map(column => [column.key, values.get(column.key.toLowerCase()) ?? null]));
+	});
+	return {
+		classId: String(storage.classId), className: storage.className, columns: storage.columns,
+		offset, limit, count: normalizedRows.length, totalCount,
+		hasMore: offset + normalizedRows.length < totalCount, rows: normalizedRows,
+	};
 }
 
 interface ClassAttributeSourceRow extends Record<string, unknown> {

@@ -83,8 +83,13 @@ function isAttributeDetailsWebviewMessage(message) {
     return typeof message === 'object' && message !== null && 'command' in message && message.command === 'attributeDetailsReady';
 }
 function isClassObjectsWebviewMessage(message) {
-    return typeof message === 'object' && message !== null && 'command' in message
-        && (message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message));
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    if (message.command === 'loadMoreClassObjects') {
+        return 'offset' in message && typeof message.offset === 'number' && Number.isInteger(message.offset) && message.offset >= 0;
+    }
+    return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message);
 }
 function isExplorerWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {

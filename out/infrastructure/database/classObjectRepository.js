@@ -1,11 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.classObjectPageSize = void 0;
 exports.getClassObjects = getClassObjects;
 const pg_1 = require("pg");
 const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
-const objectLimit = 500;
-async function getClassObjects(classId) {
+exports.classObjectPageSize = 100;
+async function getClassObjects(classId, offset = 0, limit = exports.classObjectPageSize) {
+    if (!Number.isInteger(offset) || offset < 0) {
+        throw new Error('Смещение страницы справочника должно быть целым неотрицательным числом.');
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > exports.classObjectPageSize) {
+        throw new Error(`Размер страницы справочника должен быть от 1 до ${exports.classObjectPageSize}.`);
+    }
     const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
     const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
     try {
@@ -89,19 +96,22 @@ async function getClassObjects(classId) {
             database: options.database,
         });
         const rowsResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT * FROM ${source}${where} ORDER BY ${quoteIdentifier(idColumn ?? physicalColumns[0].column_name)} LIMIT ${objectLimit + 1}`,
-            values,
+            text: `SELECT * FROM ${source}${where} ORDER BY ${quoteIdentifier(idColumn ?? physicalColumns[0].column_name)} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+            values: [...values, limit, offset],
             source: `Объекты класса ${classRow.name}`,
             database: options.database,
         });
-        const normalizedRows = rowsResult.rows.slice(0, objectLimit).map(row => normalizeRow(row, columns));
+        const normalizedRows = rowsResult.rows.map(row => normalizeRow(row, columns));
+        const totalCount = Number(countResult.rows[0]?.count ?? normalizedRows.length);
         return {
             classId,
             className: classRow.name,
             columns,
             rows: normalizedRows,
-            totalCount: Number(countResult.rows[0]?.count ?? normalizedRows.length),
-            truncated: rowsResult.rows.length > objectLimit,
+            totalCount,
+            offset,
+            limit,
+            hasMore: offset + normalizedRows.length < totalCount,
         };
     }
     finally {

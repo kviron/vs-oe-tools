@@ -12,6 +12,7 @@ import { vscode } from '@/vscode';
 
 const result = ref<ClassObjectsResult>();
 const loading = ref(true);
+const loadingMore = ref(false);
 const error = ref('');
 const sortKey = ref('');
 const sortDirection = ref<1 | -1>(1);
@@ -50,17 +51,34 @@ function refresh(): void {
   vscode.postMessage({ command: 'refreshClassObjects' });
 }
 
+function loadMore(): void {
+  if (!result.value?.hasMore || loading.value || loadingMore.value) return;
+  loadingMore.value = true;
+  vscode.postMessage({ command: 'loadMoreClassObjects', offset: result.value.rows.length });
+}
+
+function handleScroll(event: Event): void {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLElement)) return;
+  if (target.scrollHeight - target.scrollTop - target.clientHeight <= 160) loadMore();
+}
+
 window.addEventListener('message', (event: MessageEvent<ClassObjectsHostMessage>) => {
   const message = event.data;
   if (message.command === 'classObjectsLoading') {
-    loading.value = true;
+    if (message.append) loadingMore.value = true;
+    else loading.value = true;
     error.value = '';
   } else if (message.command === 'classObjectsLoaded') {
-    result.value = message.result;
+    result.value = message.append && result.value
+      ? { ...message.result, rows: [...result.value.rows, ...message.result.rows] }
+      : message.result;
     loading.value = false;
+    loadingMore.value = false;
   } else if (message.command === 'classObjectsLoadFailed') {
     error.value = message.message;
     loading.value = false;
+    loadingMore.value = false;
   }
 });
 
@@ -73,10 +91,10 @@ vscode.postMessage({ command: 'classObjectsReady' });
       <div class="min-w-0">
         <div class="truncate text-sm font-medium">{{ result?.className || 'Объекты класса' }}</div>
         <div v-if="result" class="text-xs text-muted-foreground">
-          Показано {{ result.rows.length }} из {{ result.totalCount }}<template v-if="result.truncated"> · ограничение 500 строк</template>
+          Загружено {{ result.rows.length }} из {{ result.totalCount }}
         </div>
       </div>
-      <Button variant="outline" size="sm" :disabled="loading" @click="refresh">
+      <Button variant="outline" size="sm" :disabled="loading || loadingMore" @click="refresh">
         <HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />
         Обновить
       </Button>
@@ -91,7 +109,7 @@ vscode.postMessage({ command: 'classObjectsReady' });
     <Empty v-else-if="!result?.rows.length" class="min-h-0 flex-1">
       <EmptyHeader><EmptyTitle>Объектов нет</EmptyTitle><EmptyDescription>В таблице этого класса не найдено записей.</EmptyDescription></EmptyHeader>
     </Empty>
-    <Table v-else container-class="min-h-0 flex-1 overflow-auto">
+    <Table v-else container-class="min-h-0 flex-1 overflow-auto" @scroll="handleScroll">
       <TableHeader class="sticky top-0 bg-background">
         <TableRow>
           <TableHead
@@ -113,5 +131,6 @@ vscode.postMessage({ command: 'classObjectsReady' });
         </TableRow>
       </TableBody>
     </Table>
+    <div v-if="loadingMore" class="shrink-0 border-t px-2 py-1 text-center text-xs text-muted-foreground">Загрузка следующих 100 строк…</div>
   </main>
 </template>

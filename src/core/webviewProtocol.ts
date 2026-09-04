@@ -66,10 +66,11 @@ export type AttributeDetailsHostMessage = { command: 'attributeDetailsLoaded'; d
 export type ClassObjectsWebviewMessage =
 	| { command: 'classObjectsReady' }
 	| { command: 'refreshClassObjects' }
+	| { command: 'loadMoreClassObjects'; offset: number }
 	| CopyTableCellsMessage;
 export type ClassObjectsHostMessage =
-	| { command: 'classObjectsLoading' }
-	| { command: 'classObjectsLoaded'; result: ClassObjectsResult }
+	| { command: 'classObjectsLoading'; append: boolean }
+	| { command: 'classObjectsLoaded'; result: ClassObjectsResult; append: boolean }
 	| { command: 'classObjectsLoadFailed'; message: string };
 export type SqlMonitorWebviewMessage =
 	| { command: 'sqlMonitorReady' }
@@ -230,8 +231,13 @@ export function isAttributeDetailsWebviewMessage(message: unknown): message is A
 }
 
 export function isClassObjectsWebviewMessage(message: unknown): message is ClassObjectsWebviewMessage {
-	return typeof message === 'object' && message !== null && 'command' in message
-		&& (message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message));
+	if (typeof message !== 'object' || message === null || !('command' in message)) {
+		return false;
+	}
+	if (message.command === 'loadMoreClassObjects') {
+		return 'offset' in message && typeof message.offset === 'number' && Number.isInteger(message.offset) && message.offset >= 0;
+	}
+	return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message);
 }
 
 export function isExplorerWebviewMessage(message: unknown): message is ExplorerWebviewMessage {

@@ -38,7 +38,9 @@ export interface ClassObjectsResult {
 	columns: ClassObjectColumn[];
 	rows: Array<Record<string, unknown>>;
 	totalCount: number;
-	truncated: boolean;
+	offset: number;
+	limit: number;
+	hasMore: boolean;
 }
 
 export interface ClassCommentRow {

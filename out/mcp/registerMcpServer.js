@@ -55,7 +55,7 @@ function registerDatabaseMcpServer(context, logsPath, navigation) {
                 '--database-role', (0, projectDatabaseOptions_1.getDatabaseRole)(),
                 '--logs', logsPath,
                 '--navigation-info', navigation.infoPath,
-            ], {}, '0.10.0');
+            ], {}, '0.11.0');
             server.cwd = workspaceFolder.uri;
             return [server];
         },

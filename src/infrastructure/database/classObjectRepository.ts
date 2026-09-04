@@ -24,9 +24,15 @@ interface PhysicalColumnRow {
 	column_name: string;
 }
 
-const objectLimit = 500;
+export const classObjectPageSize = 100;
 
-export async function getClassObjects(classId: number): Promise<ClassObjectsResult> {
+export async function getClassObjects(classId: number, offset = 0, limit = classObjectPageSize): Promise<ClassObjectsResult> {
+	if (!Number.isInteger(offset) || offset < 0) {
+		throw new Error('Смещение страницы справочника должно быть целым неотрицательным числом.');
+	}
+	if (!Number.isInteger(limit) || limit < 1 || limit > classObjectPageSize) {
+		throw new Error(`Размер страницы справочника должен быть от 1 до ${classObjectPageSize}.`);
+	}
 	const options = await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
 	try {
@@ -114,19 +120,22 @@ export async function getClassObjects(classId: number): Promise<ClassObjectsResu
 			database: options.database,
 		});
 		const rowsResult = await executeMonitoredQuery<Record<string, unknown>>(client, {
-			text: `SELECT * FROM ${source}${where} ORDER BY ${quoteIdentifier(idColumn ?? physicalColumns[0].column_name)} LIMIT ${objectLimit + 1}`,
-			values,
+			text: `SELECT * FROM ${source}${where} ORDER BY ${quoteIdentifier(idColumn ?? physicalColumns[0].column_name)} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+			values: [...values, limit, offset],
 			source: `Объекты класса ${classRow.name}`,
 			database: options.database,
 		});
-		const normalizedRows = rowsResult.rows.slice(0, objectLimit).map(row => normalizeRow(row, columns));
+		const normalizedRows = rowsResult.rows.map(row => normalizeRow(row, columns));
+		const totalCount = Number(countResult.rows[0]?.count ?? normalizedRows.length);
 		return {
 			classId,
 			className: classRow.name,
 			columns,
 			rows: normalizedRows,
-			totalCount: Number(countResult.rows[0]?.count ?? normalizedRows.length),
-			truncated: rowsResult.rows.length > objectLimit,
+			totalCount,
+			offset,
+			limit,
+			hasMore: offset + normalizedRows.length < totalCount,
 		};
 	} finally {
 		await client.end().catch(() => undefined);

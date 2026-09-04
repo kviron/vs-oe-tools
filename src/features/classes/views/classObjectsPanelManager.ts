@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { isClassObjectsWebviewMessage, type ClassObjectsHostMessage } from '../../../core/webviewProtocol';
-import { getClassObjects } from '../../../infrastructure/database/classObjectRepository';
+import { classObjectPageSize, getClassObjects } from '../../../infrastructure/database/classObjectRepository';
 
 const panels = new Map<number, vscode.WebviewPanel>();
 
@@ -19,14 +19,22 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 	);
 	panels.set(classId, panel);
 	panel.webview.html = shell(panel.webview, assetsRoot);
-	const load = async (): Promise<void> => {
-		await panel.webview.postMessage({ command: 'classObjectsLoading' } satisfies ClassObjectsHostMessage);
+	let loading = false;
+	const load = async (offset = 0): Promise<void> => {
+		if (loading) {
+			return;
+		}
+		loading = true;
+		const append = offset > 0;
+		await panel.webview.postMessage({ command: 'classObjectsLoading', append } satisfies ClassObjectsHostMessage);
 		try {
-			const result = await getClassObjects(classId);
+			const result = await getClassObjects(classId, offset, classObjectPageSize);
 			panel.title = `Справочник — ${result.className}`;
-			await panel.webview.postMessage({ command: 'classObjectsLoaded', result } satisfies ClassObjectsHostMessage);
+			await panel.webview.postMessage({ command: 'classObjectsLoaded', result, append } satisfies ClassObjectsHostMessage);
 		} catch (error) {
 			await panel.webview.postMessage({ command: 'classObjectsLoadFailed', message: error instanceof Error ? error.message : String(error) } satisfies ClassObjectsHostMessage);
+		} finally {
+			loading = false;
 		}
 	};
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
@@ -37,7 +45,7 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 			await vscode.env.clipboard.writeText(message.text);
 			return;
 		}
-		await load();
+		await load(message.command === 'loadMoreClassObjects' ? message.offset : 0);
 	});
 	panel.onDidDispose(() => panels.delete(classId));
 }
