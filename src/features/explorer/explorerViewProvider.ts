@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { ExplorerHostMessage } from '../../core/webviewProtocol';
 import { isExplorerWebviewMessage } from '../../core/webviewProtocol';
 import type { ClassTreeRow } from '../classes/models';
+import type { DatabaseObjectKind, DatabaseObjectSearchResult } from '../../core/objectSearch';
 
 export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
 	private view?: vscode.WebviewView;
@@ -14,6 +15,9 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		private readonly openClass: (id: number, pinned: boolean) => Promise<void>,
 		private readonly openDfmEditor: (id: number) => Promise<void>,
 		private readonly openDfmPreview: (id: number) => Promise<void>,
+		private readonly searchObjects: (query: string) => Promise<DatabaseObjectSearchResult[]>,
+		private readonly openMethod: (id: number) => Promise<void>,
+		private readonly openAttribute: (id: number) => Promise<void>,
 	) {}
 	resolveWebviewView(webviewView: vscode.WebviewView): void {
 		this.view = webviewView;
@@ -47,6 +51,14 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 			}
 			if (message.command === 'loadClasses') {
 				void this.sendClasses();
+				return;
+			}
+			if (message.command === 'searchDatabaseObjects') {
+				void this.sendObjectSearch(message.query);
+				return;
+			}
+			if (message.command === 'openDatabaseObject') {
+				void this.openDatabaseObject(message.id, message.kind, message.pinned);
 				return;
 			}
 			if (message.command === 'copyEntityId') {
@@ -99,6 +111,34 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			await this.postMessage({ command: 'classesLoadFailed', message });
+		}
+	}
+	private async sendObjectSearch(query: string): Promise<void> {
+		const normalized = query.trim();
+		if (!normalized) {
+			await this.postMessage({ command: 'databaseObjectsLoaded', query: normalized, objects: [] });
+			return;
+		}
+		await this.postMessage({ command: 'databaseObjectsLoading', query: normalized });
+		try {
+			await this.postMessage({ command: 'databaseObjectsLoaded', query: normalized, objects: await this.searchObjects(normalized) });
+		} catch (error) {
+			await this.postMessage({ command: 'databaseObjectsLoadFailed', query: normalized, message: error instanceof Error ? error.message : String(error) });
+		}
+	}
+	private async openDatabaseObject(id: number, kind: DatabaseObjectKind, pinned: boolean): Promise<void> {
+		try {
+			if (kind === 'class') {
+				await this.openClass(id, pinned);
+			} else if (kind === 'method') {
+				await this.openMethod(id);
+			} else if (kind === 'attribute') {
+				await this.openAttribute(id);
+			} else {
+				void vscode.window.showInformationMessage(`Для объекта ID=${id} пока нет специализированного редактора.`);
+			}
+		} catch (error) {
+			void vscode.window.showErrorMessage(`Не удалось открыть объект ${id}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 	private async postMessage(message: ExplorerHostMessage): Promise<void> {

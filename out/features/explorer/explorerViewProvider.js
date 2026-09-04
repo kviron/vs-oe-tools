@@ -41,14 +41,24 @@ class ExplorerViewProvider {
     extensionUri;
     getClasses;
     openClass;
+    openDfmEditor;
+    openDfmPreview;
+    searchObjects;
+    openMethod;
+    openAttribute;
     view;
     selectedEntityId;
     output = vscode.window.createOutputChannel('Восточный Экспресс: Проводник');
-    constructor(workspaceState, extensionUri, getClasses, openClass) {
+    constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview, searchObjects, openMethod, openAttribute) {
         this.workspaceState = workspaceState;
         this.extensionUri = extensionUri;
         this.getClasses = getClasses;
         this.openClass = openClass;
+        this.openDfmEditor = openDfmEditor;
+        this.openDfmPreview = openDfmPreview;
+        this.searchObjects = searchObjects;
+        this.openMethod = openMethod;
+        this.openAttribute = openAttribute;
     }
     resolveWebviewView(webviewView) {
         this.view = webviewView;
@@ -84,6 +94,14 @@ class ExplorerViewProvider {
                 void this.sendClasses();
                 return;
             }
+            if (message.command === 'searchDatabaseObjects') {
+                void this.sendObjectSearch(message.query);
+                return;
+            }
+            if (message.command === 'openDatabaseObject') {
+                void this.openDatabaseObject(message.id, message.kind, message.pinned);
+                return;
+            }
             if (message.command === 'copyEntityId') {
                 this.log(`Получена команда копирования ID=${message.id}.`);
                 void vscode.env.clipboard.writeText(String(message.id));
@@ -93,6 +111,11 @@ class ExplorerViewProvider {
             if (message.command === 'selectExplorerEntity') {
                 this.selectedEntityId = message.id;
                 this.log(`Выделение изменено: ID=${message.id ?? 'нет'}.`);
+                return;
+            }
+            if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
+                const action = message.command === 'openDfmEditor' ? this.openDfmEditor : this.openDfmPreview;
+                void action(message.classId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть DFM: ${error instanceof Error ? error.message : String(error)}`));
                 return;
             }
             void this.openClass(message.id, message.pinned).catch((error) => {
@@ -130,6 +153,39 @@ class ExplorerViewProvider {
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             await this.postMessage({ command: 'classesLoadFailed', message });
+        }
+    }
+    async sendObjectSearch(query) {
+        const normalized = query.trim();
+        if (!normalized) {
+            await this.postMessage({ command: 'databaseObjectsLoaded', query: normalized, objects: [] });
+            return;
+        }
+        await this.postMessage({ command: 'databaseObjectsLoading', query: normalized });
+        try {
+            await this.postMessage({ command: 'databaseObjectsLoaded', query: normalized, objects: await this.searchObjects(normalized) });
+        }
+        catch (error) {
+            await this.postMessage({ command: 'databaseObjectsLoadFailed', query: normalized, message: error instanceof Error ? error.message : String(error) });
+        }
+    }
+    async openDatabaseObject(id, kind, pinned) {
+        try {
+            if (kind === 'class') {
+                await this.openClass(id, pinned);
+            }
+            else if (kind === 'method') {
+                await this.openMethod(id);
+            }
+            else if (kind === 'attribute') {
+                await this.openAttribute(id);
+            }
+            else {
+                void vscode.window.showInformationMessage(`Для объекта ID=${id} пока нет специализированного редактора.`);
+            }
+        }
+        catch (error) {
+            void vscode.window.showErrorMessage(`Не удалось открыть объект ${id}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
     async postMessage(message) {

@@ -20,7 +20,9 @@ import { startNavigationBridge, type NavigationBridge } from '../features/ai/nav
 import { registerDfmEditor } from '../features/dfm/dfmEditorProvider';
 import { openDfmPreview } from '../features/dfm/dfmPreview';
 import { registerDfmLanguageFeatures } from '../features/dfm/dfmLanguageFeatures';
-import { closeAttributeDetailPanels } from '../features/classes/views/attributeDetailsPanelManager';
+import { closeAttributeDetailPanels, openAttributeDetails } from '../features/classes/views/attributeDetailsPanelManager';
+import { searchDatabaseObjects } from '../infrastructure/database/objectSearchRepository';
+import { registerAgentSkillInstaller } from '../features/ai/agentSkillInstaller';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
@@ -72,6 +74,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		(id, pinned) => openClassDetails(context, methodEditor, id, pinned),
 		id => dfmEditor.open(id),
 		id => openDfmPreview(context, id),
+		searchDatabaseObjects,
+		id => methodEditor.open(id),
+		id => openAttributeDetails(context, id),
 	);
 	const explorerRegistration = vscode.window.registerWebviewViewProvider(
 		'vc-ve-tools.explorer',
@@ -88,6 +93,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.Uri.joinPath(context.globalStorageUri, 'navigation-bridge.json').fsPath,
 	);
 	const databaseMcpServerRegistration = registerDatabaseMcpServer(context, extensionLogger.logUri.fsPath, navigationBridge);
+	const agentSkillInstaller = registerAgentSkillInstaller(context);
 	const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncItems);
 	const openPackageSyncCommand = vscode.commands.registerCommand(
 		'vc-ve-tools.openPackageSync',
@@ -232,6 +238,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		extensionLogger,
 		navigationBridge,
 		databaseMcpServerRegistration,
+		agentSkillInstaller,
 		settingsProvider,
 		settingsRegistration,
 		explorerProvider,

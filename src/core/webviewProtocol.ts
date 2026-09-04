@@ -2,11 +2,14 @@ import type { AttributeDetails, ClassAttribute, ClassDetails, ClassMethod, Class
 import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 import type { PackageSyncItem } from '../features/package-sync/models';
+import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSearch';
 
 export type ExplorerWebviewMessage =
 	| { command: 'explorerReady' }
 	| { command: 'explorerStateChanged'; activeTab: string; selectedClassId?: number }
 	| { command: 'loadClasses' }
+	| { command: 'searchDatabaseObjects'; query: string }
+	| { command: 'openDatabaseObject'; id: number; kind: DatabaseObjectKind; pinned: boolean }
 	| { command: 'openClass'; id: number; pinned: boolean }
 	| { command: 'openDfmEditor'; classId: number }
 	| { command: 'openDfmPreview'; classId: number }
@@ -20,7 +23,10 @@ export type ExplorerHostMessage =
 	| { command: 'classesLoaded'; classes: ClassTreeRow[] }
 	| { command: 'classesLoadFailed'; message: string }
 	| { command: 'revealClass'; id: number }
-	| { command: 'resetClasses' };
+	| { command: 'resetClasses' }
+	| { command: 'databaseObjectsLoading'; query: string }
+	| { command: 'databaseObjectsLoaded'; query: string; objects: DatabaseObjectSearchResult[] }
+	| { command: 'databaseObjectsLoadFailed'; query: string; message: string };
 
 export type ClassDetailsWebviewMessage =
 	| { command: 'classDetailsReady' }
@@ -215,6 +221,14 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	}
 	if (message.command === 'loadClasses') {
 		return true;
+	}
+	if (message.command === 'searchDatabaseObjects') {
+		return 'query' in message && typeof message.query === 'string';
+	}
+	if (message.command === 'openDatabaseObject') {
+		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id)
+			&& 'pinned' in message && typeof message.pinned === 'boolean'
+			&& 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'attribute' || message.kind === 'object');
 	}
 	if (message.command === 'explorerReady') {
 		return true;

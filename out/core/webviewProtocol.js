@@ -85,6 +85,14 @@ function isExplorerWebviewMessage(message) {
     if (message.command === 'loadClasses') {
         return true;
     }
+    if (message.command === 'searchDatabaseObjects') {
+        return 'query' in message && typeof message.query === 'string';
+    }
+    if (message.command === 'openDatabaseObject') {
+        return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id)
+            && 'pinned' in message && typeof message.pinned === 'boolean'
+            && 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'attribute' || message.kind === 'object');
+    }
     if (message.command === 'explorerReady') {
         return true;
     }

@@ -57,6 +57,7 @@ const dfmEditorProvider_1 = require("../features/dfm/dfmEditorProvider");
 const dfmPreview_1 = require("../features/dfm/dfmPreview");
 const dfmLanguageFeatures_1 = require("../features/dfm/dfmLanguageFeatures");
 const attributeDetailsPanelManager_1 = require("../features/classes/views/attributeDetailsPanelManager");
+const objectSearchRepository_1 = require("../infrastructure/database/objectSearchRepository");
 async function activate(context) {
     const extensionLogger = new extensionLogService_1.ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
     await extensionLogger.initialize();
@@ -89,7 +90,7 @@ async function activate(context) {
     };
     const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge);
     const settingsRegistration = vscode.window.registerWebviewViewProvider(settingsViewProvider_1.SettingsViewProvider.viewType, settingsProvider, { webviewOptions: { retainContextWhenHidden: true } });
-    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id));
+    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id), objectSearchRepository_1.searchDatabaseObjects, id => methodEditor.open(id), id => (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, id));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
     const navigationActions = {
         revealClass: id => explorerProvider.revealClass(id),

@@ -6,6 +6,7 @@ import { defaultMcpRowLimit, prepareReadOnlyQuery } from './readOnlyQuery';
 import { createSourceExcerpt, decodeSourceValue, defaultSourceLineLimit, maximumSourceLineLimit } from './sourceContent';
 import { quotePostgresIdentifier, readAttributeValue, selectVisibleAttributes, type McpClassAttribute } from './classAttributes';
 import { resolveMethodCandidates, type MethodResolutionCandidate } from './methodResolution';
+import { databaseObjectSearchSelect, mapDatabaseObject, type DatabaseObjectSearchRow } from '../core/objectSearch';
 
 // The SDK currently publishes declarations that require DOM and NodeNext types.
 // Runtime imports keep this standalone entrypoint compatible with the extension's Node16 tsconfig.
@@ -17,7 +18,46 @@ const workspacePath = readArgument('--workspace');
 const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
 const navigationInfoPath = readOptionalArgument('--navigation-info');
-const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.8.0' });
+const server = new McpServer(
+	{ name: 'vc-ve-tools-database', version: '0.10.0' },
+	{
+		instructions: [
+			'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
+			'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
+			'Database access is read-only. Include relevant object IDs in analysis so navigation can continue.',
+		].join(' '),
+	},
+);
+
+server.registerTool('lookup_object_by_id', {
+	description: 'Identify any East Express object by an otherwise unknown numeric ID. Returns its concrete kind, meta-class, owner and package context.',
+	inputSchema: { id: z.number().int().positive().describe('Unknown East Express object ID') },
+	annotations: { readOnlyHint: true },
+}, async ({ id }: { id: number }) => databaseToolResult(async () => {
+	const rows = await queryDatabaseRaw<DatabaseObjectSearchRow>(`${databaseObjectSearchSelect} WHERE object.id = $1`, [id]);
+	return { found: rows.length === 1, object: rows[0] ? mapDatabaseObject(rows[0]) : null };
+}));
+
+server.registerTool('search_database_objects', {
+	description: 'Search East Express objects across Abstract, classes, methods and attributes by exact ID or partial name.',
+	inputSchema: {
+		query: z.string().min(1).describe('Numeric object ID or full/partial object name'),
+		limit: z.number().int().min(1).max(500).optional().describe('Maximum results, default 100'),
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ query, limit }: { query: string; limit?: number }) => databaseToolResult(async () => {
+	const trimmed = query.trim();
+	const numericId = /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+	const rows = await queryDatabaseRaw<DatabaseObjectSearchRow>(
+		`${databaseObjectSearchSelect}
+		 WHERE ($1::bigint IS NOT NULL AND object.id = $1) OR object.name ILIKE $2
+		 ORDER BY CASE WHEN object.id = $1 THEN 0 WHEN lower(object.name) = lower($3) THEN 1 ELSE 2 END,
+		          object.name, object.id
+		 LIMIT $4`,
+		[numericId, numericId === null ? `%${trimmed}%` : trimmed, trimmed, limit ?? 100],
+	);
+	return { query: trimmed, count: rows.length, objects: rows.map(mapDatabaseObject) };
+}));
 
 server.registerTool('search_classes', {
 	description: 'Find East Express classes by name, title, alias, or numeric ID. Returns stable class IDs that can be passed to VS Code navigation tools.',

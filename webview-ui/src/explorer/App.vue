@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { ExplorerHostMessage } from '../../../src/core/webviewProtocol';
 import type { ClassTreeRow } from '../../../src/features/classes/models';
-import { computed, nextTick, ref } from 'vue';
+import type { DatabaseObjectSearchResult } from '../../../src/core/objectSearch';
+import { computed, nextTick, ref, watch } from 'vue';
+import { Badge } from '@/components/ui/badge';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,7 +24,12 @@ const selectedClassId = ref<number>();
 const explorerActive = ref(document.hasFocus());
 const revealClassId = ref<number>();
 const searchQuery = ref('');
+const objectSearchQuery = ref('');
+const objectSearchResults = ref<DatabaseObjectSearchResult[]>([]);
+const objectSearchLoading = ref(false);
+const objectSearchError = ref('');
 let searchClickTimer: number | undefined;
+let objectSearchTimer: number | undefined;
 
 const normalizedSearchQuery = computed(() => searchQuery.value.trim());
 const searchResults = computed(() => {
@@ -78,6 +85,33 @@ function onTabChange(value: string | number): void {
   activeTab.value = String(value);
   persistExplorerState();
   if (activeTab.value === 'classes') loadClasses();
+}
+
+watch(objectSearchQuery, (value) => {
+  window.clearTimeout(objectSearchTimer);
+  const query = value.trim();
+  if (!query) {
+    objectSearchResults.value = [];
+    objectSearchLoading.value = false;
+    objectSearchError.value = '';
+    return;
+  }
+  objectSearchTimer = window.setTimeout(() => vscode.postMessage({ command: 'searchDatabaseObjects', query }), 250);
+});
+
+function objectKindLabel(kind: DatabaseObjectSearchResult['kind']): string {
+  if (kind === 'class') return 'Класс';
+  if (kind === 'method') return 'Метод';
+  if (kind === 'attribute') return 'Атрибут';
+  return 'Объект';
+}
+
+function selectDatabaseObject(item: DatabaseObjectSearchResult, open: boolean): void {
+  const id = Number(item.id);
+  if (!Number.isSafeInteger(id)) return;
+  selectedClassId.value = id;
+  vscode.postMessage({ command: 'selectExplorerEntity', id });
+  if (open) vscode.postMessage({ command: 'openDatabaseObject', id, kind: item.kind, pinned: true });
 }
 
 function selectSearchResult(item: ClassTreeRow, pinned: boolean): void {
@@ -195,6 +229,19 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
     loaded.value = false;
     loading.value = false;
     if (activeTab.value === 'classes') loadClasses();
+  } else if (message.command === 'databaseObjectsLoading') {
+    if (message.query === objectSearchQuery.value.trim()) {
+      objectSearchLoading.value = true;
+      objectSearchError.value = '';
+    }
+  } else if (message.command === 'databaseObjectsLoaded') {
+    if (message.query === objectSearchQuery.value.trim()) {
+      objectSearchResults.value = message.objects;
+      objectSearchLoading.value = false;
+    }
+  } else if (message.command === 'databaseObjectsLoadFailed' && message.query === objectSearchQuery.value.trim()) {
+    objectSearchLoading.value = false;
+    objectSearchError.value = message.message;
   }
 });
 
@@ -215,8 +262,50 @@ vscode.postMessage({ command: 'explorerReady' });
     <TabsContent value="packages" class="min-h-0 overflow-auto">
       <Empty class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Пакеты</EmptyTitle><EmptyDescription>Данные пакетов пока не загружены.</EmptyDescription></EmptyHeader></Empty>
     </TabsContent>
-    <TabsContent value="objects" class="min-h-0 overflow-auto">
-      <Empty class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Объекты</EmptyTitle><EmptyDescription>Данные объектов пока не загружены.</EmptyDescription></EmptyHeader></Empty>
+    <TabsContent value="objects" class="min-h-0 overflow-hidden">
+      <div class="flex h-full min-h-0 flex-col">
+        <div class="shrink-0 border-b bg-background p-1">
+          <Input v-model="objectSearchQuery" type="search" class="h-7 bg-background dark:bg-background" placeholder="ID или имя любого объекта" aria-label="Поиск объекта по ID или имени" />
+        </div>
+        <div v-if="objectSearchLoading" class="flex flex-col gap-1 p-1">
+          <Skeleton v-for="index in 6" :key="index" class="h-10 w-full" />
+        </div>
+        <Empty v-else-if="objectSearchError" class="min-h-0 py-6">
+          <EmptyHeader><EmptyTitle>Не удалось выполнить поиск</EmptyTitle><EmptyDescription>{{ objectSearchError }}</EmptyDescription></EmptyHeader>
+        </Empty>
+        <div v-else-if="objectSearchResults.length" class="min-h-0 flex-1 overflow-auto p-1">
+          <EntityContextMenu
+            v-for="item in objectSearchResults"
+            :key="item.id"
+            :entity-id="item.id"
+            :edit="item.kind !== 'object'"
+            @edit="selectDatabaseObject(item, true)"
+          >
+            <button
+              type="button"
+              class="flex min-h-10 w-full items-center gap-2 px-2 text-left hover:bg-accent"
+              :title="`${item.name} — ${item.id}`"
+              @click="selectDatabaseObject(item, false)"
+              @dblclick="selectDatabaseObject(item, true)"
+            >
+              <Badge variant="outline" class="w-20 justify-center">{{ objectKindLabel(item.kind) }}</Badge>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate">{{ item.name }}</span>
+                <span class="block truncate text-xs text-muted-foreground">
+                  {{ item.ownerName || item.metaClassName }}<template v-if="item.packageName"> · {{ item.packageName }}</template>
+                </span>
+              </span>
+              <span class="shrink-0 text-xs text-muted-foreground">{{ item.id }}</span>
+            </button>
+          </EntityContextMenu>
+        </div>
+        <Empty v-else class="min-h-0 py-6">
+          <EmptyHeader>
+            <EmptyTitle>{{ objectSearchQuery.trim() ? 'Совпадений нет' : 'Поиск объектов' }}</EmptyTitle>
+            <EmptyDescription>{{ objectSearchQuery.trim() ? 'Измените ID или имя.' : 'Введите ID или часть имени класса, метода, атрибута или другого объекта.' }}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
     </TabsContent>
     <TabsContent value="classes" class="min-h-0 min-w-0 overflow-hidden">
       <div class="flex h-full min-h-0 min-w-0 flex-col">

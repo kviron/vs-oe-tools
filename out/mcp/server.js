@@ -7,6 +7,7 @@ const readOnlyQuery_1 = require("./readOnlyQuery");
 const sourceContent_1 = require("./sourceContent");
 const classAttributes_1 = require("./classAttributes");
 const methodResolution_1 = require("./methodResolution");
+const objectSearch_1 = require("../core/objectSearch");
 // The SDK currently publishes declarations that require DOM and NodeNext types.
 // Runtime imports keep this standalone entrypoint compatible with the extension's Node16 tsconfig.
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
@@ -16,7 +17,32 @@ const workspacePath = readArgument('--workspace');
 const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
 const navigationInfoPath = readOptionalArgument('--navigation-info');
-const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.8.0' });
+const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.9.0' });
+server.registerTool('lookup_object_by_id', {
+    description: 'Identify any East Express object by an otherwise unknown numeric ID. Returns its concrete kind, meta-class, owner and package context.',
+    inputSchema: { id: z.number().int().positive().describe('Unknown East Express object ID') },
+    annotations: { readOnlyHint: true },
+}, async ({ id }) => databaseToolResult(async () => {
+    const rows = await queryDatabaseRaw(`${objectSearch_1.databaseObjectSearchSelect} WHERE object.id = $1`, [id]);
+    return { found: rows.length === 1, object: rows[0] ? (0, objectSearch_1.mapDatabaseObject)(rows[0]) : null };
+}));
+server.registerTool('search_database_objects', {
+    description: 'Search East Express objects across Abstract, classes, methods and attributes by exact ID or partial name.',
+    inputSchema: {
+        query: z.string().min(1).describe('Numeric object ID or full/partial object name'),
+        limit: z.number().int().min(1).max(500).optional().describe('Maximum results, default 100'),
+    },
+    annotations: { readOnlyHint: true },
+}, async ({ query, limit }) => databaseToolResult(async () => {
+    const trimmed = query.trim();
+    const numericId = /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+    const rows = await queryDatabaseRaw(`${objectSearch_1.databaseObjectSearchSelect}
+		 WHERE ($1::bigint IS NOT NULL AND object.id = $1) OR object.name ILIKE $2
+		 ORDER BY CASE WHEN object.id = $1 THEN 0 WHEN lower(object.name) = lower($3) THEN 1 ELSE 2 END,
+		          object.name, object.id
+		 LIMIT $4`, [numericId, numericId === null ? `%${trimmed}%` : trimmed, trimmed, limit ?? 100]);
+    return { query: trimmed, count: rows.length, objects: rows.map(objectSearch_1.mapDatabaseObject) };
+}));
 server.registerTool('search_classes', {
     description: 'Find East Express classes by name, title, alias, or numeric ID. Returns stable class IDs that can be passed to VS Code navigation tools.',
     inputSchema: {
