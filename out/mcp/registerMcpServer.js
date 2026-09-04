@@ -49,13 +49,13 @@ function registerDatabaseMcpServer(context, logsPath, navigation) {
             if (!workspaceFolder) {
                 return [];
             }
-            const server = new vscode.McpStdioServerDefinition('East Express Database (read-only)', process.execPath, [
+            const server = new vscode.McpStdioServerDefinition('East Express Database and Tools', process.execPath, [
                 vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath,
                 '--workspace', workspaceFolder.uri.fsPath,
                 '--database-role', (0, projectDatabaseOptions_1.getDatabaseRole)(),
                 '--logs', logsPath,
                 '--navigation-info', navigation.infoPath,
-            ], {}, '0.11.0');
+            ], {}, '0.13.0');
             server.cwd = workspaceFolder.uri;
             return [server];
         },

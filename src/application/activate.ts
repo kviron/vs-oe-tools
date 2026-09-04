@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'node:path';
 import { databaseRoleSetting, projectRootSetting } from '../core/constants';
 import { loadClasses, testDatabaseConnection } from '../infrastructure/database/classRepository';
 import { getDatabaseRole } from '../infrastructure/configuration/projectDatabaseOptions';
@@ -25,6 +26,7 @@ import { searchDatabaseObjects } from '../infrastructure/database/objectSearchRe
 import { registerAgentSkillInstaller } from '../features/ai/agentSkillInstaller';
 import { closeClassObjectPanels, openClassObjects } from '../features/classes/views/classObjectsPanelManager';
 import { getNavigationInfoPath } from '../core/navigationInfo';
+import { svnLog } from '../features/code-history/svnClient';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
@@ -90,6 +92,25 @@ export async function activate(context: vscode.ExtensionContext) {
 		openClass: id => openClassDetails(context, methodEditor, id, true),
 		openMethod: id => methodEditor.open(id),
 		revealMethod: (classId, methodId) => revealClassMethod(context, methodEditor, classId, methodId),
+		updateMethodSource: async (methodId, code) => methodEditor.save(methodId, code),
+		getSvnFileHistory: async (filePath, limit) => {
+			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+			if (!workspaceFolder) {
+				throw new Error('Открытая папка проекта не найдена.');
+			}
+			const workspaceRoot = path.resolve(workspaceFolder.uri.fsPath);
+			const resolvedPath = path.resolve(workspaceRoot, filePath);
+			const relativePath = path.relative(workspaceRoot, resolvedPath);
+			if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+				throw new Error('SVN-историю можно читать только для файлов открытого проекта.');
+			}
+			const entries = await svnLog(resolvedPath, limit);
+			return {
+				filePath: resolvedPath,
+				count: entries.length,
+				entries: entries.map(entry => ({ revision: entry.revision, author: entry.author, date: entry.date.toISOString(), message: entry.message })),
+			};
+		},
 	};
 	registerNavigationTools(context, navigationActions);
 	navigationBridge = await startNavigationBridge(

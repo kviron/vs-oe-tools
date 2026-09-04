@@ -19,7 +19,7 @@ export function registerDatabaseMcpServer(context: vscode.ExtensionContext, logs
 				return [];
 			}
 			const server = new vscode.McpStdioServerDefinition(
-				'East Express Database (read-only)',
+				'East Express Database and Tools',
 				process.execPath,
 				[
 					vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath,
@@ -29,7 +29,7 @@ export function registerDatabaseMcpServer(context: vscode.ExtensionContext, logs
 					'--navigation-info', navigation.infoPath,
 				],
 				{},
-				'0.11.0',
+				'0.13.0',
 			);
 			server.cwd = workspaceFolder.uri;
 			return [server];

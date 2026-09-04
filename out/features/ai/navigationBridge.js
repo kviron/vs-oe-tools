@@ -61,8 +61,18 @@ async function handleRequest(request, response, token, actions) {
         else if (input.action === 'open_method') {
             await actions.openMethod(input.id);
         }
-        else {
+        else if (input.action === 'reveal_method') {
             await actions.revealMethod(input.classId, input.id);
+        }
+        else if (input.action === 'update_method_source') {
+            const result = await actions.updateMethodSource(input.id, input.code);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else {
+            const result = await actions.getSvnFileHistory(input.filePath, input.limit);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
         }
         respond(response, 200, { ok: true, action: input.action, id: input.id });
     }
@@ -82,8 +92,8 @@ async function readBody(request) {
     for await (const chunk of request) {
         const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         length += buffer.length;
-        if (length > 4096) {
-            throw new Error('Navigation request is too large.');
+        if (length > 6 * 1024 * 1024) {
+            throw new Error('Bridge request is too large.');
         }
         chunks.push(buffer);
     }
@@ -94,17 +104,30 @@ function validateRequest(value) {
         throw new Error('Invalid navigation request.');
     }
     const { action, id } = value;
-    if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method') {
+    if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
+        && action !== 'update_method_source' && action !== 'get_svn_file_history') {
         throw new Error('Unknown navigation action.');
     }
-    if (!Number.isSafeInteger(id) || (id ?? 0) <= 0) {
+    if (action !== 'get_svn_file_history' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
         throw new Error('Navigation ID must be a positive integer.');
     }
     const classId = value.classId;
     if (action === 'reveal_method' && (!Number.isSafeInteger(classId) || (classId ?? 0) <= 0)) {
         throw new Error('Navigation classId must be a positive integer for reveal_method.');
     }
-    return { action, id: id, classId };
+    const code = value.code;
+    if (action === 'update_method_source' && typeof code !== 'string') {
+        throw new Error('Method code must be a string for update_method_source.');
+    }
+    const filePath = value.filePath;
+    const limit = value.limit;
+    if (action === 'get_svn_file_history' && (typeof filePath !== 'string' || !filePath.trim())) {
+        throw new Error('filePath is required for get_svn_file_history.');
+    }
+    if (action === 'get_svn_file_history' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
+        throw new Error('SVN history limit must be an integer from 1 to 500.');
+    }
+    return { action, id: id, classId, code, filePath, limit };
 }
 function respond(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });

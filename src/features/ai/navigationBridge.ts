@@ -6,12 +6,15 @@ import type { AddressInfo } from 'node:net';
 import type { Disposable } from 'vscode';
 import type { NavigationActions } from './navigationTools';
 
-type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method';
+type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source' | 'get_svn_file_history';
 
 interface NavigationRequest {
 	action: NavigationAction;
 	id: number;
 	classId?: number;
+	code?: string;
+	filePath?: string;
+	limit?: number;
 }
 
 export interface NavigationBridge extends Disposable {
@@ -79,8 +82,16 @@ async function handleRequest(
 			await actions.openClass(input.id);
 		} else if (input.action === 'open_method') {
 			await actions.openMethod(input.id);
-		} else {
+		} else if (input.action === 'reveal_method') {
 			await actions.revealMethod(input.classId as number, input.id);
+		} else if (input.action === 'update_method_source') {
+			const result = await actions.updateMethodSource(input.id, input.code as string);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else {
+			const result = await actions.getSvnFileHistory(input.filePath as string, input.limit as number);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
 		}
 		respond(response, 200, { ok: true, action: input.action, id: input.id });
 	} catch (error) {
@@ -101,8 +112,8 @@ async function readBody(request: IncomingMessage): Promise<string> {
 	for await (const chunk of request) {
 		const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
 		length += buffer.length;
-		if (length > 4096) {
-			throw new Error('Navigation request is too large.');
+		if (length > 6 * 1024 * 1024) {
+			throw new Error('Bridge request is too large.');
 		}
 		chunks.push(buffer);
 	}
@@ -114,17 +125,30 @@ function validateRequest(value: unknown): NavigationRequest {
 		throw new Error('Invalid navigation request.');
 	}
 	const { action, id } = value as Partial<NavigationRequest>;
-	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method') {
+	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
+		&& action !== 'update_method_source' && action !== 'get_svn_file_history') {
 		throw new Error('Unknown navigation action.');
 	}
-	if (!Number.isSafeInteger(id) || (id ?? 0) <= 0) {
+	if (action !== 'get_svn_file_history' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
 		throw new Error('Navigation ID must be a positive integer.');
 	}
 	const classId = (value as Partial<NavigationRequest>).classId;
 	if (action === 'reveal_method' && (!Number.isSafeInteger(classId) || (classId ?? 0) <= 0)) {
 		throw new Error('Navigation classId must be a positive integer for reveal_method.');
 	}
-	return { action, id: id as number, classId };
+	const code = (value as Partial<NavigationRequest>).code;
+	if (action === 'update_method_source' && typeof code !== 'string') {
+		throw new Error('Method code must be a string for update_method_source.');
+	}
+	const filePath = (value as Partial<NavigationRequest>).filePath;
+	const limit = (value as Partial<NavigationRequest>).limit;
+	if (action === 'get_svn_file_history' && (typeof filePath !== 'string' || !filePath.trim())) {
+		throw new Error('filePath is required for get_svn_file_history.');
+	}
+	if (action === 'get_svn_file_history' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
+		throw new Error('SVN history limit must be an integer from 1 to 500.');
+	}
+	return { action, id: id as number, classId, code, filePath, limit };
 }
 
 function respond(response: ServerResponse, statusCode: number, body: Record<string, unknown>): void {

@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 const vscode = __importStar(require("vscode"));
+const path = __importStar(require("node:path"));
 const constants_1 = require("../core/constants");
 const classRepository_1 = require("../infrastructure/database/classRepository");
 const projectDatabaseOptions_1 = require("../infrastructure/configuration/projectDatabaseOptions");
@@ -61,6 +62,7 @@ const objectSearchRepository_1 = require("../infrastructure/database/objectSearc
 const agentSkillInstaller_1 = require("../features/ai/agentSkillInstaller");
 const classObjectsPanelManager_1 = require("../features/classes/views/classObjectsPanelManager");
 const navigationInfo_1 = require("../core/navigationInfo");
+const svnClient_1 = require("../features/code-history/svnClient");
 async function activate(context) {
     const extensionLogger = new extensionLogService_1.ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
     await extensionLogger.initialize();
@@ -100,6 +102,25 @@ async function activate(context) {
         openClass: id => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, true),
         openMethod: id => methodEditor.open(id),
         revealMethod: (classId, methodId) => (0, classDetailsPanelManager_1.revealClassMethod)(context, methodEditor, classId, methodId),
+        updateMethodSource: async (methodId, code) => methodEditor.save(methodId, code),
+        getSvnFileHistory: async (filePath, limit) => {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                throw new Error('Открытая папка проекта не найдена.');
+            }
+            const workspaceRoot = path.resolve(workspaceFolder.uri.fsPath);
+            const resolvedPath = path.resolve(workspaceRoot, filePath);
+            const relativePath = path.relative(workspaceRoot, resolvedPath);
+            if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+                throw new Error('SVN-историю можно читать только для файлов открытого проекта.');
+            }
+            const entries = await (0, svnClient_1.svnLog)(resolvedPath, limit);
+            return {
+                filePath: resolvedPath,
+                count: entries.length,
+                entries: entries.map(entry => ({ revision: entry.revision, author: entry.author, date: entry.date.toISOString(), message: entry.message })),
+            };
+        },
     };
     (0, navigationTools_1.registerNavigationTools)(context, navigationActions);
     navigationBridge = await (0, navigationBridge_1.startNavigationBridge)(navigationActions, vscode.workspace.workspaceFolders?.[0]

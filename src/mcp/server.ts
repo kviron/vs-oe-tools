@@ -20,14 +20,15 @@ const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? getNavigationInfoPath(workspacePath);
 const server = new McpServer(
-	{ name: 'vc-ve-tools-database', version: '0.12.0' },
+	{ name: 'vc-ve-tools-database', version: '0.13.0' },
 	{
 		instructions: [
 			'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
 			'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
 			'Use get_class_dictionary for paged dictionary rows and search_class_dictionary to find elements by ID, name, or any mapped class attribute.',
+			'Before update_method_source, read the complete current method body with get_method_source. Send only the method body, never its name or declaration wrapper.',
 			'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
-			'Database access is read-only. Include relevant object IDs in analysis so navigation can continue.',
+			'Direct SQL access is read-only. The only database mutation is update_method_source through the VS Code extension save pipeline. Include relevant object IDs in analysis so navigation can continue.',
 		].join(' '),
 	},
 );
@@ -386,6 +387,24 @@ server.registerTool('get_method_source', {
 		source: createSourceExcerpt(decodeSourceValue(method.code), startLine, maxLines),
 	};
 }));
+
+server.registerTool('update_method_source', {
+	description: 'Replace the complete source body of an existing East Express method through the VS Code extension save pipeline. This mutates the database, preserves Windows-1251, uses the configured vcVeTools.userId, writes audit history, and commits atomically. Read the complete current source first.',
+	inputSchema: {
+		methodId: z.number().int().positive().describe('Existing method ID returned by search_methods'),
+		code: z.string().max(1_500_000).describe('Complete replacement method body without a procedure/function declaration containing the method name'),
+	},
+	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+}, async ({ methodId, code }: { methodId: number; code: string }) => bridgeToolResult({ action: 'update_method_source', id: methodId, code }));
+
+server.registerTool('get_svn_file_history', {
+	description: 'Read SVN history for a file inside the currently open East Express workspace using the extension SVN integration.',
+	inputSchema: {
+		filePath: z.string().min(1).describe('Workspace-relative path or absolute path inside the open workspace'),
+		limit: z.number().int().min(1).max(500).optional().describe('Maximum revisions, default 100'),
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ filePath, limit }: { filePath: string; limit?: number }) => bridgeToolResult({ action: 'get_svn_file_history', filePath, limit: limit ?? 100 }));
 
 server.registerTool('get_dfm_source', {
 	description: 'Read the decoded Windows-1251 DFM source owned by an East Express class. Returns numbered lines and pagination metadata.',
@@ -907,6 +926,10 @@ async function databaseToolResult(load: () => Promise<Record<string, unknown>>) 
 }
 
 async function navigationToolResult(action: 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method', id: number, classId?: number) {
+	return bridgeToolResult({ action, id, classId });
+}
+
+async function bridgeToolResult(body: Record<string, unknown>) {
 	try {
 		const connection = JSON.parse(await readFile(navigationInfoPath, 'utf8')) as { url?: unknown; token?: unknown };
 		if (typeof connection.url !== 'string' || typeof connection.token !== 'string') {
@@ -915,8 +938,8 @@ async function navigationToolResult(action: 'reveal_class' | 'open_class' | 'ope
 		const response = await fetch(connection.url, {
 			method: 'POST',
 			headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
-			body: JSON.stringify({ action, id, classId }),
-			signal: AbortSignal.timeout(10_000),
+			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(30_000),
 		});
 		const result = await response.json() as Record<string, unknown>;
 		if (!response.ok) {
@@ -929,8 +952,8 @@ async function navigationToolResult(action: 'reveal_class' | 'open_class' | 'ope
 	} catch (error) {
 		const detail = error instanceof Error ? error.message : String(error);
 		const message = (error as NodeJS.ErrnoException).code === 'ENOENT'
-			? `VS Code navigation bridge is not running for workspace ${workspacePath}. Open this workspace in VS Code with vc-ve-tools enabled.`
-			: `VS Code navigation failed: ${detail}`;
+			? `VS Code extension bridge is not running for workspace ${workspacePath}. Open this workspace in VS Code with vc-ve-tools enabled.`
+			: `VS Code extension bridge failed: ${detail}`;
 		return { content: [{ type: 'text' as const, text: message }], isError: true };
 	}
 }

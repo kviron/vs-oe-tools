@@ -25,6 +25,12 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 		await vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Active });
 	}
 	async getMethod(uri: vscode.Uri): Promise<MethodSource> { return this.ensureMethod(uri); }
+	async save(id: number, code: string): Promise<{ id: number; name: string; changed: boolean }> {
+		const method = await getMethodSource(id);
+		const changed = method.code !== code;
+		await this.persistMethod(method, code);
+		return { id: method.id, name: method.name, changed };
+	}
 	async getUri(methodOrId: MethodSource | number): Promise<vscode.Uri> {
 		const method = typeof methodOrId === 'number' ? await getMethodSource(methodOrId) : methodOrId;
 		const extension = method.methodType === 3 ? 'pkf' : 'pas';
@@ -50,6 +56,13 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 		const method = await this.ensureMethod(uri);
 		const code = iconv.decode(Buffer.from(content), 'win1251');
 		this.log(`writeFile вызван ID=${method.id}: bytes=${content.byteLength}; decoded ${inspectText(code)}.`);
+		await this.persistMethod(method, code, uri);
+	}
+	delete(): void { throw vscode.FileSystemError.NoPermissions('Удаление метода из редактора запрещено.'); }
+	rename(): void { throw vscode.FileSystemError.NoPermissions('Переименование метода из редактора запрещено.'); }
+	dispose(): void { this.changed.dispose(); this.methods.clear(); this.output.dispose(); }
+
+	private async persistMethod(method: MethodSource, code: string, sourceUri?: vscode.Uri): Promise<void> {
 		try {
 			await saveMethodSource(method, code, message => this.log(`[repository] ${message}`));
 		} catch (error) {
@@ -58,13 +71,18 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 			throw error;
 		}
 		this.log(`writeFile успешно завершён ID=${method.id}.`);
-		method.code = code;
-		this.changed.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+		for (const [uri, cached] of this.methods) {
+			if (cached.id !== method.id) {
+				continue;
+			}
+			cached.code = code;
+			this.changed.fire([{ type: vscode.FileChangeType.Changed, uri: vscode.Uri.parse(uri) }]);
+		}
+		if (sourceUri && !this.methods.has(sourceUri.toString())) {
+			this.changed.fire([{ type: vscode.FileChangeType.Changed, uri: sourceUri }]);
+		}
 		vscode.window.setStatusBarMessage(`Метод ${method.name} сохранён в Windows-1251`, 2500);
 	}
-	delete(): void { throw vscode.FileSystemError.NoPermissions('Удаление метода из редактора запрещено.'); }
-	rename(): void { throw vscode.FileSystemError.NoPermissions('Переименование метода из редактора запрещено.'); }
-	dispose(): void { this.changed.dispose(); this.methods.clear(); this.output.dispose(); }
 
 	private log(message: string): void {
 		this.output.appendLine(`[${new Date().toISOString()}] ${message}`);

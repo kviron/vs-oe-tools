@@ -114,7 +114,7 @@ vscode.postMessage({ command: 'settingsReady' });
               </div>
               <div class="flex min-w-0 flex-1 flex-col gap-1">
                 <CardTitle>MCP-сервер</CardTitle>
-                <CardDescription>Безопасный read-only доступ AI-агентов к базе текущего проекта.</CardDescription>
+                <CardDescription>Чтение базы, SVN-история и контролируемое сохранение кода методов с аудитом.</CardDescription>
               </div>
               <Badge v-if="state" :variant="statusVariant">{{ state.mcpStatusText }}</Badge>
             </div>

@@ -42,12 +42,18 @@ suite('Navigation bridge', () => {
     test('publishes an authenticated endpoint and invokes the requested action', async () => {
         let openedMethod;
         let revealedMethod;
+        let updatedMethod;
         const infoPath = (0, node_path_1.join)((0, node_os_1.tmpdir)(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
         const bridge = await (0, navigationBridge_1.startNavigationBridge)({
             revealClass: async () => undefined,
             openClass: async () => undefined,
             openMethod: async (id) => { openedMethod = id; },
             revealMethod: async (classId, methodId) => { revealedMethod = { classId, methodId }; },
+            updateMethodSource: async (methodId, code) => {
+                updatedMethod = { methodId, code };
+                return { methodId, changed: true };
+            },
+            getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
         }, infoPath);
         try {
             const connection = JSON.parse(await (0, promises_1.readFile)(infoPath, 'utf8'));
@@ -65,6 +71,20 @@ suite('Navigation bridge', () => {
             });
             assert.equal(revealResponse.status, 200);
             assert.deepEqual(revealedMethod, { classId: 8921658, methodId: 3200110 });
+            const updateResponse = await fetch(connection.url, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ action: 'update_method_source', id: 3200110, code: 'begin\r\nend' }),
+            });
+            assert.equal(updateResponse.status, 200);
+            assert.deepEqual(updatedMethod, { methodId: 3200110, code: 'begin\r\nend' });
+            const historyResponse = await fetch(connection.url, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ action: 'get_svn_file_history', filePath: 'packages/example.pas', limit: 25 }),
+            });
+            assert.equal(historyResponse.status, 200);
+            assert.deepEqual((await historyResponse.json()).entries, [{ revision: 42 }]);
         }
         finally {
             bridge.dispose();
