@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Copy01Icon, SourceCodeIcon, ViewIcon } from '@hugeicons/core-free-icons';
+import { Copy01Icon, Edit02Icon, SourceCodeIcon, ViewIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { ref } from 'vue';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
@@ -9,10 +9,14 @@ const props = defineProps<{
   entityId?: number | string;
   copyShortcut?: string;
   svn?: boolean;
+	edit?: boolean;
 	classId?: number;
 }>();
 
-const emit = defineEmits<{ svnAction: [action: 'localDiff' | 'history' | 'blame'] }>();
+const emit = defineEmits<{
+  edit: [];
+  svnAction: [action: 'localDiff' | 'history' | 'blame'];
+}>();
 const selectedIds = ref<string[]>([]);
 
 function syncSelectedIds(event: MouseEvent): void {
@@ -43,6 +47,10 @@ function openDfm(command: 'openDfmEditor' | 'openDfmPreview'): void {
       <slot />
     </ContextMenuTrigger>
     <ContextMenuContent>
+      <ContextMenuItem v-if="edit" @select="emit('edit')">
+        <HugeiconsIcon :icon="Edit02Icon" data-icon="inline-start" />
+        Правка…
+      </ContextMenuItem>
       <ContextMenuItem @select="copyId">
         <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />
         {{ selectedIds.includes(String(entityId)) && selectedIds.length > 1 ? `Скопировать ID (${selectedIds.length})` : 'Скопировать ID' }}

@@ -47371,6 +47371,94 @@ function quotePostgresIdentifier(value) {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
+// src/mcp/methodResolution.ts
+function resolveMethodCandidates(candidates, currentClassDepths, qualifierClassDepths, hasQualifier, argumentCount) {
+  const ranked = candidates.map((candidate) => rankCandidate(candidate, currentClassDepths, qualifierClassDepths, hasQualifier, argumentCount)).sort((left, right) => left.score - right.score || left.className.localeCompare(right.className, "ru") || Number(left.methodId) - Number(right.methodId));
+  if (ranked.length === 0) {
+    return { resolved: false, ambiguous: false, confidence: "none", selected: null, candidates: [] };
+  }
+  const best = ranked[0];
+  const equallyBest = ranked.filter((candidate) => candidate.score === best.score);
+  const ambiguous = equallyBest.length > 1;
+  return {
+    resolved: !ambiguous,
+    ambiguous,
+    confidence: ambiguous ? "low" : best.score < 20 ? "high" : "medium",
+    selected: ambiguous ? null : best,
+    candidates: ranked
+  };
+}
+function signatureArgumentCount(signature) {
+  const open = signature.indexOf("(");
+  if (open < 0) {
+    return void 0;
+  }
+  let depth = 0;
+  let count = 0;
+  let hasContent = false;
+  let quote = "";
+  for (let index = open + 1; index < signature.length; index += 1) {
+    const character = signature[index];
+    if (quote) {
+      if (character === quote && signature[index + 1] === quote) {
+        index += 1;
+      } else if (character === quote) {
+        quote = "";
+      }
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      hasContent = true;
+      continue;
+    }
+    if (character === "(" || character === "[" || character === "<") {
+      depth += 1;
+      hasContent = true;
+      continue;
+    }
+    if (character === ")" && depth === 0) {
+      return hasContent ? count + 1 : 0;
+    }
+    if (character === ")" || character === "]" || character === ">") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if ((character === "," || character === ";") && depth === 0) {
+      count += 1;
+    } else if (!/\s/.test(character)) {
+      hasContent = true;
+    }
+  }
+  return void 0;
+}
+function rankCandidate(candidate, currentClassDepths, qualifierClassDepths, hasQualifier, argumentCount) {
+  const reasons = [];
+  const qualifierDepth = qualifierClassDepths.get(candidate.classId);
+  const currentDepth = currentClassDepths.get(candidate.classId);
+  let score;
+  if (hasQualifier && qualifierDepth !== void 0) {
+    score = qualifierDepth;
+    reasons.push(qualifierDepth === 0 ? "\u041C\u0435\u0442\u043E\u0434 \u043F\u0440\u0438\u043D\u0430\u0434\u043B\u0435\u0436\u0438\u0442 \u043A\u043B\u0430\u0441\u0441\u0443 \u043A\u0432\u0430\u043B\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u0430." : `\u041C\u0435\u0442\u043E\u0434 \u0443\u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D \u043A\u043B\u0430\u0441\u0441\u043E\u043C \u043A\u0432\u0430\u043B\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u0430, \u0433\u043B\u0443\u0431\u0438\u043D\u0430 ${qualifierDepth}.`);
+  } else if (currentDepth !== void 0) {
+    score = (hasQualifier ? 50 : 0) + currentDepth;
+    reasons.push(currentDepth === 0 ? "\u041C\u0435\u0442\u043E\u0434 \u043F\u0440\u0438\u043D\u0430\u0434\u043B\u0435\u0436\u0438\u0442 \u043A\u043B\u0430\u0441\u0441\u0443 \u0432\u044B\u0437\u044B\u0432\u0430\u044E\u0449\u0435\u0433\u043E \u043C\u0435\u0442\u043E\u0434\u0430." : `\u041C\u0435\u0442\u043E\u0434 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 \u043F\u0440\u0435\u0434\u043A\u0435 \u0432\u044B\u0437\u044B\u0432\u0430\u044E\u0449\u0435\u0433\u043E \u043A\u043B\u0430\u0441\u0441\u0430, \u0433\u043B\u0443\u0431\u0438\u043D\u0430 ${currentDepth}.`);
+  } else {
+    score = 100;
+    reasons.push("\u0413\u043B\u043E\u0431\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u0430\u043D\u0434\u0438\u0434\u0430\u0442 \u0432\u043D\u0435 \u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E\u0439 \u0446\u0435\u043F\u043E\u0447\u043A\u0438 \u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u0438\u044F.");
+  }
+  if (argumentCount !== void 0) {
+    const actualCount = signatureArgumentCount(candidate.signature);
+    if (actualCount === argumentCount) {
+      reasons.push(`\u0421\u043E\u0432\u043F\u0430\u043B\u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0430\u0440\u0433\u0443\u043C\u0435\u043D\u0442\u043E\u0432: ${argumentCount}.`);
+    } else if (actualCount !== void 0) {
+      score += 20;
+      reasons.push(`\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0430\u0440\u0433\u0443\u043C\u0435\u043D\u0442\u043E\u0432 \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u043B\u043E: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${argumentCount}, \u0432 \u0441\u0438\u0433\u043D\u0430\u0442\u0443\u0440\u0435 ${actualCount}.`);
+    }
+  }
+  return { ...candidate, score, reasons };
+}
+
 // src/mcp/server.ts
 var { McpServer } = require_mcp();
 var { StdioServerTransport } = require_stdio2();
@@ -47379,7 +47467,7 @@ var workspacePath = readArgument("--workspace");
 var databaseRole = readRoleArgument();
 var logsPath = readOptionalArgument("--logs");
 var navigationInfoPath = readOptionalArgument("--navigation-info");
-var server = new McpServer({ name: "vc-ve-tools-database", version: "0.7.0" });
+var server = new McpServer({ name: "vc-ve-tools-database", version: "0.8.0" });
 server.registerTool("search_classes", {
   description: "Find East Express classes by name, title, alias, or numeric ID. Returns stable class IDs that can be passed to VS Code navigation tools.",
   inputSchema: {
@@ -47530,6 +47618,58 @@ server.registerTool("search_methods", {
     [query.trim(), `%${query.trim()}%`, classId ?? null, limit ?? 20]
   );
   return { query, classId: classId ?? null, count: rows.length, methods: rows };
+}));
+server.registerTool("resolve_method_reference", {
+  description: "Resolve a method call found in East Express source code. Ranks exact-name candidates using the caller class, inheritance, an optional class/object qualifier and optional argument count.",
+  inputSchema: {
+    callerMethodId: z.number().int().positive().describe("ID of the method whose source contains the call"),
+    methodName: z.string().min(1).describe("Exact called method or function name without parentheses"),
+    qualifier: z.string().min(1).optional().describe("Optional qualifier from ClassName.Method or objectAttribute.Method"),
+    argumentCount: z.number().int().min(0).max(100).optional().describe("Optional number of call arguments for overload ranking")
+  },
+  annotations: { readOnlyHint: true }
+}, async ({ callerMethodId, methodName, qualifier, argumentCount }) => databaseToolResult(async () => {
+  const callers = await queryDatabaseRaw(
+    `SELECT method.id, method.name, method.seniorid AS classid, owner.name AS classname
+		 FROM methods AS method LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+		 WHERE method.id = $1`,
+    [callerMethodId]
+  );
+  const caller = callers[0];
+  if (!caller) {
+    throw new Error(`Caller method ${callerMethodId} was not found.`);
+  }
+  const currentChain = await loadClassChain([caller.classid]);
+  const qualifierRoots = qualifier ? await resolveQualifierClassIds(qualifier, currentChain.map((item) => item.id)) : [];
+  const qualifierChain = qualifierRoots.length > 0 ? await loadClassChain(qualifierRoots) : [];
+  const candidateRows = await queryDatabaseRaw(
+    `SELECT method.id, method.name, method.seniorid AS classid, owner.name AS classname, to_jsonb(method) AS data
+		 FROM methods AS method LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+		 WHERE lower(method.name) = lower($1)
+		 ORDER BY method.id LIMIT 100`,
+    [methodName.trim()]
+  );
+  const candidates = candidateRows.map((row) => ({
+    methodId: String(row.id),
+    methodName: row.name,
+    classId: String(row.classid),
+    className: row.classname ?? "",
+    signature: decodeSourceValue(readAttributeValue(row.data, "signature", "methsignature", "parameters", "params"))
+  }));
+  const resolution = resolveMethodCandidates(
+    candidates,
+    new Map(currentChain.map((item) => [String(item.id), item.depth])),
+    new Map(qualifierChain.map((item) => [String(item.id), item.depth])),
+    Boolean(qualifier),
+    argumentCount
+  );
+  return {
+    caller: { methodId: String(caller.id), methodName: caller.name, classId: String(caller.classid), className: caller.classname },
+    reference: { methodName: methodName.trim(), qualifier: qualifier?.trim() ?? null, argumentCount: argumentCount ?? null },
+    qualifierClassIds: qualifierRoots.map(String),
+    ...resolution,
+    nextTool: resolution.selected ? { name: "get_method_source", arguments: { methodId: resolution.selected.methodId } } : null
+  };
 }));
 var sourceExcerptSchema = {
   startLine: z.number().int().min(1).optional().describe("First source line to return, default 1"),
@@ -47734,6 +47874,58 @@ async function queryDatabaseRaw(text, values) {
     await client.query("ROLLBACK").catch(() => void 0);
     await client.end().catch(() => void 0);
   }
+}
+async function loadClassChain(rootIds) {
+  if (rootIds.length === 0) {
+    return [];
+  }
+  return queryDatabaseRaw(
+    `WITH RECURSIVE class_chain AS (
+		  SELECT class.id, class.name, class.seniorid, 0 AS depth, ARRAY[class.id] AS path
+		  FROM classes AS class WHERE class.id = ANY($1::bigint[])
+		  UNION ALL
+		  SELECT parent.id, parent.name, parent.seniorid, chain.depth + 1, chain.path || parent.id
+		  FROM classes AS parent JOIN class_chain AS chain ON parent.id = chain.seniorid
+		  WHERE NOT parent.id = ANY(chain.path)
+		)
+		SELECT id, name, min(depth)::integer AS depth
+		FROM class_chain GROUP BY id, name ORDER BY min(depth), name`,
+    [rootIds]
+  );
+}
+async function resolveQualifierClassIds(qualifier, callerClassIds) {
+  const normalized = qualifier.trim();
+  const direct = await queryDatabaseRaw(
+    `SELECT id FROM classes
+		 WHERE lower(name) = lower($1)
+		    OR COALESCE(aliases::text, '') ILIKE $2
+		 ORDER BY CASE WHEN lower(name) = lower($1) THEN 0 ELSE 1 END, id
+		 LIMIT 20`,
+    [normalized, `%${normalized}%`]
+  );
+  if (direct.length > 0) {
+    return [...new Set(direct.map((row) => row.id))];
+  }
+  const tables = await queryDatabaseRaw(attributeTableDiscoveryQuery, []);
+  const table = tables[0];
+  if (!table || !table.columns.includes("attrtype")) {
+    return [];
+  }
+  const ownerColumn = ["seniorid", "classid", "ownerid"].find((column) => table.columns.includes(column));
+  if (!ownerColumn) {
+    return [];
+  }
+  const tableName = `${quotePostgresIdentifier(table.table_schema)}.${quotePostgresIdentifier(table.table_name)}`;
+  const attributeTypes = await queryDatabaseRaw(
+    `SELECT DISTINCT attribute.attrtype AS classid
+		 FROM ${tableName} AS attribute
+		 WHERE attribute.${quotePostgresIdentifier(ownerColumn)} = ANY($1::bigint[])
+		   AND lower(attribute.name) = lower($2)
+		   AND attribute.attrtype IS NOT NULL
+		 LIMIT 20`,
+    [callerClassIds, normalized]
+  );
+  return [...new Set(attributeTypes.map((row) => row.classid))];
 }
 var attributeTableDiscoveryQuery = `SELECT table_schema, table_name, array_agg(lower(column_name)) AS columns
 	FROM information_schema.columns
