@@ -8,6 +8,7 @@ import { quotePostgresIdentifier, readAttributeValue, selectVisibleAttributes, t
 import { resolveMethodCandidates, type MethodResolutionCandidate } from './methodResolution';
 import { databaseObjectSearchSelect, mapDatabaseObject, type DatabaseObjectSearchRow } from '../core/objectSearch';
 import { getNavigationInfoPath } from '../core/navigationInfo';
+import { selectVisibleProperties, type McpClassProperty } from './classProperties';
 
 // The SDK currently publishes declarations that require DOM and NodeNext types.
 // Runtime imports keep this standalone entrypoint compatible with the extension's Node16 tsconfig.
@@ -20,12 +21,13 @@ const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? getNavigationInfoPath(workspacePath);
 const server = new McpServer(
-	{ name: 'vc-ve-tools-database', version: '0.14.0' },
+	{ name: 'vc-ve-tools-database', version: '0.15.0' },
 	{
 		instructions: [
 			'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
 			'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
 			'Use get_class_dictionary for paged dictionary rows and search_class_dictionary to find elements by ID, name, or any mapped class attribute.',
+			'Use get_class_properties to inspect script properties declared by a class and optionally inherited from ancestors. Use get_property_details for the complete stored record.',
 			'Before update_method_source, read the complete current method body with get_method_source. Send only the method body, never its name or declaration wrapper.',
 			'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
 			'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
@@ -267,6 +269,84 @@ server.registerTool('get_attribute_details', {
 		found: true,
 		table: `${table.table_schema}.${table.table_name}`,
 		attribute: { ...toMcpClassAttribute(row), attributeTypeName: row.attributetypename },
+	};
+}));
+
+server.registerTool('get_class_properties', {
+	description: 'Read script properties declared by an East Express class, optionally including inherited definitions. Returns owner, aliases, read-only state, visibility, package and stable property IDs.',
+	inputSchema: {
+		classId: z.number().int().positive().describe('Class ID returned by search_classes'),
+		includeInherited: z.boolean().optional().describe('Include properties from ancestor classes, default true'),
+		includeShadowed: z.boolean().optional().describe('Include overridden ancestor definitions, default false'),
+		query: z.string().optional().describe('Optional case-insensitive filter by property name, alias, ID, owner, visibility or package'),
+		limit: z.number().int().min(1).max(500).optional().describe('Maximum properties to return, default 200'),
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ classId, includeInherited, includeShadowed, query, limit }: {
+	classId: number;
+	includeInherited?: boolean;
+	includeShadowed?: boolean;
+	query?: string;
+	limit?: number;
+}) => databaseToolResult(async () => {
+	const classRows = await queryDatabaseRaw<{ id: number | string; name: string } & Record<string, unknown>>('SELECT id, name FROM classes WHERE id = $1', [classId]);
+	const selectedClass = classRows[0];
+	if (!selectedClass) {
+		throw new Error(`Class ${classId} was not found.`);
+	}
+	let properties = (await loadClassPropertyRows(classId, includeInherited !== false)).map(toMcpClassProperty);
+	properties = selectVisibleProperties(properties, includeShadowed === true);
+	const normalizedQuery = query?.trim().toLocaleLowerCase('ru');
+	if (normalizedQuery) {
+		properties = properties.filter(property => [property.id, property.name, property.aliases, property.ownerClassName, property.visibility, property.package]
+			.some(value => value.toLocaleLowerCase('ru').includes(normalizedQuery)));
+	}
+	properties.sort((left, right) => left.name.localeCompare(right.name, 'ru') || left.depth - right.depth);
+	const maximum = limit ?? 200;
+	return {
+		classId: String(selectedClass.id), className: selectedClass.name,
+		includeInherited: includeInherited !== false, includeShadowed: includeShadowed === true,
+		source: 'Properties', binaryPropertiesIncluded: false,
+		totalCount: properties.length, count: Math.min(properties.length, maximum), truncated: properties.length > maximum,
+		properties: properties.slice(0, maximum),
+	};
+}));
+
+server.registerTool('get_property_details', {
+	description: 'Read the complete stored Properties record for one East Express script property. Binary RTTI-only properties are not stored in this table.',
+	inputSchema: { propertyId: z.number().int().positive().describe('Property ID returned by get_class_properties') },
+	annotations: { readOnlyHint: true },
+}, async ({ propertyId }: { propertyId: number }) => databaseToolResult(async () => {
+	const rows = await queryDatabaseRaw<PropertyDetailsRow>(
+		`SELECT to_jsonb(property) AS data, owner.id AS ownerclassid, owner.name AS ownerclassname,
+		        visibility.name AS propvisibility, package.packagename AS proppackage
+		 FROM properties AS property
+		 LEFT JOIN abstract AS owner ON owner.id = property.seniorid
+		 LEFT JOIN enum AS visibility ON visibility.classid = 12450282
+		   AND ((visibility.id = 12450286 AND (NULLIF(property.visibility, 0) IS NULL OR property.visibility = 12450283))
+		     OR (property.visibility <> 12450283 AND visibility.id = property.visibility))
+		 LEFT JOIN abstract AS abstract_property ON abstract_property.id = property.id
+		 LEFT JOIN sysfile AS file ON file.id = abstract_property.sysfile
+		 LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+		 LEFT JOIN syspackages AS package ON package.id = file_group.package
+		 WHERE property.id = $1`,
+		[propertyId],
+	);
+	const row = rows[0];
+	if (!row) {
+		throw new Error(`Property ${propertyId} was not found.`);
+	}
+	return {
+		found: true,
+		property: {
+			...toMcpClassProperty({
+				id: propertyId, propname: propertyValue(row.data, 'name'), propaliases: propertyValue(row.data, 'aliases'),
+				ownerclassid: row.ownerclassid, ownerclassname: row.ownerclassname,
+				proponlyread: isEmptyWriteMember(propertyValue(row.data, 'writemember')) ? 'Да' : null,
+				propvisibility: row.propvisibility, proppackage: row.proppackage, depth: 0,
+			}),
+			data: normalizeAttributeRecord(row.data),
+		},
 	};
 }));
 
@@ -683,6 +763,83 @@ interface ClassChainRow extends Record<string, unknown> {
 	id: number | string;
 	name: string;
 	depth: number;
+}
+
+interface ClassPropertySourceRow extends Record<string, unknown> {
+	id: number | string;
+	propname: unknown;
+	propaliases: unknown;
+	ownerclassid: number | string;
+	ownerclassname: string | null;
+	proponlyread: string | null;
+	propvisibility: string | null;
+	proppackage: string | null;
+	depth: number;
+}
+
+interface PropertyDetailsRow extends Record<string, unknown> {
+	data: Record<string, unknown>;
+	ownerclassid: number | string;
+	ownerclassname: string | null;
+	propvisibility: string | null;
+	proppackage: string | null;
+}
+
+async function loadClassPropertyRows(classId: number, includeInherited: boolean): Promise<ClassPropertySourceRow[]> {
+	return queryDatabaseRaw<ClassPropertySourceRow>(
+		`WITH RECURSIVE class_chain AS (
+		 SELECT class.id, class.name, class.seniorid, 0 AS depth, ARRAY[class.id] AS path
+		 FROM classes AS class WHERE class.id = $1
+		 UNION ALL
+		 SELECT parent.id, parent.name, parent.seniorid, chain.depth + 1, chain.path || parent.id
+		 FROM classes AS parent JOIN class_chain AS chain ON parent.id = chain.seniorid
+		 WHERE NOT parent.id = ANY(chain.path)
+		)
+		SELECT property.id, property.name AS propname, property.aliases AS propaliases,
+		       chain.id AS ownerclassid, chain.name AS ownerclassname,
+		       CASE WHEN NULLIF(property.writemember, 0) IS NULL THEN 'Да' END AS proponlyread,
+		       visibility.name AS propvisibility, package.packagename AS proppackage, chain.depth
+		FROM class_chain AS chain
+		JOIN properties AS property ON property.seniorid = chain.id
+		LEFT JOIN enum AS visibility ON visibility.classid = 12450282
+		 AND ((visibility.id = 12450286 AND (NULLIF(property.visibility, 0) IS NULL OR property.visibility = 12450283))
+		   OR (property.visibility <> 12450283 AND visibility.id = property.visibility))
+		LEFT JOIN abstract AS abstract_property ON abstract_property.id = property.id
+		LEFT JOIN sysfile AS file ON file.id = abstract_property.sysfile
+		LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+		LEFT JOIN syspackages AS package ON package.id = file_group.package
+		WHERE ($2::boolean OR chain.depth = 0)
+		ORDER BY chain.depth, lower(property.name), property.id`,
+		[classId, includeInherited],
+	);
+}
+
+function toMcpClassProperty(row: ClassPropertySourceRow): McpClassProperty {
+	return {
+		id: String(row.id), name: propertyText(row.propname), aliases: propertyText(row.propaliases),
+		ownerClassId: String(row.ownerclassid), ownerClassName: row.ownerclassname ?? '',
+		depth: row.depth, inherited: row.depth > 0, type: '', readOnly: row.proponlyread === 'Да',
+		visibility: row.propvisibility ?? '', package: row.proppackage ?? '', isBinary: false,
+	};
+}
+
+function propertyValue(data: Record<string, unknown>, name: string): unknown {
+	const entry = Object.entries(data).find(([key]) => key.toLocaleLowerCase() === name.toLocaleLowerCase());
+	return entry?.[1];
+}
+
+function isEmptyWriteMember(value: unknown): boolean {
+	return value === null || value === undefined || value === 0 || value === '0' || value === '';
+}
+
+function propertyText(value: unknown): string {
+	if (value === null || value === undefined) {
+		return '';
+	}
+	if (Buffer.isBuffer(value) || (typeof value === 'string' && /^\\x[\da-f]+$/i.test(value))) {
+		return decodeSourceValue(value);
+	}
+	return String(value);
 }
 
 interface MethodSourceRow extends Record<string, unknown> {

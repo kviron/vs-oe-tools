@@ -22,9 +22,12 @@ import { registerDfmEditor } from '../features/dfm/dfmEditorProvider';
 import { openDfmPreview } from '../features/dfm/dfmPreview';
 import { registerDfmLanguageFeatures } from '../features/dfm/dfmLanguageFeatures';
 import { closeAttributeDetailPanels, openAttributeDetails } from '../features/classes/views/attributeDetailsPanelManager';
+import { closePropertyDetailPanels } from '../features/classes/views/propertyDetailsPanelManager';
+import { closeEntityPropertiesPanels, openEntityProperties } from '../features/classes/views/entityPropertiesPanelManager';
 import { searchDatabaseObjects } from '../infrastructure/database/objectSearchRepository';
 import { registerAgentSkillInstaller } from '../features/ai/agentSkillInstaller';
 import { closeClassObjectPanels, openClassObjects } from '../features/classes/views/classObjectsPanelManager';
+import { closeObjectViewPanels, openObjectView } from '../features/classes/views/objectViewPanelManager';
 import { getNavigationInfoPath } from '../core/navigationInfo';
 import { svnLog } from '../features/code-history/svnClient';
 
@@ -82,6 +85,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		id => methodEditor.open(id),
 		id => openAttributeDetails(context, id),
 		id => openClassObjects(context, id),
+		id => openObjectView(context, id),
+		id => openEntityProperties(context, id),
 	);
 	const explorerRegistration = vscode.window.registerWebviewViewProvider(
 		'vc-ve-tools.explorer',
@@ -160,7 +165,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
 			closeClassDetailPanels();
 			closeAttributeDetailPanels();
+			closePropertyDetailPanels();
+			closeEntityPropertiesPanels();
 			closeClassObjectPanels();
+			closeObjectViewPanels();
 			explorerProvider.refreshClasses();
 			packageSyncProvider.refreshForDatabaseChange();
 		}

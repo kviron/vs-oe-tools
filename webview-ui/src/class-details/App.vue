@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ClassDetailsHostMessage } from '../../../src/core/webviewProtocol';
-import type { ClassAttribute, ClassDetails, ClassMethod } from '../../../src/features/classes/models';
+import type { ClassAttribute, ClassDetails, ClassMethod, ClassProperty } from '../../../src/features/classes/models';
 import { computed, nextTick, ref, shallowRef } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
@@ -27,7 +27,7 @@ interface ClassDetailsViewState {
 }
 
 const restoredState = (vscode.getState() ?? {}) as ClassDetailsViewState;
-const restoredTab = ['class', 'attributes', 'methods'].includes(restoredState.activeTab ?? '') ? restoredState.activeTab : 'class';
+const restoredTab = ['class', 'attributes', 'methods', 'properties'].includes(restoredState.activeTab ?? '') ? restoredState.activeTab : 'class';
 const details = ref<ClassDetails>();
 const activeTab = ref(restoredTab);
 const attributes = shallowRef<ClassAttribute[]>([]);
@@ -48,10 +48,18 @@ const methodSearchQuery = ref('');
 const methodCreatorQuery = ref('');
 const methodDateFrom = ref('');
 const methodDateTo = ref('');
+const classProperties = shallowRef<ClassProperty[]>([]);
+const classPropertiesLoading = ref(false);
+const classPropertiesLoaded = ref(false);
+const classPropertiesError = ref('');
+const includeInheritedProperties = ref(false);
+const propertySearchQuery = ref('');
 const attributeSortKey = ref<string>();
 const attributeSortDirection = ref<SortDirection>('asc');
 const methodSortKey = ref<string>();
 const methodSortDirection = ref<SortDirection>('asc');
+const propertySortKey = ref<string>();
+const propertySortDirection = ref<SortDirection>('asc');
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'medium' });
 const formattedDateCache = new Map<string, string>();
 const localDateCache = new Map<string, string>();
@@ -73,6 +81,13 @@ const filteredMethods = computed(() => {
   return methods.value.filter(method => matchesFilters(method, methodSearchQuery.value, methodCreatorQuery.value, methodDateFrom.value, methodDateTo.value));
 });
 const sortedMethods = computed(() => sortedRows(filteredMethods.value, methodSortKey.value, methodSortDirection.value, (row, key) => row[key as keyof ClassMethod]));
+const filteredProperties = computed(() => {
+  const query = propertySearchQuery.value.trim().toLocaleLowerCase('ru');
+  if (!query) return classProperties.value;
+  return classProperties.value.filter(property => [property.name, property.aliases, property.owner, property.type, property.id, formatId(property.id), property.visibility, property.package]
+    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(query)));
+});
+const sortedProperties = computed(() => sortedRows(filteredProperties.value, propertySortKey.value, propertySortDirection.value, (row, key) => row[key as keyof ClassProperty]));
 const virtualRowHeight = 24;
 const virtualOverscan = 12;
 const attributeScrollTop = ref(0);
@@ -131,7 +146,7 @@ const properties = [
 
 window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>) => {
   if (event.data.command === 'classDetailsLoaded') {
-    if (event.data.activeTab && ['class', 'attributes', 'methods'].includes(event.data.activeTab)) activeTab.value = event.data.activeTab;
+    if (event.data.activeTab && ['class', 'attributes', 'methods', 'properties'].includes(event.data.activeTab)) activeTab.value = event.data.activeTab;
     if (details.value?.id !== event.data.details.id) {
       attributes.value = [];
       attributesLoading.value = false;
@@ -149,10 +164,16 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
       methodCreatorQuery.value = '';
       methodDateFrom.value = '';
       methodDateTo.value = '';
+      classProperties.value = [];
+      classPropertiesLoading.value = false;
+      classPropertiesLoaded.value = false;
+      classPropertiesError.value = '';
+      propertySearchQuery.value = '';
     }
     details.value = event.data.details;
     loadAttributesForActiveTab();
     loadMethodsForActiveTab();
+    loadPropertiesForActiveTab();
   } else if (event.data.command === 'classAttributesLoaded' && event.data.includeInherited === includeInheritedAttributes.value) {
     attributes.value = event.data.attributes;
     attributesLoading.value = false;
@@ -168,6 +189,13 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
   } else if (event.data.command === 'classMethodsLoadFailed' && event.data.includeInherited === includeInheritedMethods.value) {
     methodsLoading.value = false;
     methodsError.value = event.data.message;
+  } else if (event.data.command === 'classPropertiesLoaded' && event.data.includeInherited === includeInheritedProperties.value) {
+    classProperties.value = event.data.properties;
+    classPropertiesLoading.value = false;
+    classPropertiesLoaded.value = true;
+  } else if (event.data.command === 'classPropertiesLoadFailed' && event.data.includeInherited === includeInheritedProperties.value) {
+    classPropertiesLoading.value = false;
+    classPropertiesError.value = event.data.message;
   } else if (event.data.command === 'revealClassMethod') {
     activeTab.value = 'methods';
     methodSearchQuery.value = '';
@@ -202,6 +230,7 @@ function onTabChange(value: string | number): void {
   vscode.postMessage({ command: 'classDetailsStateChanged', activeTab: activeTab.value });
   loadAttributesForActiveTab();
   loadMethodsForActiveTab();
+  loadPropertiesForActiveTab();
 }
 
 function loadMethodsForActiveTab(): void {
@@ -216,6 +245,20 @@ function toggleInheritedMethods(value: boolean | 'indeterminate'): void {
   methods.value = [];
   methodsLoaded.value = false;
   loadMethodsForActiveTab();
+}
+
+function loadPropertiesForActiveTab(): void {
+  if (activeTab.value !== 'properties' || classPropertiesLoading.value || classPropertiesLoaded.value) return;
+  classPropertiesLoading.value = true;
+  classPropertiesError.value = '';
+  vscode.postMessage({ command: 'loadClassProperties', includeInherited: includeInheritedProperties.value });
+}
+
+function toggleInheritedProperties(value: boolean | 'indeterminate'): void {
+  includeInheritedProperties.value = value === true;
+  classProperties.value = [];
+  classPropertiesLoaded.value = false;
+  loadPropertiesForActiveTab();
 }
 
 function signatureParts(signature: string): SignaturePart[] {
@@ -306,6 +349,16 @@ function openAttribute(attribute: ClassAttribute): void {
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openAttribute', id });
 }
 
+function openProperty(property: ClassProperty): void {
+  const id = Number(property.id);
+  if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openProperty', id });
+}
+
+function viewEntityProperties(id: number | string): void {
+  const numericId = Number(id);
+  if (Number.isSafeInteger(numericId)) vscode.postMessage({ command: 'viewEntityProperties', id: numericId });
+}
+
 function methodSvnAction(method: ClassMethod, action: 'localDiff' | 'history' | 'blame'): void {
   const id = Number(method.id);
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'methodSvnAction', id, action });
@@ -321,6 +374,11 @@ function sortMethods(key: string): void {
   methodSortKey.value = key;
 }
 
+function sortProperties(key: string): void {
+  propertySortDirection.value = nextSort(propertySortKey.value, propertySortDirection.value, key);
+  propertySortKey.value = key;
+}
+
 vscode.postMessage({ command: 'classDetailsReady' });
 </script>
 
@@ -331,6 +389,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
         <TabsTrigger value="class">Класс</TabsTrigger>
         <TabsTrigger value="attributes">Атрибуты</TabsTrigger>
         <TabsTrigger value="methods">Методы</TabsTrigger>
+        <TabsTrigger value="properties">Свойства</TabsTrigger>
       </TabsList>
       <EntityContextMenu :entity-id="details.id" :view-objects-class-id="!details.virtual && details.dbtablename ? details.id : undefined">
       <TabsContent value="class" class="flex max-w-4xl flex-col gap-2 p-1">
@@ -371,6 +430,52 @@ vscode.postMessage({ command: 'classDetailsReady' });
           </FieldGroup>
         </FieldSet>
       </TabsContent>
+
+      <TabsContent value="properties" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
+        <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
+          <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать свойства родительских классов">
+            <Checkbox
+              :model-value="includeInheritedProperties"
+              :disabled="classPropertiesLoading"
+              @update:model-value="toggleInheritedProperties"
+            />
+            <span aria-hidden="true">↥</span>
+            Наследуемые свойства
+          </label>
+          <Input v-model="propertySearchQuery" type="search" class="h-6 w-64 shrink-0" placeholder="Быстрый поиск…" aria-label="Поиск свойства" />
+        </div>
+        <div class="text-[0.625rem] text-muted-foreground">Показаны скриптовые свойства из Properties. Бинарные RTTI-свойства доступны только внутри клиента.</div>
+        <Table v-if="classPropertiesLoading || sortedProperties.length" container-class="min-h-0 flex-1 overflow-auto">
+          <TableHeader class="sticky top-0 z-10 bg-background"><TableRow>
+            <SortableTableHead class="h-6 min-w-56 px-1" :active="propertySortKey === 'name'" :direction="propertySortDirection" @sort="sortProperties('name')">Имя</SortableTableHead>
+            <SortableTableHead class="h-6 min-w-40 px-1" :active="propertySortKey === 'aliases'" :direction="propertySortDirection" @sort="sortProperties('aliases')">Псевдоним</SortableTableHead>
+            <SortableTableHead class="h-6 min-w-40 px-1" :active="propertySortKey === 'owner'" :direction="propertySortDirection" @sort="sortProperties('owner')">Владелец</SortableTableHead>
+            <SortableTableHead class="h-6 min-w-32 px-1" :active="propertySortKey === 'type'" :direction="propertySortDirection" @sort="sortProperties('type')">Тип</SortableTableHead>
+            <SortableTableHead class="h-6 min-w-28 px-1" :active="propertySortKey === 'readOnly'" :direction="propertySortDirection" @sort="sortProperties('readOnly')">Только чтение</SortableTableHead>
+            <SortableTableHead class="h-6 min-w-28 px-1" :active="propertySortKey === 'id'" :direction="propertySortDirection" @sort="sortProperties('id')">ID</SortableTableHead>
+            <SortableTableHead class="h-6 min-w-28 px-1" :active="propertySortKey === 'visibility'" :direction="propertySortDirection" @sort="sortProperties('visibility')">Видимость</SortableTableHead>
+            <SortableTableHead class="h-6 min-w-40 px-1" :active="propertySortKey === 'package'" :direction="propertySortDirection" @sort="sortProperties('package')">Пакет</SortableTableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            <template v-if="classPropertiesLoading"><TableRow v-for="row in 8" :key="row"><TableCell v-for="column in 8" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell></TableRow></template>
+            <EntityContextMenu v-for="property in classPropertiesLoading ? [] : sortedProperties" :key="property.id" :entity-id="property.id" edit @edit="openProperty(property)" @properties="viewEntityProperties(property.id)">
+              <TableRow :data-entity-id="property.id" class="cursor-default" title="Двойной щелчок — открыть карточку свойства" @dblclick="openProperty(property)">
+                <TableCell class="max-w-64 px-1 py-0.5" :title="property.name"><span v-if="property.inherited" class="mr-1 text-muted-foreground" title="Наследуемое свойство">↥</span>{{ property.name }}</TableCell>
+                <TableCell class="max-w-48 truncate px-1 py-0.5" :title="property.aliases">{{ property.aliases }}</TableCell>
+                <TableCell class="max-w-48 truncate px-1 py-0.5" :title="property.owner">{{ property.owner }}</TableCell>
+                <TableCell class="px-1 py-0.5">{{ property.type }}</TableCell>
+                <TableCell class="px-1 py-0.5">{{ property.readOnly ? 'Да' : '' }}</TableCell>
+                <TableCell class="px-1 py-0.5">{{ formatId(property.id) }}</TableCell>
+                <TableCell class="px-1 py-0.5">{{ property.visibility }}</TableCell>
+                <TableCell class="max-w-48 truncate px-1 py-0.5" :title="property.package">{{ property.package }}</TableCell>
+              </TableRow>
+            </EntityContextMenu>
+          </TableBody>
+          <TableFooter v-if="classPropertiesLoaded" class="sticky bottom-0 z-10 bg-background"><TableRow><TableCell :colspan="8" class="h-5 px-1 py-0 text-right text-[0.625rem] font-normal text-muted-foreground">Строк: {{ filteredProperties.length }}</TableCell></TableRow></TableFooter>
+        </Table>
+        <Empty v-else-if="classPropertiesError" class="min-h-0 py-8"><EmptyHeader><EmptyTitle>Не удалось загрузить свойства</EmptyTitle><EmptyDescription>{{ classPropertiesError }}</EmptyDescription></EmptyHeader></Empty>
+        <Empty v-else-if="classPropertiesLoaded" class="min-h-0 py-8"><EmptyHeader><EmptyTitle>Свойства не найдены</EmptyTitle><EmptyDescription>{{ propertySearchQuery.trim() ? 'Очистите строку поиска.' : 'Для этого класса нет скриптовых свойств.' }}</EmptyDescription></EmptyHeader></Empty>
+      </TabsContent>
       </EntityContextMenu>
 
       <TabsContent value="attributes" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
@@ -405,7 +510,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
               </TableRow>
             </template>
             <TableRow v-if="!attributesLoading && attributeVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${attributeVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
-            <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id" edit @edit="openAttribute(attribute)">
+            <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id" edit @edit="openAttribute(attribute)" @properties="viewEntityProperties(attribute.id)">
             <TableRow :data-entity-id="attribute.id" class="cursor-default" title="Двойной щелчок — открыть карточку атрибута" @dblclick="openAttribute(attribute)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="attribute.name">
                 <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
@@ -476,7 +581,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
               </TableRow>
             </template>
             <TableRow v-if="!methodsLoading && methodVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${methodVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
-            <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" edit svn @edit="openMethod(method)" @svn-action="methodSvnAction(method, $event)">
+            <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" edit svn @edit="openMethod(method)" @properties="viewEntityProperties(method.id)" @svn-action="methodSvnAction(method, $event)">
             <TableRow :data-entity-id="method.id" class="cursor-default" :class="{ 'bg-primary/15 text-primary': method.id === revealedMethodId }" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>

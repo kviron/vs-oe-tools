@@ -43,6 +43,25 @@ export interface ClassObjectsResult {
 	hasMore: boolean;
 }
 
+export type ObjectFieldKind = 'attribute' | 'property';
+
+export interface ObjectFieldRow {
+	kind: ObjectFieldKind;
+	attributeId: string | null;
+	attributeName: string;
+	value: unknown;
+	tableField: string;
+	distribution: string;
+}
+
+export interface ObjectViewResult {
+	id: string;
+	name: string;
+	classId: string;
+	className: string;
+	fields: ObjectFieldRow[];
+}
+
 export interface ClassCommentRow {
 	id: number;
 	name: string | null;
@@ -120,4 +139,29 @@ export interface ClassMethod {
 	updatedAt: string;
 	createdBy: string;
 	inherited: boolean;
+}
+
+export interface ClassProperty {
+	id: string;
+	name: string;
+	aliases: string;
+	owner: string;
+	type: string;
+	readOnly: boolean;
+	visibility: string;
+	package: string;
+	inherited: boolean;
+}
+
+export interface PropertyDetails {
+	id: string;
+	name: string;
+	aliases: string;
+	visibility: string;
+	readMemberId: string;
+	readMemberName: string;
+	writeMemberId: string;
+	writeMemberName: string;
+	ownerClassId: string;
+	ownerClassName: string;
 }

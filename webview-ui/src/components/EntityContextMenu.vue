@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Copy01Icon, DatabaseIcon, Edit02Icon, SourceCodeIcon, ViewIcon } from '@hugeicons/core-free-icons';
+import { Copy01Icon, DatabaseIcon, Edit02Icon, Search01Icon, Settings02Icon, SourceCodeIcon, ViewIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { ref } from 'vue';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
@@ -43,6 +43,16 @@ function openDfm(command: 'openDfmEditor' | 'openDfmPreview'): void {
 function openClassObjects(): void {
   if (props.viewObjectsClassId !== undefined) vscode.postMessage({ command: 'openClassObjects', classId: props.viewObjectsClassId });
 }
+function viewObject(): void {
+  if (props.entityId === undefined) return;
+  const id = Number(props.entityId);
+  if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'viewObject', id });
+}
+function viewProperties(): void {
+  if (props.entityId === undefined) return;
+  const id = Number(props.entityId);
+  if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'viewEntityProperties', id });
+}
 </script>
 
 <template>
@@ -51,9 +61,17 @@ function openClassObjects(): void {
       <slot />
     </ContextMenuTrigger>
     <ContextMenuContent>
+      <ContextMenuItem @select="viewObject">
+        <HugeiconsIcon :icon="Search01Icon" data-icon="inline-start" />
+        Просмотр объекта
+      </ContextMenuItem>
       <ContextMenuItem v-if="edit" @select="emit('edit')">
         <HugeiconsIcon :icon="Edit02Icon" data-icon="inline-start" />
         Правка…
+      </ContextMenuItem>
+      <ContextMenuItem @select="viewProperties">
+        <HugeiconsIcon :icon="Settings02Icon" data-icon="inline-start" />
+        Свойства…
       </ContextMenuItem>
       <ContextMenuItem v-if="viewObjectsClassId !== undefined" @select="openClassObjects">
         <HugeiconsIcon :icon="DatabaseIcon" data-icon="inline-start" />

@@ -9,6 +9,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/u
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { vscode } from '@/vscode';
+import EntityContextMenu from '@/components/EntityContextMenu.vue';
 
 const result = ref<ClassObjectsResult>();
 const loading = ref(true);
@@ -124,11 +125,13 @@ vscode.postMessage({ command: 'classObjectsReady' });
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableRow v-for="(row, index) in rows" :key="String(row.ID ?? row.id ?? index)" :data-entity-id="String(row.ID ?? row.id ?? '')">
+        <EntityContextMenu v-for="(row, index) in rows" :key="String(row.ID ?? row.id ?? index)" :entity-id="String(row.ID ?? row.id ?? '')">
+        <TableRow :data-entity-id="String(row.ID ?? row.id ?? '')">
           <TableCell v-for="column in result.columns" :key="column.key" class="max-w-80 whitespace-nowrap" :title="display(row[column.key])">
             {{ display(row[column.key]) }}
           </TableCell>
         </TableRow>
+        </EntityContextMenu>
       </TableBody>
     </Table>
     <div v-if="loadingMore" class="shrink-0 border-t px-2 py-1 text-center text-xs text-muted-foreground">Загрузка следующих 100 строк…</div>

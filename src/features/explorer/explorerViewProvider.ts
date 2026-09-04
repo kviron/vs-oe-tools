@@ -19,6 +19,8 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		private readonly openMethod: (id: number) => Promise<void>,
 		private readonly openAttribute: (id: number) => Promise<void>,
 		private readonly openClassObjects: (id: number) => Promise<void>,
+		private readonly viewObject: (id: number) => Promise<void>,
+		private readonly viewEntityProperties: (id: number) => Promise<void>,
 	) {}
 	resolveWebviewView(webviewView: vscode.WebviewView): void {
 		this.view = webviewView;
@@ -80,6 +82,14 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 			}
 			if (message.command === 'openClassObjects') {
 				void this.openClassObjects(message.classId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть объекты класса: ${error instanceof Error ? error.message : String(error)}`));
+				return;
+			}
+			if (message.command === 'viewObject') {
+				void this.viewObject(message.id).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть объект: ${error instanceof Error ? error.message : String(error)}`));
+				return;
+			}
+			if (message.command === 'viewEntityProperties') {
+				void this.viewEntityProperties(message.id).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть свойства: ${error instanceof Error ? error.message : String(error)}`));
 				return;
 			}
 			void this.openClass(message.id, message.pinned).catch((error) => {

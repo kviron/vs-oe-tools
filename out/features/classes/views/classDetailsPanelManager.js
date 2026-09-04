@@ -43,6 +43,7 @@ const classRepository_1 = require("../../../infrastructure/database/classReposit
 const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
 const attributeDetailsPanelManager_1 = require("./attributeDetailsPanelManager");
 const classObjectsPanelManager_1 = require("./classObjectsPanelManager");
+const objectViewPanelManager_1 = require("./objectViewPanelManager");
 function postPendingMethod(entry) {
     if (!entry.ready || entry.pendingMethodId === undefined) {
         return;
@@ -132,6 +133,10 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
                 await (0, classObjectsPanelManager_1.openClassObjects)(context, message.classId);
                 return;
             }
+            if (message.command === 'viewObject') {
+                await (0, objectViewPanelManager_1.openObjectView)(context, message.id);
+                return;
+            }
             if (message.command === 'methodSvnAction') {
                 const command = message.action === 'localDiff' ? 'vc-ve-tools.svnLocalDiff' : message.action === 'history' ? 'vc-ve-tools.svnHistory' : 'vc-ve-tools.svnBlame';
                 await vscode.commands.executeCommand(command, message.id);
@@ -150,6 +155,21 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
                     if (entry.details.id === requestedClassId) {
                         const failureMessage = error instanceof Error ? error.message : String(error);
                         void panel.webview.postMessage({ command: 'classMethodsLoadFailed', message: failureMessage, includeInherited });
+                    }
+                }
+                return;
+            }
+            if (message.command === 'loadClassProperties') {
+                const includeInherited = message.includeInherited;
+                try {
+                    const properties = await (0, classRepository_1.getClassProperties)(requestedClassId, includeInherited);
+                    if (entry.details.id === requestedClassId) {
+                        void panel.webview.postMessage({ command: 'classPropertiesLoaded', properties, includeInherited });
+                    }
+                }
+                catch (error) {
+                    if (entry.details.id === requestedClassId) {
+                        void panel.webview.postMessage({ command: 'classPropertiesLoadFailed', message: error instanceof Error ? error.message : String(error), includeInherited });
                     }
                 }
                 return;

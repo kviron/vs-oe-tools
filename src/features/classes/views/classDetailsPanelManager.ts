@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
 import type { ClassDetailsHostMessage } from '../../../core/webviewProtocol';
 import { isClassDetailsWebviewMessage } from '../../../core/webviewProtocol';
-import { getClassAttributes, getClassDetails, getClassMethods } from '../../../infrastructure/database/classRepository';
+import { getClassAttributes, getClassDetails, getClassMethods, getClassProperties } from '../../../infrastructure/database/classRepository';
 import type { ClassDetails } from '../models';
 import type { MethodEditorProvider } from '../../methods/methodEditorProvider';
 import { logTableSelection } from '../../../core/tableSelectionLogger';
 import { openAttributeDetails } from './attributeDetailsPanelManager';
+import { openPropertyDetails } from './propertyDetailsPanelManager';
 import { openClassObjects } from './classObjectsPanelManager';
+import { openObjectView } from './objectViewPanelManager';
+import { openEntityProperties } from './entityPropertiesPanelManager';
 
 interface ClassDetailPanel {
 	panel: vscode.WebviewPanel;
@@ -109,8 +112,24 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				}
 				return;
 			}
+			if (message.command === 'openProperty') {
+				try {
+					await openPropertyDetails(context, message.id);
+				} catch (error) {
+					void vscode.window.showErrorMessage(`Не удалось открыть свойство: ${error instanceof Error ? error.message : String(error)}`);
+				}
+				return;
+			}
 			if (message.command === 'openClassObjects') {
 				await openClassObjects(context, message.classId);
+				return;
+			}
+			if (message.command === 'viewObject') {
+				await openObjectView(context, message.id);
+				return;
+			}
+			if (message.command === 'viewEntityProperties') {
+				await openEntityProperties(context, message.id);
 				return;
 			}
 			if (message.command === 'methodSvnAction') {
@@ -130,6 +149,20 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 					if (entry.details.id === requestedClassId) {
 						const failureMessage = error instanceof Error ? error.message : String(error);
 						void panel.webview.postMessage({ command: 'classMethodsLoadFailed', message: failureMessage, includeInherited } satisfies ClassDetailsHostMessage);
+					}
+				}
+				return;
+			}
+			if (message.command === 'loadClassProperties') {
+				const includeInherited = message.includeInherited;
+				try {
+					const properties = await getClassProperties(requestedClassId, includeInherited);
+					if (entry.details.id === requestedClassId) {
+						void panel.webview.postMessage({ command: 'classPropertiesLoaded', properties, includeInherited } satisfies ClassDetailsHostMessage);
+					}
+				} catch (error) {
+					if (entry.details.id === requestedClassId) {
+						void panel.webview.postMessage({ command: 'classPropertiesLoadFailed', message: error instanceof Error ? error.message : String(error), includeInherited } satisfies ClassDetailsHostMessage);
 					}
 				}
 				return;

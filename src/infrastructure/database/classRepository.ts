@@ -1,6 +1,6 @@
 import { Client } from 'pg';
 import * as iconv from 'iconv-lite';
-import type { AttributeDetails, ClassAttribute, ClassCommentRow, ClassDetails, ClassMethod, ClassRow, ClassTreeRow, ObjectMetaDataCountRow } from '../../features/classes/models';
+import type { AttributeDetails, ClassAttribute, ClassCommentRow, ClassDetails, ClassMethod, ClassProperty, ClassRow, ClassTreeRow, ObjectMetaDataCountRow, PropertyDetails } from '../../features/classes/models';
 import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 
@@ -335,6 +335,116 @@ interface ClassMethodRow {
 	data: Record<string, unknown>;
 	ownername: string | null;
 	depth: number;
+}
+
+interface ClassPropertyRow {
+	id: string;
+	propname: string;
+	propaliases: string | null;
+	propseniorid: string | null;
+	proponlyread: string | null;
+	propvisibility: string | null;
+	proppackage: string | null;
+	depth: number;
+}
+
+export async function getClassProperties(classId: number, includeInherited: boolean): Promise<ClassProperty[]> {
+	const options = await getProjectDatabaseOptions();
+	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	try {
+		await client.connect();
+		const result = await executeMonitoredQuery<ClassPropertyRow, [number]>(client, {
+			text: `WITH RECURSIVE class_chain AS (
+			         SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+			         UNION ALL
+			         SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+			         FROM classes AS parent JOIN class_chain AS chain ON chain.seniorid = parent.id
+			         WHERE NOT parent.id = ANY(chain.path)
+			       )
+			       SELECT property.id::text,
+			              property.name AS propname,
+			              property.aliases AS propaliases,
+			              owner.name AS propseniorid,
+			              CASE WHEN NULLIF(property.writemember, 0) IS NULL THEN 'Да' END AS proponlyread,
+			              visibility.name AS propvisibility,
+			              package.packagename AS proppackage,
+			              chain.depth
+			       FROM class_chain AS chain
+			       JOIN properties AS property ON property.seniorid = chain.id
+			       LEFT JOIN abstract AS owner ON owner.id = property.seniorid
+			       LEFT JOIN enum AS visibility ON visibility.classid = 12450282
+			         AND ((visibility.id = 12450286 AND (NULLIF(property.visibility, 0) IS NULL OR property.visibility = 12450283))
+			           OR (property.visibility <> 12450283 AND visibility.id = property.visibility))
+			       LEFT JOIN abstract AS abstract_property ON abstract_property.id = property.id
+			       LEFT JOIN sysfile AS file ON file.id = abstract_property.sysfile
+			       LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			       LEFT JOIN syspackages AS package ON package.id = file_group.package
+			       WHERE $1 = chain.id OR ${includeInherited ? 'chain.depth > 0' : 'FALSE'}
+			       ORDER BY lower(property.name), chain.depth, property.id`,
+			values: [classId], source: `Свойства класса ${classId}${includeInherited ? ' с наследованием' : ''}`, database: options.database,
+		});
+		const visible = new Map<string, ClassProperty>();
+		for (const row of result.rows) {
+			const property: ClassProperty = {
+				id: row.id,
+				name: decodeDatabaseText(row.propname),
+				aliases: decodeDatabaseText(row.propaliases ?? ''),
+				owner: row.propseniorid ?? '',
+				type: '',
+				readOnly: row.proponlyread === 'Да',
+				visibility: row.propvisibility ?? '',
+				package: row.proppackage ?? '',
+				inherited: row.depth > 0,
+			};
+			const key = property.name.toLocaleUpperCase('ru');
+			if (!visible.has(key)) {
+				visible.set(key, property);
+			}
+		}
+		return [...visible.values()];
+	} finally {
+		await client.end().catch(() => undefined);
+	}
+}
+
+export async function getClassPropertyDetails(propertyId: number): Promise<PropertyDetails> {
+	const options = await getProjectDatabaseOptions();
+	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	try {
+		await client.connect();
+		const result = await executeMonitoredQuery<{
+			id: string; name: string; aliases: string | null; ownerclassid: string; ownerclassname: string | null;
+			visibility: string | null; readmemberid: string | null; readmembername: string | null;
+			writememberid: string | null; writemembername: string | null;
+		}, [number]>(client, {
+			text: `SELECT property.id::text, property.name, property.aliases,
+			              owner.id::text AS ownerclassid, owner.name AS ownerclassname,
+			              visibility.name AS visibility,
+			              property.readmember::text AS readmemberid, read_member.name AS readmembername,
+			              property.writemember::text AS writememberid, write_member.name AS writemembername
+			       FROM properties AS property
+			       LEFT JOIN abstract AS owner ON owner.id = property.seniorid
+			       LEFT JOIN abstract AS read_member ON read_member.id = property.readmember
+			       LEFT JOIN abstract AS write_member ON write_member.id = property.writemember
+			       LEFT JOIN enum AS visibility ON visibility.classid = 12450282
+			         AND ((visibility.id = 12450286 AND (NULLIF(property.visibility, 0) IS NULL OR property.visibility = 12450283))
+			           OR (property.visibility <> 12450283 AND visibility.id = property.visibility))
+			       WHERE property.id = $1`,
+			values: [propertyId], source: `Карточка свойства ${propertyId}`, database: options.database,
+		});
+		const row = result.rows[0];
+		if (!row) {
+			throw new Error(`Свойство ${propertyId} не найдено.`);
+		}
+		return {
+			id: row.id, name: decodeDatabaseText(row.name), aliases: decodeDatabaseText(row.aliases ?? ''),
+			visibility: row.visibility ?? '', ownerClassId: row.ownerclassid, ownerClassName: row.ownerclassname ?? '',
+			readMemberId: row.readmemberid ?? '', readMemberName: row.readmembername ?? '',
+			writeMemberId: row.writememberid ?? '', writeMemberName: row.writemembername ?? '',
+		};
+	} finally {
+		await client.end().catch(() => undefined);
+	}
 }
 
 export async function getClassMethods(classId: number, className: string, includeInherited: boolean): Promise<ClassMethod[]> {

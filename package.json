@@ -35,12 +35,17 @@
           ".pas"
         ],
         "configuration": "./syntaxes/pascal-language-configuration.json"
-	  },
-	  {
-		"id": "ve-dfm",
-		"aliases": ["DFM", "Delphi Form"],
-		"extensions": [".dfm"],
-		"configuration": "./syntaxes/dfm-language-configuration.json"
+      },
+      {
+        "id": "ve-dfm",
+        "aliases": [
+          "DFM",
+          "Delphi Form"
+        ],
+        "extensions": [
+          ".dfm"
+        ],
+        "configuration": "./syntaxes/dfm-language-configuration.json"
       }
     ],
     "grammars": [
@@ -53,11 +58,11 @@
         "language": "ve-pascal",
         "scopeName": "source.pascal.delphi",
         "path": "./syntaxes/pascal.tmLanguage.json"
-	  },
-	  {
-		"language": "ve-dfm",
-		"scopeName": "source.dfm",
-		"path": "./syntaxes/dfm.tmLanguage.json"
+      },
+      {
+        "language": "ve-dfm",
+        "scopeName": "source.dfm",
+        "path": "./syntaxes/dfm.tmLanguage.json"
       }
     ],
     "configuration": {
@@ -269,7 +274,11 @@
     "languageModelTools": [
       {
         "name": "vcVeTools_reveal_class",
-        "tags": ["east-express", "navigation", "classes"],
+        "tags": [
+          "east-express",
+          "navigation",
+          "classes"
+        ],
         "toolReferenceName": "veRevealClass",
         "displayName": "Показать класс Восточного Экспресса",
         "modelDescription": "Reveal an East Express class in the vc-ve-tools Explorer. Use a classId returned by the vc-ve-tools MCP search_classes tool.",
@@ -279,14 +288,24 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "classId": { "type": "integer", "minimum": 1, "description": "ID класса Восточного Экспресса" }
+            "classId": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ID класса Восточного Экспресса"
+            }
           },
-          "required": ["classId"]
+          "required": [
+            "classId"
+          ]
         }
       },
       {
         "name": "vcVeTools_open_class",
-        "tags": ["east-express", "navigation", "classes"],
+        "tags": [
+          "east-express",
+          "navigation",
+          "classes"
+        ],
         "toolReferenceName": "veOpenClass",
         "displayName": "Открыть класс Восточного Экспресса",
         "modelDescription": "Reveal an East Express class in the vc-ve-tools Explorer and open its details panel. Use a classId returned by the vc-ve-tools MCP search_classes tool.",
@@ -296,14 +315,24 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "classId": { "type": "integer", "minimum": 1, "description": "ID класса Восточного Экспресса" }
+            "classId": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ID класса Восточного Экспресса"
+            }
           },
-          "required": ["classId"]
+          "required": [
+            "classId"
+          ]
         }
       },
       {
         "name": "vcVeTools_open_method",
-        "tags": ["east-express", "navigation", "methods"],
+        "tags": [
+          "east-express",
+          "navigation",
+          "methods"
+        ],
         "toolReferenceName": "veOpenMethod",
         "displayName": "Открыть метод Восточного Экспресса",
         "modelDescription": "Open an East Express database method in the VS Code virtual editor. Use a methodId returned by the vc-ve-tools MCP search_methods tool.",
@@ -313,14 +342,25 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "methodId": { "type": "integer", "minimum": 1, "description": "ID метода Восточного Экспресса" }
+            "methodId": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ID метода Восточного Экспресса"
+            }
           },
-          "required": ["methodId"]
+          "required": [
+            "methodId"
+          ]
         }
       },
       {
         "name": "vcVeTools_reveal_method",
-        "tags": ["east-express", "navigation", "methods", "classes"],
+        "tags": [
+          "east-express",
+          "navigation",
+          "methods",
+          "classes"
+        ],
         "toolReferenceName": "veRevealMethod",
         "displayName": "Показать метод в карточке класса",
         "modelDescription": "Open an East Express class card, switch to the Methods tab, select an exact method row, and scroll it into view without cursor automation.",
@@ -330,10 +370,21 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "classId": { "type": "integer", "minimum": 1, "description": "ID класса-владельца" },
-            "methodId": { "type": "integer", "minimum": 1, "description": "ID метода" }
+            "classId": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ID класса-владельца"
+            },
+            "methodId": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ID метода"
+            }
           },
-          "required": ["classId", "methodId"]
+          "required": [
+            "classId",
+            "methodId"
+          ]
         }
       }
     ],
@@ -352,7 +403,7 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
-    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode class-objects && vite build --config vite.webview.config.mts --mode attribute-details && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings",
+    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode class-objects && vite build --config vite.webview.config.mts --mode object-view && vite build --config vite.webview.config.mts --mode attribute-details && vite build --config vite.webview.config.mts --mode property-details && vite build --config vite.webview.config.mts --mode entity-properties && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",

@@ -61,6 +61,7 @@ const attributeDetailsPanelManager_1 = require("../features/classes/views/attrib
 const objectSearchRepository_1 = require("../infrastructure/database/objectSearchRepository");
 const agentSkillInstaller_1 = require("../features/ai/agentSkillInstaller");
 const classObjectsPanelManager_1 = require("../features/classes/views/classObjectsPanelManager");
+const objectViewPanelManager_1 = require("../features/classes/views/objectViewPanelManager");
 const navigationInfo_1 = require("../core/navigationInfo");
 const svnClient_1 = require("../features/code-history/svnClient");
 async function activate(context) {
@@ -95,7 +96,7 @@ async function activate(context) {
     };
     const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge);
     const settingsRegistration = vscode.window.registerWebviewViewProvider(settingsViewProvider_1.SettingsViewProvider.viewType, settingsProvider, { webviewOptions: { retainContextWhenHidden: true } });
-    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id), objectSearchRepository_1.searchDatabaseObjects, id => methodEditor.open(id), id => (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, id), id => (0, classObjectsPanelManager_1.openClassObjects)(context, id));
+    const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id), objectSearchRepository_1.searchDatabaseObjects, id => methodEditor.open(id), id => (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, id), id => (0, classObjectsPanelManager_1.openClassObjects)(context, id), id => (0, objectViewPanelManager_1.openObjectView)(context, id));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
     const navigationActions = {
         revealClass: id => explorerProvider.revealClass(id),
@@ -161,6 +162,7 @@ async function activate(context) {
             (0, classDetailsPanelManager_1.closeClassDetailPanels)();
             (0, attributeDetailsPanelManager_1.closeAttributeDetailPanels)();
             (0, classObjectsPanelManager_1.closeClassObjectPanels)();
+            (0, objectViewPanelManager_1.closeObjectViewPanels)();
             explorerProvider.refreshClasses();
             packageSyncProvider.refreshForDatabaseChange();
         }

@@ -38,6 +38,7 @@ exports.loadClasses = loadClasses;
 exports.getClassDetails = getClassDetails;
 exports.getClassAttributes = getClassAttributes;
 exports.getClassAttributeDetails = getClassAttributeDetails;
+exports.getClassProperties = getClassProperties;
 exports.getClassMethods = getClassMethods;
 const pg_1 = require("pg");
 const iconv = __importStar(require("iconv-lite"));
@@ -323,6 +324,65 @@ async function getClassAttributeDetails(attributeId) {
             createdBy: creators.get(String(attributeId))?.name ?? '',
             data: decodeAttributeData(row.data),
         };
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+async function getClassProperties(classId, includeInherited) {
+    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+    try {
+        await client.connect();
+        const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `WITH RECURSIVE class_chain AS (
+			         SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
+			         UNION ALL
+			         SELECT parent.id, parent.seniorid, chain.depth + 1, chain.path || parent.id
+			         FROM classes AS parent JOIN class_chain AS chain ON chain.seniorid = parent.id
+			         WHERE NOT parent.id = ANY(chain.path)
+			       )
+			       SELECT property.id::text,
+			              property.name AS propname,
+			              property.aliases AS propaliases,
+			              owner.name AS propseniorid,
+			              CASE WHEN NULLIF(property.writemember, 0) IS NULL THEN 'Да' END AS proponlyread,
+			              visibility.name AS propvisibility,
+			              package.packagename AS proppackage,
+			              chain.depth
+			       FROM class_chain AS chain
+			       JOIN properties AS property ON property.seniorid = chain.id
+			       LEFT JOIN abstract AS owner ON owner.id = property.seniorid
+			       LEFT JOIN enum AS visibility ON visibility.classid = 12450282
+			         AND ((visibility.id = 12450286 AND (NULLIF(property.visibility, 0) IS NULL OR property.visibility = 12450283))
+			           OR (property.visibility <> 12450283 AND visibility.id = property.visibility))
+			       LEFT JOIN abstract AS abstract_property ON abstract_property.id = property.id
+			       LEFT JOIN sysfile AS file ON file.id = abstract_property.sysfile
+			       LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			       LEFT JOIN syspackages AS package ON package.id = file_group.package
+			       WHERE $1 = chain.id OR ${includeInherited ? 'chain.depth > 0' : 'FALSE'}
+			       ORDER BY lower(property.name), chain.depth, property.id`,
+            values: [classId], source: `Свойства класса ${classId}${includeInherited ? ' с наследованием' : ''}`, database: options.database,
+        });
+        const visible = new Map();
+        for (const row of result.rows) {
+            const property = {
+                id: row.id,
+                name: decodeDatabaseText(row.propname),
+                aliases: decodeDatabaseText(row.propaliases ?? ''),
+                owner: row.propseniorid ?? '',
+                type: '',
+                readOnly: row.proponlyread === 'Да',
+                visibility: row.propvisibility ?? '',
+                package: row.proppackage ?? '',
+                inherited: row.depth > 0,
+            };
+            const key = property.name.toLocaleUpperCase('ru');
+            if (!visible.has(key)) {
+                visible.set(key, property);
+            }
+        }
+        return [...visible.values()];
     }
     finally {
         await client.end().catch(() => undefined);

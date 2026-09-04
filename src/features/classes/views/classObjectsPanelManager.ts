@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { isClassObjectsWebviewMessage, type ClassObjectsHostMessage } from '../../../core/webviewProtocol';
 import { classObjectPageSize, getClassObjects } from '../../../infrastructure/database/classObjectRepository';
+import { openObjectView } from './objectViewPanelManager';
+import { openEntityProperties } from './entityPropertiesPanelManager';
 
 const panels = new Map<number, vscode.WebviewPanel>();
 
@@ -43,6 +45,14 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 		}
 		if (message.command === 'copyTableCells') {
 			await vscode.env.clipboard.writeText(message.text);
+			return;
+		}
+		if (message.command === 'viewObject') {
+			await openObjectView(context, message.id);
+			return;
+		}
+		if (message.command === 'viewEntityProperties') {
+			await openEntityProperties(context, message.id);
 			return;
 		}
 		await load(message.command === 'loadMoreClassObjects' ? message.offset : 0);

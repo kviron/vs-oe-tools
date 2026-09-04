@@ -6,6 +6,7 @@ exports.isCodeHistoryWebviewMessage = isCodeHistoryWebviewMessage;
 exports.isClassDetailsWebviewMessage = isClassDetailsWebviewMessage;
 exports.isAttributeDetailsWebviewMessage = isAttributeDetailsWebviewMessage;
 exports.isClassObjectsWebviewMessage = isClassObjectsWebviewMessage;
+exports.isObjectViewWebviewMessage = isObjectViewWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
 exports.isCopyEntityIdMessage = isCopyEntityIdMessage;
 exports.isSqlMonitorWebviewMessage = isSqlMonitorWebviewMessage;
@@ -65,6 +66,9 @@ function isClassDetailsWebviewMessage(message) {
     if (message.command === 'openClassObjects') {
         return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
     }
+    if (message.command === 'viewObject') {
+        return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
+    }
     if (message.command === 'copyTableCells') {
         return 'text' in message && typeof message.text === 'string';
     }
@@ -75,7 +79,7 @@ function isClassDetailsWebviewMessage(message) {
     if (isCopyEntityIdMessage(message)) {
         return true;
     }
-    return message.command === 'loadClassMethods'
+    return (message.command === 'loadClassMethods' || message.command === 'loadClassProperties')
         && 'includeInherited' in message
         && typeof message.includeInherited === 'boolean';
 }
@@ -89,7 +93,20 @@ function isClassObjectsWebviewMessage(message) {
     if (message.command === 'loadMoreClassObjects') {
         return 'offset' in message && typeof message.offset === 'number' && Number.isInteger(message.offset) && message.offset >= 0;
     }
+    if (message.command === 'viewObject') {
+        return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
+    }
     return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message);
+}
+function isObjectViewWebviewMessage(message) {
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    return message.command === 'objectViewReady'
+        || message.command === 'refreshObjectView'
+        || message.command === 'copyObjectJson'
+        || isCopyTableCellsMessage(message)
+        || isTableSelectionDebugMessage(message);
 }
 function isExplorerWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -130,6 +147,9 @@ function isExplorerWebviewMessage(message) {
     }
     if (message.command === 'openClassObjects') {
         return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
+    }
+    if (message.command === 'viewObject') {
+        return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
     }
     return message.command === 'openClass' && 'id' in message && 'pinned' in message
         && typeof message.id === 'number' && typeof message.pinned === 'boolean';

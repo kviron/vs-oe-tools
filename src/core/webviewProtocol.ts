@@ -1,4 +1,4 @@
-import type { AttributeDetails, ClassAttribute, ClassDetails, ClassMethod, ClassObjectsResult, ClassTreeRow } from '../features/classes/models';
+import type { AttributeDetails, ClassAttribute, ClassDetails, ClassMethod, ClassObjectsResult, ClassProperty, ClassTreeRow, ObjectViewResult, PropertyDetails } from '../features/classes/models';
 import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 import type { PackageSyncItem } from '../features/package-sync/models';
@@ -12,6 +12,8 @@ export type ExplorerWebviewMessage =
 	| { command: 'openDatabaseObject'; id: number; kind: DatabaseObjectKind; pinned: boolean }
 	| { command: 'openClass'; id: number; pinned: boolean }
 	| { command: 'openClassObjects'; classId: number }
+	| { command: 'viewObject'; id: number }
+	| { command: 'viewEntityProperties'; id: number }
 	| { command: 'openDfmEditor'; classId: number }
 	| { command: 'openDfmPreview'; classId: number }
 	| { command: 'selectExplorerEntity'; id?: number }
@@ -34,9 +36,13 @@ export type ClassDetailsWebviewMessage =
 	| { command: 'classDetailsStateChanged'; activeTab: string }
 	| { command: 'loadClassAttributes'; includeInherited: boolean }
 	| { command: 'loadClassMethods'; includeInherited: boolean }
+	| { command: 'loadClassProperties'; includeInherited: boolean }
 	| { command: 'openMethod'; id: number }
 	| { command: 'openAttribute'; id: number }
+	| { command: 'openProperty'; id: number }
 	| { command: 'openClassObjects'; classId: number }
+	| { command: 'viewObject'; id: number }
+	| { command: 'viewEntityProperties'; id: number }
 	| { command: 'methodSvnAction'; id: number; action: 'localDiff' | 'history' | 'blame' }
 	| CopyTableCellsMessage
 	| CopyEntityIdMessage
@@ -60,18 +66,36 @@ export type ClassDetailsHostMessage =
 	| { command: 'classAttributesLoaded'; attributes: ClassAttribute[]; includeInherited: boolean }
 	| { command: 'classAttributesLoadFailed'; message: string; includeInherited: boolean }
 	| { command: 'classMethodsLoaded'; methods: ClassMethod[]; includeInherited: boolean }
-	| { command: 'classMethodsLoadFailed'; message: string; includeInherited: boolean };
+	| { command: 'classMethodsLoadFailed'; message: string; includeInherited: boolean }
+	| { command: 'classPropertiesLoaded'; properties: ClassProperty[]; includeInherited: boolean }
+	| { command: 'classPropertiesLoadFailed'; message: string; includeInherited: boolean };
 export type AttributeDetailsWebviewMessage = { command: 'attributeDetailsReady' };
 export type AttributeDetailsHostMessage = { command: 'attributeDetailsLoaded'; details: AttributeDetails };
+export type PropertyDetailsWebviewMessage = { command: 'propertyDetailsReady' };
+export type PropertyDetailsHostMessage = { command: 'propertyDetailsLoaded'; details: PropertyDetails };
+export type EntityPropertiesWebviewMessage = { command: 'entityPropertiesReady' };
+export type EntityPropertiesHostMessage = { command: 'entityPropertiesLoaded'; result: ObjectViewResult };
 export type ClassObjectsWebviewMessage =
 	| { command: 'classObjectsReady' }
 	| { command: 'refreshClassObjects' }
 	| { command: 'loadMoreClassObjects'; offset: number }
+	| { command: 'viewObject'; id: number }
+	| { command: 'viewEntityProperties'; id: number }
 	| CopyTableCellsMessage;
 export type ClassObjectsHostMessage =
 	| { command: 'classObjectsLoading'; append: boolean }
 	| { command: 'classObjectsLoaded'; result: ClassObjectsResult; append: boolean }
 	| { command: 'classObjectsLoadFailed'; message: string };
+export type ObjectViewWebviewMessage =
+	| { command: 'objectViewReady' }
+	| { command: 'refreshObjectView' }
+	| { command: 'copyObjectJson' }
+	| CopyTableCellsMessage
+	| TableSelectionDebugMessage;
+export type ObjectViewHostMessage =
+	| { command: 'objectViewLoading' }
+	| { command: 'objectViewLoaded'; result: ObjectViewResult }
+	| { command: 'objectViewLoadFailed'; message: string };
 export type SqlMonitorWebviewMessage =
 	| { command: 'sqlMonitorReady' }
 	| { command: 'clearSqlMonitor' }
@@ -132,7 +156,7 @@ export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | ClassObjectsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage;
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | ObjectViewWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage;
 
 export function isSettingsWebviewMessage(message: unknown): message is SettingsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -205,11 +229,14 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'loadClassAttributes') {
 		return 'includeInherited' in message && typeof message.includeInherited === 'boolean';
 	}
-	if (message.command === 'openMethod' || message.command === 'openAttribute') {
+	if (message.command === 'openMethod' || message.command === 'openAttribute' || message.command === 'openProperty') {
 		return 'id' in message && typeof message.id === 'number';
 	}
 	if (message.command === 'openClassObjects') {
 		return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
+	}
+	if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
+		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
 	}
 	if (message.command === 'copyTableCells') {
 		return 'text' in message && typeof message.text === 'string';
@@ -221,13 +248,17 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (isCopyEntityIdMessage(message)) {
 		return true;
 	}
-	return message.command === 'loadClassMethods'
+	return (message.command === 'loadClassMethods' || message.command === 'loadClassProperties')
 		&& 'includeInherited' in message
 		&& typeof message.includeInherited === 'boolean';
 }
 
 export function isAttributeDetailsWebviewMessage(message: unknown): message is AttributeDetailsWebviewMessage {
 	return typeof message === 'object' && message !== null && 'command' in message && message.command === 'attributeDetailsReady';
+}
+
+export function isPropertyDetailsWebviewMessage(message: unknown): message is PropertyDetailsWebviewMessage {
+	return typeof message === 'object' && message !== null && 'command' in message && message.command === 'propertyDetailsReady';
 }
 
 export function isClassObjectsWebviewMessage(message: unknown): message is ClassObjectsWebviewMessage {
@@ -237,7 +268,21 @@ export function isClassObjectsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'loadMoreClassObjects') {
 		return 'offset' in message && typeof message.offset === 'number' && Number.isInteger(message.offset) && message.offset >= 0;
 	}
+	if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
+		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
+	}
 	return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message);
+}
+
+export function isObjectViewWebviewMessage(message: unknown): message is ObjectViewWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) {
+		return false;
+	}
+	return message.command === 'objectViewReady'
+		|| message.command === 'refreshObjectView'
+		|| message.command === 'copyObjectJson'
+		|| isCopyTableCellsMessage(message)
+		|| isTableSelectionDebugMessage(message);
 }
 
 export function isExplorerWebviewMessage(message: unknown): message is ExplorerWebviewMessage {
@@ -279,6 +324,9 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	}
 	if (message.command === 'openClassObjects') {
 		return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
+	}
+	if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
+		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
 	}
 	return message.command === 'openClass' && 'id' in message && 'pinned' in message
 		&& typeof message.id === 'number' && typeof message.pinned === 'boolean';
