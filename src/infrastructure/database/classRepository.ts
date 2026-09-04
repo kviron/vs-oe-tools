@@ -40,7 +40,7 @@ export async function loadClasses(): Promise<ClassTreeRow[]> {
 	try {
 		await client.connect();
 		const classesResult = await executeMonitoredQuery<ClassRow>(client, {
-			text: `SELECT class.id, class.name, class.seniorid, class.ord,
+			text: `SELECT class.id, class.name, class.seniorid, class.ord, class.virtual, class.dbtablename,
 			 EXISTS (
 			   SELECT 1 FROM dfltvalues value
 			   JOIN attributes attribute ON attribute.id = value.attrid

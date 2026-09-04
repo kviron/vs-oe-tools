@@ -6,12 +6,24 @@ import type { ClassDetails } from '../models';
 import type { MethodEditorProvider } from '../../methods/methodEditorProvider';
 import { logTableSelection } from '../../../core/tableSelectionLogger';
 import { openAttributeDetails } from './attributeDetailsPanelManager';
+import { openClassObjects } from './classObjectsPanelManager';
 
 interface ClassDetailPanel {
 	panel: vscode.WebviewPanel;
 	pinned: boolean;
 	details: ClassDetails;
 	activeTab: string;
+	ready: boolean;
+	pendingMethodId?: number;
+}
+
+function postPendingMethod(entry: ClassDetailPanel): void {
+	if (!entry.ready || entry.pendingMethodId === undefined) {
+		return;
+	}
+	const methodId = entry.pendingMethodId;
+	entry.pendingMethodId = undefined;
+	void entry.panel.webview.postMessage({ command: 'revealClassMethod', methodId } satisfies ClassDetailsHostMessage);
 }
 
 const classDetailPanels = new Map<number, ClassDetailPanel>();
@@ -42,7 +54,7 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 		{ enableScripts: true, localResourceRoots: [assetsRoot] },
 	);
 	panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
-	const entry: ClassDetailPanel = { panel, pinned, details: classDetails, activeTab };
+	const entry: ClassDetailPanel = { panel, pinned, details: classDetails, activeTab, ready: false };
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (isClassDetailsWebviewMessage(message)) {
 			if (message.command === 'classDetailsStateChanged') {
@@ -80,7 +92,9 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				return;
 			}
 			if (message.command === 'classDetailsReady') {
+				entry.ready = true;
 				postDetails(entry);
+				postPendingMethod(entry);
 				return;
 			}
 			if (message.command === 'openMethod') {
@@ -93,6 +107,10 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				} catch (error) {
 					void vscode.window.showErrorMessage(`Не удалось открыть атрибут: ${error instanceof Error ? error.message : String(error)}`);
 				}
+				return;
+			}
+			if (message.command === 'openClassObjects') {
+				await openClassObjects(context, message.classId);
 				return;
 			}
 			if (message.command === 'methodSvnAction') {
@@ -171,6 +189,25 @@ export async function openClassDetails(context: vscode.ExtensionContext, methodE
 			}
 		}
 	});
+}
+
+export async function revealClassMethod(
+	context: vscode.ExtensionContext,
+	methodEditor: MethodEditorProvider,
+	classId: number,
+	methodId: number,
+): Promise<void> {
+	await openClassDetails(context, methodEditor, classId, true, 'methods');
+	const entry = classDetailPanels.get(classId);
+	if (!entry) {
+		throw new Error(`Не удалось открыть карточку класса ${classId}.`);
+	}
+	entry.activeTab = 'methods';
+	entry.pendingMethodId = methodId;
+	persistPanels(context);
+	postDetails(entry);
+	entry.panel.reveal(vscode.ViewColumn.Active);
+	postPendingMethod(entry);
 }
 
 export async function restoreClassDetailPanels(context: vscode.ExtensionContext, methodEditor: MethodEditorProvider): Promise<void> {

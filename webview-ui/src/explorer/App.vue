@@ -47,7 +47,7 @@ const searchResults = computed(() => {
 
 const classTree = computed<TreeNode>(() => {
   const byId = new Map<number, TreeNode>(
-    classes.value.map(item => [item.id, { id: item.id, entityId: item.id, name: item.name, kind: 'class', hasDfm: item.hasDfm, children: [] }]),
+    classes.value.map(item => [item.id, { id: item.id, entityId: item.id, name: item.name, kind: 'class', hasDfm: item.hasDfm, virtual: item.virtual, dbtablename: item.dbtablename, children: [] }]),
   );
   const roots: TreeNode[] = [];
   for (const item of classes.value) {
@@ -103,6 +103,9 @@ function objectKindLabel(kind: DatabaseObjectSearchResult['kind']): string {
   if (kind === 'class') return 'Класс';
   if (kind === 'method') return 'Метод';
   if (kind === 'attribute') return 'Атрибут';
+  if (kind === 'lifecycle') return 'Жизненный цикл';
+  if (kind === 'journal') return 'Журнал';
+  if (kind === 'list') return 'Список';
   return 'Объект';
 }
 
@@ -325,7 +328,7 @@ vscode.postMessage({ command: 'explorerReady' });
           />
         </div>
         <div v-if="normalizedSearchQuery" class="flex min-h-0 flex-1 flex-col overflow-auto p-1">
-		  <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" :class-id="item.hasDfm ? item.id : undefined" copy-shortcut="Ctrl+C">
+		  <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" :class-id="item.hasDfm ? item.id : undefined" :view-objects-class-id="!item.virtual && item.dbtablename ? item.id : undefined" copy-shortcut="Ctrl+C">
           <button
             type="button"
             class="flex min-h-7 items-center gap-2 px-2 text-left hover:bg-accent"

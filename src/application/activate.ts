@@ -4,7 +4,7 @@ import { loadClasses, testDatabaseConnection } from '../infrastructure/database/
 import { getDatabaseRole } from '../infrastructure/configuration/projectDatabaseOptions';
 import { applyProjectEncoding } from '../features/project/projectEncodingService';
 import { SettingsViewProvider } from '../features/settings/settingsViewProvider';
-import { closeClassDetailPanels, openClassDetails, restoreClassDetailPanels } from '../features/classes/views/classDetailsPanelManager';
+import { closeClassDetailPanels, openClassDetails, restoreClassDetailPanels, revealClassMethod } from '../features/classes/views/classDetailsPanelManager';
 import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider';
 import { openSqlMonitor } from '../features/sql-monitor/views/sqlMonitorPanelManager';
 import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorViewProvider';
@@ -23,6 +23,8 @@ import { registerDfmLanguageFeatures } from '../features/dfm/dfmLanguageFeatures
 import { closeAttributeDetailPanels, openAttributeDetails } from '../features/classes/views/attributeDetailsPanelManager';
 import { searchDatabaseObjects } from '../infrastructure/database/objectSearchRepository';
 import { registerAgentSkillInstaller } from '../features/ai/agentSkillInstaller';
+import { closeClassObjectPanels, openClassObjects } from '../features/classes/views/classObjectsPanelManager';
+import { getNavigationInfoPath } from '../core/navigationInfo';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
@@ -77,6 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		searchDatabaseObjects,
 		id => methodEditor.open(id),
 		id => openAttributeDetails(context, id),
+		id => openClassObjects(context, id),
 	);
 	const explorerRegistration = vscode.window.registerWebviewViewProvider(
 		'vc-ve-tools.explorer',
@@ -86,11 +89,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		revealClass: id => explorerProvider.revealClass(id),
 		openClass: id => openClassDetails(context, methodEditor, id, true),
 		openMethod: id => methodEditor.open(id),
+		revealMethod: (classId, methodId) => revealClassMethod(context, methodEditor, classId, methodId),
 	};
 	registerNavigationTools(context, navigationActions);
 	navigationBridge = await startNavigationBridge(
 		navigationActions,
-		vscode.Uri.joinPath(context.globalStorageUri, 'navigation-bridge.json').fsPath,
+		vscode.workspace.workspaceFolders?.[0]
+			? getNavigationInfoPath(vscode.workspace.workspaceFolders[0].uri.fsPath)
+			: vscode.Uri.joinPath(context.globalStorageUri, 'navigation-bridge.json').fsPath,
 	);
 	const databaseMcpServerRegistration = registerDatabaseMcpServer(context, extensionLogger.logUri.fsPath, navigationBridge);
 	const agentSkillInstaller = registerAgentSkillInstaller(context);
@@ -116,6 +122,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)) {
 			closeClassDetailPanels();
 			closeAttributeDetailPanels();
+			closeClassObjectPanels();
 			explorerProvider.refreshClasses();
 			packageSyncProvider.refreshForDatabaseChange();
 		}

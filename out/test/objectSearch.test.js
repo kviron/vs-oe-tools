@@ -47,6 +47,11 @@ suite('Database object search', () => {
         assert.equal(result.ownerId, '20');
         assert.equal(result.packageName, '_System');
     });
+    test('recognizes lifecycle objects by meta-class', () => {
+        assert.equal((0, objectSearch_1.mapDatabaseObject)(row({ metaclassname: 'ЖизненныйЦикл' })).kind, 'lifecycle');
+        assert.equal((0, objectSearch_1.mapDatabaseObject)(row({ metaclassname: 'Журнал документов' })).kind, 'journal');
+        assert.equal((0, objectSearch_1.mapDatabaseObject)(row({ metaclassname: 'Список' })).kind, 'list');
+    });
 });
 function row(overrides) {
     return { id: 25, classid: 5, seniorid: 20, name: 'Run', metaclassname: 'Method', ownername: null, ownerid: null, ownerclassname: null, packagename: null, bmpid: null, isclass: false, ismethod: false, isattribute: false, ...overrides };

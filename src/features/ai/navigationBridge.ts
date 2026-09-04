@@ -1,15 +1,17 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Disposable } from 'vscode';
 import type { NavigationActions } from './navigationTools';
 
-type NavigationAction = 'reveal_class' | 'open_class' | 'open_method';
+type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method';
 
 interface NavigationRequest {
 	action: NavigationAction;
 	id: number;
+	classId?: number;
 }
 
 export interface NavigationBridge extends Disposable {
@@ -30,6 +32,7 @@ export async function startNavigationBridge(actions: NavigationActions, infoPath
 	});
 	const address = server.address() as AddressInfo;
 	const url = `http://127.0.0.1:${address.port}/navigate`;
+	await mkdir(dirname(infoPath), { recursive: true });
 	await writeFile(infoPath, JSON.stringify({ url, token }), { encoding: 'utf8', mode: 0o600 });
 	return {
 		url,
@@ -74,8 +77,10 @@ async function handleRequest(
 		} else if (input.action === 'open_class') {
 			await actions.revealClass(input.id);
 			await actions.openClass(input.id);
-		} else {
+		} else if (input.action === 'open_method') {
 			await actions.openMethod(input.id);
+		} else {
+			await actions.revealMethod(input.classId as number, input.id);
 		}
 		respond(response, 200, { ok: true, action: input.action, id: input.id });
 	} catch (error) {
@@ -109,13 +114,17 @@ function validateRequest(value: unknown): NavigationRequest {
 		throw new Error('Invalid navigation request.');
 	}
 	const { action, id } = value as Partial<NavigationRequest>;
-	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method') {
+	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method') {
 		throw new Error('Unknown navigation action.');
 	}
 	if (!Number.isSafeInteger(id) || (id ?? 0) <= 0) {
 		throw new Error('Navigation ID must be a positive integer.');
 	}
-	return { action, id: id as number };
+	const classId = (value as Partial<NavigationRequest>).classId;
+	if (action === 'reveal_method' && (!Number.isSafeInteger(classId) || (classId ?? 0) <= 0)) {
+		throw new Error('Navigation classId must be a positive integer for reveal_method.');
+	}
+	return { action, id: id as number, classId };
 }
 
 function respond(response: ServerResponse, statusCode: number, body: Record<string, unknown>): void {

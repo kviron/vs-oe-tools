@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Copy01Icon, Edit02Icon, SourceCodeIcon, ViewIcon } from '@hugeicons/core-free-icons';
+import { Copy01Icon, DatabaseIcon, Edit02Icon, SourceCodeIcon, ViewIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { ref } from 'vue';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
@@ -11,6 +11,7 @@ const props = defineProps<{
   svn?: boolean;
 	edit?: boolean;
 	classId?: number;
+	viewObjectsClassId?: number;
 }>();
 
 const emit = defineEmits<{
@@ -39,6 +40,9 @@ function copyId(): void {
 function openDfm(command: 'openDfmEditor' | 'openDfmPreview'): void {
   if (props.classId !== undefined) vscode.postMessage({ command, classId: props.classId });
 }
+function openClassObjects(): void {
+  if (props.viewObjectsClassId !== undefined) vscode.postMessage({ command: 'openClassObjects', classId: props.viewObjectsClassId });
+}
 </script>
 
 <template>
@@ -50,6 +54,10 @@ function openDfm(command: 'openDfmEditor' | 'openDfmPreview'): void {
       <ContextMenuItem v-if="edit" @select="emit('edit')">
         <HugeiconsIcon :icon="Edit02Icon" data-icon="inline-start" />
         Правка…
+      </ContextMenuItem>
+      <ContextMenuItem v-if="viewObjectsClassId !== undefined" @select="openClassObjects">
+        <HugeiconsIcon :icon="DatabaseIcon" data-icon="inline-start" />
+        Просмотр объектов…
       </ContextMenuItem>
       <ContextMenuItem @select="copyId">
         <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />

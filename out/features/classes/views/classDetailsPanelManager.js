@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openClassDetails = openClassDetails;
+exports.revealClassMethod = revealClassMethod;
 exports.restoreClassDetailPanels = restoreClassDetailPanels;
 exports.closeClassDetailPanels = closeClassDetailPanels;
 const vscode = __importStar(require("vscode"));
@@ -41,6 +42,15 @@ const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
 const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
 const attributeDetailsPanelManager_1 = require("./attributeDetailsPanelManager");
+const classObjectsPanelManager_1 = require("./classObjectsPanelManager");
+function postPendingMethod(entry) {
+    if (!entry.ready || entry.pendingMethodId === undefined) {
+        return;
+    }
+    const methodId = entry.pendingMethodId;
+    entry.pendingMethodId = undefined;
+    void entry.panel.webview.postMessage({ command: 'revealClassMethod', methodId });
+}
 const classDetailPanels = new Map();
 let previewClassPanelId;
 function postDetails(entry) {
@@ -60,7 +70,7 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
     const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, { viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned }, { enableScripts: true, localResourceRoots: [assetsRoot] });
     panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
-    const entry = { panel, pinned, details: classDetails, activeTab };
+    const entry = { panel, pinned, details: classDetails, activeTab, ready: false };
     panel.webview.onDidReceiveMessage(async (message) => {
         if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
             if (message.command === 'classDetailsStateChanged') {
@@ -100,7 +110,9 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
                 return;
             }
             if (message.command === 'classDetailsReady') {
+                entry.ready = true;
                 postDetails(entry);
+                postPendingMethod(entry);
                 return;
             }
             if (message.command === 'openMethod') {
@@ -114,6 +126,10 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
                 catch (error) {
                     void vscode.window.showErrorMessage(`Не удалось открыть атрибут: ${error instanceof Error ? error.message : String(error)}`);
                 }
+                return;
+            }
+            if (message.command === 'openClassObjects') {
+                await (0, classObjectsPanelManager_1.openClassObjects)(context, message.classId);
                 return;
             }
             if (message.command === 'methodSvnAction') {
@@ -193,6 +209,19 @@ async function openClassDetails(context, methodEditor, id, pinned, activeTab = '
             }
         }
     });
+}
+async function revealClassMethod(context, methodEditor, classId, methodId) {
+    await openClassDetails(context, methodEditor, classId, true, 'methods');
+    const entry = classDetailPanels.get(classId);
+    if (!entry) {
+        throw new Error(`Не удалось открыть карточку класса ${classId}.`);
+    }
+    entry.activeTab = 'methods';
+    entry.pendingMethodId = methodId;
+    persistPanels(context);
+    postDetails(entry);
+    entry.panel.reveal(vscode.ViewColumn.Active);
+    postPendingMethod(entry);
 }
 async function restoreClassDetailPanels(context, methodEditor) {
     const panels = context.workspaceState.get('classDetails.openPanels', []);

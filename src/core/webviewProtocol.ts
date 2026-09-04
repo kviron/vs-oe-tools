@@ -1,4 +1,4 @@
-import type { AttributeDetails, ClassAttribute, ClassDetails, ClassMethod, ClassTreeRow } from '../features/classes/models';
+import type { AttributeDetails, ClassAttribute, ClassDetails, ClassMethod, ClassObjectsResult, ClassTreeRow } from '../features/classes/models';
 import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 import type { PackageSyncItem } from '../features/package-sync/models';
@@ -11,6 +11,7 @@ export type ExplorerWebviewMessage =
 	| { command: 'searchDatabaseObjects'; query: string }
 	| { command: 'openDatabaseObject'; id: number; kind: DatabaseObjectKind; pinned: boolean }
 	| { command: 'openClass'; id: number; pinned: boolean }
+	| { command: 'openClassObjects'; classId: number }
 	| { command: 'openDfmEditor'; classId: number }
 	| { command: 'openDfmPreview'; classId: number }
 	| { command: 'selectExplorerEntity'; id?: number }
@@ -35,6 +36,7 @@ export type ClassDetailsWebviewMessage =
 	| { command: 'loadClassMethods'; includeInherited: boolean }
 	| { command: 'openMethod'; id: number }
 	| { command: 'openAttribute'; id: number }
+	| { command: 'openClassObjects'; classId: number }
 	| { command: 'methodSvnAction'; id: number; action: 'localDiff' | 'history' | 'blame' }
 	| CopyTableCellsMessage
 	| CopyEntityIdMessage
@@ -54,12 +56,21 @@ export interface CopyTableCellsMessage {
 }
 export type ClassDetailsHostMessage =
 	| { command: 'classDetailsLoaded'; details: ClassDetails; activeTab?: string }
+	| { command: 'revealClassMethod'; methodId: number }
 	| { command: 'classAttributesLoaded'; attributes: ClassAttribute[]; includeInherited: boolean }
 	| { command: 'classAttributesLoadFailed'; message: string; includeInherited: boolean }
 	| { command: 'classMethodsLoaded'; methods: ClassMethod[]; includeInherited: boolean }
 	| { command: 'classMethodsLoadFailed'; message: string; includeInherited: boolean };
 export type AttributeDetailsWebviewMessage = { command: 'attributeDetailsReady' };
 export type AttributeDetailsHostMessage = { command: 'attributeDetailsLoaded'; details: AttributeDetails };
+export type ClassObjectsWebviewMessage =
+	| { command: 'classObjectsReady' }
+	| { command: 'refreshClassObjects' }
+	| CopyTableCellsMessage;
+export type ClassObjectsHostMessage =
+	| { command: 'classObjectsLoading' }
+	| { command: 'classObjectsLoaded'; result: ClassObjectsResult }
+	| { command: 'classObjectsLoadFailed'; message: string };
 export type SqlMonitorWebviewMessage =
 	| { command: 'sqlMonitorReady' }
 	| { command: 'clearSqlMonitor' }
@@ -120,7 +131,7 @@ export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage;
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | ClassObjectsWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage;
 
 export function isSettingsWebviewMessage(message: unknown): message is SettingsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -196,6 +207,9 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'openMethod' || message.command === 'openAttribute') {
 		return 'id' in message && typeof message.id === 'number';
 	}
+	if (message.command === 'openClassObjects') {
+		return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
+	}
 	if (message.command === 'copyTableCells') {
 		return 'text' in message && typeof message.text === 'string';
 	}
@@ -215,6 +229,11 @@ export function isAttributeDetailsWebviewMessage(message: unknown): message is A
 	return typeof message === 'object' && message !== null && 'command' in message && message.command === 'attributeDetailsReady';
 }
 
+export function isClassObjectsWebviewMessage(message: unknown): message is ClassObjectsWebviewMessage {
+	return typeof message === 'object' && message !== null && 'command' in message
+		&& (message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message));
+}
+
 export function isExplorerWebviewMessage(message: unknown): message is ExplorerWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
 		return false;
@@ -228,7 +247,7 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	if (message.command === 'openDatabaseObject') {
 		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id)
 			&& 'pinned' in message && typeof message.pinned === 'boolean'
-			&& 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'attribute' || message.kind === 'object');
+			&& 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'attribute' || message.kind === 'lifecycle' || message.kind === 'journal' || message.kind === 'list' || message.kind === 'object');
 	}
 	if (message.command === 'explorerReady') {
 		return true;
@@ -250,6 +269,9 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 		return true;
 	}
 	if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
+		return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
+	}
+	if (message.command === 'openClassObjects') {
 		return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
 	}
 	return message.command === 'openClass' && 'id' in message && 'pinned' in message

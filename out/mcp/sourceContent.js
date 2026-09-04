@@ -43,7 +43,7 @@ function decodeSourceValue(value) {
     if (Buffer.isBuffer(value)) {
         return iconv.decode(value, 'win1251');
     }
-    const text = value == null ? '' : String(value);
+    const text = value === null || value === undefined ? '' : String(value);
     const bytea = text.match(/^\\x([\da-f]+)$/i);
     return bytea && bytea[1].length % 2 === 0
         ? iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251')

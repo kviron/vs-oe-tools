@@ -8,6 +8,7 @@ const sourceContent_1 = require("./sourceContent");
 const classAttributes_1 = require("./classAttributes");
 const methodResolution_1 = require("./methodResolution");
 const objectSearch_1 = require("../core/objectSearch");
+const navigationInfo_1 = require("../core/navigationInfo");
 // The SDK currently publishes declarations that require DOM and NodeNext types.
 // Runtime imports keep this standalone entrypoint compatible with the extension's Node16 tsconfig.
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
@@ -16,8 +17,15 @@ const z = require('zod');
 const workspacePath = readArgument('--workspace');
 const databaseRole = readRoleArgument();
 const logsPath = readOptionalArgument('--logs');
-const navigationInfoPath = readOptionalArgument('--navigation-info');
-const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.9.0' });
+const navigationInfoPath = readOptionalArgument('--navigation-info') ?? (0, navigationInfo_1.getNavigationInfoPath)(workspacePath);
+const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.10.0' }, {
+    instructions: [
+        'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
+        'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
+        'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
+        'Database access is read-only. Include relevant object IDs in analysis so navigation can continue.',
+    ].join(' '),
+});
 server.registerTool('lookup_object_by_id', {
     description: 'Identify any East Express object by an otherwise unknown numeric ID. Returns its concrete kind, meta-class, owner and package context.',
     inputSchema: { id: z.number().int().positive().describe('Unknown East Express object ID') },
@@ -294,6 +302,18 @@ server.registerTool('open_method', {
     inputSchema: { methodId: z.number().int().positive().describe('Method ID returned by search_methods') },
     annotations: { readOnlyHint: false, destructiveHint: false },
 }, async ({ methodId }) => navigationToolResult('open_method', methodId));
+server.registerTool('reveal_method_in_class', {
+    description: 'Open the owning class card in the vc-ve-tools Explorer, switch to its Methods tab, select the exact method row, and scroll it into view without mouse or cursor automation.',
+    inputSchema: { methodId: z.number().int().positive().describe('Method ID returned by search_methods') },
+    annotations: { readOnlyHint: false, destructiveHint: false },
+}, async ({ methodId }) => {
+    const rows = await queryDatabaseRaw('SELECT seniorid AS classid FROM methods WHERE id = $1', [methodId]);
+    const classId = rows[0]?.classid;
+    if (!classId) {
+        return { content: [{ type: 'text', text: `Method ${methodId} was not found.` }], isError: true };
+    }
+    return navigationToolResult('reveal_method', methodId, classId);
+});
 server.registerTool('query_readonly', {
     description: 'Execute a read-only PostgreSQL SELECT/WITH/VALUES query against the current East Express project database.',
     inputSchema: {
@@ -578,10 +598,7 @@ async function databaseToolResult(load) {
         return { content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true };
     }
 }
-async function navigationToolResult(action, id) {
-    if (!navigationInfoPath) {
-        return { content: [{ type: 'text', text: 'VS Code navigation bridge is not configured. Start this MCP server from the vc-ve-tools extension.' }], isError: true };
-    }
+async function navigationToolResult(action, id, classId) {
     try {
         const connection = JSON.parse(await (0, promises_1.readFile)(navigationInfoPath, 'utf8'));
         if (typeof connection.url !== 'string' || typeof connection.token !== 'string') {
@@ -590,7 +607,7 @@ async function navigationToolResult(action, id) {
         const response = await fetch(connection.url, {
             method: 'POST',
             headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
-            body: JSON.stringify({ action, id }),
+            body: JSON.stringify({ action, id, classId }),
             signal: AbortSignal.timeout(10_000),
         });
         const result = await response.json();
@@ -603,7 +620,11 @@ async function navigationToolResult(action, id) {
         };
     }
     catch (error) {
-        return { content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true };
+        const detail = error instanceof Error ? error.message : String(error);
+        const message = error.code === 'ENOENT'
+            ? `VS Code navigation bridge is not running for workspace ${workspacePath}. Open this workspace in VS Code with vc-ve-tools enabled.`
+            : `VS Code navigation failed: ${detail}`;
+        return { content: [{ type: 'text', text: message }], isError: true };
     }
 }
 void main().catch((error) => {

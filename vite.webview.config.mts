@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  const entryName = mode === 'class-details' || mode === 'attribute-details' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'settings' ? mode : 'explorer';
+  const entryName = mode === 'class-details' || mode === 'class-objects' || mode === 'attribute-details' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'settings' ? mode : 'explorer';
   return {
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => {
       formats: ['iife'],
       name: entryName === 'class-details'
         ? 'VcVeToolsClassDetails'
+        : entryName === 'class-objects'
+          ? 'VcVeToolsClassObjects'
         : entryName === 'attribute-details'
           ? 'VcVeToolsAttributeDetails'
         : entryName === 'sql-monitor'

@@ -14,6 +14,8 @@ export interface TreeNode {
   name: string;
   kind: 'root' | 'class' | 'comment' | 'metadata';
 	hasDfm?: boolean;
+	virtual?: number | null;
+	dbtablename?: string | null;
   children: TreeNode[];
 }
 
@@ -51,6 +53,7 @@ function openClass(pinned: boolean): void {
     <EntityContextMenu
       :entity-id="node.entityId"
 	  :class-id="node.kind === 'class' && node.hasDfm && typeof node.id === 'number' ? node.id : undefined"
+      :view-objects-class-id="node.kind === 'class' && !node.virtual && node.dbtablename && typeof node.id === 'number' ? node.id : undefined"
       copy-shortcut="Ctrl+C"
     >
       <div class="group flex min-h-7 min-w-full items-center whitespace-nowrap hover:bg-accent">

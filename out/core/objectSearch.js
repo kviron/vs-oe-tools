@@ -23,18 +23,32 @@ LEFT JOIN sysfile AS file ON file.id = object.sysfile
 LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
 LEFT JOIN syspackages AS package ON package.id = file_group.package`;
 function mapDatabaseObject(row) {
+    const metaClassName = row.metaclassname ?? '';
     return {
         id: String(row.id),
         classId: String(row.classid),
         seniorId: row.seniorid === null ? null : String(row.seniorid),
         name: row.name,
-        metaClassName: row.metaclassname ?? '',
+        metaClassName,
         ownerName: row.ownername ?? '',
         ownerId: row.ownerid === null ? null : String(row.ownerid),
         ownerClassName: row.ownerclassname ?? '',
         packageName: row.packagename ?? '',
         bitmapId: row.bmpid === null ? null : String(row.bmpid),
-        kind: row.ismethod ? 'method' : row.isattribute ? 'attribute' : row.isclass ? 'class' : 'object',
+        kind: row.ismethod ? 'method' : row.isattribute ? 'attribute' : row.isclass ? 'class' : domainObjectKind(metaClassName),
     };
+}
+function domainObjectKind(metaClassName) {
+    const normalized = metaClassName.toLocaleLowerCase('ru').replace(/\s/g, '');
+    if (normalized.includes('жизненныйцикл')) {
+        return 'lifecycle';
+    }
+    if (normalized.includes('журнал')) {
+        return 'journal';
+    }
+    if (normalized.includes('список')) {
+        return 'list';
+    }
+    return 'object';
 }
 //# sourceMappingURL=objectSearch.js.map

@@ -20,6 +20,25 @@ export interface ClassRow {
 	seniorid: number | null;
 	ord: number | null;
 	hasDfm?: boolean;
+	virtual?: number | null;
+	dbtablename?: string | null;
+}
+
+export interface ClassObjectColumn {
+	attributeId: string;
+	key: string;
+	title: string;
+	attributeName: string;
+	reference: boolean;
+}
+
+export interface ClassObjectsResult {
+	classId: number;
+	className: string;
+	columns: ClassObjectColumn[];
+	rows: Array<Record<string, unknown>>;
+	totalCount: number;
+	truncated: boolean;
 }
 
 export interface ClassCommentRow {

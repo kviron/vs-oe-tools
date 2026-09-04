@@ -46,10 +46,11 @@ class ExplorerViewProvider {
     searchObjects;
     openMethod;
     openAttribute;
+    openClassObjects;
     view;
     selectedEntityId;
     output = vscode.window.createOutputChannel('Восточный Экспресс: Проводник');
-    constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview, searchObjects, openMethod, openAttribute) {
+    constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview, searchObjects, openMethod, openAttribute, openClassObjects) {
         this.workspaceState = workspaceState;
         this.extensionUri = extensionUri;
         this.getClasses = getClasses;
@@ -59,6 +60,7 @@ class ExplorerViewProvider {
         this.searchObjects = searchObjects;
         this.openMethod = openMethod;
         this.openAttribute = openAttribute;
+        this.openClassObjects = openClassObjects;
     }
     resolveWebviewView(webviewView) {
         this.view = webviewView;
@@ -116,6 +118,10 @@ class ExplorerViewProvider {
             if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
                 const action = message.command === 'openDfmEditor' ? this.openDfmEditor : this.openDfmPreview;
                 void action(message.classId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть DFM: ${error instanceof Error ? error.message : String(error)}`));
+                return;
+            }
+            if (message.command === 'openClassObjects') {
+                void this.openClassObjects(message.classId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть объекты класса: ${error instanceof Error ? error.message : String(error)}`));
                 return;
             }
             void this.openClass(message.id, message.pinned).catch((error) => {

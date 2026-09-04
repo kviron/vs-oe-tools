@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ClassDetailsHostMessage } from '../../../src/core/webviewProtocol';
 import type { ClassAttribute, ClassDetails, ClassMethod } from '../../../src/features/classes/models';
-import { computed, ref, shallowRef } from 'vue';
+import { computed, nextTick, ref, shallowRef } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
@@ -79,6 +79,8 @@ const attributeScrollTop = ref(0);
 const attributeViewportHeight = ref(600);
 const methodScrollTop = ref(0);
 const methodViewportHeight = ref(600);
+const revealedMethodId = ref<string>();
+const pendingMethodId = ref<string>();
 
 function virtualRange(length: number, scrollTop: number, viewportHeight: number): { start: number; end: number } {
   const visibleCount = Math.ceil(viewportHeight / virtualRowHeight);
@@ -162,11 +164,37 @@ window.addEventListener('message', (event: MessageEvent<ClassDetailsHostMessage>
     methods.value = event.data.methods;
     methodsLoading.value = false;
     methodsLoaded.value = true;
+    void revealPendingMethod();
   } else if (event.data.command === 'classMethodsLoadFailed' && event.data.includeInherited === includeInheritedMethods.value) {
     methodsLoading.value = false;
     methodsError.value = event.data.message;
+  } else if (event.data.command === 'revealClassMethod') {
+    activeTab.value = 'methods';
+    methodSearchQuery.value = '';
+    methodCreatorQuery.value = '';
+    methodDateFrom.value = '';
+    methodDateTo.value = '';
+    pendingMethodId.value = String(event.data.methodId);
+    persistViewState();
+    loadMethodsForActiveTab();
+    void revealPendingMethod();
   }
 });
+
+async function revealPendingMethod(): Promise<void> {
+  const methodId = pendingMethodId.value;
+  if (!methodId || !methodsLoaded.value) return;
+  const index = sortedMethods.value.findIndex(method => method.id === methodId);
+  if (index < 0) return;
+  revealedMethodId.value = methodId;
+  methodScrollTop.value = index * virtualRowHeight;
+  await nextTick();
+  const container = document.querySelector<HTMLElement>('[data-method-table][data-slot="table-container"]');
+  if (container) container.scrollTop = methodScrollTop.value;
+  await nextTick();
+  document.querySelector<HTMLElement>(`tr[data-entity-id="${CSS.escape(methodId)}"]`)?.scrollIntoView({ block: 'center' });
+  pendingMethodId.value = undefined;
+}
 
 function onTabChange(value: string | number): void {
   activeTab.value = String(value);
@@ -304,7 +332,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
         <TabsTrigger value="attributes">Атрибуты</TabsTrigger>
         <TabsTrigger value="methods">Методы</TabsTrigger>
       </TabsList>
-      <EntityContextMenu :entity-id="details.id">
+      <EntityContextMenu :entity-id="details.id" :view-objects-class-id="!details.virtual && details.dbtablename ? details.id : undefined">
       <TabsContent value="class" class="flex max-w-4xl flex-col gap-2 p-1">
         <FieldGroup class="grid gap-x-5 gap-y-2 lg:grid-cols-2">
           <FieldGroup class="gap-2">
@@ -435,7 +463,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <Input v-model="methodSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск метода…" aria-label="Поиск метода по имени, сигнатуре, владельцу или ID" />
           </div>
         </div>
-        <Table :key="`methods-${includeInheritedMethods}`" v-if="methodsLoading || filteredMethods.length > 0" container-class="min-h-0 flex-1 overflow-auto" @scroll="trackVirtualScroll('methods', $event)">
+        <Table :key="`methods-${includeInheritedMethods}`" v-if="methodsLoading || filteredMethods.length > 0" data-method-table container-class="min-h-0 flex-1 overflow-auto" @scroll="trackVirtualScroll('methods', $event)">
           <TableHeader class="sticky top-0 z-10 bg-background">
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
@@ -449,7 +477,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
             </template>
             <TableRow v-if="!methodsLoading && methodVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${methodVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
             <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" edit svn @edit="openMethod(method)" @svn-action="methodSvnAction(method, $event)">
-            <TableRow :data-entity-id="method.id" class="cursor-default" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
+            <TableRow :data-entity-id="method.id" class="cursor-default" :class="{ 'bg-primary/15 text-primary': method.id === revealedMethodId }" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>
                 <span class="truncate">{{ method.name }}</span>

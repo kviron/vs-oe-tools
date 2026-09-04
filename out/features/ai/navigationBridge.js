@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.startNavigationBridge = startNavigationBridge;
 const node_crypto_1 = require("node:crypto");
 const promises_1 = require("node:fs/promises");
+const node_path_1 = require("node:path");
 const node_http_1 = require("node:http");
 async function startNavigationBridge(actions, infoPath) {
     const token = (0, node_crypto_1.randomBytes)(32).toString('hex');
@@ -16,6 +17,7 @@ async function startNavigationBridge(actions, infoPath) {
     });
     const address = server.address();
     const url = `http://127.0.0.1:${address.port}/navigate`;
+    await (0, promises_1.mkdir)((0, node_path_1.dirname)(infoPath), { recursive: true });
     await (0, promises_1.writeFile)(infoPath, JSON.stringify({ url, token }), { encoding: 'utf8', mode: 0o600 });
     return {
         url,
@@ -56,8 +58,11 @@ async function handleRequest(request, response, token, actions) {
             await actions.revealClass(input.id);
             await actions.openClass(input.id);
         }
-        else {
+        else if (input.action === 'open_method') {
             await actions.openMethod(input.id);
+        }
+        else {
+            await actions.revealMethod(input.classId, input.id);
         }
         respond(response, 200, { ok: true, action: input.action, id: input.id });
     }
@@ -89,13 +94,17 @@ function validateRequest(value) {
         throw new Error('Invalid navigation request.');
     }
     const { action, id } = value;
-    if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method') {
+    if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method') {
         throw new Error('Unknown navigation action.');
     }
     if (!Number.isSafeInteger(id) || (id ?? 0) <= 0) {
         throw new Error('Navigation ID must be a positive integer.');
     }
-    return { action, id: id };
+    const classId = value.classId;
+    if (action === 'reveal_method' && (!Number.isSafeInteger(classId) || (classId ?? 0) <= 0)) {
+        throw new Error('Navigation classId must be a positive integer for reveal_method.');
+    }
+    return { action, id: id, classId };
 }
 function respond(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });

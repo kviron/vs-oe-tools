@@ -317,6 +317,24 @@
           },
           "required": ["methodId"]
         }
+      },
+      {
+        "name": "vcVeTools_reveal_method",
+        "tags": ["east-express", "navigation", "methods", "classes"],
+        "toolReferenceName": "veRevealMethod",
+        "displayName": "Показать метод в карточке класса",
+        "modelDescription": "Open an East Express class card, switch to the Methods tab, select an exact method row, and scroll it into view without cursor automation.",
+        "userDescription": "Открывает вкладку методов класса и выделяет указанный метод.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(list-selection)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "classId": { "type": "integer", "minimum": 1, "description": "ID класса-владельца" },
+            "methodId": { "type": "integer", "minimum": 1, "description": "ID метода" }
+          },
+          "required": ["classId", "methodId"]
+        }
       }
     ],
     "keybindings": [
@@ -334,7 +352,7 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
-    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode attribute-details && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings",
+    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode class-objects && vite build --config vite.webview.config.mts --mode attribute-details && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",

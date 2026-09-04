@@ -18,6 +18,7 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		private readonly searchObjects: (query: string) => Promise<DatabaseObjectSearchResult[]>,
 		private readonly openMethod: (id: number) => Promise<void>,
 		private readonly openAttribute: (id: number) => Promise<void>,
+		private readonly openClassObjects: (id: number) => Promise<void>,
 	) {}
 	resolveWebviewView(webviewView: vscode.WebviewView): void {
 		this.view = webviewView;
@@ -75,6 +76,10 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 			if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
 				const action = message.command === 'openDfmEditor' ? this.openDfmEditor : this.openDfmPreview;
 				void action(message.classId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть DFM: ${error instanceof Error ? error.message : String(error)}`));
+				return;
+			}
+			if (message.command === 'openClassObjects') {
+				void this.openClassObjects(message.classId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть объекты класса: ${error instanceof Error ? error.message : String(error)}`));
 				return;
 			}
 			void this.openClass(message.id, message.pinned).catch((error) => {

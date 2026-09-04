@@ -46,6 +46,14 @@ function registerNavigationTools(context, actions) {
             await actions.openMethod(methodId);
             return textResult(`Метод ID=${methodId} открыт в редакторе.`);
         },
+    }), vscode.lm.registerTool('vcVeTools_reveal_method', {
+        prepareInvocation: () => ({ invocationMessage: 'Открываю вкладку методов класса и выделяю метод…' }),
+        invoke: async (options) => {
+            const methodId = requirePositiveId(options.input.methodId, 'methodId');
+            const classId = requirePositiveId(options.input.classId, 'classId');
+            await actions.revealMethod(classId, methodId);
+            return textResult(`Метод ID=${methodId} выделен на вкладке методов класса ID=${classId}.`);
+        },
     }));
 }
 function createClassTool(invocationMessage, action, result) {

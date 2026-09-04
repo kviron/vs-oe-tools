@@ -5,6 +5,7 @@ exports.isPackageSyncWebviewMessage = isPackageSyncWebviewMessage;
 exports.isCodeHistoryWebviewMessage = isCodeHistoryWebviewMessage;
 exports.isClassDetailsWebviewMessage = isClassDetailsWebviewMessage;
 exports.isAttributeDetailsWebviewMessage = isAttributeDetailsWebviewMessage;
+exports.isClassObjectsWebviewMessage = isClassObjectsWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
 exports.isCopyEntityIdMessage = isCopyEntityIdMessage;
 exports.isSqlMonitorWebviewMessage = isSqlMonitorWebviewMessage;
@@ -61,6 +62,9 @@ function isClassDetailsWebviewMessage(message) {
     if (message.command === 'openMethod' || message.command === 'openAttribute') {
         return 'id' in message && typeof message.id === 'number';
     }
+    if (message.command === 'openClassObjects') {
+        return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
+    }
     if (message.command === 'copyTableCells') {
         return 'text' in message && typeof message.text === 'string';
     }
@@ -78,6 +82,10 @@ function isClassDetailsWebviewMessage(message) {
 function isAttributeDetailsWebviewMessage(message) {
     return typeof message === 'object' && message !== null && 'command' in message && message.command === 'attributeDetailsReady';
 }
+function isClassObjectsWebviewMessage(message) {
+    return typeof message === 'object' && message !== null && 'command' in message
+        && (message.command === 'classObjectsReady' || message.command === 'refreshClassObjects' || isCopyTableCellsMessage(message));
+}
 function isExplorerWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
@@ -91,7 +99,7 @@ function isExplorerWebviewMessage(message) {
     if (message.command === 'openDatabaseObject') {
         return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id)
             && 'pinned' in message && typeof message.pinned === 'boolean'
-            && 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'attribute' || message.kind === 'object');
+            && 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'attribute' || message.kind === 'lifecycle' || message.kind === 'journal' || message.kind === 'list' || message.kind === 'object');
     }
     if (message.command === 'explorerReady') {
         return true;
@@ -113,6 +121,9 @@ function isExplorerWebviewMessage(message) {
         return true;
     }
     if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
+        return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
+    }
+    if (message.command === 'openClassObjects') {
         return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId);
     }
     return message.command === 'openClass' && 'id' in message && 'pinned' in message

@@ -8,10 +8,15 @@ interface MethodInput {
 	methodId: number;
 }
 
+interface MethodInClassInput extends MethodInput {
+	classId: number;
+}
+
 export interface NavigationActions {
 	revealClass(classId: number): Promise<void>;
 	openClass(classId: number): Promise<void>;
 	openMethod(methodId: number): Promise<void>;
+	revealMethod(classId: number, methodId: number): Promise<void>;
 }
 
 export function registerNavigationTools(context: vscode.ExtensionContext, actions: NavigationActions): void {
@@ -35,6 +40,15 @@ export function registerNavigationTools(context: vscode.ExtensionContext, action
 				const methodId = requirePositiveId(options.input.methodId, 'methodId');
 				await actions.openMethod(methodId);
 				return textResult(`Метод ID=${methodId} открыт в редакторе.`);
+			},
+		}),
+		vscode.lm.registerTool('vcVeTools_reveal_method', {
+			prepareInvocation: () => ({ invocationMessage: 'Открываю вкладку методов класса и выделяю метод…' }),
+			invoke: async (options: vscode.LanguageModelToolInvocationOptions<MethodInClassInput>) => {
+				const methodId = requirePositiveId(options.input.methodId, 'methodId');
+				const classId = requirePositiveId(options.input.classId, 'classId');
+				await actions.revealMethod(classId, methodId);
+				return textResult(`Метод ID=${methodId} выделен на вкладке методов класса ID=${classId}.`);
 			},
 		}),
 	);

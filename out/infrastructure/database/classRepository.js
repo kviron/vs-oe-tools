@@ -77,7 +77,7 @@ async function loadClasses() {
     try {
         await client.connect();
         const classesResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT class.id, class.name, class.seniorid, class.ord,
+            text: `SELECT class.id, class.name, class.seniorid, class.ord, class.virtual, class.dbtablename,
 			 EXISTS (
 			   SELECT 1 FROM dfltvalues value
 			   JOIN attributes attribute ON attribute.id = value.attrid

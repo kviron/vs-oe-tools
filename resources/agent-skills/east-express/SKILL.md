@@ -2,7 +2,7 @@
 name: east-express
 description: Work with East Express classes, methods, attributes, DFM forms, inheritance, and database metadata through vc-ve-tools MCP.
 metadata:
-  version: 1
+  version: 2
 ---
 
 # East Express
@@ -30,3 +30,11 @@ If a future write tool is available, inspect its contract and validate this inva
 When source calls a method whose ID or owner class is unknown, resolve it with the MCP method-resolution and object-search tools. Use returned stable IDs to retrieve the implementation, class details, attributes, or inherited DFM. State when several candidates remain ambiguous.
 
 When explaining a result, distinguish stored source from inferred behavior and include relevant object IDs so the user or another agent can continue navigation.
+
+## VS Code navigation
+
+Use programmatic navigation tools instead of mouse, keyboard, cursor, or screen automation:
+
+- use `open_method` when the user wants the method source editor;
+- use `reveal_method_in_class` when the user wants the class card, its Methods tab, and the exact method row selected;
+- use `open_class` for the class card and `reveal_class` only to reveal a class in the Explorer.

@@ -14,6 +14,12 @@ suite('Database object search', () => {
 		assert.equal(result.ownerId, '20');
 		assert.equal(result.packageName, '_System');
 	});
+
+	test('recognizes lifecycle objects by meta-class', () => {
+		assert.equal(mapDatabaseObject(row({ metaclassname: 'ЖизненныйЦикл' })).kind, 'lifecycle');
+		assert.equal(mapDatabaseObject(row({ metaclassname: 'Журнал документов' })).kind, 'journal');
+		assert.equal(mapDatabaseObject(row({ metaclassname: 'Список' })).kind, 'list');
+	});
 });
 
 function row(overrides: Partial<DatabaseObjectSearchRow>): DatabaseObjectSearchRow {
