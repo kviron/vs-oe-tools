@@ -47,6 +47,7 @@ const sqlMonitorService_1 = require("./sqlMonitorService");
 class OeSqlMonitorCollector {
     storagePath;
     running = false;
+    disposed = false;
     paused = false;
     child;
     lastQueryId = 0;
@@ -77,7 +78,11 @@ class OeSqlMonitorCollector {
         });
     }
     dispose() {
+        if (this.disposed) {
+            return;
+        }
         this.log('INFO', 'Остановка инспектора.');
+        this.disposed = true;
         this.running = false;
         if (this.child?.stdin.writable) {
             this.log('DEBUG', `Отправка команды остановки процессу PID ${this.child.pid}.`);
@@ -226,6 +231,9 @@ class OeSqlMonitorCollector {
         }
     }
     log(level, message, details) {
+        if (this.disposed) {
+            return;
+        }
         const suffix = details === undefined ? '' : `\n${formatError(details)}`;
         this.output.appendLine(`[${new Date().toISOString()}] ${level} ${message}${suffix}`);
     }

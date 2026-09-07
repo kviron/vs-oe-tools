@@ -109,18 +109,29 @@ export async function getClassObjects(classId: number, offset = 0, limit = class
 		if (idColumn && !usedFields.has(idColumn.toLowerCase())) {
 			columns.unshift({ attributeId: '', key: idColumn, title: '_Ид', attributeName: '_Ид', reference: false });
 		}
+		if (idColumn) {
+			columns.push({ attributeId: '', key: '__package', title: 'Пакет', attributeName: 'Пакет', reference: false });
+		}
 		const source = `${quoteIdentifier(selectedSchema)}.${quoteIdentifier(selectedTable)}`;
 		const classIdColumn = physicalByLowerName.get('classid');
-		const where = classIdColumn ? ` WHERE ${quoteIdentifier(classIdColumn)} = $1` : '';
+		const where = classIdColumn ? ` WHERE object_table.${quoteIdentifier(classIdColumn)} = $1` : '';
 		const values = classIdColumn ? [classId] : [];
 		const countResult = await executeMonitoredQuery<{ count: string }>(client, {
-			text: `SELECT COUNT(*)::text AS count FROM ${source}${where}`,
+			text: `SELECT COUNT(*)::text AS count FROM ${source} AS object_table${where}`,
 			values,
 			source: `Количество объектов класса ${classRow.name}`,
 			database: options.database,
 		});
 		const rowsResult = await executeMonitoredQuery<Record<string, unknown>>(client, {
-			text: `SELECT * FROM ${source}${where} ORDER BY ${quoteIdentifier(idColumn ?? physicalColumns[0].column_name)} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+			text: `SELECT object_table.*${idColumn ? ', package.packagename AS __package' : ''}
+			 FROM ${source} AS object_table
+			 ${idColumn ? `LEFT JOIN abstract AS abstract_object ON abstract_object.id = object_table.${quoteIdentifier(idColumn)}
+			 LEFT JOIN sysfile AS file ON file.id = abstract_object.sysfile
+			 LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			 LEFT JOIN syspackages AS package ON package.id = file_group.package` : ''}
+			 ${where}
+			 ORDER BY object_table.${quoteIdentifier(idColumn ?? physicalColumns[0].column_name)}
+			 LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
 			values: [...values, limit, offset],
 			source: `Объекты класса ${classRow.name}`,
 			database: options.database,

@@ -223,12 +223,22 @@ async function getClassAttributes(classId, className, includeInherited) {
 			     INNER JOIN class_chain AS chain ON parent.id = chain.seniorid
 			     WHERE NOT parent.id = ANY(chain.path)
 			   )
-			   SELECT to_jsonb(attribute) AS data, COALESCE(chain.name, $2::text) AS ownername, chain.depth
+			   SELECT to_jsonb(attribute) AS data, COALESCE(chain.name, $2::text) AS ownername,
+			          package.packagename, chain.depth
 			   FROM class_chain AS chain
 			   INNER JOIN ${source} AS attribute ON attribute.${quoteIdentifier(ownerColumn)} = chain.id
+			   LEFT JOIN abstract AS abstract_attribute ON abstract_attribute.id = attribute.id
+			   LEFT JOIN sysfile AS file ON file.id = abstract_attribute.sysfile
+			   LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			   LEFT JOIN syspackages AS package ON package.id = file_group.package
 			   ORDER BY chain.depth, attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier('id')}`
-            : `SELECT to_jsonb(attribute) AS data, $2::text AS ownername, 0 AS depth
+            : `SELECT to_jsonb(attribute) AS data, $2::text AS ownername,
+			          package.packagename, 0 AS depth
 			   FROM ${source} AS attribute
+			   LEFT JOIN abstract AS abstract_attribute ON abstract_attribute.id = attribute.id
+			   LEFT JOIN sysfile AS file ON file.id = abstract_attribute.sysfile
+			   LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			   LEFT JOIN syspackages AS package ON package.id = file_group.package
 			   WHERE attribute.${quoteIdentifier(ownerColumn)} = $1
 			   ORDER BY attribute.${quoteIdentifier(orderColumn)} NULLS LAST, attribute.${quoteIdentifier('id')}`;
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
@@ -238,14 +248,14 @@ async function getClassAttributes(classId, className, includeInherited) {
             database: options.database,
         });
         const creators = await getObjectCreators(client, options.database, cacheKey, result.rows.map(row => readValue(row.data, 'id')), 4);
-        const attributes = result.rows.map(({ data, ownername, depth }) => ({
+        const attributes = result.rows.map(({ data, ownername, packagename, depth }) => ({
             id: readValue(data, 'id'),
             name: readValue(data, 'name'),
             owner: ownername ?? (readValue(data, 'owner', 'ownername', 'classname') || className),
             signature: readValue(data, 'signature', 'parameters', 'params', 'args', 'declaration'),
             type: readValue(data, 'type', 'typename', 'attrtype', 'attributetype', 'kind'),
             visibility: readValue(data, 'visibility', 'access', 'scope'),
-            package: readValue(data, 'package', 'packagename'),
+            package: packagename ?? '',
             line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
             updatedAt: readValue(data, 'lastchange', 'updatedate', 'updatedat', 'modifieddate'),
             createdBy: creators.get(readValue(data, 'id'))?.name ?? '',
@@ -441,14 +451,24 @@ async function getClassMethods(classId, className, includeInherited) {
 			     INNER JOIN class_chain AS chain ON parent.id = chain.seniorid
 			     WHERE NOT parent.id = ANY(chain.path)
 			   )
-			   SELECT to_jsonb(method) AS data, owner.name AS ownername, chain.depth
+			   SELECT to_jsonb(method) AS data, owner.name AS ownername,
+			          package.packagename, chain.depth
 			   FROM class_chain AS chain
 			   INNER JOIN methods AS method ON method.seniorid = chain.id
 			   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+			   LEFT JOIN abstract AS abstract_method ON abstract_method.id = method.id
+			   LEFT JOIN sysfile AS file ON file.id = abstract_method.sysfile
+			   LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			   LEFT JOIN syspackages AS package ON package.id = file_group.package
 			   ORDER BY chain.depth, lower(method.name), method.id`
-            : `SELECT to_jsonb(method) AS data, owner.name AS ownername, 0 AS depth
+            : `SELECT to_jsonb(method) AS data, owner.name AS ownername,
+			          package.packagename, 0 AS depth
 			   FROM methods AS method
 			   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
+			   LEFT JOIN abstract AS abstract_method ON abstract_method.id = method.id
+			   LEFT JOIN sysfile AS file ON file.id = abstract_method.sysfile
+			   LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			   LEFT JOIN syspackages AS package ON package.id = file_group.package
 			   WHERE method.seniorid = $1
 			   ORDER BY lower(method.name), method.id`;
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
@@ -458,14 +478,14 @@ async function getClassMethods(classId, className, includeInherited) {
             database: options.database,
         });
         const creators = await getObjectCreators(client, options.database, databaseCacheKey(options), result.rows.map(row => readValue(row.data, 'id')), 5);
-        const methods = result.rows.map(({ data, ownername, depth }) => ({
+        const methods = result.rows.map(({ data, ownername, packagename, depth }) => ({
             id: readValue(data, 'id'),
             name: readValue(data, 'name', 'methname'),
             owner: ownername ?? (readValue(data, 'owner', 'ownername', 'classname') || className),
             signature: decodeDatabaseText(readValue(data, 'signature', 'methsignature', 'parameters', 'params')),
             type: methodTypeName(readValue(data, 'methtype', 'type', 'typename')),
             visibility: readValue(data, 'visibility', 'visible', 'access', 'scope'),
-            package: readValue(data, 'package', 'packagename'),
+            package: packagename ?? '',
             line: readValue(data, 'line', 'linenumber', 'row', 'rownum'),
             updatedAt: readValue(data, 'lastchange', 'updatedate', 'updatedat', 'modifieddate'),
             createdBy: creators.get(readValue(data, 'id'))?.name ?? '',

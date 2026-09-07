@@ -40,7 +40,7 @@ const server = new McpServer(
 			'Use get_class_properties to inspect script properties declared by a class and optionally inherited from ancestors. Use get_property_details for the complete stored record.',
 			'Before update_method_source, read the complete current method body with get_method_source. Send only the method body, never its name or declaration wrapper.',
 			'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
-			'Use get_recent_sql_queries to inspect the last 100 filtered queries captured by the SQL monitor without generating additional database traffic.',
+			'Use get_recent_sql_queries to inspect the last 500 filtered queries captured by the SQL monitor without generating additional database traffic.',
 			'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
 			'Direct SQL access is read-only. Controlled mutations are available only through update_method_source and the explicitly confirmed update_database command in VS Code. Database updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue.',
 		].join(' '),
@@ -695,7 +695,7 @@ server.registerTool('get_extension_logs', {
 server.registerTool('get_recent_sql_queries', {
 	description: 'Read the last filtered SQL queries captured from the East Express client and vc-ve-tools. Use this to diagnose what the client did without executing another database query.',
 	inputSchema: {
-		limit: z.number().int().min(1).max(100).optional().describe('Maximum queries to return, default 30'),
+		limit: z.number().int().min(1).max(500).optional().describe('Maximum queries to return, default 30'),
 		search: z.string().optional().describe('Optional case-insensitive filter over SQL text, source, user, and first table'),
 		operation: z.enum(['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'DDL', 'OTHER']).optional(),
 		category: z.enum(['application', 'metadata', 'system', 'transaction']).optional()

@@ -3,6 +3,25 @@ import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 import type { PackageSyncItem } from '../features/package-sync/models';
 import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSearch';
+import type { ProductionTaskSummary } from '../features/production-tasks/models';
+import type { CreatedSpu, SpuDraft, SpuEditorOptions } from '../features/spu/models';
+import type { SqlCompletionSchema } from '../infrastructure/database/sqlCompletionSchema';
+
+export type ProductionTasksWebviewMessage =
+	| { command: 'productionTasksReady' }
+	| { command: 'refreshProductionTasks' }
+	| { command: 'importProductionSessionKey' }
+	| { command: 'setProductionTasksPassword' }
+	| { command: 'openProductionTasksLog' }
+	| { command: 'openProductionTask'; id: number };
+export type ProductionTasksHostMessage =
+	| { command: 'productionTasksLoading' }
+	| { command: 'productionTasksLoaded'; tasks: ProductionTaskSummary[]; loadedAt: string }
+	| { command: 'productionTasksFailed'; message: string };
+export type ProductionTaskDetailsWebviewMessage =
+	| { command: 'productionTaskDetailsReady' }
+	| { command: 'openProductionTaskInClient'; id: number };
+export type ProductionTaskDetailsHostMessage = { command: 'productionTaskDetailsLoaded'; task: ProductionTaskSummary };
 
 export type ExplorerWebviewMessage =
 	| { command: 'explorerReady' }
@@ -87,6 +106,7 @@ export type ClassObjectsWebviewMessage =
 	| { command: 'classObjectsReady' }
 	| { command: 'refreshClassObjects' }
 	| { command: 'loadMoreClassObjects'; offset: number }
+	| { command: 'createSpu'; preferredPackageName?: string }
 	| { command: 'viewObject'; id: number }
 	| { command: 'viewEntityProperties'; id: number }
 	| CopyTableCellsMessage
@@ -96,6 +116,15 @@ export type ClassObjectsHostMessage =
 	| { command: 'classObjectsLoading'; append: boolean }
 	| { command: 'classObjectsLoaded'; result: ClassObjectsResult; append: boolean }
 	| { command: 'classObjectsLoadFailed'; message: string };
+export type SpuEditorWebviewMessage =
+	| { command: 'spuEditorReady' }
+	| { command: 'saveSpu'; draft: SpuDraft };
+export type SpuEditorHostMessage =
+	| { command: 'spuEditorInitialized'; options: SpuEditorOptions }
+	| { command: 'sqlCompletionSchemaLoaded'; completion: SqlCompletionSchema }
+	| { command: 'spuSaving' }
+	| { command: 'spuSaved'; saved: CreatedSpu }
+	| { command: 'spuSaveFailed'; message: string };
 export type ObjectViewWebviewMessage =
 	| { command: 'objectViewReady' }
 	| { command: 'refreshObjectView' }
@@ -134,6 +163,7 @@ export type SqlExecutorWebviewMessage =
 	| CopyTableCellsMessage;
 export type SqlExecutorHostMessage =
 	| { command: 'sqlExecutorInitialized'; history: SqlHistoryEntry[] }
+	| { command: 'sqlCompletionSchemaLoaded'; completion: SqlCompletionSchema }
 	| { command: 'sqlExecutorHistoryChanged'; entry: SqlHistoryEntry }
 	| { command: 'sqlExecutionSucceeded'; result: SerializedQueryResult; durationMs: number; database: string }
 	| { command: 'sqlExecutionFailed'; message: string; details: string };
@@ -178,7 +208,21 @@ export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | ObjectViewWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage;
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
+
+export function isProductionTasksWebviewMessage(message: unknown): message is ProductionTasksWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
+	return message.command === 'productionTasksReady' || message.command === 'refreshProductionTasks' || message.command === 'importProductionSessionKey'
+		|| message.command === 'setProductionTasksPassword'
+		|| message.command === 'openProductionTasksLog'
+		|| (message.command === 'openProductionTask' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
+}
+
+export function isProductionTaskDetailsWebviewMessage(message: unknown): message is ProductionTaskDetailsWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
+	return message.command === 'productionTaskDetailsReady'
+		|| (message.command === 'openProductionTaskInClient' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
+}
 
 export function isSettingsWebviewMessage(message: unknown): message is SettingsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -308,8 +352,28 @@ export function isClassObjectsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
 		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
 	}
+	if (message.command === 'createSpu') {
+		return !('preferredPackageName' in message) || message.preferredPackageName === undefined || typeof message.preferredPackageName === 'string';
+	}
 	return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects'
 		|| isCopyTableCellsMessage(message) || isCopyEntityIdMessage(message) || isOpenClientEntityMessage(message);
+}
+
+export function isSpuEditorWebviewMessage(message: unknown): message is SpuEditorWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
+	if (message.command === 'spuEditorReady') { return true; }
+	if (message.command !== 'saveSpu' || !('draft' in message) || typeof message.draft !== 'object' || message.draft === null) { return false; }
+	const draft = message.draft;
+	return 'name' in draft && typeof draft.name === 'string'
+		&& 'packageId' in draft && typeof draft.packageId === 'number' && Number.isSafeInteger(draft.packageId)
+		&& 'typeId' in draft && typeof draft.typeId === 'number' && Number.isSafeInteger(draft.typeId)
+		&& 'executionOrder' in draft && typeof draft.executionOrder === 'string'
+		&& 'versionControl' in draft && typeof draft.versionControl === 'boolean'
+		&& 'beginVersion' in draft && typeof draft.beginVersion === 'number' && Number.isSafeInteger(draft.beginVersion)
+		&& 'isAfterUpdate' in draft && typeof draft.isAfterUpdate === 'boolean'
+		&& 'executeAlways' in draft && typeof draft.executeAlways === 'boolean'
+		&& 'sqlScript' in draft && typeof draft.sqlScript === 'string'
+		&& 'comment' in draft && typeof draft.comment === 'string';
 }
 
 export function isObjectViewWebviewMessage(message: unknown): message is ObjectViewWebviewMessage {

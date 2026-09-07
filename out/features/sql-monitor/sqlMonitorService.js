@@ -36,7 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sqlMonitorService = void 0;
 const promises_1 = require("node:fs/promises");
 const path = __importStar(require("node:path"));
-const recordLimit = 100;
+const recordLimit = 500;
 class SqlMonitorService {
     records = [];
     listeners = new Set();

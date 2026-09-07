@@ -23,6 +23,7 @@ type InspectorLogger = (level: InspectorLogLevel, message: string, details?: unk
 
 export class OeSqlMonitorCollector implements vscode.Disposable {
 	private running = false;
+	private disposed = false;
 	private paused = false;
 	private child: ChildProcessWithoutNullStreams | undefined;
 	private lastQueryId = 0;
@@ -53,7 +54,9 @@ export class OeSqlMonitorCollector implements vscode.Disposable {
 	}
 
 	public dispose(): void {
+		if (this.disposed) { return; }
 		this.log('INFO', 'Остановка инспектора.');
+		this.disposed = true;
 		this.running = false;
 		if (this.child?.stdin.writable) {
 			this.log('DEBUG', `Отправка команды остановки процессу PID ${this.child.pid}.`);
@@ -187,6 +190,7 @@ export class OeSqlMonitorCollector implements vscode.Disposable {
 	}
 
 	private log(level: InspectorLogLevel, message: string, details?: unknown): void {
+		if (this.disposed) { return; }
 		const suffix = details === undefined ? '' : `\n${formatError(details)}`;
 		this.output.appendLine(`[${new Date().toISOString()}] ${level} ${message}${suffix}`);
 	}

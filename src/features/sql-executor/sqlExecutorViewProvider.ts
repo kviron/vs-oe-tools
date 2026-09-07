@@ -7,6 +7,7 @@ import { sqlMonitorService } from '../sql-monitor/sqlMonitorService';
 import { executeSql } from './executeSql';
 import { formatSqlResult, sqlResultExportDefinitions } from './sqlResultExport';
 import { logTableSelection } from '../../core/tableSelectionLogger';
+import { getSqlCompletionSchema } from '../../infrastructure/database/sqlCompletionSchema';
 
 export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'vc-ve-tools.sqlExecutor';
@@ -43,6 +44,7 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 					command: 'sqlExecutorInitialized',
 					history: sqlMonitorService.getRecords().map(toHistoryEntry),
 				} satisfies SqlExecutorHostMessage);
+				void this.loadCompletionSchema(webviewView.webview);
 				return;
 			}
 			if (message.command === 'executeSql') {
@@ -55,6 +57,15 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 				void this.exportResult(latestResult);
 			}
 		});
+	}
+
+	private async loadCompletionSchema(webview: vscode.Webview): Promise<void> {
+		try {
+			const completion = await getSqlCompletionSchema();
+			await webview.postMessage({ command: 'sqlCompletionSchemaLoaded', completion } satisfies SqlExecutorHostMessage);
+		} catch (error) {
+			console.warn(`Не удалось загрузить SQL-подсказки: ${errorMessage(error)}`);
+		}
 	}
 
 	private async runQuery(webview: vscode.Webview, text: string, onResult: (result: SerializedQueryResult) => void): Promise<void> {
@@ -128,8 +139,8 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'sql-executor.css'));
 		const nonce = createNonce();
 		return `<!doctype html><html lang="ru"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csp-nonce" content="${nonce}">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${styleUri}"><title>Исполнитель SQL</title></head>
 <body><div id="app">Загрузка исполнителя SQL…</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 	}

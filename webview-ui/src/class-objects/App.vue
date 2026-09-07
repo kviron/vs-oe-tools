@@ -17,6 +17,7 @@ const loadingMore = ref(false);
 const error = ref('');
 const sortKey = ref('');
 const sortDirection = ref<1 | -1>(1);
+const canCreateSpu = computed(() => result.value?.classId === 12609684 || result.value?.className.toLocaleLowerCase('en-US') === 'syspackageupdate');
 
 const rows = computed(() => {
   const source = result.value?.rows ?? [];
@@ -50,6 +51,28 @@ function display(value: unknown): string {
 
 function refresh(): void {
   vscode.postMessage({ command: 'refreshClassObjects' });
+}
+
+function createSpu(preferredPackageName?: unknown): void {
+  if (!canCreateSpu.value) return;
+  vscode.postMessage({
+    command: 'createSpu',
+    preferredPackageName: typeof preferredPackageName === 'string' && preferredPackageName ? preferredPackageName : undefined,
+  });
+}
+
+function createSpuForEntity(entityId?: string): void {
+  const row = entityId === undefined
+    ? undefined
+    : rows.value.find(item => String(item.ID ?? item.id ?? '') === entityId);
+  createSpu(row?.__package);
+}
+
+function editSpu(row: Record<string, unknown>): void {
+  if (!canCreateSpu.value) return;
+  const id = Number(row.ID ?? row.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return;
+  vscode.postMessage({ command: 'viewObject', id });
 }
 
 function loadMore(): void {
@@ -107,33 +130,49 @@ vscode.postMessage({ command: 'classObjectsReady' });
     <Empty v-else-if="error" class="min-h-0 flex-1">
       <EmptyHeader><EmptyTitle>Не удалось загрузить объекты</EmptyTitle><EmptyDescription>{{ error }}</EmptyDescription></EmptyHeader>
     </Empty>
-    <Empty v-else-if="!result?.rows.length" class="min-h-0 flex-1">
-      <EmptyHeader><EmptyTitle>Объектов нет</EmptyTitle><EmptyDescription>В таблице этого класса не найдено записей.</EmptyDescription></EmptyHeader>
-    </Empty>
-    <Table v-else container-class="min-h-0 flex-1 overflow-auto" @scroll="handleScroll">
-      <TableHeader class="sticky top-0 bg-background">
-        <TableRow>
-          <TableHead
-            v-for="column in result.columns"
-            :key="column.key"
-            class="min-w-32 cursor-pointer whitespace-nowrap"
-            :title="`${column.attributeName} · ${column.key}`"
-            @click="sort(column.key)"
-          >
-            {{ column.title }}<template v-if="sortKey === column.key"> {{ sortDirection === 1 ? '↑' : '↓' }}</template>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <EntityContextMenu v-for="(row, index) in rows" :key="String(row.ID ?? row.id ?? index)" :entity-id="String(row.ID ?? row.id ?? '')" :entity-type="result?.className">
-        <TableRow :data-entity-id="String(row.ID ?? row.id ?? '')">
-          <TableCell v-for="column in result.columns" :key="column.key" class="max-w-80 whitespace-nowrap" :title="display(row[column.key])">
-            {{ display(row[column.key]) }}
-          </TableCell>
-        </TableRow>
-        </EntityContextMenu>
-      </TableBody>
-    </Table>
+    <EntityContextMenu v-else-if="!result?.rows.length" :create="canCreateSpu" @create="createSpu()">
+      <Empty class="min-h-0 flex-1">
+        <EmptyHeader><EmptyTitle>Объектов нет</EmptyTitle><EmptyDescription>В таблице этого класса не найдено записей.</EmptyDescription></EmptyHeader>
+      </Empty>
+    </EntityContextMenu>
+	<EntityContextMenu
+	  v-else
+	  :create="canCreateSpu"
+	  :entity-type="result?.className"
+	  :view-label="canCreateSpu ? 'Редактировать' : undefined"
+	  :view-as-edit="canCreateSpu"
+	  @create="createSpuForEntity"
+	>
+      <Table container-class="min-h-0 flex-1 overflow-auto" @scroll="handleScroll">
+        <TableHeader class="sticky top-0 bg-background">
+          <TableRow>
+            <TableHead
+              v-for="column in result.columns"
+              :key="column.key"
+              class="min-w-32 cursor-pointer whitespace-nowrap"
+              :title="`${column.attributeName} · ${column.key}`"
+              @click="sort(column.key)"
+            >
+              {{ column.title }}<template v-if="sortKey === column.key"> {{ sortDirection === 1 ? '↑' : '↓' }}</template>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow
+			v-for="(row, index) in rows"
+			:key="String(row.ID ?? row.id ?? index)"
+			:data-entity-id="String(row.ID ?? row.id ?? '')"
+			:class="canCreateSpu ? 'cursor-pointer' : undefined"
+			:title="canCreateSpu ? 'Двойной щелчок — редактировать СПУ' : undefined"
+			@dblclick="editSpu(row)"
+		  >
+            <TableCell v-for="column in result.columns" :key="column.key" class="max-w-80 whitespace-nowrap" :title="display(row[column.key])">
+              {{ display(row[column.key]) }}
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </EntityContextMenu>
     <div v-if="loadingMore" class="shrink-0 border-t px-2 py-1 text-center text-xs text-muted-foreground">Загрузка следующих 100 строк…</div>
   </main>
 </template>

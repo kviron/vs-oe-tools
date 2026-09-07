@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  const entryName = mode === 'class-details' || mode === 'class-objects' || mode === 'object-view' || mode === 'attribute-details' || mode === 'property-details' || mode === 'entity-properties' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'settings' ? mode : 'explorer';
+  const entryName = mode === 'class-details' || mode === 'class-objects' || mode === 'object-view' || mode === 'attribute-details' || mode === 'property-details' || mode === 'entity-properties' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'settings' || mode === 'production-tasks' || mode === 'production-task-details' || mode === 'spu-editor' ? mode : 'explorer';
   return {
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
@@ -43,6 +43,12 @@ export default defineConfig(({ mode }) => {
               ? 'VcVeToolsPackageSync'
             : entryName === 'settings'
               ? 'VcVeToolsSettings'
+            : entryName === 'production-tasks'
+              ? 'VcVeToolsProductionTasks'
+            : entryName === 'production-task-details'
+              ? 'VcVeToolsProductionTaskDetails'
+            : entryName === 'spu-editor'
+              ? 'VcVeToolsSpuEditor'
             : 'VcVeToolsExplorer',
     },
     rollupOptions: {

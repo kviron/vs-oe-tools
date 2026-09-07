@@ -34,6 +34,12 @@ import { svnLog } from '../features/code-history/svnClient';
 import { loadRdboadmDatabases } from '../infrastructure/configuration/rdboadmIni';
 import { getDatabaseSelectionPath, writeDatabaseSelection } from '../core/databaseSelection';
 import { openProjectClientEntity, startProjectClient, updateProjectDatabase } from '../features/project/projectCommandService';
+import { registerClipboardObjectNavigation } from '../features/explorer/clipboardObjectNavigation';
+import { ProductionTasksViewProvider } from '../features/production-tasks/productionTasksViewProvider';
+import { openProductionTaskDetails } from '../features/production-tasks/productionTaskDetailsPanel';
+import { extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId } from '../features/production-tasks/oenpProtocol';
+import type { CapturedAuthorization } from '../features/production-tasks/models';
+import { closeSpuEditorPanels } from '../features/spu/spuEditorPanel';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
@@ -44,6 +50,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	const databaseSelectionPath = workspacePath ? getDatabaseSelectionPath(context.globalStorageUri.fsPath, workspacePath) : undefined;
 	const clientPasswordKey = `vcVeTools.clientPassword:${workspacePath?.toLowerCase() ?? 'default'}`;
+	const productionAuthorizationReferenceKey = `vcVeTools.productionAuthorizationReference:${workspacePath?.toLowerCase() ?? 'default'}`;
+	const productionPasswordKey = `vcVeTools.productionPassword:${workspacePath?.toLowerCase() ?? 'default'}`;
 	const getClientCredentials = async () => ({
 		username: vscode.workspace.getConfiguration('vcVeTools').get<string>(clientUsernameSetting, ''),
 		password: await context.secrets.get(clientPasswordKey),
@@ -116,6 +124,125 @@ export async function activate(context: vscode.ExtensionContext) {
 		'vc-ve-tools.explorer',
 		explorerProvider,
 	);
+	const productionTasksProvider = new ProductionTasksViewProvider(
+		context.extensionUri,
+		async () => {
+			const configuration = vscode.workspace.getConfiguration('vcVeTools');
+			const credentials = await getClientCredentials();
+			const captureMetadata = await extractProductionMetadataFromCaptureDirectories(
+				[workspacePath, context.extensionUri.fsPath].filter((value): value is string => Boolean(value)),
+			);
+			const storedAuthorization = parseStoredAuthorization(await context.secrets.get(productionAuthorizationReferenceKey));
+			if (captureMetadata.authorization && !storedAuthorization) {
+				await context.secrets.store(productionAuthorizationReferenceKey, JSON.stringify(captureMetadata.authorization));
+			}
+			let personId = configuration.get<number>('productionPersonId', 0);
+			if (!/^\d{9}$/.test(String(personId))) {
+				const detectedPersonId = captureMetadata.personId;
+				if (detectedPersonId) {
+					personId = detectedPersonId;
+					await configuration.update('productionPersonId', personId, vscode.ConfigurationTarget.Workspace);
+					extensionLogger.info('Production Tasks', 'Persons.ID автоматически найден в захвате рабочей области.');
+				}
+			}
+			const authorizationReference = captureMetadata.authorization ?? storedAuthorization;
+			const productionPassword = await context.secrets.get(productionPasswordKey);
+			const productionUsername = authorizationReference?.username ?? credentials.username;
+			const effectivePassword = productionPassword ?? credentials.password;
+			if (!productionUsername || !effectivePassword) { throw new Error('Укажите пароль для production-задач.'); }
+			if (!/^\d{9}$/.test(String(personId))) { throw new Error('Укажите девятизначный vcVeTools.productionPersonId (Persons.ID) или импортируйте его из veworks.pcapng.'); }
+			return {
+				host: configuration.get<string>('productionHost', '172.20.0.23'),
+				port: configuration.get<number>('productionPort', 3060),
+				database: configuration.get<string>('productionDatabase', 'ric224'),
+				clientSessionKey: configuration.get<string>('productionClientSessionKey', ''),
+				username: productionUsername,
+				password: effectivePassword,
+				personId,
+				authorizationReference,
+			};
+		},
+		task => openProductionTaskDetails(context, task),
+		async () => {
+			const selected = await vscode.window.showOpenDialog({
+				canSelectFiles: true, canSelectFolders: false, canSelectMany: true,
+				defaultUri: workspacePath ? vscode.Uri.file(workspacePath) : undefined,
+				filters: { 'Wireshark capture': ['pcapng'] },
+				openLabel: 'Импортировать настройки OENP',
+			});
+			if (!selected?.length) { return false; }
+			const captures = new Map(selected.map(uri => [uri.fsPath.toLowerCase(), uri]));
+			const captureDirectories = new Set(selected.map(uri => path.dirname(uri.fsPath)));
+			if (workspacePath) { captureDirectories.add(workspacePath); }
+			for (const directory of captureDirectories) {
+				try {
+					for (const [name, fileType] of await vscode.workspace.fs.readDirectory(vscode.Uri.file(directory))) {
+						if (fileType === vscode.FileType.File && name.toLowerCase().endsWith('.pcapng')) {
+							const uri = vscode.Uri.file(path.join(directory, name));
+							captures.set(uri.fsPath.toLowerCase(), uri);
+						}
+					}
+				} catch (error) {
+					extensionLogger.warning('Production Tasks', 'Не удалось проверить соседние файлы захвата.', { directory, error: String(error) });
+				}
+			}
+			let key: string | undefined;
+			let personId: number | undefined;
+			let authorization: CapturedAuthorization | undefined;
+			for (const uri of captures.values()) {
+				const capture = Buffer.from(await vscode.workspace.fs.readFile(uri));
+				key ??= extractClientSessionKey(capture);
+				personId ??= extractCurrentPersonId(capture);
+				authorization ??= extractCapturedAuthorization(capture);
+				if (key && personId && authorization) { break; }
+			}
+			if (!key && !personId) { void vscode.window.showErrorMessage('В захватах не найдены настройки клиентской сессии OENP.'); return false; }
+			const configuration = vscode.workspace.getConfiguration('vcVeTools');
+			if (key) { await configuration.update('productionClientSessionKey', key, vscode.ConfigurationTarget.Workspace); }
+			if (personId) { await configuration.update('productionPersonId', personId, vscode.ConfigurationTarget.Workspace); }
+			if (authorization) { await context.secrets.store(productionAuthorizationReferenceKey, JSON.stringify(authorization)); }
+			extensionLogger.info('Production Tasks', 'Настройки из захвата импортированы.', { checkedCaptureFiles: captures.size, importedSessionKey: Boolean(key), importedPersonId: Boolean(personId), foundAuthorizationReference: Boolean(authorization) });
+			void vscode.window.showInformationMessage(`Настройки OENP импортированы: ${[key && 'ключ сессии', personId && 'Persons.ID'].filter(Boolean).join(', ')}.`);
+			return true;
+		},
+		async () => {
+			const password = await vscode.window.showInputBox({
+				title: 'Доступ к задачам production',
+				prompt: 'Введите пароль, с которым Восточный Экспресс подключается к production. Он сохранится только в SecretStorage VS Code.',
+				password: true,
+				ignoreFocusOut: true,
+				validateInput: value => value.length > 0 ? undefined : 'Пароль не может быть пустым.',
+			});
+			if (password === undefined) { return false; }
+			await context.secrets.store(productionPasswordKey, password);
+			extensionLogger.info('Production Tasks', 'Отдельный пароль production сохранён в SecretStorage.');
+			return true;
+		},
+		{
+			info: (message, details) => extensionLogger.info('Production Tasks', message, details),
+			warning: (message, details) => extensionLogger.warning('Production Tasks', message, details),
+			error: (message, details) => extensionLogger.error('Production Tasks', message, details),
+		},
+		() => extensionLogger.show(),
+	);
+	const productionTasksRegistration = vscode.window.registerWebviewViewProvider(
+		ProductionTasksViewProvider.viewType,
+		productionTasksProvider,
+		{ webviewOptions: { retainContextWhenHidden: true } },
+	);
+	const clipboardObjectNavigation = registerClipboardObjectNavigation({
+		findById: async id => (await searchDatabaseObjects(String(id), 1))[0],
+		revealClass: id => explorerProvider.revealClass(id),
+		openClass: id => openClassDetails(context, methodEditor, id, true),
+		revealMethod: (classId, methodId) => revealClassMethod(context, methodEditor, classId, methodId),
+		openAttribute: async (classId, attributeId) => {
+			await explorerProvider.revealClass(classId);
+			await openAttributeDetails(context, attributeId);
+		},
+		openDictionary: id => openClassObjects(context, id),
+		openMethod: id => methodEditor.open(id),
+		openObject: id => openObjectView(context, id),
+	});
 	const navigationActions: NavigationActions = {
 		revealClass: id => explorerProvider.revealClass(id),
 		openClass: id => openClassDetails(context, methodEditor, id, true),
@@ -189,6 +316,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		{ webviewOptions: { retainContextWhenHidden: true } },
 	);
 	const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
+		if (event.affectsConfiguration('vcVeTools.productionHost') || event.affectsConfiguration('vcVeTools.productionPort')
+			|| event.affectsConfiguration('vcVeTools.productionDatabase') || event.affectsConfiguration('vcVeTools.productionClientSessionKey')
+			|| event.affectsConfiguration('vcVeTools.productionPersonId')
+			|| event.affectsConfiguration(`vcVeTools.${clientUsernameSetting}`)) {
+			void productionTasksProvider.refresh();
+		}
 		if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`) || event.affectsConfiguration(`vcVeTools.${databaseProfileSetting}`)) {
 			if (workspacePath && databaseSelectionPath) {
 				await writeDatabaseSelection(databaseSelectionPath, workspacePath, vscode.workspace.getConfiguration('vcVeTools').get<string>(databaseProfileSetting, ''));
@@ -199,6 +332,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			closeEntityPropertiesPanels();
 			closeClassObjectPanels();
 			closeObjectViewPanels();
+			closeSpuEditorPanels();
 			explorerProvider.refreshClasses();
 			packageSyncProvider.refreshForDatabaseChange();
 		}
@@ -323,6 +457,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		openClientEntityCommand,
 		explorerProvider,
 		explorerRegistration,
+		productionTasksProvider,
+		productionTasksRegistration,
+		clipboardObjectNavigation,
 		packageSyncProvider,
 		openPackageSyncCommand,
 		sqlExecutorRegistration,
@@ -334,4 +471,34 @@ export async function activate(context: vscode.ExtensionContext) {
 		copySelectedExplorerIdCommand,
 		setUserIdCommand,
 	);
+}
+
+async function extractProductionMetadataFromCaptureDirectories(directories: string[]): Promise<{ personId?: number; authorization?: CapturedAuthorization }> {
+	let personId: number | undefined;
+	let authorization: CapturedAuthorization | undefined;
+	for (const directoryPath of new Set(directories.map(directory => path.resolve(directory)))) {
+		try {
+			const directory = vscode.Uri.file(directoryPath);
+			for (const [name, fileType] of await vscode.workspace.fs.readDirectory(directory)) {
+				if (fileType !== vscode.FileType.File || !name.toLowerCase().endsWith('.pcapng')) { continue; }
+				const capture = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(directory, name)));
+				personId ??= extractCurrentPersonId(capture);
+				authorization ??= extractCapturedAuthorization(capture);
+				if (personId && authorization) { return { personId, authorization }; }
+			}
+		} catch { /* The explicit import action reports capture read failures. */ }
+	}
+	return { personId, authorization };
+}
+
+function parseStoredAuthorization(value: string | undefined): CapturedAuthorization | undefined {
+	if (!value) { return undefined; }
+	try {
+		const parsed = JSON.parse(value) as Partial<CapturedAuthorization>;
+		if (typeof parsed.username === 'string' && /^[A-F\d]{32}$/i.test(parsed.challenge ?? '')
+			&& /^[A-F\d]{32}$/i.test(parsed.passwordHash ?? '') && /^[A-F\d]{32}$/i.test(parsed.oldPasswordHash ?? '')) {
+			return parsed as CapturedAuthorization;
+		}
+	} catch { /* Ignore a stale or damaged SecretStorage entry. */ }
+	return undefined;
 }

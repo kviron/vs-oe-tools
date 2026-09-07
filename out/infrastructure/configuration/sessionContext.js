@@ -87,7 +87,7 @@ async function getUserId() {
         return legacy;
     }
     const input = await vscode.window.showInputBox({
-        title: 'Сохранение метода',
+        title: 'Сохранение объекта',
         prompt: 'Введите ID пользователя из таблицы Users. Он сохранится в настройках проекта.',
         placeHolder: 'ID пользователя',
         ignoreFocusOut: true,

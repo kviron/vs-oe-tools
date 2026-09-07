@@ -74,8 +74,8 @@ function getSqlMonitorShell(webview: vscode.Webview, assetsRoot: vscode.Uri): st
 	const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'sql-monitor.css'));
 	const nonce = createNonce();
 	return `<!doctype html><html lang="ru"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csp-nonce" content="${nonce}">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${styleUri}"><title>SQL-монитор</title></head>
 <body><div id="app">Загрузка SQL-монитора…</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }

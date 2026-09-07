@@ -74,6 +74,9 @@ class ExtensionLogService {
     error(source, message, details) {
         this.add('error', source, message, details);
     }
+    show() {
+        this.output.show(true);
+    }
     getLastError() {
         for (let index = this.records.length - 1; index >= 0; index -= 1) {
             if (this.records[index].level === 'error') {
@@ -129,6 +132,9 @@ class ExtensionLogService {
             this.records.splice(0, this.records.length - recordLimit);
         }
         this.output.appendLine(`[${record.timestamp}] ${level.toUpperCase()} ${record.source}: ${record.message}`);
+        if (record.details) {
+            this.output.appendLine(record.details.split(/\r?\n/).map(line => `  ${line}`).join('\n'));
+        }
         this.changeEmitter.fire();
         this.persistQueue = this.persistQueue.then(() => this.persist()).catch(() => undefined);
     }

@@ -70,6 +70,11 @@ const svnClient_1 = require("../features/code-history/svnClient");
 const rdboadmIni_1 = require("../infrastructure/configuration/rdboadmIni");
 const databaseSelection_1 = require("../core/databaseSelection");
 const projectCommandService_1 = require("../features/project/projectCommandService");
+const clipboardObjectNavigation_1 = require("../features/explorer/clipboardObjectNavigation");
+const productionTasksViewProvider_1 = require("../features/production-tasks/productionTasksViewProvider");
+const productionTaskDetailsPanel_1 = require("../features/production-tasks/productionTaskDetailsPanel");
+const oenpProtocol_1 = require("../features/production-tasks/oenpProtocol");
+const spuEditorPanel_1 = require("../features/spu/spuEditorPanel");
 async function activate(context) {
     const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
     await sqlMonitorService_1.sqlMonitorService.initialize(sqlMonitorHistoryPath);
@@ -79,6 +84,8 @@ async function activate(context) {
     const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const databaseSelectionPath = workspacePath ? (0, databaseSelection_1.getDatabaseSelectionPath)(context.globalStorageUri.fsPath, workspacePath) : undefined;
     const clientPasswordKey = `vcVeTools.clientPassword:${workspacePath?.toLowerCase() ?? 'default'}`;
+    const productionAuthorizationReferenceKey = `vcVeTools.productionAuthorizationReference:${workspacePath?.toLowerCase() ?? 'default'}`;
+    const productionPasswordKey = `vcVeTools.productionPassword:${workspacePath?.toLowerCase() ?? 'default'}`;
     const getClientCredentials = async () => ({
         username: vscode.workspace.getConfiguration('vcVeTools').get(constants_1.clientUsernameSetting, ''),
         password: await context.secrets.get(clientPasswordKey),
@@ -127,6 +134,133 @@ async function activate(context) {
     const openClientEntityCommand = vscode.commands.registerCommand('vc-ve-tools.openClientEntity', async (role, entityType, id) => (0, projectCommandService_1.openProjectClientEntity)(role, entityType, id, await getClientCredentials()));
     const explorerProvider = new explorerViewProvider_1.ExplorerViewProvider(context.workspaceState, context.extensionUri, classRepository_1.loadClasses, (id, pinned) => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, pinned), id => dfmEditor.open(id), id => (0, dfmPreview_1.openDfmPreview)(context, id), objectSearchRepository_1.searchDatabaseObjects, id => methodEditor.open(id), id => (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, id), id => (0, classObjectsPanelManager_1.openClassObjects)(context, id), id => (0, objectViewPanelManager_1.openObjectView)(context, id), id => (0, entityPropertiesPanelManager_1.openEntityProperties)(context, id));
     const explorerRegistration = vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', explorerProvider);
+    const productionTasksProvider = new productionTasksViewProvider_1.ProductionTasksViewProvider(context.extensionUri, async () => {
+        const configuration = vscode.workspace.getConfiguration('vcVeTools');
+        const credentials = await getClientCredentials();
+        const captureMetadata = await extractProductionMetadataFromCaptureDirectories([workspacePath, context.extensionUri.fsPath].filter((value) => Boolean(value)));
+        const storedAuthorization = parseStoredAuthorization(await context.secrets.get(productionAuthorizationReferenceKey));
+        if (captureMetadata.authorization && !storedAuthorization) {
+            await context.secrets.store(productionAuthorizationReferenceKey, JSON.stringify(captureMetadata.authorization));
+        }
+        let personId = configuration.get('productionPersonId', 0);
+        if (!/^\d{9}$/.test(String(personId))) {
+            const detectedPersonId = captureMetadata.personId;
+            if (detectedPersonId) {
+                personId = detectedPersonId;
+                await configuration.update('productionPersonId', personId, vscode.ConfigurationTarget.Workspace);
+                extensionLogger.info('Production Tasks', 'Persons.ID автоматически найден в захвате рабочей области.');
+            }
+        }
+        const authorizationReference = captureMetadata.authorization ?? storedAuthorization;
+        const productionPassword = await context.secrets.get(productionPasswordKey);
+        const productionUsername = authorizationReference?.username ?? credentials.username;
+        const effectivePassword = productionPassword ?? credentials.password;
+        if (!productionUsername || !effectivePassword) {
+            throw new Error('Укажите пароль для production-задач.');
+        }
+        if (!/^\d{9}$/.test(String(personId))) {
+            throw new Error('Укажите девятизначный vcVeTools.productionPersonId (Persons.ID) или импортируйте его из veworks.pcapng.');
+        }
+        return {
+            host: configuration.get('productionHost', '172.20.0.23'),
+            port: configuration.get('productionPort', 3060),
+            database: configuration.get('productionDatabase', 'ric224'),
+            clientSessionKey: configuration.get('productionClientSessionKey', ''),
+            username: productionUsername,
+            password: effectivePassword,
+            personId,
+            authorizationReference,
+        };
+    }, task => (0, productionTaskDetailsPanel_1.openProductionTaskDetails)(context, task), async () => {
+        const selected = await vscode.window.showOpenDialog({
+            canSelectFiles: true, canSelectFolders: false, canSelectMany: true,
+            defaultUri: workspacePath ? vscode.Uri.file(workspacePath) : undefined,
+            filters: { 'Wireshark capture': ['pcapng'] },
+            openLabel: 'Импортировать настройки OENP',
+        });
+        if (!selected?.length) {
+            return false;
+        }
+        const captures = new Map(selected.map(uri => [uri.fsPath.toLowerCase(), uri]));
+        const captureDirectories = new Set(selected.map(uri => path.dirname(uri.fsPath)));
+        if (workspacePath) {
+            captureDirectories.add(workspacePath);
+        }
+        for (const directory of captureDirectories) {
+            try {
+                for (const [name, fileType] of await vscode.workspace.fs.readDirectory(vscode.Uri.file(directory))) {
+                    if (fileType === vscode.FileType.File && name.toLowerCase().endsWith('.pcapng')) {
+                        const uri = vscode.Uri.file(path.join(directory, name));
+                        captures.set(uri.fsPath.toLowerCase(), uri);
+                    }
+                }
+            }
+            catch (error) {
+                extensionLogger.warning('Production Tasks', 'Не удалось проверить соседние файлы захвата.', { directory, error: String(error) });
+            }
+        }
+        let key;
+        let personId;
+        let authorization;
+        for (const uri of captures.values()) {
+            const capture = Buffer.from(await vscode.workspace.fs.readFile(uri));
+            key ??= (0, oenpProtocol_1.extractClientSessionKey)(capture);
+            personId ??= (0, oenpProtocol_1.extractCurrentPersonId)(capture);
+            authorization ??= (0, oenpProtocol_1.extractCapturedAuthorization)(capture);
+            if (key && personId && authorization) {
+                break;
+            }
+        }
+        if (!key && !personId) {
+            void vscode.window.showErrorMessage('В захватах не найдены настройки клиентской сессии OENP.');
+            return false;
+        }
+        const configuration = vscode.workspace.getConfiguration('vcVeTools');
+        if (key) {
+            await configuration.update('productionClientSessionKey', key, vscode.ConfigurationTarget.Workspace);
+        }
+        if (personId) {
+            await configuration.update('productionPersonId', personId, vscode.ConfigurationTarget.Workspace);
+        }
+        if (authorization) {
+            await context.secrets.store(productionAuthorizationReferenceKey, JSON.stringify(authorization));
+        }
+        extensionLogger.info('Production Tasks', 'Настройки из захвата импортированы.', { checkedCaptureFiles: captures.size, importedSessionKey: Boolean(key), importedPersonId: Boolean(personId), foundAuthorizationReference: Boolean(authorization) });
+        void vscode.window.showInformationMessage(`Настройки OENP импортированы: ${[key && 'ключ сессии', personId && 'Persons.ID'].filter(Boolean).join(', ')}.`);
+        return true;
+    }, async () => {
+        const password = await vscode.window.showInputBox({
+            title: 'Доступ к задачам production',
+            prompt: 'Введите пароль, с которым Восточный Экспресс подключается к production. Он сохранится только в SecretStorage VS Code.',
+            password: true,
+            ignoreFocusOut: true,
+            validateInput: value => value.length > 0 ? undefined : 'Пароль не может быть пустым.',
+        });
+        if (password === undefined) {
+            return false;
+        }
+        await context.secrets.store(productionPasswordKey, password);
+        extensionLogger.info('Production Tasks', 'Отдельный пароль production сохранён в SecretStorage.');
+        return true;
+    }, {
+        info: (message, details) => extensionLogger.info('Production Tasks', message, details),
+        warning: (message, details) => extensionLogger.warning('Production Tasks', message, details),
+        error: (message, details) => extensionLogger.error('Production Tasks', message, details),
+    }, () => extensionLogger.show());
+    const productionTasksRegistration = vscode.window.registerWebviewViewProvider(productionTasksViewProvider_1.ProductionTasksViewProvider.viewType, productionTasksProvider, { webviewOptions: { retainContextWhenHidden: true } });
+    const clipboardObjectNavigation = (0, clipboardObjectNavigation_1.registerClipboardObjectNavigation)({
+        findById: async (id) => (await (0, objectSearchRepository_1.searchDatabaseObjects)(String(id), 1))[0],
+        revealClass: id => explorerProvider.revealClass(id),
+        openClass: id => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, true),
+        revealMethod: (classId, methodId) => (0, classDetailsPanelManager_1.revealClassMethod)(context, methodEditor, classId, methodId),
+        openAttribute: async (classId, attributeId) => {
+            await explorerProvider.revealClass(classId);
+            await (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, attributeId);
+        },
+        openDictionary: id => (0, classObjectsPanelManager_1.openClassObjects)(context, id),
+        openMethod: id => methodEditor.open(id),
+        openObject: id => (0, objectViewPanelManager_1.openObjectView)(context, id),
+    });
     const navigationActions = {
         revealClass: id => explorerProvider.revealClass(id),
         openClass: id => (0, classDetailsPanelManager_1.openClassDetails)(context, methodEditor, id, true),
@@ -190,6 +324,12 @@ async function activate(context) {
     const sqlExecutorProvider = new sqlExecutorViewProvider_1.SqlExecutorViewProvider(context.extensionUri);
     const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(sqlExecutorViewProvider_1.SqlExecutorViewProvider.viewType, sqlExecutorProvider, { webviewOptions: { retainContextWhenHidden: true } });
     const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
+        if (event.affectsConfiguration('vcVeTools.productionHost') || event.affectsConfiguration('vcVeTools.productionPort')
+            || event.affectsConfiguration('vcVeTools.productionDatabase') || event.affectsConfiguration('vcVeTools.productionClientSessionKey')
+            || event.affectsConfiguration('vcVeTools.productionPersonId')
+            || event.affectsConfiguration(`vcVeTools.${constants_1.clientUsernameSetting}`)) {
+            void productionTasksProvider.refresh();
+        }
         if (event.affectsConfiguration(`vcVeTools.${constants_1.databaseRoleSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.databaseProfileSetting}`)) {
             if (workspacePath && databaseSelectionPath) {
                 await (0, databaseSelection_1.writeDatabaseSelection)(databaseSelectionPath, workspacePath, vscode.workspace.getConfiguration('vcVeTools').get(constants_1.databaseProfileSetting, ''));
@@ -200,6 +340,7 @@ async function activate(context) {
             (0, entityPropertiesPanelManager_1.closeEntityPropertiesPanels)();
             (0, classObjectsPanelManager_1.closeClassObjectPanels)();
             (0, objectViewPanelManager_1.closeObjectViewPanels)();
+            (0, spuEditorPanel_1.closeSpuEditorPanels)();
             explorerProvider.refreshClasses();
             packageSyncProvider.refreshForDatabaseChange();
         }
@@ -285,6 +426,42 @@ async function activate(context) {
         settingsProvider.refresh();
         void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
     });
-    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
+    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, productionTasksProvider, productionTasksRegistration, clipboardObjectNavigation, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
+}
+async function extractProductionMetadataFromCaptureDirectories(directories) {
+    let personId;
+    let authorization;
+    for (const directoryPath of new Set(directories.map(directory => path.resolve(directory)))) {
+        try {
+            const directory = vscode.Uri.file(directoryPath);
+            for (const [name, fileType] of await vscode.workspace.fs.readDirectory(directory)) {
+                if (fileType !== vscode.FileType.File || !name.toLowerCase().endsWith('.pcapng')) {
+                    continue;
+                }
+                const capture = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(directory, name)));
+                personId ??= (0, oenpProtocol_1.extractCurrentPersonId)(capture);
+                authorization ??= (0, oenpProtocol_1.extractCapturedAuthorization)(capture);
+                if (personId && authorization) {
+                    return { personId, authorization };
+                }
+            }
+        }
+        catch { /* The explicit import action reports capture read failures. */ }
+    }
+    return { personId, authorization };
+}
+function parseStoredAuthorization(value) {
+    if (!value) {
+        return undefined;
+    }
+    try {
+        const parsed = JSON.parse(value);
+        if (typeof parsed.username === 'string' && /^[A-F\d]{32}$/i.test(parsed.challenge ?? '')
+            && /^[A-F\d]{32}$/i.test(parsed.passwordHash ?? '') && /^[A-F\d]{32}$/i.test(parsed.oldPasswordHash ?? '')) {
+            return parsed;
+        }
+    }
+    catch { /* Ignore a stale or damaged SecretStorage entry. */ }
+    return undefined;
 }
 //# sourceMappingURL=activate.js.map

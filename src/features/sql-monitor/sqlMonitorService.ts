@@ -4,7 +4,7 @@ import * as path from 'node:path';
 
 type SqlMonitorListener = (record: SqlQueryRecord) => void;
 
-const recordLimit = 100;
+const recordLimit = 500;
 
 class SqlMonitorService {
 	private readonly records: SqlQueryRecord[] = [];

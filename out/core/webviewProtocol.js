@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isProductionTasksWebviewMessage = isProductionTasksWebviewMessage;
+exports.isProductionTaskDetailsWebviewMessage = isProductionTaskDetailsWebviewMessage;
 exports.isSettingsWebviewMessage = isSettingsWebviewMessage;
 exports.isPackageSyncWebviewMessage = isPackageSyncWebviewMessage;
 exports.isCodeHistoryWebviewMessage = isCodeHistoryWebviewMessage;
@@ -7,12 +9,29 @@ exports.isClassDetailsWebviewMessage = isClassDetailsWebviewMessage;
 exports.isAttributeDetailsWebviewMessage = isAttributeDetailsWebviewMessage;
 exports.isPropertyDetailsWebviewMessage = isPropertyDetailsWebviewMessage;
 exports.isClassObjectsWebviewMessage = isClassObjectsWebviewMessage;
+exports.isSpuEditorWebviewMessage = isSpuEditorWebviewMessage;
 exports.isObjectViewWebviewMessage = isObjectViewWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
 exports.isCopyEntityIdMessage = isCopyEntityIdMessage;
 exports.isOpenClientEntityMessage = isOpenClientEntityMessage;
 exports.isSqlMonitorWebviewMessage = isSqlMonitorWebviewMessage;
 exports.isSqlExecutorWebviewMessage = isSqlExecutorWebviewMessage;
+function isProductionTasksWebviewMessage(message) {
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    return message.command === 'productionTasksReady' || message.command === 'refreshProductionTasks' || message.command === 'importProductionSessionKey'
+        || message.command === 'setProductionTasksPassword'
+        || message.command === 'openProductionTasksLog'
+        || (message.command === 'openProductionTask' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
+}
+function isProductionTaskDetailsWebviewMessage(message) {
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    return message.command === 'productionTaskDetailsReady'
+        || (message.command === 'openProductionTaskInClient' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
+}
 function isSettingsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
@@ -120,8 +139,33 @@ function isClassObjectsWebviewMessage(message) {
     if (message.command === 'viewObject' || message.command === 'viewEntityProperties') {
         return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id);
     }
+    if (message.command === 'createSpu') {
+        return !('preferredPackageName' in message) || message.preferredPackageName === undefined || typeof message.preferredPackageName === 'string';
+    }
     return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects'
         || isCopyTableCellsMessage(message) || isCopyEntityIdMessage(message) || isOpenClientEntityMessage(message);
+}
+function isSpuEditorWebviewMessage(message) {
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    if (message.command === 'spuEditorReady') {
+        return true;
+    }
+    if (message.command !== 'saveSpu' || !('draft' in message) || typeof message.draft !== 'object' || message.draft === null) {
+        return false;
+    }
+    const draft = message.draft;
+    return 'name' in draft && typeof draft.name === 'string'
+        && 'packageId' in draft && typeof draft.packageId === 'number' && Number.isSafeInteger(draft.packageId)
+        && 'typeId' in draft && typeof draft.typeId === 'number' && Number.isSafeInteger(draft.typeId)
+        && 'executionOrder' in draft && typeof draft.executionOrder === 'string'
+        && 'versionControl' in draft && typeof draft.versionControl === 'boolean'
+        && 'beginVersion' in draft && typeof draft.beginVersion === 'number' && Number.isSafeInteger(draft.beginVersion)
+        && 'isAfterUpdate' in draft && typeof draft.isAfterUpdate === 'boolean'
+        && 'executeAlways' in draft && typeof draft.executeAlways === 'boolean'
+        && 'sqlScript' in draft && typeof draft.sqlScript === 'string'
+        && 'comment' in draft && typeof draft.comment === 'string';
 }
 function isObjectViewWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {

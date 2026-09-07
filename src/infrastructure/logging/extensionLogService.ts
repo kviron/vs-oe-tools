@@ -54,6 +54,10 @@ export class ExtensionLogService implements vscode.Disposable {
 		this.add('error', source, message, details);
 	}
 
+	show(): void {
+		this.output.show(true);
+	}
+
 	getLastError(): ExtensionLogRecord | undefined {
 		for (let index = this.records.length - 1; index >= 0; index -= 1) {
 			if (this.records[index].level === 'error') {
@@ -116,6 +120,9 @@ export class ExtensionLogService implements vscode.Disposable {
 			this.records.splice(0, this.records.length - recordLimit);
 		}
 		this.output.appendLine(`[${record.timestamp}] ${level.toUpperCase()} ${record.source}: ${record.message}`);
+		if (record.details) {
+			this.output.appendLine(record.details.split(/\r?\n/).map(line => `  ${line}`).join('\n'));
+		}
 		this.changeEmitter.fire();
 		this.persistQueue = this.persistQueue.then(() => this.persist()).catch(() => undefined);
 	}

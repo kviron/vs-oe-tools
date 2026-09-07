@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SqlExecutorHostMessage, SqlHistoryEntry } from '../../../src/core/webviewProtocol';
 import type { SerializedQueryResult } from '../../../src/infrastructure/database/databaseQueryExecutor';
+import type { SqlCompletionSchema } from '../../../src/infrastructure/database/sqlCompletionSchema';
 import { Copy01Icon, Download04Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, nextTick, ref } from 'vue';
@@ -9,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import SortableTableHead from '@/components/SortableTableHead.vue';
+import SqlCodeEditor from '@/components/SqlCodeEditor.vue';
 import { vscode } from '@/vscode';
 import { formatTableValue } from '@/lib/formatId';
 import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
@@ -23,12 +25,11 @@ const errorDetails = ref('');
 const errorDetailsOpen = ref(false);
 const durationMs = ref<number>();
 const database = ref('');
-const editor = ref<HTMLTextAreaElement>();
-const highlightLayer = ref<HTMLElement>();
+const completion = ref<SqlCompletionSchema>();
+const editor = ref<InstanceType<typeof SqlCodeEditor>>();
 const resultSortKey = ref<string>();
 const resultSortDirection = ref<SortDirection>('asc');
 
-const highlightedSql = computed(() => highlightSql(sql.value));
 const sortedHistory = computed(() => history.value.slice().reverse());
 const sortedResultRows = computed(() => result.value ? sortedRows(result.value.rows, resultSortKey.value, resultSortDirection.value, (row, key) => row[key]) : []);
 
@@ -36,6 +37,8 @@ window.addEventListener('message', (event: MessageEvent<SqlExecutorHostMessage>)
   const message = event.data;
   if (message.command === 'sqlExecutorInitialized') {
     history.value = message.history;
+  } else if (message.command === 'sqlCompletionSchemaLoaded') {
+    completion.value = message.completion;
   } else if (message.command === 'sqlExecutorHistoryChanged') {
     const index = history.value.findIndex(entry => entry.id === message.entry.id);
     if (index < 0) history.value.push(message.entry); else history.value[index] = message.entry;
@@ -71,12 +74,6 @@ function selectHistory(entry: SqlHistoryEntry): void {
   void nextTick(() => editor.value?.focus());
 }
 
-function syncEditorScroll(): void {
-  if (!editor.value || !highlightLayer.value) return;
-  highlightLayer.value.scrollTop = editor.value.scrollTop;
-  highlightLayer.value.scrollLeft = editor.value.scrollLeft;
-}
-
 function formatHistoryTime(value: string): string {
   return new Date(value).toLocaleTimeString('ru-RU', { hour12: false });
 }
@@ -96,33 +93,6 @@ function exportResult(): void {
 
 function copyError(): void {
   vscode.postMessage({ command: 'copySqlError', text: errorDetails.value || error.value });
-}
-
-function highlightSql(source: string): string {
-  const tokens = /(--[^\n]*|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'|"(?:""|[^"])*"|\b(?:select|insert|update|delete|from|where|join|inner|left|right|full|outer|on|as|and|or|not|null|is|in|exists|between|like|order|by|group|having|limit|offset|union|all|distinct|values|into|set|returning|create|alter|drop|truncate|table|view|index|with|case|when|then|else|end|asc|desc|nulls|first|last|true|false)\b|\b\d+(?:\.\d+)?\b)/gi;
-  let html = '';
-  let position = 0;
-  for (const match of source.matchAll(tokens)) {
-    const index = match.index ?? 0;
-    html += escapeHtml(source.slice(position, index));
-    const token = match[0];
-    const cssClass = token.startsWith('--') || token.startsWith('/*')
-      ? 'sql-comment'
-      : token.startsWith("'")
-        ? 'sql-string'
-        : /^\d/.test(token)
-          ? 'sql-number'
-          : token.startsWith('"')
-            ? 'sql-identifier'
-            : 'sql-keyword';
-    html += `<span class="${cssClass}">${escapeHtml(token)}</span>`;
-    position = index + token.length;
-  }
-  return `${html}${escapeHtml(source.slice(position))}\n`;
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[character] ?? character);
 }
 
 vscode.postMessage({ command: 'sqlExecutorReady' });
@@ -157,18 +127,7 @@ vscode.postMessage({ command: 'sqlExecutorReady' });
         <span class="ml-auto text-xs text-muted-foreground">Ctrl+Enter · {{ database || 'текущая база проекта' }}</span>
       </div>
 
-      <div class="sql-editor relative h-32 overflow-hidden border bg-background font-mono text-xs">
-        <pre ref="highlightLayer" aria-hidden="true" class="pointer-events-none absolute inset-0 m-0 overflow-hidden p-2"><code v-html="highlightedSql" /></pre>
-        <textarea
-          ref="editor"
-          v-model="sql"
-          aria-label="SQL-запрос"
-          class="absolute inset-0 size-full resize-none overflow-auto border-0 bg-transparent p-2 font-mono text-xs text-transparent outline-none"
-          spellcheck="false"
-          @scroll="syncEditorScroll"
-          @keydown.ctrl.enter.prevent="execute"
-        />
-      </div>
+	  <SqlCodeEditor ref="editor" v-model="sql" class="h-32 border" aria-label="SQL-запрос" :completion="completion" execute-shortcut @execute="execute" />
     </section>
 
     <section class="min-h-0 flex-1 overflow-auto border">
@@ -234,26 +193,3 @@ vscode.postMessage({ command: 'sqlExecutorReady' });
     </section>
   </main>
 </template>
-
-<style scoped>
-.sql-editor pre,
-.sql-editor textarea {
-  line-height: 1.5;
-  tab-size: 2;
-  white-space: pre;
-}
-
-.sql-editor textarea {
-  caret-color: var(--foreground);
-}
-
-.sql-editor textarea::selection {
-  background: color-mix(in oklab, var(--primary) 35%, transparent);
-}
-
-.sql-editor :deep(.sql-keyword) { color: var(--vscode-symbolIcon-keywordForeground, var(--primary)); font-weight: 600; }
-.sql-editor :deep(.sql-string) { color: var(--vscode-symbolIcon-stringForeground, var(--foreground)); }
-.sql-editor :deep(.sql-number) { color: var(--vscode-symbolIcon-numberForeground, var(--foreground)); }
-.sql-editor :deep(.sql-comment) { color: var(--muted-foreground); font-style: italic; }
-.sql-editor :deep(.sql-identifier) { color: var(--vscode-symbolIcon-fieldForeground, var(--foreground)); }
-</style>

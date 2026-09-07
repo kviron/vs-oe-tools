@@ -1,11 +1,7 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import '../styles.css';
+import { applyVsCodeTheme } from '../vscodeTheme';
 
-document.documentElement.classList.toggle(
-  'dark',
-  document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast'),
-);
-
+applyVsCodeTheme();
 createApp(App).mount('#app');
-

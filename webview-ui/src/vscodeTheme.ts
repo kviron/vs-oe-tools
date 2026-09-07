@@ -19,6 +19,14 @@ const themedVariables: Record<string, string> = {
 };
 
 export function applyVsCodeTheme(): void {
+  const themeClasses = new Set([
+    ...document.documentElement.classList,
+    ...document.body.classList,
+  ]);
+  document.documentElement.classList.toggle(
+    'dark',
+    themeClasses.has('vscode-dark') || themeClasses.has('vscode-high-contrast'),
+  );
   for (const [name, value] of Object.entries(themedVariables)) {
     document.documentElement.style.setProperty(name, value);
   }

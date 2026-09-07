@@ -98,13 +98,46 @@
           "type": "number",
           "default": 0,
           "scope": "window",
-          "description": "ID пользователя в системе Восточного Экспресса для логирования изменений методов."
+          "description": "ID пользователя в системе Восточного Экспресса для журнала изменений объектов."
         },
         "vcVeTools.clientUsername": {
           "type": "string",
           "default": "",
           "scope": "window",
           "description": "Логин пользователя для запуска оригинального клиента Восточного Экспресса."
+        },
+        "vcVeTools.productionHost": {
+          "type": "string",
+          "default": "172.20.0.23",
+          "scope": "window",
+          "description": "Сервер рабочей базы Восточного Экспресса."
+        },
+        "vcVeTools.productionPort": {
+          "type": "number",
+          "default": 3060,
+          "minimum": 1,
+          "maximum": 65535,
+          "scope": "window",
+          "description": "Порт OENP рабочей базы Восточного Экспресса."
+        },
+        "vcVeTools.productionDatabase": {
+          "type": "string",
+          "default": "ric224",
+          "scope": "window",
+          "description": "Имя рабочей базы Восточного Экспресса."
+        },
+        "vcVeTools.productionClientSessionKey": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "32-значный ключ зарегистрированной клиентской сессии OENP."
+        },
+        "vcVeTools.productionPersonId": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "scope": "window",
+          "description": "ID сотрудника (Persons.ID), чьи активные задачи показываются в разделе Задачи."
         },
         "vcVeTools.mcp.enabled": {
           "type": "boolean",
@@ -140,6 +173,11 @@
         {
           "id": "vc-ve-tools.explorer",
           "name": "Проводник",
+          "type": "webview"
+        },
+        {
+          "id": "vc-ve-tools.productionTasks",
+          "name": "Задачи",
           "type": "webview"
         }
       ],
@@ -216,6 +254,10 @@
       {
         "command": "vc-ve-tools.copySelectedExplorerId",
         "title": "Восточный Экспресс: Копировать ID выделенного объекта"
+      },
+      {
+        "command": "vc-ve-tools.openClipboardObject",
+        "title": "Восточный Экспресс: Открыть объект по ID из буфера обмена"
       },
       {
         "command": "vc-ve-tools.installAgentSkills",
@@ -435,13 +477,17 @@
         "command": "vc-ve-tools.copySelectedExplorerId",
         "key": "ctrl+c",
         "when": "vcVeTools.explorerCopyContext"
+      },
+      {
+        "command": "vc-ve-tools.openClipboardObject",
+        "key": "ctrl+alt+p"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
-    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode class-objects && vite build --config vite.webview.config.mts --mode object-view && vite build --config vite.webview.config.mts --mode attribute-details && vite build --config vite.webview.config.mts --mode property-details && vite build --config vite.webview.config.mts --mode entity-properties && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings",
+    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode production-tasks && vite build --config vite.webview.config.mts --mode production-task-details && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode class-objects && vite build --config vite.webview.config.mts --mode object-view && vite build --config vite.webview.config.mts --mode attribute-details && vite build --config vite.webview.config.mts --mode property-details && vite build --config vite.webview.config.mts --mode entity-properties && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings && vite build --config vite.webview.config.mts --mode spu-editor",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",
@@ -478,13 +524,20 @@
     "serialize-javascript": "^7.0.6"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.11.0",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.4",
+    "@codemirror/view": "^6.43.11",
     "@hugeicons/core-free-icons": "^4.3.0",
     "@hugeicons/vue": "^1.0.8",
+    "@lezer/highlight": "^1.2.3",
     "@lucide/vue": "^1.39.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@vueuse/core": "^14.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "codemirror": "^6.0.2",
     "iconv-lite": "^0.7.3",
     "node-pty": "^1.1.0",
     "pg": "^8.23.0",

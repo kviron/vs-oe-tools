@@ -9,6 +9,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import SortableTableHead from '@/components/SortableTableHead.vue';
+import SqlCodeEditor from '@/components/SqlCodeEditor.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { vscode } from '@/vscode';
 import { formatId, formatTableValue } from '@/lib/formatId';
@@ -227,9 +228,9 @@ vscode.postMessage({ command: 'sqlMonitorReady' });
           <TabsTrigger value="sql">SQL-запрос</TabsTrigger>
           <TabsTrigger value="result">Результат</TabsTrigger>
         </TabsList>
-        <TabsContent value="sql" class="min-h-0 flex-1 overflow-auto p-2">
-          <pre class="whitespace-pre-wrap font-mono text-xs">{{ selectedRecord.text }}</pre>
-          <div v-if="selectedRecord.parameters.length" class="mt-3 flex flex-col gap-1">
+		<TabsContent value="sql" class="min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2 data-[state=active]:flex">
+		  <SqlCodeEditor :model-value="selectedRecord.text" class="min-h-24 flex-1 border" read-only line-wrapping aria-label="SQL выбранного запроса" />
+		  <div v-if="selectedRecord.parameters.length" class="flex max-h-32 shrink-0 flex-col gap-1 overflow-auto">
             <h3 class="text-xs font-medium">Параметры</h3>
             <pre class="whitespace-pre-wrap font-mono text-xs">{{ JSON.stringify(selectedRecord.parameters, null, 2) }}</pre>
           </div>
