@@ -6,8 +6,10 @@
 /**
  * Сериализует значения атрибутов для LogCChangedObject
  *
- * Формат: 127,"<текст кода>",102,<SeniorID>
+ * Формат нативного клиента: 69,"<сигнатура>",127,"<текст кода>",102,<SeniorID>
  * где:
+ * - 69 = Methods.Signature (атрибут)
+ * - "<сигнатура>" = параметры и возвращаемый тип анонимной процедуры/функции
  * - 127 = Methods.Code (атрибут)
  * - "<текст кода>" = значение кода
  * - 102 = Methods.SeniorID (атрибут)
@@ -17,12 +19,14 @@
  * @param seniorId ID родительского класса (SeniorID)
  * @returns Сериализованная строка для NewValues или OldValues
  */
-export function serializeChangeValues(code: string, seniorId: number): string {
+export function serializeChangeValues(code: string, seniorId: number, signature?: string): string {
 	// Экранируем кавычки в коде
 	const escapedCode = code.replace(/"/g, '""');
 
-	// Формируем строку: 127,"<код>",102,<SeniorID>
-	return `127,"${escapedCode}",102,${seniorId}`;
+	const serializedSignature = signature === undefined
+		? ''
+		: `69,${signature ? `"${signature.replace(/"/g, '""')}"` : ''},`;
+	return `${serializedSignature}127,"${escapedCode}",102,${seniorId}`;
 }
 
 /**
@@ -33,8 +37,8 @@ export function serializeChangeValues(code: string, seniorId: number): string {
  * @throws Error если формат некорректен
  */
 export function deserializeChangeValues(serialized: string): { code: string; seniorId: number } {
-	// Ищем позицию первой кавычки после 127,
-	const codeStartIndex = serialized.indexOf('"');
+	const marker = /(?:^|,)127,/.exec(serialized);
+	const codeStartIndex = marker ? serialized.indexOf('"', marker.index + marker[0].length) : -1;
 	if (codeStartIndex === -1) {
 		throw new Error('Некорректный формат serialized значения: не найдена открывающая кавычка');
 	}

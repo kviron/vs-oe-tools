@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as iconv from 'iconv-lite';
-import { getMethodSource, saveMethodSource, type MethodSource } from '../../infrastructure/database/methodRepository';
+import { createClassMethod, getMethodSource, saveMethodSource, type MethodSource } from '../../infrastructure/database/methodRepository';
+import type { ClassMethodDraft, CreatedClassMethod } from '../classes/models';
 
 export const methodDocumentScheme = 'vc-ve-method';
 
@@ -30,6 +31,11 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 		const changed = method.code !== code;
 		await this.persistMethod(method, code);
 		return { id: method.id, name: method.name, changed };
+	}
+	async create(draft: ClassMethodDraft): Promise<CreatedClassMethod> {
+		const created = await createClassMethod(draft);
+		await this.open(created.id);
+		return created;
 	}
 	async getUri(methodOrId: MethodSource | number): Promise<vscode.Uri> {
 		const method = typeof methodOrId === 'number' ? await getMethodSource(methodOrId) : methodOrId;

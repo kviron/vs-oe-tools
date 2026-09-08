@@ -34,13 +34,17 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openAttributeDetails = openAttributeDetails;
+exports.openNewAttributeDetails = openNewAttributeDetails;
 exports.closeAttributeDetailPanels = closeAttributeDetailPanels;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
+const attributeRepository_1 = require("../../../infrastructure/database/attributeRepository");
+const attributeCreation_1 = require("../attributeCreation");
 const panels = new Map();
 async function openAttributeDetails(context, attributeId) {
-    const existing = panels.get(attributeId);
+    const key = `attribute:${attributeId}`;
+    const existing = panels.get(key);
     if (existing) {
         existing.panel.reveal(vscode.ViewColumn.Active);
         return;
@@ -48,15 +52,40 @@ async function openAttributeDetails(context, attributeId) {
     const details = await (0, classRepository_1.getClassAttributeDetails)(attributeId);
     const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.attributeDetails', `Атрибут ${details.name}`, vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true });
-    const entry = { panel, details };
-    panels.set(attributeId, entry);
+    const entry = { panel, details, key };
+    panels.set(key, entry);
     panel.webview.html = getAttributeDetailsShell(panel.webview, assetsRoot);
-    panel.webview.onDidReceiveMessage((message) => {
-        if ((0, webviewProtocol_1.isAttributeDetailsWebviewMessage)(message)) {
-            postDetails(entry);
-        }
-    });
-    panel.onDidDispose(() => panels.delete(attributeId));
+    registerPanelMessages(entry);
+    panel.onDidDispose(() => panels.delete(entry.key));
+}
+async function openNewAttributeDetails(context, ownerClassId, onCreated) {
+    const key = `new:${ownerClassId}`;
+    const existing = panels.get(key);
+    if (existing) {
+        existing.panel.reveal(vscode.ViewColumn.Active);
+        return;
+    }
+    const options = await (0, attributeRepository_1.getAttributeEditorOptions)(ownerClassId);
+    const draft = {
+        ownerClassId,
+        name: '',
+        aliases: '',
+        dbFieldName: '',
+        attributeTypeId: options.types[0]?.id ?? 0,
+        valueClasses: '',
+        visibilityId: options.defaults.visibilityId ?? attributeCreation_1.defaultAttributeVisibilityId,
+        distributionModeId: options.defaults.distributionModeId ?? attributeCreation_1.defaultAttributeDistributionModeId,
+        isNotNull: false,
+        virtual: true,
+        refIntegrityCheck: false,
+    };
+    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const panel = vscode.window.createWebviewPanel('vc-ve-tools.attributeDetails', `Новый атрибут — ${options.ownerClassName}`, vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true });
+    const entry = { panel, options, draft, key, onCreated };
+    panels.set(key, entry);
+    panel.webview.html = getAttributeDetailsShell(panel.webview, assetsRoot);
+    registerPanelMessages(entry);
+    panel.onDidDispose(() => panels.delete(entry.key));
 }
 function closeAttributeDetailPanels() {
     for (const { panel } of [...panels.values()]) {
@@ -65,7 +94,45 @@ function closeAttributeDetailPanels() {
     panels.clear();
 }
 function postDetails(entry) {
-    void entry.panel.webview.postMessage({ command: 'attributeDetailsLoaded', details: entry.details });
+    if (entry.details) {
+        void entry.panel.webview.postMessage({ command: 'attributeDetailsLoaded', details: entry.details });
+    }
+    else if (entry.options && entry.draft) {
+        void entry.panel.webview.postMessage({ command: 'attributeCreationInitialized', options: entry.options, draft: entry.draft });
+    }
+}
+function registerPanelMessages(entry) {
+    entry.panel.webview.onDidReceiveMessage(async (message) => {
+        if (!(0, webviewProtocol_1.isAttributeDetailsWebviewMessage)(message)) {
+            return;
+        }
+        if (message.command === 'attributeDetailsReady') {
+            postDetails(entry);
+            return;
+        }
+        if (!entry.options || message.draft.ownerClassId !== entry.options.ownerClassId) {
+            void entry.panel.webview.postMessage({ command: 'attributeCreationFailed', message: 'Класс-владелец формы изменён.' });
+            return;
+        }
+        void entry.panel.webview.postMessage({ command: 'attributeCreating' });
+        try {
+            const created = await (0, attributeRepository_1.createClassAttribute)(message.draft);
+            const details = await (0, classRepository_1.getClassAttributeDetails)(created.id);
+            panels.delete(entry.key);
+            entry.key = `attribute:${created.id}`;
+            entry.details = details;
+            entry.options = undefined;
+            entry.draft = undefined;
+            panels.set(entry.key, entry);
+            entry.panel.title = `Атрибут ${details.name}`;
+            void entry.panel.webview.postMessage({ command: 'attributeCreated', details });
+            await entry.onCreated?.(created.id);
+            void vscode.window.showInformationMessage(`Атрибут ${details.name} (ID ${created.id}) создан.`);
+        }
+        catch (error) {
+            void entry.panel.webview.postMessage({ command: 'attributeCreationFailed', message: error instanceof Error ? error.message : String(error) });
+        }
+    });
 }
 function getAttributeDetailsShell(webview, assetsRoot) {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'attribute-details.js'));

@@ -22,6 +22,7 @@ export interface ProductionTaskSummary {
 	releaseActual: string;
 	revisionTrunk: string;
 	revisionBranch: string;
+	attachmentCount: number;
 	workDescription: string;
 	stateComment: string;
 	stateCommentAuthor: string;
@@ -34,6 +35,19 @@ export interface ProductionTaskAttachment {
 	extension: string;
 	size: string;
 	changedAt: string;
+	comment: string;
+	storageFileId: string;
+	storageType: string;
+	mainStoredFileId?: number;
+	important: boolean;
+}
+
+export interface ProductionTaskHistoryEntry {
+	id: number;
+	createdAt: string;
+	action: string;
+	state: string;
+	person: string;
 	comment: string;
 }
 

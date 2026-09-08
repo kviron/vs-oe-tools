@@ -61,19 +61,21 @@ const logsPath = readOptionalArgument('--logs');
 const sqlMonitorHistoryPath = readOptionalArgument('--sql-monitor-history');
 const databaseSelectionPath = readOptionalArgument('--database-selection');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? (0, navigationInfo_1.getNavigationInfoPath)(workspacePath);
-const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.19.0' }, {
+const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.21.0' }, {
     instructions: [
-        'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
+        'East Express method names are stored separately in method cards and must never be inserted into method source. Preserve the complete anonymous proc/procedure/func/function wrapper returned by get_method_source.',
         'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
         'Before database work, use get_active_database when the intended database matters. Use list_databases and switch_database to select another rdboadm.ini profile without restarting this MCP server.',
         'Use get_class_dictionary for paged dictionary rows and search_class_dictionary to find elements by ID, name, or any mapped class attribute.',
         'Use get_class_properties to inspect script properties declared by a class and optionally inherited from ancestors. Use get_property_details for the complete stored record.',
-        'Before update_method_source, read the complete current method body with get_method_source. Send only the method body, never its name or declaration wrapper.',
+        'Before update_method_source, read the complete current source with get_method_source. Send the complete replacement including its anonymous declaration wrapper, but never add the method card name.',
+        'Use create_class_attribute only for virtual attributes. It runs through the VS Code extension, allocates a developer ID, writes audit history, links the package file, updates the owning class version, and opens the created attribute card.',
+        'Use create_class_method to create an interpreted method. It allocates a developer ID, writes native-style audit history, links the owner package, updates the owning class version, and opens the new source in the editor.',
         'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
         'Use get_production_tasks for the current employee task list and get_production_tasks_in_progress for complete cards of tasks currently in status В работе. These calls use the production OENP session held by the VS Code extension.',
         'Use get_recent_sql_queries to inspect the last 500 filtered queries captured by the SQL monitor without generating additional database traffic.',
         'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
-        'Direct SQL access is read-only. Controlled mutations are available only through update_method_source and explicitly confirmed update_database, update_packages, and update_binaries commands in VS Code. Project updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue.',
+        'Direct SQL access is read-only. Controlled mutations are available only through update_method_source, create_class_method, create_class_attribute, and explicitly confirmed update_database, update_packages, and update_binaries commands in VS Code. Project updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue.',
     ].join(' '),
 });
 server.registerTool('list_databases', {
@@ -317,6 +319,50 @@ server.registerTool('get_attribute_details', {
         attribute: { ...toMcpClassAttribute(row), attributeTypeName: row.attributetypename },
     };
 }));
+server.registerTool('get_attribute_creation_options', {
+    description: 'Read the owner class and valid AttrTypes, visibility, and distribution choices required by create_class_attribute. This tool is read-only and reports the defaults used by the native client capture.',
+    inputSchema: {
+        ownerClassId: z.number().int().positive().describe('Class that will own the new attribute'),
+    },
+    annotations: { readOnlyHint: true },
+}, async ({ ownerClassId }) => databaseToolResult(async () => {
+    const owners = await queryDatabaseRaw('SELECT class.id,class.name,abstract.sysfile FROM classes AS class JOIN abstract ON abstract.id=class.id WHERE class.id=$1', [ownerClassId]);
+    const owner = owners[0];
+    if (!owner) {
+        throw new Error(`Class ${ownerClassId} was not found.`);
+    }
+    const types = await queryDatabaseRaw('SELECT id,name FROM attrtypes ORDER BY id', []);
+    const visibilities = await queryDatabaseRaw('SELECT id,COALESCE(fullname,name) AS name FROM enum WHERE classid=$1 ORDER BY id', [12450282]);
+    const distributionModes = await queryDatabaseRaw('SELECT id,COALESCE(fullname,name) AS name FROM enum WHERE classid=$1 ORDER BY id', [12450504]);
+    return {
+        owner,
+        types,
+        visibilities,
+        distributionModes,
+        defaults: { visibilityId: 12450284, distributionModeId: 12450505, isNotNull: false, refIntegrityCheck: false },
+        virtualOnly: true,
+    };
+}));
+server.registerTool('get_method_creation_options', {
+    description: 'Read the owner class and valid visibility choices for create_class_method. Returns the defaults captured from the native East Express client.',
+    inputSchema: {
+        ownerClassId: z.number().int().positive().describe('Class that will own the new method'),
+    },
+    annotations: { readOnlyHint: true },
+}, async ({ ownerClassId }) => databaseToolResult(async () => {
+    const owners = await queryDatabaseRaw('SELECT class.id,class.name,abstract.sysfile FROM classes AS class JOIN abstract ON abstract.id=class.id WHERE class.id=$1', [ownerClassId]);
+    const owner = owners[0];
+    if (!owner) {
+        throw new Error(`Class ${ownerClassId} was not found.`);
+    }
+    const visibilities = await queryDatabaseRaw('SELECT id,COALESCE(fullname,name) AS name FROM enum WHERE classid=$1 ORDER BY id', [12450282]);
+    return {
+        owner,
+        visibilities,
+        defaults: { visibilityId: 12450286, methodType: 3, methodKind: 0, signature: '', code: 'proc()\r\nbegin\r\n\r\nend;\r\n' },
+        interpretedOnly: true,
+    };
+}));
 server.registerTool('get_class_properties', {
     description: 'Read script properties declared by an East Express class, optionally including inherited definitions. Returns owner, aliases, read-only state, visibility, package and stable property IDs.',
     inputSchema: {
@@ -457,7 +503,7 @@ server.registerTool('get_method_source', {
     annotations: { readOnlyHint: true },
 }, async ({ methodId, startLine, maxLines }) => databaseToolResult(async () => {
     const rows = await queryDatabaseRaw(`SELECT method.id, method.name, method.seniorid AS classid, owner.name AS classname,
-		        method.methtype, method.code, pg_typeof(method.code)::text AS codetype
+		        method.methtype, method.signature, method.code, pg_typeof(method.code)::text AS codetype
 		   FROM methods AS method
 		   LEFT JOIN abstract AS owner ON owner.id = method.seniorid
 		  WHERE method.id = $1`, [methodId]);
@@ -472,18 +518,73 @@ server.registerTool('get_method_source', {
         classId: String(method.classid),
         className: method.classname,
         methodType: method.methtype,
+        signature: (0, sourceContent_1.decodeSourceValue)(method.signature),
         codeType: method.codetype,
         source: (0, sourceContent_1.createSourceExcerpt)((0, sourceContent_1.decodeSourceValue)(method.code), startLine, maxLines),
     };
 }));
 server.registerTool('update_method_source', {
-    description: 'Replace the complete source body of an existing East Express method through the VS Code extension save pipeline. This mutates the database, preserves Windows-1251, uses the configured vcVeTools.userId, writes audit history, and commits atomically. Read the complete current source first.',
+    description: 'Replace the complete source of an existing East Express method through the VS Code extension save pipeline. Preserve the anonymous proc/procedure/func/function wrapper returned by get_method_source, but do not add the method card name. The save updates signature metadata when the declaration changes, preserves Windows-1251, writes native-style audit history, and commits atomically.',
     inputSchema: {
         methodId: z.number().int().positive().describe('Existing method ID returned by search_methods'),
-        code: z.string().max(1_500_000).describe('Complete replacement method body without a procedure/function declaration containing the method name'),
+        code: z.string().max(1_500_000).describe('Complete replacement source including the anonymous declaration wrapper, without the method card name'),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
 }, async ({ methodId, code }) => bridgeToolResult({ action: 'update_method_source', id: methodId, code }));
+server.registerTool('create_class_method', {
+    description: 'Create an interpreted East Express method in an existing class through the VS Code save pipeline. The operation allocates an ID from DeveloperIDs, inserts Methods and Abstract, writes the native ChangeType=3 audit record, links the owner package, updates ClassVersion, and opens the created source.',
+    inputSchema: {
+        ownerClassId: z.number().int().positive().describe('Owning class ID'),
+        name: z.string().min(1).max(250).regex(/^[\p{L}_][\p{L}\p{N}_]*$/u).describe('Method card name without a proc/function declaration'),
+        visibilityId: z.number().int().positive().optional().describe('Visibility enum ID, default 12450286 (Public)'),
+        signature: z.string().max(4000).optional().describe('Optional stored method signature, for example (AObj: Абстракт)'),
+        code: z.string().max(1_500_000).optional().describe('Complete anonymous proc/procedure/func/function source; defaults to an empty proc() block'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, async (input) => bridgeToolResult({
+    action: 'create_class_method',
+    draft: {
+        ownerClassId: input.ownerClassId,
+        name: input.name,
+        visibilityId: input.visibilityId ?? 12450286,
+        methodType: 3,
+        methodKind: 0,
+        signature: input.signature ?? '',
+        code: input.code ?? 'proc()\r\nbegin\r\n\r\nend;\r\n',
+    },
+}));
+server.registerTool('create_class_attribute', {
+    description: 'Create a virtual attribute in an existing East Express class through the VS Code save pipeline. The operation allocates an ID from DeveloperIDs, writes Attributes/Abstract/ObjRefs and audit history atomically, inherits the owner package file, updates ClassVersion, and opens the new attribute card.',
+    inputSchema: {
+        ownerClassId: z.number().int().positive().describe('Owning class ID'),
+        name: z.string().min(1).max(250).describe('Logical attribute name, Windows-1251'),
+        aliases: z.string().max(250).optional().describe('Optional Latin script alias'),
+        dbFieldName: z.string().max(250).regex(/^(?:[A-Za-z_][A-Za-z0-9_]*)?$/).optional()
+            .describe('Optional Latin SQL field identifier; omit or pass an empty string for a virtual attribute'),
+        attributeTypeId: z.number().int().positive().describe('Type ID from AttrTypes, for example 330 for embedded object'),
+        valueClasses: z.string().optional().describe('Optional positive class IDs separated by commas'),
+        visibilityId: z.number().int().positive().optional().describe('Visibility enum ID, default 12450284 (Protected)'),
+        distributionModeId: z.number().int().positive().optional().describe('Distribution enum ID, default 12450505'),
+        isNotNull: z.boolean().optional(),
+        refIntegrityCheck: z.boolean().optional(),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, async (input) => bridgeToolResult({
+    action: 'create_class_attribute',
+    draft: {
+        ownerClassId: input.ownerClassId,
+        name: input.name,
+        aliases: input.aliases ?? '',
+        dbFieldName: input.dbFieldName ?? '',
+        attributeTypeId: input.attributeTypeId,
+        valueClasses: input.valueClasses ?? '',
+        visibilityId: input.visibilityId ?? 12450284,
+        distributionModeId: input.distributionModeId ?? 12450505,
+        isNotNull: input.isNotNull ?? false,
+        virtual: true,
+        refIntegrityCheck: input.refIntegrityCheck ?? false,
+    },
+}));
 server.registerTool('update_database', {
     description: 'Update the main or test East Express database using the command from DBUpdate_main.bat or DBUpdate_test.bat in the open workspace. VS Code asks the user for confirmation, then runs the command in a visible terminal.',
     inputSchema: {

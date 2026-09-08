@@ -127,6 +127,40 @@ export interface AttributeDetails {
 	data: Record<string, unknown>;
 }
 
+export interface ClassAttributeDraft {
+	ownerClassId: number;
+	name: string;
+	aliases: string;
+	dbFieldName: string;
+	attributeTypeId: number;
+	valueClasses: string;
+	visibilityId: number;
+	distributionModeId: number;
+	isNotNull: boolean;
+	virtual: boolean;
+	refIntegrityCheck: boolean;
+}
+
+export interface AttributeEditorOption {
+	id: number;
+	name: string;
+}
+
+export interface AttributeEditorOptions {
+	ownerClassId: number;
+	ownerClassName: string;
+	types: AttributeEditorOption[];
+	visibilities: AttributeEditorOption[];
+	distributionModes: AttributeEditorOption[];
+	defaults: Pick<ClassAttributeDraft, 'visibilityId' | 'distributionModeId' | 'isNotNull' | 'virtual' | 'refIntegrityCheck'>;
+}
+
+export interface CreatedClassAttribute {
+	id: number;
+	ownerClassId: number;
+	name: string;
+}
+
 export interface ClassMethod {
 	id: string;
 	name: string;
@@ -139,6 +173,22 @@ export interface ClassMethod {
 	updatedAt: string;
 	createdBy: string;
 	inherited: boolean;
+}
+
+export interface ClassMethodDraft {
+	ownerClassId: number;
+	name: string;
+	visibilityId: number;
+	methodType: 3;
+	methodKind: 0;
+	signature: string;
+	code: string;
+}
+
+export interface CreatedClassMethod {
+	id: number;
+	ownerClassId: number;
+	name: string;
 }
 
 export interface ClassProperty {

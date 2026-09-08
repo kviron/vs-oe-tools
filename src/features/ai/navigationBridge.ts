@@ -5,11 +5,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import type { Disposable } from 'vscode';
 import type { NavigationActions } from './navigationTools';
+import type { ClassAttributeDraft, ClassMethodDraft } from '../classes/models';
 
 type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source'
 	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client'
 	| 'open_client_entity' | 'get_production_tasks' | 'get_production_tasks_in_progress'
-	| 'update_packages' | 'update_binaries';
+	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'create_class_method';
 
 interface NavigationRequest {
 	action: NavigationAction;
@@ -22,6 +23,7 @@ interface NavigationRequest {
 	offset?: number;
 	role?: 'main' | 'test';
 	entityType?: string;
+	draft?: ClassAttributeDraft | ClassMethodDraft;
 }
 
 export interface NavigationBridge extends Disposable {
@@ -93,6 +95,14 @@ async function handleRequest(
 			await actions.revealMethod(input.classId as number, input.id as number);
 		} else if (input.action === 'update_method_source') {
 			const result = await actions.updateMethodSource(input.id as number, input.code as string);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else if (input.action === 'create_class_attribute') {
+			const result = await actions.createClassAttribute(input.draft as ClassAttributeDraft);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else if (input.action === 'create_class_method') {
+			const result = await actions.createClassMethod(input.draft as ClassMethodDraft);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
 		} else if (input.action === 'get_svn_file_history') {
@@ -168,12 +178,13 @@ function validateRequest(value: unknown): NavigationRequest {
 		&& action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
 		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
 		&& action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
-		&& action !== 'update_packages' && action !== 'update_binaries') {
+		&& action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method') {
 		throw new Error('Unknown navigation action.');
 	}
 	if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
 		&& action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
 		&& action !== 'update_packages' && action !== 'update_binaries'
+		&& action !== 'create_class_attribute' && action !== 'create_class_method'
 		&& (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
 		throw new Error('Navigation ID must be a positive integer.');
 	}
@@ -184,6 +195,13 @@ function validateRequest(value: unknown): NavigationRequest {
 	const code = (value as Partial<NavigationRequest>).code;
 	if (action === 'update_method_source' && typeof code !== 'string') {
 		throw new Error('Method code must be a string for update_method_source.');
+	}
+	const draft = (value as Partial<NavigationRequest>).draft;
+	if (action === 'create_class_attribute' && (!draft || typeof draft !== 'object')) {
+		throw new Error('draft is required for create_class_attribute.');
+	}
+	if (action === 'create_class_method' && (!draft || typeof draft !== 'object')) {
+		throw new Error('draft is required for create_class_method.');
 	}
 	const filePath = (value as Partial<NavigationRequest>).filePath;
 	const limit = (value as Partial<NavigationRequest>).limit;
@@ -218,7 +236,7 @@ function validateRequest(value: unknown): NavigationRequest {
 	if (action === 'open_client_entity' && (typeof entityType !== 'string' || !entityType.trim())) {
 		throw new Error('entityType is required for open_client_entity.');
 	}
-	return { action, id, classId, code, filePath, limit, query, offset, role, entityType };
+	return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft };
 }
 
 function respond(response: ServerResponse, statusCode: number, body: Record<string, unknown>): void {

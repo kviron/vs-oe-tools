@@ -3,6 +3,9 @@ import type { ClassDetailsHostMessage } from '../../../src/core/webviewProtocol'
 import type { ClassAttribute, ClassDetails, ClassMethod, ClassProperty } from '../../../src/features/classes/models';
 import { computed, nextTick, ref, shallowRef } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Add01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/vue';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -349,6 +352,14 @@ function openAttribute(attribute: ClassAttribute): void {
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openAttribute', id });
 }
 
+function createAttribute(): void {
+  if (details.value) vscode.postMessage({ command: 'createAttribute', classId: details.value.id });
+}
+
+function createMethod(): void {
+  if (details.value) vscode.postMessage({ command: 'createMethod', classId: details.value.id });
+}
+
 function openProperty(property: ClassProperty): void {
   const id = Number(property.id);
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openProperty', id });
@@ -480,7 +491,9 @@ vscode.postMessage({ command: 'classDetailsReady' });
 
       <TabsContent value="attributes" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
         <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
-          <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать атрибуты родительских классов">
+          <div class="flex shrink-0 items-center gap-2">
+            <Button size="sm" @click="createAttribute"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать</Button>
+            <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать атрибуты родительских классов">
             <Checkbox
               :model-value="includeInheritedAttributes"
               :disabled="attributesLoading"
@@ -488,7 +501,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
             />
             <span aria-hidden="true">↥</span>
             Наследуемые атрибуты
-          </label>
+            </label>
+          </div>
           <div class="flex shrink-0 flex-nowrap items-center justify-end gap-1">
             <Input v-model="attributeCreatorQuery" type="search" class="h-6 w-44" placeholder="Создатель…" aria-label="Фильтр атрибутов по создателю" />
             <DatePicker v-model="attributeDateFrom" label="Дата обновления атрибута с" title="Дата обновления с" />
@@ -551,15 +565,18 @@ vscode.postMessage({ command: 'classDetailsReady' });
 
       <TabsContent value="methods" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
         <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
-          <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать методы родительских классов">
-            <Checkbox
-              :model-value="includeInheritedMethods"
-              :disabled="methodsLoading"
-              @update:model-value="toggleInheritedMethods"
-            />
-            <span aria-hidden="true">↥</span>
-            Наследуемые методы
-          </label>
+          <div class="flex shrink-0 items-center gap-2">
+            <Button size="sm" @click="createMethod"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать</Button>
+            <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать методы родительских классов">
+              <Checkbox
+                :model-value="includeInheritedMethods"
+                :disabled="methodsLoading"
+                @update:model-value="toggleInheritedMethods"
+              />
+              <span aria-hidden="true">↥</span>
+              Наследуемые методы
+            </label>
+          </div>
           <div class="flex shrink-0 flex-nowrap items-center justify-end gap-1">
             <Input v-model="methodCreatorQuery" type="search" class="h-6 w-44" placeholder="Создатель…" aria-label="Фильтр методов по создателю" />
             <DatePicker v-model="methodDateFrom" label="Дата обновления метода с" title="Дата обновления с" />

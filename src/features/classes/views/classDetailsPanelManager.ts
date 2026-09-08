@@ -5,11 +5,12 @@ import { getClassAttributes, getClassDetails, getClassMethods, getClassPropertie
 import type { ClassDetails } from '../models';
 import type { MethodEditorProvider } from '../../methods/methodEditorProvider';
 import { logTableSelection } from '../../../core/tableSelectionLogger';
-import { openAttributeDetails } from './attributeDetailsPanelManager';
+import { openAttributeDetails, openNewAttributeDetails } from './attributeDetailsPanelManager';
 import { openPropertyDetails } from './propertyDetailsPanelManager';
 import { openClassObjects } from './classObjectsPanelManager';
 import { openObjectView } from './objectViewPanelManager';
 import { openEntityProperties } from './entityPropertiesPanelManager';
+import { defaultMethodCode, defaultMethodKind, defaultMethodVisibilityId, interpretedMethodType } from '../../methods/methodCreation';
 
 interface ClassDetailPanel {
 	panel: vscode.WebviewPanel;
@@ -18,6 +19,8 @@ interface ClassDetailPanel {
 	activeTab: string;
 	ready: boolean;
 	pendingMethodId?: number;
+	attributeIncludeInherited: boolean;
+	methodIncludeInherited: boolean;
 }
 
 function postPendingMethod(entry: ClassDetailPanel): void {
@@ -57,7 +60,7 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 		{ enableScripts: true, localResourceRoots: [assetsRoot] },
 	);
 	panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
-	const entry: ClassDetailPanel = { panel, pinned, details: classDetails, activeTab, ready: false };
+	const entry: ClassDetailPanel = { panel, pinned, details: classDetails, activeTab, ready: false, attributeIncludeInherited: false, methodIncludeInherited: false };
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (isClassDetailsWebviewMessage(message)) {
 			if (message.command === 'classDetailsStateChanged') {
@@ -108,11 +111,47 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				await methodEditor.open(message.id);
 				return;
 			}
+			if (message.command === 'createMethod') {
+				const name = await vscode.window.showInputBox({
+					title: `Новый метод — ${entry.details.name}`,
+					prompt: 'Имя интерпретируемого метода',
+					placeHolder: 'ИмяМетода',
+					validateInput: value => !value.trim() ? 'Укажите имя метода.'
+						: !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(value.trim()) ? 'Допустимы только буквы, цифры и знак подчёркивания.' : undefined,
+				});
+				if (!name) { return; }
+				try {
+					const created = await methodEditor.create({
+						ownerClassId: message.classId, name: name.trim(), visibilityId: defaultMethodVisibilityId,
+						methodType: interpretedMethodType, methodKind: defaultMethodKind, signature: '', code: defaultMethodCode,
+					});
+					if (entry.details.id === message.classId) {
+						const methods = await getClassMethods(entry.details.id, entry.details.name, entry.methodIncludeInherited);
+						void panel.webview.postMessage({ command: 'classMethodsLoaded', methods, includeInherited: entry.methodIncludeInherited } satisfies ClassDetailsHostMessage);
+					}
+					void vscode.window.showInformationMessage(`Метод ${created.name} (ID ${created.id}) создан.`);
+				} catch (error) {
+					void vscode.window.showErrorMessage(`Не удалось создать метод: ${error instanceof Error ? error.message : String(error)}`);
+				}
+				return;
+			}
 			if (message.command === 'openAttribute') {
 				try {
 					await openAttributeDetails(context, message.id);
 				} catch (error) {
 					void vscode.window.showErrorMessage(`Не удалось открыть атрибут: ${error instanceof Error ? error.message : String(error)}`);
+				}
+				return;
+			}
+			if (message.command === 'createAttribute') {
+				try {
+					await openNewAttributeDetails(context, message.classId, async () => {
+						if (entry.details.id !== message.classId) { return; }
+						const attributes = await getClassAttributes(entry.details.id, entry.details.name, entry.attributeIncludeInherited);
+						void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes, includeInherited: entry.attributeIncludeInherited } satisfies ClassDetailsHostMessage);
+					});
+				} catch (error) {
+					void vscode.window.showErrorMessage(`Не удалось открыть создание атрибута: ${error instanceof Error ? error.message : String(error)}`);
 				}
 				return;
 			}
@@ -144,6 +183,7 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 			const requestedClassId = entry.details.id;
 			if (message.command === 'loadClassMethods') {
 				const includeInherited = message.includeInherited;
+				entry.methodIncludeInherited = includeInherited;
 				try {
 					const methods = await getClassMethods(requestedClassId, entry.details.name, includeInherited);
 					if (entry.details.id === requestedClassId) {
@@ -172,6 +212,7 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 				return;
 			}
 			const includeInherited = message.includeInherited;
+			entry.attributeIncludeInherited = includeInherited;
 			try {
 				const attributes = await getClassAttributes(requestedClassId, entry.details.name, includeInherited);
 				if (entry.details.id === requestedClassId) {

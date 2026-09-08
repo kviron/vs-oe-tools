@@ -2,7 +2,8 @@ import * as path from 'node:path';
 import { hostname } from 'node:os';
 import * as vscode from 'vscode';
 import { Client } from 'pg';
-import type { PackageSyncItem } from '../../features/package-sync/models';
+import type { PackageBoundaryIssue, PackageSyncItem, PackageSyncSnapshot } from '../../features/package-sync/models';
+import { findPackagePlaceholderIssues } from '../../features/package-sync/packageSyncIssues';
 import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 
@@ -19,6 +20,104 @@ interface PackageSyncRow {
 	objectpath: string | null;
 	packagepath: string | null;
 	physicalfilename: string | null;
+}
+
+interface PackageBoundaryRow {
+	objectid: number;
+	objectname: string | null;
+	classid: number;
+	classname: string | null;
+	attributeid: number;
+	attributename: string | null;
+	referenceid: number;
+	referencename: string | null;
+	sourcepackage: string | null;
+	targetpackage: string | null;
+	sourcefile: string | null;
+	recommendedfile: string | null;
+	changedby: string | number | null;
+}
+
+export async function loadPackageSyncSnapshot(): Promise<PackageSyncSnapshot> {
+	const [items, boundaryIssues] = await Promise.all([loadPackageSyncItems(), loadPackageBoundaryIssues()]);
+	return { items, issues: [...findPackagePlaceholderIssues(items), ...boundaryIssues] };
+}
+
+export async function loadPackageBoundaryIssues(): Promise<PackageBoundaryIssue[]> {
+	const options = await getProjectDatabaseOptions();
+	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	try {
+		await client.connect();
+		const result = await executeMonitoredQuery<PackageBoundaryRow>(client, {
+			text: `WITH RECURSIVE package_edges AS (
+			 SELECT P.PackageName AS SourcePackage, trim(Dependency) AS TargetPackage
+			 FROM SysPackages P
+			 CROSS JOIN LATERAL regexp_split_to_table(COALESCE(P.Packages::text, ''), ';') Dependency
+			 WHERE trim(Dependency) <> ''
+			), package_dependencies(SourcePackage, TargetPackage) AS (
+			 SELECT SourcePackage, TargetPackage FROM package_edges
+			 UNION
+			 SELECT D.SourcePackage, E.TargetPackage
+			 FROM package_dependencies D
+			 JOIN package_edges E ON E.SourcePackage = D.TargetPackage
+			)
+			SELECT DISTINCT
+			 R.ID AS ObjectID,
+			 COALESCE(OwnerObject.Name, '#' || R.SeniorID::text) || ' --> ' || COALESCE(TargetObject.Name, '#' || R.ObjID::text) AS ObjectName,
+			 10 AS ClassID,
+			 'РефОбъект' AS ClassName,
+			 1320 AS AttributeID,
+			 'ObjID' AS AttributeName,
+			 R.ObjID AS ReferenceID,
+			 TargetObject.Name AS ReferenceName,
+			 SourcePackage.PackageName AS SourcePackage,
+			 TargetPackage.PackageName AS TargetPackage,
+			 SourceFile.FileName AS SourceFile,
+			 TargetFile.FileName AS RecommendedFile,
+			 COALESCE(ChangedUser.Name, Changed.ObjectChangeLastUser::text, '') AS ChangedBy
+			FROM Refs R
+			JOIN Abstract RelationObject ON RelationObject.ID = R.ID
+			LEFT JOIN Abstract OwnerObject ON OwnerObject.ID = R.SeniorID
+			JOIN Abstract TargetObject ON TargetObject.ID = R.ObjID
+			JOIN SysFile SourceFile ON SourceFile.ID = RelationObject.SysFile
+			JOIN SysGroups SourceGroup ON SourceGroup.ID = SourceFile.SysGroup
+			JOIN SysPackages SourcePackage ON SourcePackage.ID = SourceGroup.Package
+			JOIN SysFile TargetFile ON TargetFile.ID = TargetObject.SysFile
+			JOIN SysGroups TargetGroup ON TargetGroup.ID = TargetFile.SysGroup
+			JOIN SysPackages TargetPackage ON TargetPackage.ID = TargetGroup.Package
+			JOIN SysPackageBase Changed ON Changed.ObjectID = RelationObject.SysFile
+			LEFT JOIN Abstract ChangedUser ON ChangedUser.ID = Changed.ObjectChangeLastUser
+			WHERE Changed.ObjectChangeState IN (1, 2)
+			 AND SourcePackage.ID <> TargetPackage.ID
+			 AND NOT EXISTS (
+			  SELECT 1 FROM package_dependencies Allowed
+			  WHERE Allowed.SourcePackage = SourcePackage.PackageName
+			    AND Allowed.TargetPackage = TargetPackage.PackageName
+			 )
+			ORDER BY R.ID`,
+			source: 'Синхронизация пакетов: проверка пакетных границ',
+			database: options.database,
+		});
+		return result.rows.map(row => ({
+			objectId: Number(row.objectid),
+			objectName: row.objectname ?? `#${row.objectid}`,
+			classId: Number(row.classid),
+			className: row.classname ?? '',
+			attributeId: Number(row.attributeid),
+			attributeName: row.attributename ?? '',
+			referenceId: Number(row.referenceid),
+			referenceName: row.referencename ?? `#${row.referenceid}`,
+			sourcePackage: row.sourcepackage ?? '',
+			targetPackage: row.targetpackage ?? '',
+			sourceFile: row.sourcefile ?? '',
+			recommendedFile: row.recommendedfile ?? '',
+			changedBy: row.changedby === null ? '' : String(row.changedby),
+			message: `ID ${Number(row.objectid)} нарушает границу пакетов`,
+			type: 'package-boundary',
+		}));
+	} finally {
+		await client.end().catch(() => undefined);
+	}
 }
 
 export async function loadPackageSyncItems(): Promise<PackageSyncItem[]> {

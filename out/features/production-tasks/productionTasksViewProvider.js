@@ -86,6 +86,11 @@ class ProductionTasksPanelManager {
                 }
                 return;
             }
+            if (message.command === 'openProductionTaskInClient') {
+                const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/РаботаДокумент/${message.id}`);
+                void vscode.env.openExternal(uri);
+                return;
+            }
             if (message.command === 'importProductionSessionKey') {
                 void this.importSessionKey().then(imported => { if (imported) {
                     void this.refresh();

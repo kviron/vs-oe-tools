@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
-import { navigateToDatabaseObject, parseClipboardObjectId, type ClipboardObjectNavigationActions } from './clipboardObjectRouting';
+import { navigateToDatabaseObject, parseClipboardObjectId, type ClipboardNavigationTarget, type ClipboardObjectNavigationActions } from './clipboardObjectRouting';
 
 export function registerClipboardObjectNavigation(actions: ClipboardObjectNavigationActions): vscode.Disposable {
-	return vscode.commands.registerCommand('vc-ve-tools.openClipboardObject', async (requestedId?: number) => {
+	return vscode.commands.registerCommand('vc-ve-tools.openClipboardObject', async (requestedId?: number, requestedTarget?: ClipboardNavigationTarget) => {
 		const id = requestedId === undefined
 			? parseClipboardObjectId(await vscode.env.clipboard.readText())
 			: Number.isSafeInteger(requestedId) && requestedId > 0 ? requestedId : undefined;
+		const directTarget = requestedTarget === 'explorer' || requestedTarget === 'object' ? requestedTarget : undefined;
 		if (id === undefined) {
 			void vscode.window.showWarningMessage('В буфере обмена нет корректного положительного ID объекта.');
 			return;
@@ -18,16 +19,14 @@ export function registerClipboardObjectNavigation(actions: ClipboardObjectNaviga
 			if (!object) {
 				throw new Error(`Объект ID=${id} не найден.`);
 			}
-			const selected = await vscode.window.showQuickPick([
+			const target = directTarget ?? (await vscode.window.showQuickPick([
 				{ label: 'Показать в проводнике', description: explorerDescription(object.kind), target: 'explorer' as const },
 				{ label: 'Открыть объект', description: objectDescription(object.kind), target: 'object' as const },
 			], {
 				placeHolder: `${object.name || 'Объект'} · ID=${id}`,
 				title: 'Как открыть объект?',
-			});
-			if (selected) {
-				await navigateToDatabaseObject(object, selected.target, actions);
-			}
+			}))?.target;
+			if (target) { await navigateToDatabaseObject(object, target, actions); }
 		} catch (error) {
 			void vscode.window.showErrorMessage(`Не удалось открыть объект ID=${id}: ${error instanceof Error ? error.message : String(error)}`);
 		}

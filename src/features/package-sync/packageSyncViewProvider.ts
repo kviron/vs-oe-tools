@@ -5,14 +5,15 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { PackageSyncHostMessage } from '../../core/webviewProtocol';
 import { isPackageSyncWebviewMessage } from '../../core/webviewProtocol';
-import type { PackageSyncItem } from './models';
+import type { PackageSyncIssue, PackageSyncItem, PackageSyncSnapshot } from './models';
 
 export class PackageSyncPanelManager implements vscode.Disposable {
 	static readonly viewType = 'vc-ve-tools.packageSync';
 	private panel?: vscode.WebviewPanel;
 	private items: PackageSyncItem[] = [];
+	private issues: PackageSyncIssue[] = [];
 
-	constructor(private readonly extensionUri: vscode.Uri, private readonly loadItems: () => Promise<PackageSyncItem[]>) {}
+	constructor(private readonly extensionUri: vscode.Uri, private readonly loadSnapshot: () => Promise<PackageSyncSnapshot>) {}
 
 	show(): void {
 		if (this.panel) {
@@ -52,7 +53,7 @@ export class PackageSyncPanelManager implements vscode.Disposable {
 		try {
 			const fileName = await resolveExistingFile(item.localPath!);
 			item.localPath = fileName;
-			await this.post({ command: 'packageSyncLoaded', items: this.items });
+			await this.post({ command: 'packageSyncLoaded', items: this.items, issues: this.issues });
 			const generatedFileName = await findOriginalClientGeneratedFile(fileName);
 			await vscode.commands.executeCommand('vc-ve-tools.openGeneratedPackageDiff', fileName, generatedFileName);
 		} catch (error) {
@@ -63,8 +64,10 @@ export class PackageSyncPanelManager implements vscode.Disposable {
 	private async refresh(): Promise<void> {
 		await this.post({ command: 'packageSyncLoading' });
 		try {
-			this.items = await this.loadItems();
-			await this.post({ command: 'packageSyncLoaded', items: this.items });
+			const snapshot = await this.loadSnapshot();
+			this.items = snapshot.items;
+			this.issues = snapshot.issues;
+			await this.post({ command: 'packageSyncLoaded', ...snapshot });
 		} catch (error) {
 			await this.post({ command: 'packageSyncFailed', message: error instanceof Error ? error.message : String(error) });
 		}

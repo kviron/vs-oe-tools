@@ -38,7 +38,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.productionTaskSql = void 0;
 exports.productionTaskAttachmentsSql = productionTaskAttachmentsSql;
+exports.productionTaskHistorySql = productionTaskHistorySql;
 exports.loadProductionTaskAttachments = loadProductionTaskAttachments;
+exports.loadProductionTaskHistory = loadProductionTaskHistory;
 exports.loadProductionTasks = loadProductionTasks;
 exports.createLoginParameters = createLoginParameters;
 exports.normalizeProductionDate = normalizeProductionDate;
@@ -79,6 +81,9 @@ exports.productionTaskSql = `SELECT T0.ID AS id,
   COALESCE((SELECT CAST(R.ReleaseByDigits AS VARCHAR(64)) FROM URRelease R WHERE R.ID = T0.ReleaseFact), '') AS releaseactual,
   COALESCE(CAST(T0.Revision_ReleaseBefore AS VARCHAR(64)), '') AS revisiontrunk,
   COALESCE(CAST(T0.Revision_ReleaseFact AS VARCHAR(64)), '') AS revisionbranch,
+  COALESCE(CAST((SELECT COUNT(SF.ID) FROM StoredFiles SF
+    WHERE SF.SeniorID = T0.ID OR SF.RootObj = T0.ID OR SF.MainStoredFile IN
+      (SELECT PSF.ID FROM StoredFiles PSF WHERE PSF.SeniorID = T0.ID OR PSF.RootObj = T0.ID)) AS VARCHAR(64)), '0') AS attachmentcount,
   COALESCE(CAST(left(T0.Comment, 6000) AS VARCHAR(6000)), '') AS workdescription,
   COALESCE((SELECT CAST(left(H.Comment, 6000) AS VARCHAR(6000)) FROM HistoryLC H WHERE H.ID = T0.LCLastActionID), '') AS statecomment,
   COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
@@ -102,10 +107,34 @@ function productionTaskAttachmentsSql(taskId) {
   COALESCE(CAST(SF.FileSizeStr AS VARCHAR(64)), '') AS filesizestr,
   COALESCE(CAST(SF.FileSize AS VARCHAR(64)), '') AS filesize,
   COALESCE(CAST(DateToStrFmt(SF.ChangeDate, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS changed,
-  COALESCE(CAST(left(SF.Comment, 2000) AS VARCHAR(2000)), '') AS comment
+  COALESCE(CAST(left(SF.Comment, 2000) AS VARCHAR(2000)), '') AS comment,
+  COALESCE(CAST(SF.StorageFileID AS VARCHAR(2000)), '') AS storagefileid,
+  COALESCE(CAST(SF.StorageType AS VARCHAR(64)), '') AS storagetype,
+  COALESCE(SF.MainStoredFile, 0) AS mainstoredfile,
+  COALESCE(SF.Important, 0) AS important
 FROM StoredFiles SF
-WHERE SF.SeniorID = ${taskId}
+WHERE SF.SeniorID = ${taskId} OR SF.RootObj = ${taskId} OR SF.MainStoredFile IN
+  (SELECT PSF.ID FROM StoredFiles PSF WHERE PSF.SeniorID = ${taskId} OR PSF.RootObj = ${taskId})
 ORDER BY SF.Name, SF.ID
+LIMIT 250`;
+}
+function productionTaskHistorySql(taskId) {
+    if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+        throw new Error('ID задачи для загрузки истории должен быть положительным целым числом.');
+    }
+    return `SELECT H.ID AS id,
+  COALESCE(CAST(DateToStrFmt(H.CreDate, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS created,
+  COALESCE(CAST(A.FName AS VARCHAR(1000)), '') AS action,
+  COALESCE(CAST(S.FName AS VARCHAR(1000)), '') AS state,
+  COALESCE(CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)), '') AS person,
+  COALESCE(CAST(left(H.Comment, 6000) AS VARCHAR(6000)), '') AS comment
+FROM HistoryLC H
+LEFT JOIN ActionLC A ON A.ID = H.ActionID
+LEFT JOIN StateLC S ON S.ID = H.EndState
+LEFT JOIN Persons P ON P.ID = H.Person
+WHERE H.SeniorID = ${taskId}
+ORDER BY H.CreDate DESC, H.ID DESC
 LIMIT 250`;
 }
 async function loadProductionTaskAttachments(options, taskId, logger) {
@@ -141,9 +170,56 @@ async function loadProductionTaskAttachments(options, taskId, logger) {
             size: text(row.filesizestr) || text(row.filesize),
             changedAt: normalizeProductionDate(text(row.changed)),
             comment: text(row.comment),
+            storageFileId: text(row.storagefileid),
+            storageType: text(row.storagetype),
+            mainStoredFileId: positiveInteger(row.mainstoredfile),
+            important: Number(row.important) !== 0,
         }));
         logger?.info('Вложения задачи успешно загружены.', { taskId, count: attachments.length, elapsedMs: Date.now() - startedAt });
         return attachments;
+    }
+    catch (error) {
+        logger?.error(`Ошибка на этапе «${stage}».`, { taskId, ...errorDetails(error), elapsedMs: Date.now() - startedAt });
+        throw error;
+    }
+    finally {
+        connection.dispose();
+    }
+}
+async function loadProductionTaskHistory(options, taskId, logger) {
+    const connection = new OenpConnection(options.host, options.port);
+    const startedAt = Date.now();
+    let stage = 'подключение для загрузки истории';
+    logger?.info('Начата загрузка истории задачи.', { taskId });
+    try {
+        await connection.connect();
+        stage = 'регистрация клиентской сессии для истории';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createInitialPacket)(options.clientSessionKey), stage, logger);
+        stage = 'проверка версии клиента для истории';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createClientVersionPacket)(2), stage, logger);
+        stage = 'инициализация протокола для истории';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createProtocolInitPacket)(3), stage, logger);
+        stage = 'выбор базы для истории';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createDatabaseProbePacket)(4), stage, logger);
+        stage = 'готовность клиента для истории';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createClientReadyPacket)(5), stage, logger);
+        stage = 'получение challenge для истории';
+        const challenge = (0, oenpProtocol_1.parseChallenge)(await exchangeLogged(connection, (0, oenpProtocol_1.createChallengePacket)(6), stage, logger, false));
+        const authCompatibility = inspectAuthorizationCompatibility(options);
+        stage = 'авторизация для истории';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createLoginPacket)(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
+        stage = 'запрос истории задачи';
+        const response = await exchangeLogged(connection, (0, oenpProtocol_1.createReadonlyQueryPacket)(8, productionTaskHistorySql(taskId), options.personId), stage, logger);
+        const history = (0, oenpProtocol_1.parseMemoryDataPacket)(response).map(row => ({
+            id: Number(row.id) >>> 0,
+            createdAt: normalizeProductionDate(text(row.created)),
+            action: text(row.action),
+            state: text(row.state),
+            person: text(row.person),
+            comment: text(row.comment),
+        }));
+        logger?.info('История задачи успешно загружена.', { taskId, count: history.length, elapsedMs: Date.now() - startedAt });
+        return history;
     }
     catch (error) {
         logger?.error(`Ошибка на этапе «${stage}».`, { taskId, ...errorDetails(error), elapsedMs: Date.now() - startedAt });
@@ -195,6 +271,7 @@ async function loadProductionTasks(options, logger) {
             author: text(row.author), manager: text(row.manager), analyst: text(row.analyst), executor: text(row.executor), reviewer: text(row.reviewer),
             appeal: text(row.appeal), packageName: text(row.packagename), newsSection: text(row.newssection), priority: text(row.priority), effort: text(row.effort),
             releasePlan: text(row.releaseplan), releaseActual: text(row.releaseactual), revisionTrunk: text(row.revisiontrunk), revisionBranch: text(row.revisionbranch),
+            attachmentCount: Math.max(0, Number(row.attachmentcount) || 0),
             workDescription: text(row.workdescription), stateComment: text(row.statecomment), stateCommentAuthor: text(row.statecommentauthor),
         }));
         logger?.info('Задачи успешно загружены.', { count: tasks.length, elapsedMs: Date.now() - startedAt });
@@ -291,6 +368,10 @@ function deriveAuthorizationHashes(username, password, challenge, mode) {
     };
 }
 function text(value) { return value === null || value === undefined ? '' : String(value); }
+function positiveInteger(value) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
 function normalizeProductionDate(value) { return /^30\.12\.1899(?:\s+00:00(?::00)?)?$/.test(value.trim()) ? '' : value; }
 class OenpConnection {
     host;

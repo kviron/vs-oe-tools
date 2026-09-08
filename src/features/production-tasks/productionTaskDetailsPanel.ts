@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import type { ProductionTaskDetailsHostMessage } from '../../core/webviewProtocol';
 import { isProductionTaskDetailsWebviewMessage } from '../../core/webviewProtocol';
 import type { DatabaseObjectSearchResult } from '../../core/objectSearch';
-import type { ProductionTaskAttachment, ProductionTaskSummary } from './models';
+import type { ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from './models';
 
 const panels = new Map<number, vscode.WebviewPanel>();
 
@@ -11,6 +11,7 @@ export function openProductionTaskDetails(
 	task: ProductionTaskSummary,
 	findObjectById: (id: number) => Promise<DatabaseObjectSearchResult | undefined>,
 	loadAttachments: () => Promise<ProductionTaskAttachment[]>,
+	loadHistory: () => Promise<ProductionTaskHistoryEntry[]>,
 ): void {
 	const existing = panels.get(task.id);
 	if (existing) { existing.reveal(vscode.ViewColumn.Active); return; }
@@ -19,6 +20,7 @@ export function openProductionTaskDetails(
 		enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
 	});
 	panels.set(task.id, panel);
+	const attachments = new Map<number, ProductionTaskAttachment>();
 	panel.webview.html = shell(panel.webview, assetsRoot);
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (!isProductionTaskDetailsWebviewMessage(message)) { return; }
@@ -34,8 +36,10 @@ export function openProductionTaskDetails(
 		if (message.command === 'loadProductionTaskAttachments') {
 			await panel.webview.postMessage({ command: 'productionTaskAttachmentsLoading' } satisfies ProductionTaskDetailsHostMessage);
 			try {
-				const attachments = await loadAttachments();
-				await panel.webview.postMessage({ command: 'productionTaskAttachmentsLoaded', attachments } satisfies ProductionTaskDetailsHostMessage);
+				const loaded = await loadAttachments();
+				attachments.clear();
+				for (const attachment of loaded) { attachments.set(attachment.id, attachment); }
+				await panel.webview.postMessage({ command: 'productionTaskAttachmentsLoaded', attachments: loaded } satisfies ProductionTaskDetailsHostMessage);
 			} catch (error) {
 				await panel.webview.postMessage({
 					command: 'productionTaskAttachmentsFailed',
@@ -44,8 +48,33 @@ export function openProductionTaskDetails(
 			}
 			return;
 		}
+		if (message.command === 'loadProductionTaskHistory') {
+			await panel.webview.postMessage({ command: 'productionTaskHistoryLoading' } satisfies ProductionTaskDetailsHostMessage);
+			try {
+				const history = await loadHistory();
+				await panel.webview.postMessage({ command: 'productionTaskHistoryLoaded', history } satisfies ProductionTaskDetailsHostMessage);
+			} catch (error) {
+				await panel.webview.postMessage({
+					command: 'productionTaskHistoryFailed',
+					message: error instanceof Error ? error.message : String(error),
+				} satisfies ProductionTaskDetailsHostMessage);
+			}
+			return;
+		}
+		if (message.command === 'productionTaskAttachmentAction') {
+			const attachment = attachments.get(message.id);
+			if (attachment) {
+				try { await performAttachmentAction(attachment, message.action); }
+				catch (error) { void vscode.window.showErrorMessage(`Не удалось обработать вложение ${message.id}: ${error instanceof Error ? error.message : String(error)}`); }
+			}
+			return;
+		}
+		if (message.command === 'openExternalUrl') {
+			await vscode.env.openExternal(vscode.Uri.parse(message.url));
+			return;
+		}
 		if (message.command === 'openDatabaseObjectById') {
-			await vscode.commands.executeCommand('vc-ve-tools.openClipboardObject', message.id);
+			await vscode.commands.executeCommand('vc-ve-tools.openClipboardObject', message.id, message.target);
 			return;
 		}
 		if (message.command === 'loadDatabaseObjectPreview') {
@@ -64,6 +93,48 @@ export function openProductionTaskDetails(
 		if (!await vscode.env.openExternal(uri)) { void vscode.window.showErrorMessage(`Не удалось открыть задачу ${message.id} в клиенте.`); }
 	});
 	panel.onDidDispose(() => panels.delete(task.id));
+}
+
+async function performAttachmentAction(attachment: ProductionTaskAttachment, action: 'open' | 'preview' | 'save' | 'reveal'): Promise<void> {
+	const source = await resolveAttachmentUri(attachment);
+	if (!source) {
+		const selection = await vscode.window.showInformationMessage(
+			`Файл «${attachment.fileName || attachment.name}» хранится во внутреннем хранилище Восточного Экспресса.`,
+			'Открыть вложение в клиенте',
+		);
+		if (selection === 'Открыть вложение в клиенте') { await openAttachmentInClient(attachment.id); }
+		return;
+	}
+	if (action === 'save') {
+		const destination = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(attachment.fileName || attachment.name || `attachment-${attachment.id}`) });
+		if (destination) { await vscode.workspace.fs.copy(source, destination, { overwrite: true }); }
+		return;
+	}
+	if (action === 'reveal') {
+		await vscode.commands.executeCommand('revealFileInOS', source);
+		return;
+	}
+	if (action === 'preview') {
+		await vscode.commands.executeCommand('vscode.open', source, { preview: true });
+		return;
+	}
+	if (!await vscode.env.openExternal(source)) { void vscode.window.showErrorMessage(`Не удалось открыть вложение ${attachment.id}.`); }
+}
+
+async function resolveAttachmentUri(attachment: ProductionTaskAttachment): Promise<vscode.Uri | undefined> {
+	const value = attachment.storageFileId.trim();
+	if (!value || /^\d+$/.test(value)) { return undefined; }
+	const isWindowsPath = /^[a-z]:[\\/]/i.test(value) || /^\\\\/.test(value);
+	const uri = isWindowsPath || !/^[a-z][a-z\d+.-]*:/i.test(value) ? vscode.Uri.file(value) : vscode.Uri.parse(value);
+	try {
+		const stat = await vscode.workspace.fs.stat(uri);
+		return stat.type === vscode.FileType.File ? uri : undefined;
+	} catch { return undefined; }
+}
+
+async function openAttachmentInClient(id: number): Promise<void> {
+	const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/StoredFiles/${id}`);
+	if (!await vscode.env.openExternal(uri)) { void vscode.window.showErrorMessage(`Не удалось открыть вложение ${id} в клиенте.`); }
 }
 
 export function closeProductionTaskDetailsPanels(): void {

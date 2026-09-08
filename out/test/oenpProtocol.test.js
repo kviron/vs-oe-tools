@@ -56,13 +56,25 @@ suite('OENP protocol', () => {
         assert.match(productionTasksRepository_1.productionTaskSql, /DateToStrFmt\(T0\.Deadline, 'dd\.mm\.yyyy hh:mm:ss'\)/);
         assert.match(productionTasksRepository_1.productionTaskSql, /FROM StructureActivity SA WHERE SA\.ID = T0\.KindActivity/);
         assert.match(productionTasksRepository_1.productionTaskSql, /FROM HistoryLC H WHERE H\.ID = T0\.LCLastActionID/);
+        assert.match(productionTasksRepository_1.productionTaskSql, /CAST\(\(SELECT COUNT\(SF\.ID\)[\s\S]+AS VARCHAR\(64\)\), '0'\) AS attachmentcount/);
     });
     test('builds a bounded attachment query for the exact task', () => {
         const sql = (0, productionTasksRepository_1.productionTaskAttachmentsSql)(85008);
         assert.match(sql, /FROM StoredFiles SF/);
         assert.match(sql, /WHERE SF\.SeniorID = 85008/);
+        assert.match(sql, /SF\.RootObj = 85008/);
+        assert.match(sql, /SF\.MainStoredFile IN/);
         assert.match(sql, /LIMIT 250$/);
         assert.throws(() => (0, productionTasksRepository_1.productionTaskAttachmentsSql)(0), /положительным целым/);
+    });
+    test('builds a bounded read-only lifecycle history query', () => {
+        const sql = (0, productionTasksRepository_1.productionTaskHistorySql)(934593105);
+        assert.match(sql, /FROM HistoryLC H/);
+        assert.match(sql, /LEFT JOIN ActionLC A ON A\.ID = H\.ActionID/);
+        assert.match(sql, /LEFT JOIN StateLC S ON S\.ID = H\.EndState/);
+        assert.match(sql, /WHERE H\.SeniorID = 934593105/);
+        assert.match(sql, /LIMIT 250$/);
+        assert.throws(() => (0, productionTasksRepository_1.productionTaskHistorySql)(-1), /положительным целым/);
     });
     test('hides the zero Delphi date', () => {
         assert.equal((0, productionTasksRepository_1.normalizeProductionDate)('30.12.1899 00:00'), '');

@@ -35,6 +35,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("node:assert"));
 const methodHistoryParsing_1 = require("../infrastructure/database/methodHistoryParsing");
+const changeValuesSerialization_1 = require("../infrastructure/database/changeValuesSerialization");
+const methodSignature_1 = require("../infrastructure/database/methodSignature");
 suite('Method history parser', () => {
     test('reads quoted code with doubled quotes', () => {
         assert.strictEqual((0, methodHistoryParsing_1.extractCodeFromChangeValues)('127,"Message(""OK"")",102,42'), 'Message("OK")');
@@ -45,6 +47,22 @@ suite('Method history parser', () => {
     test('reads legacy unquoted and empty values', () => {
         assert.strictEqual((0, methodHistoryParsing_1.extractCodeFromChangeValues)('127,begin end,102,42'), 'begin end');
         assert.strictEqual((0, methodHistoryParsing_1.extractCodeFromChangeValues)('127,,102,42'), '');
+    });
+    test('serializes the native method audit contract including signature', () => {
+        const value = (0, changeValuesSerialization_1.serializeChangeValues)('proc (AObj: Абстракт);\r\nbegin\r\nend;', 3200139, '(AObj: Абстракт)');
+        assert.strictEqual(value, '69,"(AObj: Абстракт)",127,"proc (AObj: Абстракт);\r\nbegin\r\nend;",102,3200139');
+        assert.strictEqual((0, methodHistoryParsing_1.extractCodeFromChangeValues)(value), 'proc (AObj: Абстракт);\r\nbegin\r\nend;');
+    });
+    test('extracts procedure and function signatures from anonymous wrappers', () => {
+        assert.strictEqual((0, methodSignature_1.extractMethodSignature)('proc (AObj: Абстракт);\r\nbegin\r\nend;'), '(AObj: Абстракт)');
+        assert.strictEqual((0, methodSignature_1.extractMethodSignature)('function(var OutParam: Boolean;\r\n  ToRaise: Boolean = false): Boolean;\r\nvar\r\n  x: Integer;'), '(var OutParam: Boolean; ToRaise: Boolean = false): Boolean');
+        assert.strictEqual((0, methodSignature_1.extractMethodSignature)('procedure\r\nbegin\r\nend;'), '()');
+    });
+    test('preserves canonical signature until the declaration changes', () => {
+        const oldCode = 'function(id: Roid): String;\r\nbegin\r\n  Result := "old";\r\nend;';
+        const bodyOnlyChange = 'function(id: Roid): String;\r\nbegin\r\n  Result := "new";\r\nend;';
+        assert.strictEqual((0, methodSignature_1.resolveMethodSignature)(oldCode, bodyOnlyChange, '(id: Integer): string'), '(id: Integer): string');
+        assert.strictEqual((0, methodSignature_1.resolveMethodSignature)(oldCode, 'function(id: Roid; strict: Boolean): String;\r\nbegin\r\nend;', '(id: Integer): string'), '(id: Roid; strict: Boolean): String');
     });
 });
 //# sourceMappingURL=methodHistoryRepository.test.js.map

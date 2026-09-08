@@ -76,6 +76,7 @@ const productionTasksRepository_1 = require("../features/production-tasks/produc
 const productionTaskDetailsPanel_1 = require("../features/production-tasks/productionTaskDetailsPanel");
 const oenpProtocol_1 = require("../features/production-tasks/oenpProtocol");
 const spuEditorPanel_1 = require("../features/spu/spuEditorPanel");
+const attributeRepository_1 = require("../infrastructure/database/attributeRepository");
 async function activate(context) {
     const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
     await sqlMonitorService_1.sqlMonitorService.initialize(sqlMonitorHistoryPath);
@@ -179,7 +180,7 @@ async function activate(context) {
         error: (message, details) => extensionLogger.error('Production Tasks', message, details),
     };
     const findDatabaseObjectById = async (id) => (await (0, objectSearchRepository_1.searchDatabaseObjects)(String(id), 1))[0];
-    const productionTasksProvider = new productionTasksViewProvider_1.ProductionTasksPanelManager(context.extensionUri, getProductionConnectionOptions, task => (0, productionTaskDetailsPanel_1.openProductionTaskDetails)(context, task, findDatabaseObjectById, async () => (0, productionTasksRepository_1.loadProductionTaskAttachments)(await getProductionConnectionOptions(), task.id, productionTasksLogger)), async () => {
+    const productionTasksProvider = new productionTasksViewProvider_1.ProductionTasksPanelManager(context.extensionUri, getProductionConnectionOptions, task => (0, productionTaskDetailsPanel_1.openProductionTaskDetails)(context, task, findDatabaseObjectById, async () => (0, productionTasksRepository_1.loadProductionTaskAttachments)(await getProductionConnectionOptions(), task.id, productionTasksLogger), async () => (0, productionTasksRepository_1.loadProductionTaskHistory)(await getProductionConnectionOptions(), task.id, productionTasksLogger)), async () => {
         const selected = await vscode.window.showOpenDialog({
             canSelectFiles: true, canSelectFolders: false, canSelectMany: true,
             defaultUri: workspacePath ? vscode.Uri.file(workspacePath) : undefined,
@@ -272,6 +273,17 @@ async function activate(context) {
         openMethod: id => methodEditor.open(id),
         revealMethod: (classId, methodId) => (0, classDetailsPanelManager_1.revealClassMethod)(context, methodEditor, classId, methodId),
         updateMethodSource: async (methodId, code) => methodEditor.save(methodId, code),
+        createClassMethod: async (draft) => {
+            const created = await methodEditor.create(draft);
+            await explorerProvider.revealClass(created.ownerClassId);
+            return { methodId: created.id, ownerClassId: created.ownerClassId, name: created.name };
+        },
+        createClassAttribute: async (draft) => {
+            const created = await (0, attributeRepository_1.createClassAttribute)(draft);
+            await explorerProvider.revealClass(created.ownerClassId);
+            await (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, created.id);
+            return { attributeId: created.id, ownerClassId: created.ownerClassId, name: created.name };
+        },
         getSvnFileHistory: async (filePath, limit) => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
@@ -348,7 +360,7 @@ async function activate(context) {
         : vscode.Uri.joinPath(context.globalStorageUri, 'navigation-bridge.json').fsPath);
     const databaseMcpServerRegistration = (0, registerMcpServer_1.registerDatabaseMcpServer)(context, extensionLogger.logUri.fsPath, navigationBridge, databaseSelectionPath, sqlMonitorHistoryPath);
     const agentSkillInstaller = (0, agentSkillInstaller_1.registerAgentSkillInstaller)(context);
-    const packageSyncProvider = new packageSyncViewProvider_1.PackageSyncPanelManager(context.extensionUri, packageSyncRepository_1.loadPackageSyncItems);
+    const packageSyncProvider = new packageSyncViewProvider_1.PackageSyncPanelManager(context.extensionUri, packageSyncRepository_1.loadPackageSyncSnapshot);
     const openPackageSyncCommand = vscode.commands.registerCommand('vc-ve-tools.openPackageSync', () => packageSyncProvider.show());
     (0, methodLanguageFeatures_1.registerMethodLanguageFeatures)(context, methodEditor, async (id) => {
         await explorerProvider.revealClass(id);

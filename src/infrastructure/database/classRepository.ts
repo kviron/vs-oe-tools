@@ -311,7 +311,7 @@ export async function getClassAttributeDetails(attributeId: number): Promise<Att
 			throw new Error('В таблице атрибутов не найдена ссылка на класс.');
 		}
 		const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
-		const typeJoin = table.columns.includes('attrtype') ? 'LEFT JOIN classes AS attribute_type ON attribute_type.id = attribute.attrtype' : '';
+		const typeJoin = table.columns.includes('attrtype') ? 'LEFT JOIN attrtypes AS attribute_type ON attribute_type.id = attribute.attrtype' : '';
 		const typeColumn = table.columns.includes('attrtype') ? ', attribute_type.name AS attributetypename' : ", ''::text AS attributetypename";
 		const result = await executeMonitoredQuery<{ data: Record<string, unknown>; ownerclassid: string; ownerclassname: string; attributetypename: string }, [number]>(client, {
 			text: `SELECT to_jsonb(attribute) AS data, owner.id AS ownerclassid, owner.name AS ownerclassname${typeColumn}

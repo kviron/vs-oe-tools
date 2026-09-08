@@ -32,7 +32,7 @@ export function registerDatabaseMcpServer(context: vscode.ExtensionContext, logs
 					'--navigation-info', navigation.infoPath,
 				],
 				{},
-				'0.19.0',
+				'0.21.0',
 			);
 			server.cwd = workspaceFolder.uri;
 			return [server];

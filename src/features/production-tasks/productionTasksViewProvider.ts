@@ -34,6 +34,11 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 			if (message.command === 'copyTableCells') { void vscode.env.clipboard.writeText(message.text); return; }
 			if (message.command === 'tableSelectionDebug') { return; }
 			if (message.command === 'openProductionTask') { const task = this.tasks.get(message.id); if (task) { this.openTask(task); } return; }
+			if (message.command === 'openProductionTaskInClient') {
+				const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/РаботаДокумент/${message.id}`);
+				void vscode.env.openExternal(uri);
+				return;
+			}
 			if (message.command === 'importProductionSessionKey') { void this.importSessionKey().then(imported => { if (imported) { void this.refresh(); } }); return; }
 			if (message.command === 'setProductionTasksPassword') { void this.setPassword().then(changed => { if (changed) { void this.refresh(); } }); return; }
 			if (message.command === 'openProductionTasksLog') { this.openLog(); return; }

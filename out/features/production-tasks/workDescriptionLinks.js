@@ -1,13 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.splitWorkDescriptionObjectIds = splitWorkDescriptionObjectIds;
-const objectIdPattern = /\b[1-9]\d{6,}\b/g;
+const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{6,}\b/g;
 function splitWorkDescriptionObjectIds(value) {
     const parts = [];
     let offset = 0;
-    for (const match of value.matchAll(objectIdPattern)) {
+    for (const match of value.matchAll(linkPattern)) {
         const matchOffset = match.index;
         const text = match[0];
+        if (/^https?:\/\//i.test(text)) {
+            if (matchOffset > offset) {
+                parts.push({ text: value.slice(offset, matchOffset) });
+            }
+            parts.push({ text, href: text });
+            offset = matchOffset + text.length;
+            continue;
+        }
         const id = Number(text);
         if (!Number.isSafeInteger(id)) {
             continue;
@@ -15,7 +23,8 @@ function splitWorkDescriptionObjectIds(value) {
         if (matchOffset > offset) {
             parts.push({ text: value.slice(offset, matchOffset) });
         }
-        parts.push({ text, id });
+        const prefix = value.slice(Math.max(0, matchOffset - 40), matchOffset);
+        parts.push({ text, id, kind: /задач\p{L}*\s*(?:№|#|id)?\s*$/ui.test(prefix) ? 'task' : 'object' });
         offset = matchOffset + text.length;
     }
     if (offset < value.length || parts.length === 0) {

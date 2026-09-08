@@ -69,6 +69,16 @@ async function handleRequest(request, response, token, actions) {
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
+        else if (input.action === 'create_class_attribute') {
+            const result = await actions.createClassAttribute(input.draft);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else if (input.action === 'create_class_method') {
+            const result = await actions.createClassMethod(input.draft);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
         else if (input.action === 'get_svn_file_history') {
             const result = await actions.getSvnFileHistory(input.filePath, input.limit);
             respond(response, 200, { ok: true, action: input.action, ...result });
@@ -148,12 +158,13 @@ function validateRequest(value) {
         && action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
         && action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
         && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
-        && action !== 'update_packages' && action !== 'update_binaries') {
+        && action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method') {
         throw new Error('Unknown navigation action.');
     }
     if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
         && action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
         && action !== 'update_packages' && action !== 'update_binaries'
+        && action !== 'create_class_attribute' && action !== 'create_class_method'
         && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
         throw new Error('Navigation ID must be a positive integer.');
     }
@@ -164,6 +175,13 @@ function validateRequest(value) {
     const code = value.code;
     if (action === 'update_method_source' && typeof code !== 'string') {
         throw new Error('Method code must be a string for update_method_source.');
+    }
+    const draft = value.draft;
+    if (action === 'create_class_attribute' && (!draft || typeof draft !== 'object')) {
+        throw new Error('draft is required for create_class_attribute.');
+    }
+    if (action === 'create_class_method' && (!draft || typeof draft !== 'object')) {
+        throw new Error('draft is required for create_class_method.');
     }
     const filePath = value.filePath;
     const limit = value.limit;
@@ -198,7 +216,7 @@ function validateRequest(value) {
     if (action === 'open_client_entity' && (typeof entityType !== 'string' || !entityType.trim())) {
         throw new Error('entityType is required for open_client_entity.');
     }
-    return { action, id, classId, code, filePath, limit, query, offset, role, entityType };
+    return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft };
 }
 function respond(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });

@@ -25,17 +25,30 @@ function isProductionTasksWebviewMessage(message) {
         || message.command === 'openProductionTasksLog'
         || (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
         || (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
-        || (message.command === 'openProductionTask' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
+        || ((message.command === 'openProductionTask' || message.command === 'openProductionTaskInClient')
+            && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0);
 }
 function isProductionTaskDetailsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
     }
+    if (message.command === 'openDatabaseObjectById') {
+        return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0
+            && (!('target' in message) || message.target === 'explorer' || message.target === 'object');
+    }
+    if (message.command === 'productionTaskAttachmentAction') {
+        return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0
+            && 'action' in message && (message.action === 'open' || message.action === 'preview' || message.action === 'save' || message.action === 'reveal');
+    }
+    if (message.command === 'openExternalUrl') {
+        return 'url' in message && typeof message.url === 'string' && /^https?:\/\//i.test(message.url);
+    }
     return message.command === 'productionTaskDetailsReady'
         || message.command === 'loadProductionTaskAttachments'
+        || message.command === 'loadProductionTaskHistory'
         || (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
         || (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
-        || ((message.command === 'openProductionTaskInClient' || message.command === 'openDatabaseObjectById' || message.command === 'loadDatabaseObjectPreview')
+        || ((message.command === 'openProductionTaskInClient' || message.command === 'openProductionTaskReference' || message.command === 'loadDatabaseObjectPreview')
             && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0);
 }
 function isSettingsWebviewMessage(message) {
@@ -109,6 +122,9 @@ function isClassDetailsWebviewMessage(message) {
     if (message.command === 'loadClassAttributes') {
         return 'includeInherited' in message && typeof message.includeInherited === 'boolean';
     }
+    if (message.command === 'createAttribute' || message.command === 'createMethod') {
+        return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId) && message.classId > 0;
+    }
     if (message.command === 'openMethod' || message.command === 'openAttribute' || message.command === 'openProperty') {
         return 'id' in message && typeof message.id === 'number';
     }
@@ -136,7 +152,13 @@ function isClassDetailsWebviewMessage(message) {
         && typeof message.includeInherited === 'boolean';
 }
 function isAttributeDetailsWebviewMessage(message) {
-    return typeof message === 'object' && message !== null && 'command' in message && message.command === 'attributeDetailsReady';
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    if (message.command === 'attributeDetailsReady') {
+        return true;
+    }
+    return message.command === 'createClassAttribute' && 'draft' in message && typeof message.draft === 'object' && message.draft !== null;
 }
 function isPropertyDetailsWebviewMessage(message) {
     return typeof message === 'object' && message !== null && 'command' in message && message.command === 'propertyDetailsReady';

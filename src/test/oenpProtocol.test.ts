@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { createInitialPacket, createReadonlyQueryPacket, expectedPacketLength, extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId, parseChallenge, parseMemoryDataPacket } from '../features/production-tasks/oenpProtocol';
-import { createLoginParameters, normalizeProductionDate, productionTaskAttachmentsSql, productionTaskSql } from '../features/production-tasks/productionTasksRepository';
+import { createLoginParameters, normalizeProductionDate, productionTaskAttachmentsSql, productionTaskHistorySql, productionTaskSql } from '../features/production-tasks/productionTasksRepository';
 
 suite('OENP protocol', () => {
 	test('builds a framed read-only query', () => {
@@ -23,14 +23,27 @@ suite('OENP protocol', () => {
 		assert.match(productionTaskSql, /DateToStrFmt\(T0\.Deadline, 'dd\.mm\.yyyy hh:mm:ss'\)/);
 		assert.match(productionTaskSql, /FROM StructureActivity SA WHERE SA\.ID = T0\.KindActivity/);
 		assert.match(productionTaskSql, /FROM HistoryLC H WHERE H\.ID = T0\.LCLastActionID/);
+		assert.match(productionTaskSql, /CAST\(\(SELECT COUNT\(SF\.ID\)[\s\S]+AS VARCHAR\(64\)\), '0'\) AS attachmentcount/);
 	});
 
 	test('builds a bounded attachment query for the exact task', () => {
 		const sql = productionTaskAttachmentsSql(85008);
 		assert.match(sql, /FROM StoredFiles SF/);
 		assert.match(sql, /WHERE SF\.SeniorID = 85008/);
+		assert.match(sql, /SF\.RootObj = 85008/);
+		assert.match(sql, /SF\.MainStoredFile IN/);
 		assert.match(sql, /LIMIT 250$/);
 		assert.throws(() => productionTaskAttachmentsSql(0), /положительным целым/);
+	});
+
+	test('builds a bounded read-only lifecycle history query', () => {
+		const sql = productionTaskHistorySql(934593105);
+		assert.match(sql, /FROM HistoryLC H/);
+		assert.match(sql, /LEFT JOIN ActionLC A ON A\.ID = H\.ActionID/);
+		assert.match(sql, /LEFT JOIN StateLC S ON S\.ID = H\.EndState/);
+		assert.match(sql, /WHERE H\.SeniorID = 934593105/);
+		assert.match(sql, /LIMIT 250$/);
+		assert.throws(() => productionTaskHistorySql(-1), /положительным целым/);
 	});
 
 	test('hides the zero Delphi date', () => {

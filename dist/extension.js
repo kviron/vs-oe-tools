@@ -812,11 +812,11 @@ var require_binaryParsers = __commonJS({
         var array = [];
         var i2;
         if (dimension.length > 1) {
-          var count = dimension.shift();
-          for (i2 = 0; i2 < count; i2++) {
+          var count2 = dimension.shift();
+          for (i2 = 0; i2 < count2; i2++) {
             array[i2] = parse2(dimension, elementType2);
           }
-          dimension.unshift(count);
+          dimension.unshift(count2);
         } else {
           for (i2 = 0; i2 < dimension[0]; i2++) {
             array[i2] = parseElement(elementType2);
@@ -5457,7 +5457,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv17) {
+    function InternalCodec(codecOptions, iconv19) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5469,7 +5469,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv17.defaultCharUnicode;
+          this.defaultCharUnicode = iconv19.defaultCharUnicode;
         }
       }
     }
@@ -5626,8 +5626,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv17) {
-      this.iconv = iconv17;
+    function Utf32Codec(codecOptions, iconv19) {
+      this.iconv = iconv19;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5755,8 +5755,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv17) {
-      this.iconv = iconv17;
+    function Utf32AutoCodec(options, iconv19) {
+      this.iconv = iconv19;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5906,8 +5906,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv17) {
-      this.iconv = iconv17;
+    function Utf16Codec(codecOptions, iconv19) {
+      this.iconv = iconv19;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6005,8 +6005,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv17) {
-      this.iconv = iconv17;
+    function Utf7Codec(codecOptions, iconv19) {
+      this.iconv = iconv19;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6088,8 +6088,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv17) {
-      this.iconv = iconv17;
+    function Utf7IMAPCodec(codecOptions, iconv19) {
+      this.iconv = iconv19;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6222,7 +6222,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv17) {
+    function SBCSCodec(codecOptions, iconv19) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6237,7 +6237,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv17.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv19.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6904,7 +6904,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv17) {
+    function DBCSCodec(codecOptions, iconv19) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6953,7 +6953,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv17.defaultCharUnicode;
+      this.defaultCharUnicode = iconv19.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6977,7 +6977,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv17.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv19.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8975,14 +8975,14 @@ var require_lib3 = __commonJS({
     module2.exports.encodings = null;
     module2.exports.defaultCharUnicode = "\uFFFD";
     module2.exports.defaultCharSingleByte = "?";
-    module2.exports.encode = function encode8(str, encoding, options) {
+    module2.exports.encode = function encode10(str, encoding, options) {
       str = "" + (str || "");
       var encoder = module2.exports.getEncoder(encoding, options);
       var res = encoder.write(str);
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode15(buf, encoding, options) {
+    module2.exports.decode = function decode17(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -9748,7 +9748,7 @@ async function getClassAttributeDetails(attributeId) {
       throw new Error("\u0412 \u0442\u0430\u0431\u043B\u0438\u0446\u0435 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0441\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u043A\u043B\u0430\u0441\u0441.");
     }
     const source = `${quoteIdentifier(table.table_schema)}.${quoteIdentifier(table.table_name)}`;
-    const typeJoin = table.columns.includes("attrtype") ? "LEFT JOIN classes AS attribute_type ON attribute_type.id = attribute.attrtype" : "";
+    const typeJoin = table.columns.includes("attrtype") ? "LEFT JOIN attrtypes AS attribute_type ON attribute_type.id = attribute.attrtype" : "";
     const typeColumn = table.columns.includes("attrtype") ? ", attribute_type.name AS attributetypename" : ", ''::text AS attributetypename";
     const result = await executeMonitoredQuery(client, {
       text: `SELECT to_jsonb(attribute) AS data, owner.id AS ownerclassid, owner.name AS ownerclassname${typeColumn}
@@ -10064,13 +10064,22 @@ function isProductionTasksWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
     return false;
   }
-  return message.command === "productionTasksReady" || message.command === "refreshProductionTasks" || message.command === "importProductionSessionKey" || message.command === "setProductionTasksPassword" || message.command === "openProductionTasksLog" || message.command === "copyTableCells" && "text" in message && typeof message.text === "string" || message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string" || message.command === "openProductionTask" && "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id);
+  return message.command === "productionTasksReady" || message.command === "refreshProductionTasks" || message.command === "importProductionSessionKey" || message.command === "setProductionTasksPassword" || message.command === "openProductionTasksLog" || message.command === "copyTableCells" && "text" in message && typeof message.text === "string" || message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string" || (message.command === "openProductionTask" || message.command === "openProductionTaskInClient") && "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id) && message.id > 0;
 }
 function isProductionTaskDetailsWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
     return false;
   }
-  return message.command === "productionTaskDetailsReady" || message.command === "loadProductionTaskAttachments" || message.command === "copyTableCells" && "text" in message && typeof message.text === "string" || message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string" || (message.command === "openProductionTaskInClient" || message.command === "openDatabaseObjectById" || message.command === "loadDatabaseObjectPreview") && "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id) && message.id > 0;
+  if (message.command === "openDatabaseObjectById") {
+    return "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id) && message.id > 0 && (!("target" in message) || message.target === "explorer" || message.target === "object");
+  }
+  if (message.command === "productionTaskAttachmentAction") {
+    return "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id) && message.id > 0 && "action" in message && (message.action === "open" || message.action === "preview" || message.action === "save" || message.action === "reveal");
+  }
+  if (message.command === "openExternalUrl") {
+    return "url" in message && typeof message.url === "string" && /^https?:\/\//i.test(message.url);
+  }
+  return message.command === "productionTaskDetailsReady" || message.command === "loadProductionTaskAttachments" || message.command === "loadProductionTaskHistory" || message.command === "copyTableCells" && "text" in message && typeof message.text === "string" || message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string" || (message.command === "openProductionTaskInClient" || message.command === "openProductionTaskReference" || message.command === "loadDatabaseObjectPreview") && "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id) && message.id > 0;
 }
 function isSettingsWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
@@ -10136,6 +10145,9 @@ function isClassDetailsWebviewMessage(message) {
   if (message.command === "loadClassAttributes") {
     return "includeInherited" in message && typeof message.includeInherited === "boolean";
   }
+  if (message.command === "createAttribute" || message.command === "createMethod") {
+    return "classId" in message && typeof message.classId === "number" && Number.isSafeInteger(message.classId) && message.classId > 0;
+  }
   if (message.command === "openMethod" || message.command === "openAttribute" || message.command === "openProperty") {
     return "id" in message && typeof message.id === "number";
   }
@@ -10160,7 +10172,13 @@ function isClassDetailsWebviewMessage(message) {
   return (message.command === "loadClassMethods" || message.command === "loadClassProperties") && "includeInherited" in message && typeof message.includeInherited === "boolean";
 }
 function isAttributeDetailsWebviewMessage(message) {
-  return typeof message === "object" && message !== null && "command" in message && message.command === "attributeDetailsReady";
+  if (typeof message !== "object" || message === null || !("command" in message)) {
+    return false;
+  }
+  if (message.command === "attributeDetailsReady") {
+    return true;
+  }
+  return message.command === "createClassAttribute" && "draft" in message && typeof message.draft === "object" && message.draft !== null;
 }
 function isPropertyDetailsWebviewMessage(message) {
   return typeof message === "object" && message !== null && "command" in message && message.command === "propertyDetailsReady";
@@ -10510,12 +10528,12 @@ var SettingsViewProvider = class {
     } else if (message.command === "setDatabaseProfile") {
       await vscode4.workspace.getConfiguration("vcVeTools").update(databaseProfileSetting, message.profile, vscode4.ConfigurationTarget.Workspace);
     } else if (message.command === "saveDatabaseProfile") {
-      const workspace16 = vscode4.workspace.workspaceFolders?.[0];
-      if (!workspace16) {
+      const workspace17 = vscode4.workspace.workspaceFolders?.[0];
+      if (!workspace17) {
         throw new Error("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       }
       try {
-        await saveRdboadmDatabase(workspace16.uri.fsPath, { id: message.profile, name: message.profile, fields: message.fields });
+        await saveRdboadmDatabase(workspace17.uri.fsPath, { id: message.profile, name: message.profile, fields: message.fields });
         void vscode4.window.showInformationMessage(`\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0431\u0430\u0437\u044B [${message.profile}] \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u044B \u0432 rdboadm.ini.`);
         await this.postState();
       } catch (error) {
@@ -10571,16 +10589,16 @@ var SettingsViewProvider = class {
   }
   async getState() {
     const configuration = vscode4.workspace.getConfiguration("vcVeTools");
-    const workspace16 = vscode4.workspace.workspaceFolders?.[0];
+    const workspace17 = vscode4.workspace.workspaceFolders?.[0];
     const enabled = configuration.get(mcpEnabledSetting, true);
     const role = getDatabaseRole();
     const clientCredentials = await this.getClientCredentials();
     let databaseProfiles = [];
     let rdboadmPath;
     let rdboadmError;
-    if (workspace16) {
+    if (workspace17) {
       try {
-        const result = await loadRdboadmDatabases(workspace16.uri.fsPath);
+        const result = await loadRdboadmDatabases(workspace17.uri.fsPath);
         databaseProfiles = result.databases;
         rdboadmPath = result.path;
       } catch (error) {
@@ -10592,13 +10610,13 @@ var SettingsViewProvider = class {
     const lastError = this.logger.getLastError();
     let status = enabled ? "ready" : "disabled";
     let statusText = enabled ? "\u0413\u043E\u0442\u043E\u0432 \u043A \u0437\u0430\u043F\u0443\u0441\u043A\u0443 \u0430\u0433\u0435\u043D\u0442\u043E\u043C" : "MCP-\u0441\u0435\u0440\u0432\u0435\u0440 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D";
-    if (enabled && !workspace16) {
+    if (enabled && !workspace17) {
       status = "unavailable";
       statusText = "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430";
-    } else if (enabled && workspace16) {
+    } else if (enabled && workspace17) {
       try {
         if (databaseProfiles.length === 0) {
-          await vscode4.workspace.fs.stat(vscode4.Uri.joinPath(workspace16.uri, "Vars.bat"));
+          await vscode4.workspace.fs.stat(vscode4.Uri.joinPath(workspace17.uri, "Vars.bat"));
         }
         await vscode4.workspace.fs.stat(vscode4.Uri.joinPath(this.extensionUri, "dist", "mcp-server.js"));
       } catch {
@@ -10619,7 +10637,7 @@ var SettingsViewProvider = class {
       mcpEnabled: enabled,
       mcpStatus: status,
       mcpStatusText: statusText,
-      mcpConnectionCode: this.connectionCode(workspace16?.uri.fsPath, role, databaseProfile),
+      mcpConnectionCode: this.connectionCode(workspace17?.uri.fsPath, role, databaseProfile),
       lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message }
     };
   }
@@ -10671,31 +10689,429 @@ function logTableSelection(source, message) {
 }
 
 // src/features/classes/views/attributeDetailsPanelManager.ts
+var vscode7 = __toESM(require("vscode"));
+
+// src/features/classes/attributeCreation.ts
+var iconv5 = __toESM(require_lib3());
+var attributeClassId = 4;
+var attributeVisibilityClassId = 12450282;
+var attributeDistributionClassId = 12450504;
+var defaultAttributeVisibilityId = 12450284;
+var defaultAttributeDistributionModeId = 12450505;
+var valueClassesReferenceAttributeId = 1300;
+var valueClassAttributeTypes = /* @__PURE__ */ new Set([322, 324, 325, 330, 333]);
+function normalizeClassAttributeDraft(draft) {
+  return {
+    ...draft,
+    name: draft.name.trim(),
+    aliases: draft.aliases.trim(),
+    dbFieldName: draft.dbFieldName.trim(),
+    valueClasses: parseValueClassIds(draft.valueClasses).join(",")
+  };
+}
+function validateClassAttributeDraft(draft) {
+  if (!Number.isSafeInteger(draft.ownerClassId) || draft.ownerClassId <= 0) {
+    throw new Error("\u041A\u043B\u0430\u0441\u0441-\u0432\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u0434\u043E\u043B\u0436\u0435\u043D \u0438\u043C\u0435\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 ID.");
+  }
+  if (!draft.name.trim()) {
+    throw new Error("\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0438\u043C\u044F \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430.");
+  }
+  if (draft.name.trim().length > 250) {
+    throw new Error("\u0418\u043C\u044F \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430 \u043D\u0435 \u0434\u043E\u043B\u0436\u043D\u043E \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0442\u044C 250 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432.");
+  }
+  if (draft.dbFieldName.trim() && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(draft.dbFieldName.trim())) {
+    throw new Error("\u041F\u043E\u043B\u0435 \u0442\u0430\u0431\u043B\u0438\u0446\u044B \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C \u043B\u0430\u0442\u0438\u043D\u0441\u043A\u0438\u043C SQL-\u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u043E\u043C \u0431\u0435\u0437 \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u0432.");
+  }
+  for (const [label, value] of [
+    ["\u0422\u0438\u043F \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430", draft.attributeTypeId],
+    ["\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0432\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u0438", draft.visibilityId],
+    ["\u0420\u0435\u0436\u0438\u043C \u0434\u0438\u0441\u0442\u0440\u0438\u0431\u0443\u0446\u0438\u0438", draft.distributionModeId]
+  ]) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`${label} \u0434\u043E\u043B\u0436\u0435\u043D \u0438\u043C\u0435\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 ID.`);
+    }
+  }
+  if (!draft.virtual) {
+    throw new Error("\u041F\u043E\u043A\u0430 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0435 \u0442\u043E\u043B\u044C\u043A\u043E \u0432\u0438\u0440\u0442\u0443\u0430\u043B\u044C\u043D\u044B\u0445 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u043E\u0432: SQL-\u043C\u043E\u043D\u0438\u0442\u043E\u0440 \u043D\u0435 \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043B \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0435 \u0444\u0438\u0437\u0438\u0447\u0435\u0441\u043A\u043E\u0439 \u043A\u043E\u043B\u043E\u043D\u043A\u0438.");
+  }
+  const valueClassIds = parseValueClassIds(draft.valueClasses);
+  if (valueClassAttributeTypes.has(draft.attributeTypeId) && valueClassIds.length === 0) {
+    throw new Error("\u0414\u043B\u044F \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0433\u043E \u0442\u0438\u043F\u0430 \u0443\u043A\u0430\u0436\u0438\u0442\u0435 ID \u043A\u043B\u0430\u0441\u0441\u0430 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F.");
+  }
+  assertWindows1251(draft.name, "\u0418\u043C\u044F");
+  assertWindows1251(draft.aliases, "\u041F\u0441\u0435\u0432\u0434\u043E\u043D\u0438\u043C");
+}
+function parseValueClassIds(value) {
+  const normalized = value.trim();
+  if (!normalized) {
+    return [];
+  }
+  const ids = normalized.split(",").map((part) => Number(part.trim()));
+  if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+    throw new Error("\u041A\u043B\u0430\u0441\u0441\u044B \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0439 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043F\u0435\u0440\u0435\u0447\u0438\u0441\u043B\u0435\u043D\u044B \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u043C\u0438 ID \u0447\u0435\u0440\u0435\u0437 \u0437\u0430\u043F\u044F\u0442\u0443\u044E.");
+  }
+  return [...new Set(ids)];
+}
+function serializeClassAttributeAuditValues(input) {
+  const draft = normalizeClassAttributeDraft(input);
+  return [
+    auditPair(102, draft.ownerClassId),
+    auditPair(103, draft.name),
+    auditPair(121, draft.aliases),
+    auditPair(71, draft.visibilityId),
+    ...draft.dbFieldName ? [auditPair(112, draft.dbFieldName)] : [],
+    auditPair(113, draft.attributeTypeId),
+    auditPair(115, draft.isNotNull ? -1 : 0),
+    auditPair(1300, draft.valueClasses),
+    auditPair(1313, draft.distributionModeId),
+    auditPair(1341, draft.virtual ? -1 : 0),
+    auditPair(12450030, draft.refIntegrityCheck ? 1 : 0)
+  ].join(",");
+}
+function encodeAttributeAuditValues(draft) {
+  const value = serializeClassAttributeAuditValues(draft);
+  const encoded = iconv5.encode(value, "win1251");
+  if (iconv5.decode(encoded, "win1251") !== value) {
+    throw new Error("\u0414\u0430\u043D\u043D\u044B\u0435 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430 \u043D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0432 Windows-1251.");
+  }
+  return encoded;
+}
+function auditPair(attributeId, value) {
+  if (typeof value === "number") {
+    return `${attributeId},${value}`;
+  }
+  if (!/[",\r\n]/.test(value)) {
+    return `${attributeId},${value}`;
+  }
+  return `${attributeId},"${value.replace(/"/g, '""')}"`;
+}
+function assertWindows1251(value, label) {
+  const encoded = iconv5.encode(value, "win1251");
+  if (iconv5.decode(encoded, "win1251") !== value) {
+    throw new Error(`${label} \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B \u0432\u043D\u0435 Windows-1251.`);
+  }
+}
+
+// src/infrastructure/configuration/sessionContext.ts
+var import_node_os = require("node:os");
 var vscode6 = __toESM(require("vscode"));
+async function getSessionContext(client, databaseName) {
+  const timeResult = await executeMonitoredQuery(client, {
+    text: "SELECT NOW() AS now",
+    values: [],
+    source: "\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u0411\u0414",
+    database: databaseName
+  });
+  const changeDate = timeResult.rows[0]?.now ?? /* @__PURE__ */ new Date();
+  const localComputerName = (0, import_node_os.hostname)();
+  const computerResult = await executeMonitoredQuery(client, {
+    text: `SELECT computername
+		 FROM packagestune
+		 WHERE upper(computername) = upper($1)
+		    OR upper(computername) LIKE upper($1) || '.%'
+		 ORDER BY CASE WHEN upper(computername) = upper($1) THEN 0 ELSE 1 END
+		 LIMIT 1`,
+    values: [localComputerName],
+    source: "\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0435 \u0438\u043C\u0435\u043D\u0438 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u0430 \u0412\u042D",
+    database: databaseName
+  });
+  const computerName = computerResult.rows[0]?.computername ?? localComputerName;
+  const userId = await getUserId();
+  return {
+    userId,
+    computerName,
+    changeDate
+  };
+}
+async function getUserId() {
+  const configuration = vscode6.workspace.getConfiguration("vcVeTools");
+  const configured = configuration.get("userId", 0);
+  if (Number.isSafeInteger(configured) && configured > 0) {
+    return configured;
+  }
+  const legacy = Number.parseInt(process.env.VC_VE_USER_ID ?? "", 10);
+  if (Number.isSafeInteger(legacy) && legacy > 0) {
+    await configuration.update("userId", legacy, vscode6.ConfigurationTarget.Workspace);
+    return legacy;
+  }
+  const input = await vscode6.window.showInputBox({
+    title: "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043E\u0431\u044A\u0435\u043A\u0442\u0430",
+    prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B Users. \u041E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.",
+    placeHolder: "ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F",
+    ignoreFocusOut: true,
+    validateInput: validateUserId
+  });
+  if (input === void 0) {
+    throw new Error("\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E: \u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0434\u043B\u044F \u0436\u0443\u0440\u043D\u0430\u043B\u0430 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439.");
+  }
+  const userId = Number.parseInt(input, 10);
+  await configuration.update("userId", userId, vscode6.ConfigurationTarget.Workspace);
+  return userId;
+}
+function validateUserId(value) {
+  return /^[1-9]\d*$/.test(value.trim()) && Number.isSafeInteger(Number(value)) ? void 0 : "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u0446\u0435\u043B\u043E\u0447\u0438\u0441\u043B\u0435\u043D\u043D\u044B\u0439 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F.";
+}
+
+// src/infrastructure/database/attributeRepository.ts
+async function getAttributeEditorOptions(ownerClassId) {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const owner = await loadOwner(client, options.database, ownerClassId);
+    const [types2, visibilities, distributionModes] = await Promise.all([
+      executeMonitoredQuery(client, { text: "SELECT id, name FROM attrtypes ORDER BY id", source: "\u0422\u0438\u043F\u044B \u043D\u043E\u0432\u043E\u0433\u043E \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430", database: options.database }),
+      executeMonitoredQuery(client, { text: "SELECT id, COALESCE(fullname, name) AS name FROM enum WHERE classid = $1 ORDER BY id", values: [attributeVisibilityClassId], source: "\u0412\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u044C \u043D\u043E\u0432\u043E\u0433\u043E \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430", database: options.database }),
+      executeMonitoredQuery(client, { text: "SELECT id, COALESCE(fullname, name) AS name FROM enum WHERE classid = $1 ORDER BY id", values: [attributeDistributionClassId], source: "\u0414\u0438\u0441\u0442\u0440\u0438\u0431\u0443\u0446\u0438\u044F \u043D\u043E\u0432\u043E\u0433\u043E \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430", database: options.database })
+    ]);
+    return {
+      ownerClassId: owner.id,
+      ownerClassName: owner.name,
+      types: types2.rows,
+      visibilities: visibilities.rows,
+      distributionModes: distributionModes.rows,
+      defaults: { visibilityId: defaultAttributeVisibilityId, distributionModeId: defaultAttributeDistributionModeId, isNotNull: false, virtual: true, refIntegrityCheck: false }
+    };
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+async function createClassAttribute(input) {
+  validateClassAttributeDraft(input);
+  const draft = normalizeClassAttributeDraft(input);
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    await client.query("BEGIN");
+    const session = await getSessionContext(client, options.database);
+    const owner = await loadOwner(client, options.database, draft.ownerClassId, true);
+    const developerRangeResult = await executeMonitoredQuery(client, {
+      text: `SELECT developer_range.id, developer_range.beginid, developer_range.endid
+			 FROM users AS session_user_row
+			 JOIN users AS developer_user ON developer_user.person = session_user_row.person
+			 JOIN developerids AS developer_range ON developer_range.userid = developer_user.id
+			 WHERE session_user_row.id = $1
+			 ORDER BY CASE WHEN developer_user.id = session_user_row.id THEN 0 ELSE 1 END, developer_range.beginid DESC
+			 LIMIT 1`,
+      values: [session.userId],
+      source: "\u0414\u0438\u0430\u043F\u0430\u0437\u043E\u043D ID \u043D\u043E\u0432\u043E\u0433\u043E \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430",
+      database: options.database
+    });
+    const range = developerRangeResult.rows[0];
+    if (!range) {
+      throw new Error(`\u0414\u043B\u044F \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F ${session.userId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D DeveloperIDs.`);
+    }
+    await executeMonitoredQuery(client, {
+      text: "SELECT pg_advisory_xact_lock($1, $2)",
+      values: [attributeClassId, range.id],
+      source: "\u0411\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u043A\u0430 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 ID \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430",
+      database: options.database
+    });
+    const duplicate = await executeMonitoredQuery(client, {
+      text: `SELECT id FROM attributes WHERE seniorid = $1
+			 AND (upper(name) = upper($2) OR ($3 <> '' AND upper(COALESCE(dbfieldname, '')) = upper($3))) LIMIT 1`,
+      values: [draft.ownerClassId, draft.name, draft.dbFieldName],
+      source: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0438\u043C\u0435\u043D\u0438 \u043D\u043E\u0432\u043E\u0433\u043E \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430",
+      database: options.database
+    });
+    if (duplicate.rowCount) {
+      throw new Error(`\u0412 \u043A\u043B\u0430\u0441\u0441\u0435 ${owner.name} \u0443\u0436\u0435 \u0435\u0441\u0442\u044C \u0430\u0442\u0440\u0438\u0431\u0443\u0442 \u0441 \u0442\u0430\u043A\u0438\u043C \u0438\u043C\u0435\u043D\u0435\u043C \u0438\u043B\u0438 \u043F\u043E\u043B\u0435\u043C \u0442\u0430\u0431\u043B\u0438\u0446\u044B.`);
+    }
+    const typeResult = await executeMonitoredQuery(client, {
+      text: "SELECT id FROM attrtypes WHERE id = $1",
+      values: [draft.attributeTypeId],
+      source: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0442\u0438\u043F\u0430 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430",
+      database: options.database
+    });
+    if (!typeResult.rowCount) {
+      throw new Error(`\u0422\u0438\u043F \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430 ${draft.attributeTypeId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.`);
+    }
+    const enumResult = await executeMonitoredQuery(client, {
+      text: "SELECT id,classid FROM enum WHERE (id=$1 AND classid=$2) OR (id=$3 AND classid=$4)",
+      values: [draft.visibilityId, attributeVisibilityClassId, draft.distributionModeId, attributeDistributionClassId],
+      source: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0432\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u0438 \u0438 \u0434\u0438\u0441\u0442\u0440\u0438\u0431\u0443\u0446\u0438\u0438 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430",
+      database: options.database
+    });
+    if (enumResult.rowCount !== 2) {
+      throw new Error("\u0412\u044B\u0431\u0440\u0430\u043D\u0430 \u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0431\u043B\u0430\u0441\u0442\u044C \u0432\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u0438 \u0438\u043B\u0438 \u0434\u0438\u0441\u0442\u0440\u0438\u0431\u0443\u0446\u0438\u044F.");
+    }
+    const valueClassIds = parseValueClassIds(draft.valueClasses);
+    if (valueClassIds.length) {
+      const references = await executeMonitoredQuery(client, {
+        text: "SELECT id FROM abstract WHERE id = ANY($1::integer[])",
+        values: [valueClassIds],
+        source: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043A\u043B\u0430\u0441\u0441\u043E\u0432 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0439 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430",
+        database: options.database
+      });
+      if (references.rowCount !== valueClassIds.length) {
+        throw new Error("\u041E\u0434\u0438\u043D \u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043A\u043B\u0430\u0441\u0441\u043E\u0432 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0439 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u044B.");
+      }
+    }
+    const idResult = await executeMonitoredQuery(client, {
+      text: `SELECT candidate AS id FROM generate_series($1::integer, $2::integer) AS candidate
+			 WHERE NOT EXISTS (SELECT 1 FROM abstract WHERE id = candidate) ORDER BY candidate LIMIT 1`,
+      values: [range.beginid, range.endid],
+      source: "\u0413\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F ID \u043D\u043E\u0432\u043E\u0433\u043E \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430",
+      database: options.database
+    });
+    const id = Number(idResult.rows[0]?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new Error(`\u0412 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0435 DeveloperIDs ${range.beginid}\u2026${range.endid} \u043D\u0435\u0442 \u0441\u0432\u043E\u0431\u043E\u0434\u043D\u043E\u0433\u043E ID.`);
+    }
+    await executeMonitoredQuery(client, {
+      text: `INSERT INTO attributes
+			 (lastchange,id,classid,seniorid,name,aliases,visibility,dbfieldname,attrtype,isnotnull,valueclasses,attrvaluedistrmode,virtual,refintegritycheck)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      values: [
+        session.changeDate,
+        id,
+        attributeClassId,
+        draft.ownerClassId,
+        draft.name,
+        draft.aliases || null,
+        draft.visibilityId,
+        draft.dbFieldName || null,
+        draft.attributeTypeId,
+        draft.isNotNull ? -1 : 0,
+        draft.valueClasses || null,
+        draft.distributionModeId,
+        -1,
+        draft.refIntegrityCheck ? 1 : 0
+      ],
+      source: `\u0421\u043E\u0437\u0434\u0430\u043D\u0438\u0435 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430 ${draft.name}`,
+      database: options.database
+    });
+    await executeMonitoredQuery(client, {
+      text: "INSERT INTO abstract (lastchange,id,classid,seniorid,name,sysfile) VALUES ($1,$2,$3,$4,$5,$6)",
+      values: [session.changeDate, id, attributeClassId, draft.ownerClassId, draft.name, owner.sysfile],
+      source: `\u0421\u043E\u0437\u0434\u0430\u043D\u0438\u0435 Abstract \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430 ${id}`,
+      database: options.database
+    });
+    for (const valueClassId of valueClassIds) {
+      await executeMonitoredQuery(client, {
+        text: "INSERT INTO objrefs(obj,ref,attr) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
+        values: [id, valueClassId, valueClassesReferenceAttributeId],
+        source: `\u0421\u0441\u044B\u043B\u043A\u0430 \u043A\u043B\u0430\u0441\u0441\u0430 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0439 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430 ${id}`,
+        database: options.database
+      });
+    }
+    await executeMonitoredQuery(client, {
+      text: `INSERT INTO logcchangedobject
+			 (objid,objclassid,changetype,newvalues,userid,computername,changedate,oldvalues,transactioncomment,versionobject,rootobjid,rootobjclassid)
+			 VALUES ($1,$2,3,$3,$4,$5,$6,$7,$8,'1899-12-30 00:00:00',$9,3)`,
+      values: [
+        id,
+        attributeClassId,
+        encodeAttributeAuditValues(draft),
+        session.userId,
+        session.computerName,
+        session.changeDate,
+        Buffer.alloc(0),
+        '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043E\u0431\u044A\u0435\u043A\u0442\u0430 \u043A\u043B\u0430\u0441\u0441\u0430 "\u0410\u0442\u0440\u0438\u0431\u0443\u0442',
+        draft.ownerClassId
+      ],
+      source: `\u041B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430 ${id}`,
+      database: options.database
+    });
+    const version = await executeMonitoredQuery(client, {
+      text: `UPDATE classes SET classversion = CASE WHEN classversion = 2147483647 THEN -2147483648
+			 ELSE COALESCE(classversion,0) + 1 END WHERE id = $1`,
+      values: [draft.ownerClassId],
+      source: `\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435 \u0432\u0435\u0440\u0441\u0438\u0438 \u043A\u043B\u0430\u0441\u0441\u0430 ${draft.ownerClassId}`,
+      database: options.database
+    });
+    if (version.rowCount !== 1) {
+      throw new Error(`\u041A\u043B\u0430\u0441\u0441 ${draft.ownerClassId} \u0438\u0441\u0447\u0435\u0437 \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F.`);
+    }
+    if (owner.sysfile !== null) {
+      await executeMonitoredQuery(client, {
+        text: "UPDATE syspackagebase SET objectchangestate = 1 WHERE objectid = $1",
+        values: [owner.sysfile],
+        source: `\u041E\u0442\u043C\u0435\u0442\u043A\u0430 \u043F\u0430\u043A\u0435\u0442\u043D\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 ${owner.sysfile} \u0438\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u044B\u043C`,
+        database: options.database
+      });
+    }
+    await client.query("COMMIT");
+    return { id, ownerClassId: draft.ownerClassId, name: draft.name };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => void 0);
+    throw error;
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+async function loadOwner(client, database, ownerClassId, forUpdate = false) {
+  const result = await executeMonitoredQuery(client, {
+    text: `SELECT class.id,class.name,abstract.sysfile FROM classes AS class
+		 JOIN abstract ON abstract.id=class.id WHERE class.id=$1${forUpdate ? " FOR UPDATE OF class" : ""}`,
+    values: [ownerClassId],
+    source: `\u041A\u043B\u0430\u0441\u0441-\u0432\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430 ${ownerClassId}`,
+    database
+  });
+  const owner = result.rows[0];
+  if (!owner) {
+    throw new Error(`\u041A\u043B\u0430\u0441\u0441 ${ownerClassId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.`);
+  }
+  return owner;
+}
+
+// src/features/classes/views/attributeDetailsPanelManager.ts
 var panels = /* @__PURE__ */ new Map();
 async function openAttributeDetails(context, attributeId) {
-  const existing = panels.get(attributeId);
+  const key = `attribute:${attributeId}`;
+  const existing = panels.get(key);
   if (existing) {
-    existing.panel.reveal(vscode6.ViewColumn.Active);
+    existing.panel.reveal(vscode7.ViewColumn.Active);
     return;
   }
   const details = await getClassAttributeDetails(attributeId);
-  const assetsRoot = vscode6.Uri.joinPath(context.extensionUri, "dist", "webview");
-  const panel2 = vscode6.window.createWebviewPanel(
+  const assetsRoot = vscode7.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel2 = vscode7.window.createWebviewPanel(
     "vc-ve-tools.attributeDetails",
     `\u0410\u0442\u0440\u0438\u0431\u0443\u0442 ${details.name}`,
-    vscode6.ViewColumn.Active,
+    vscode7.ViewColumn.Active,
     { enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true }
   );
-  const entry = { panel: panel2, details };
-  panels.set(attributeId, entry);
+  const entry = { panel: panel2, details, key };
+  panels.set(key, entry);
   panel2.webview.html = getAttributeDetailsShell(panel2.webview, assetsRoot);
-  panel2.webview.onDidReceiveMessage((message) => {
-    if (isAttributeDetailsWebviewMessage(message)) {
-      postDetails(entry);
-    }
-  });
-  panel2.onDidDispose(() => panels.delete(attributeId));
+  registerPanelMessages(entry);
+  panel2.onDidDispose(() => panels.delete(entry.key));
+}
+async function openNewAttributeDetails(context, ownerClassId, onCreated) {
+  const key = `new:${ownerClassId}`;
+  const existing = panels.get(key);
+  if (existing) {
+    existing.panel.reveal(vscode7.ViewColumn.Active);
+    return;
+  }
+  const options = await getAttributeEditorOptions(ownerClassId);
+  const draft = {
+    ownerClassId,
+    name: "",
+    aliases: "",
+    dbFieldName: "",
+    attributeTypeId: options.types[0]?.id ?? 0,
+    valueClasses: "",
+    visibilityId: options.defaults.visibilityId ?? defaultAttributeVisibilityId,
+    distributionModeId: options.defaults.distributionModeId ?? defaultAttributeDistributionModeId,
+    isNotNull: false,
+    virtual: true,
+    refIntegrityCheck: false
+  };
+  const assetsRoot = vscode7.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel2 = vscode7.window.createWebviewPanel(
+    "vc-ve-tools.attributeDetails",
+    `\u041D\u043E\u0432\u044B\u0439 \u0430\u0442\u0440\u0438\u0431\u0443\u0442 \u2014 ${options.ownerClassName}`,
+    vscode7.ViewColumn.Active,
+    { enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true }
+  );
+  const entry = { panel: panel2, options, draft, key, onCreated };
+  panels.set(key, entry);
+  panel2.webview.html = getAttributeDetailsShell(panel2.webview, assetsRoot);
+  registerPanelMessages(entry);
+  panel2.onDidDispose(() => panels.delete(entry.key));
 }
 function closeAttributeDetailPanels() {
   for (const { panel: panel2 } of [...panels.values()]) {
@@ -10704,11 +11120,47 @@ function closeAttributeDetailPanels() {
   panels.clear();
 }
 function postDetails(entry) {
-  void entry.panel.webview.postMessage({ command: "attributeDetailsLoaded", details: entry.details });
+  if (entry.details) {
+    void entry.panel.webview.postMessage({ command: "attributeDetailsLoaded", details: entry.details });
+  } else if (entry.options && entry.draft) {
+    void entry.panel.webview.postMessage({ command: "attributeCreationInitialized", options: entry.options, draft: entry.draft });
+  }
+}
+function registerPanelMessages(entry) {
+  entry.panel.webview.onDidReceiveMessage(async (message) => {
+    if (!isAttributeDetailsWebviewMessage(message)) {
+      return;
+    }
+    if (message.command === "attributeDetailsReady") {
+      postDetails(entry);
+      return;
+    }
+    if (!entry.options || message.draft.ownerClassId !== entry.options.ownerClassId) {
+      void entry.panel.webview.postMessage({ command: "attributeCreationFailed", message: "\u041A\u043B\u0430\u0441\u0441-\u0432\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u0444\u043E\u0440\u043C\u044B \u0438\u0437\u043C\u0435\u043D\u0451\u043D." });
+      return;
+    }
+    void entry.panel.webview.postMessage({ command: "attributeCreating" });
+    try {
+      const created = await createClassAttribute(message.draft);
+      const details = await getClassAttributeDetails(created.id);
+      panels.delete(entry.key);
+      entry.key = `attribute:${created.id}`;
+      entry.details = details;
+      entry.options = void 0;
+      entry.draft = void 0;
+      panels.set(entry.key, entry);
+      entry.panel.title = `\u0410\u0442\u0440\u0438\u0431\u0443\u0442 ${details.name}`;
+      void entry.panel.webview.postMessage({ command: "attributeCreated", details });
+      await entry.onCreated?.(created.id);
+      void vscode7.window.showInformationMessage(`\u0410\u0442\u0440\u0438\u0431\u0443\u0442 ${details.name} (ID ${created.id}) \u0441\u043E\u0437\u0434\u0430\u043D.`);
+    } catch (error) {
+      void entry.panel.webview.postMessage({ command: "attributeCreationFailed", message: error instanceof Error ? error.message : String(error) });
+    }
+  });
 }
 function getAttributeDetailsShell(webview, assetsRoot) {
-  const scriptUri = webview.asWebviewUri(vscode6.Uri.joinPath(assetsRoot, "attribute-details.js"));
-  const styleUri = webview.asWebviewUri(vscode6.Uri.joinPath(assetsRoot, "attribute-details.css"));
+  const scriptUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "attribute-details.js"));
+  const styleUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "attribute-details.css"));
   const nonce = createNonce2();
   return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10722,17 +11174,17 @@ function createNonce2() {
 }
 
 // src/features/classes/views/propertyDetailsPanelManager.ts
-var vscode7 = __toESM(require("vscode"));
+var vscode8 = __toESM(require("vscode"));
 var panels2 = /* @__PURE__ */ new Map();
 async function openPropertyDetails(context, propertyId) {
   const existing = panels2.get(propertyId);
   if (existing) {
-    existing.panel.reveal(vscode7.ViewColumn.Active);
+    existing.panel.reveal(vscode8.ViewColumn.Active);
     return;
   }
   const details = await getClassPropertyDetails(propertyId);
-  const assetsRoot = vscode7.Uri.joinPath(context.extensionUri, "dist", "webview");
-  const panel2 = vscode7.window.createWebviewPanel("vc-ve-tools.propertyDetails", `\u0421\u0432\u043E\u0439\u0441\u0442\u0432\u043E ${details.name}`, vscode7.ViewColumn.Active, {
+  const assetsRoot = vscode8.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel2 = vscode8.window.createWebviewPanel("vc-ve-tools.propertyDetails", `\u0421\u0432\u043E\u0439\u0441\u0442\u0432\u043E ${details.name}`, vscode8.ViewColumn.Active, {
     enableScripts: true,
     localResourceRoots: [assetsRoot],
     retainContextWhenHidden: true
@@ -10754,8 +11206,8 @@ function closePropertyDetailPanels() {
   panels2.clear();
 }
 function shell(webview, assetsRoot) {
-  const scriptUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "property-details.js"));
-  const styleUri = webview.asWebviewUri(vscode7.Uri.joinPath(assetsRoot, "property-details.css"));
+  const scriptUri = webview.asWebviewUri(vscode8.Uri.joinPath(assetsRoot, "property-details.js"));
+  const styleUri = webview.asWebviewUri(vscode8.Uri.joinPath(assetsRoot, "property-details.css"));
   const nonce = Array.from({ length: 32 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".charAt(Math.floor(Math.random() * 62))).join("");
   return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u0421\u0432\u043E\u0439\u0441\u0442\u0432\u043E</title></head><body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0441\u0432\u043E\u0439\u0441\u0442\u0432\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
@@ -10924,10 +11376,10 @@ function quoteIdentifier2(value) {
 }
 
 // src/features/classes/views/objectViewPanelManager.ts
-var vscode8 = __toESM(require("vscode"));
+var vscode9 = __toESM(require("vscode"));
 
 // src/infrastructure/database/objectViewRepository.ts
-var iconv5 = __toESM(require_lib3());
+var iconv6 = __toESM(require_lib3());
 async function getObjectView(objectId) {
   const options = await getProjectDatabaseOptions();
   const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
@@ -11090,12 +11542,12 @@ function serializable(value) {
     return value.toISOString();
   }
   if (Buffer.isBuffer(value)) {
-    return iconv5.decode(value, "win1251");
+    return iconv6.decode(value, "win1251");
   }
   if (typeof value === "string") {
     const bytea = value.match(/^\\x([\da-f]+)$/i);
     if (bytea && bytea[1].length % 2 === 0) {
-      return iconv5.decode(Buffer.from(bytea[1], "hex"), "win1251");
+      return iconv6.decode(Buffer.from(bytea[1], "hex"), "win1251");
     }
   }
   if (Array.isArray(value)) {
@@ -11112,11 +11564,11 @@ var panels3 = /* @__PURE__ */ new Map();
 async function openObjectView(context, objectId) {
   const existing = panels3.get(objectId);
   if (existing) {
-    existing.panel.reveal(vscode8.ViewColumn.Active);
+    existing.panel.reveal(vscode9.ViewColumn.Active);
     return;
   }
-  const assetsRoot = vscode8.Uri.joinPath(context.extensionUri, "dist", "webview");
-  const panel2 = vscode8.window.createWebviewPanel("vc-ve-tools.objectView", `\u041F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \u043E\u0431\u044A\u0435\u043A\u0442\u0430 ${objectId}`, vscode8.ViewColumn.Active, {
+  const assetsRoot = vscode9.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel2 = vscode9.window.createWebviewPanel("vc-ve-tools.objectView", `\u041F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \u043E\u0431\u044A\u0435\u043A\u0442\u0430 ${objectId}`, vscode9.ViewColumn.Active, {
     enableScripts: true,
     localResourceRoots: [assetsRoot],
     retainContextWhenHidden: true
@@ -11143,7 +11595,7 @@ async function openObjectView(context, objectId) {
       return;
     }
     if (message.command === "copyTableCells") {
-      await vscode8.env.clipboard.writeText(message.text);
+      await vscode9.env.clipboard.writeText(message.text);
       return;
     }
     if (message.command === "tableSelectionDebug") {
@@ -11151,8 +11603,8 @@ async function openObjectView(context, objectId) {
       return;
     }
     if (entry.result) {
-      await vscode8.env.clipboard.writeText(JSON.stringify(entry.result, null, 2));
-      vscode8.window.setStatusBarMessage("\u041E\u0431\u044A\u0435\u043A\u0442 \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u0432 \u0431\u0443\u0444\u0435\u0440 \u043E\u0431\u043C\u0435\u043D\u0430 \u043A\u0430\u043A JSON", 1800);
+      await vscode9.env.clipboard.writeText(JSON.stringify(entry.result, null, 2));
+      vscode9.window.setStatusBarMessage("\u041E\u0431\u044A\u0435\u043A\u0442 \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u0432 \u0431\u0443\u0444\u0435\u0440 \u043E\u0431\u043C\u0435\u043D\u0430 \u043A\u0430\u043A JSON", 1800);
     }
   });
   panel2.onDidDispose(() => panels3.delete(objectId));
@@ -11164,24 +11616,24 @@ function closeObjectViewPanels() {
   panels3.clear();
 }
 function shell2(webview, assetsRoot) {
-  const scriptUri = webview.asWebviewUri(vscode8.Uri.joinPath(assetsRoot, "object-view.js"));
-  const styleUri = webview.asWebviewUri(vscode8.Uri.joinPath(assetsRoot, "object-view.css"));
+  const scriptUri = webview.asWebviewUri(vscode9.Uri.joinPath(assetsRoot, "object-view.js"));
+  const styleUri = webview.asWebviewUri(vscode9.Uri.joinPath(assetsRoot, "object-view.css"));
   const nonce = Array.from({ length: 32 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".charAt(Math.floor(Math.random() * 62))).join("");
   return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u041F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \u043E\u0431\u044A\u0435\u043A\u0442\u0430</title></head><body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
 
 // src/features/classes/views/entityPropertiesPanelManager.ts
-var vscode9 = __toESM(require("vscode"));
+var vscode10 = __toESM(require("vscode"));
 var panels4 = /* @__PURE__ */ new Map();
 async function openEntityProperties(context, objectId) {
   const existing = panels4.get(objectId);
   if (existing) {
-    existing.reveal(vscode9.ViewColumn.Active);
+    existing.reveal(vscode10.ViewColumn.Active);
     return;
   }
   const result = await getObjectView(objectId);
-  const assetsRoot = vscode9.Uri.joinPath(context.extensionUri, "dist", "webview");
-  const panel2 = vscode9.window.createWebviewPanel("vc-ve-tools.entityProperties", `\u0421\u0432\u043E\u0439\u0441\u0442\u0432\u0430 \u2014 ${result.name || result.id}`, vscode9.ViewColumn.Active, {
+  const assetsRoot = vscode10.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel2 = vscode10.window.createWebviewPanel("vc-ve-tools.entityProperties", `\u0421\u0432\u043E\u0439\u0441\u0442\u0432\u0430 \u2014 ${result.name || result.id}`, vscode10.ViewColumn.Active, {
     enableScripts: true,
     localResourceRoots: [assetsRoot]
   });
@@ -11202,8 +11654,8 @@ function closeEntityPropertiesPanels() {
   panels4.clear();
 }
 function shell3(webview, assetsRoot) {
-  const scriptUri = webview.asWebviewUri(vscode9.Uri.joinPath(assetsRoot, "entity-properties.js"));
-  const styleUri = webview.asWebviewUri(vscode9.Uri.joinPath(assetsRoot, "entity-properties.css"));
+  const scriptUri = webview.asWebviewUri(vscode10.Uri.joinPath(assetsRoot, "entity-properties.js"));
+  const styleUri = webview.asWebviewUri(vscode10.Uri.joinPath(assetsRoot, "entity-properties.css"));
   const nonce = Array.from({ length: 32 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".charAt(Math.floor(Math.random() * 62))).join("");
   return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u0421\u0432\u043E\u0439\u0441\u0442\u0432\u0430</title></head><body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
@@ -11213,7 +11665,7 @@ var vscode11 = __toESM(require("vscode"));
 
 // src/infrastructure/database/spuRepository.ts
 var import_node_os2 = require("node:os");
-var iconv6 = __toESM(require_lib3());
+var iconv7 = __toESM(require_lib3());
 
 // src/features/spu/spuCreation.ts
 var spuClassId = 12609684;
@@ -11236,9 +11688,9 @@ function validateSpuDraft(draft) {
   if (!Number.isSafeInteger(draft.beginVersion) || draft.beginVersion < 0) {
     throw new Error("\u041D\u0430\u0447\u0430\u043B\u044C\u043D\u0430\u044F \u0432\u0435\u0440\u0441\u0438\u044F \u0434\u043E\u043B\u0436\u043D\u0430 \u0431\u044B\u0442\u044C \u0446\u0435\u043B\u044B\u043C \u043D\u0435\u043E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u043C \u0447\u0438\u0441\u043B\u043E\u043C.");
   }
-  assertWindows1251(draft.name, "\u041D\u0430\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u043D\u0438\u0435");
-  assertWindows1251(draft.sqlScript, "SQL-\u0441\u043A\u0440\u0438\u043F\u0442");
-  assertWindows1251(draft.comment, "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439");
+  assertWindows12512(draft.name, "\u041D\u0430\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u043D\u0438\u0435");
+  assertWindows12512(draft.sqlScript, "SQL-\u0441\u043A\u0440\u0438\u043F\u0442");
+  assertWindows12512(draft.comment, "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439");
 }
 function buildSpuFileName(name) {
   return `SPU_${name.trim()}`;
@@ -11250,7 +11702,7 @@ function getAutomaticIdRangeStart(referenceId) {
   return Math.floor((referenceId - 1) / spuIdRangeSize) * spuIdRangeSize + 1;
 }
 function serializeSpuAuditValues(draft, beginVersion) {
-  const values = auditFields(draft, beginVersion).filter((field) => field.value !== null && field.value !== "").map((field) => auditPair(field.attributeId, field.value));
+  const values = auditFields(draft, beginVersion).filter((field) => field.value !== null && field.value !== "").map((field) => auditPair2(field.attributeId, field.value));
   return values.join(",");
 }
 function serializeSpuAuditChanges(previous, next, previousBeginVersion, nextBeginVersion) {
@@ -11262,8 +11714,8 @@ function serializeSpuAuditChanges(previous, next, previousBeginVersion, nextBegi
     if (oldFields[index].value === newFields[index].value) {
       continue;
     }
-    oldValues.push(auditPair(oldFields[index].attributeId, oldFields[index].value));
-    newValues.push(auditPair(newFields[index].attributeId, newFields[index].value));
+    oldValues.push(auditPair2(oldFields[index].attributeId, oldFields[index].value));
+    newValues.push(auditPair2(newFields[index].attributeId, newFields[index].value));
   }
   return { oldValues: oldValues.join(","), newValues: newValues.join(",") };
 }
@@ -11279,7 +11731,7 @@ function auditFields(draft, beginVersion) {
     { attributeId: 12609689, value: draft.comment }
   ];
 }
-function auditPair(attributeId, value) {
+function auditPair2(attributeId, value) {
   if (value === null) {
     return `${attributeId},`;
   }
@@ -11288,7 +11740,7 @@ function auditPair(attributeId, value) {
   }
   return `${attributeId},"${value.replace(/"/g, '""')}"`;
 }
-function assertWindows1251(value, label) {
+function assertWindows12512(value, label) {
   if (value.includes("\uFFFD")) {
     throw new Error(`${label} \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u043F\u043E\u0432\u0440\u0435\u0436\u0434\u0451\u043D\u043D\u044B\u0439 \u0441\u0438\u043C\u0432\u043E\u043B Unicode.`);
   }
@@ -11299,66 +11751,6 @@ function formatLegacyDateTime(value) {
     return value;
   }
   return `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}:${match[6] ?? "00"}`;
-}
-
-// src/infrastructure/configuration/sessionContext.ts
-var import_node_os = require("node:os");
-var vscode10 = __toESM(require("vscode"));
-async function getSessionContext(client, databaseName) {
-  const timeResult = await executeMonitoredQuery(client, {
-    text: "SELECT NOW() AS now",
-    values: [],
-    source: "\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u0411\u0414",
-    database: databaseName
-  });
-  const changeDate = timeResult.rows[0]?.now ?? /* @__PURE__ */ new Date();
-  const localComputerName = (0, import_node_os.hostname)();
-  const computerResult = await executeMonitoredQuery(client, {
-    text: `SELECT computername
-		 FROM packagestune
-		 WHERE upper(computername) = upper($1)
-		    OR upper(computername) LIKE upper($1) || '.%'
-		 ORDER BY CASE WHEN upper(computername) = upper($1) THEN 0 ELSE 1 END
-		 LIMIT 1`,
-    values: [localComputerName],
-    source: "\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0435 \u0438\u043C\u0435\u043D\u0438 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u0430 \u0412\u042D",
-    database: databaseName
-  });
-  const computerName = computerResult.rows[0]?.computername ?? localComputerName;
-  const userId = await getUserId();
-  return {
-    userId,
-    computerName,
-    changeDate
-  };
-}
-async function getUserId() {
-  const configuration = vscode10.workspace.getConfiguration("vcVeTools");
-  const configured = configuration.get("userId", 0);
-  if (Number.isSafeInteger(configured) && configured > 0) {
-    return configured;
-  }
-  const legacy = Number.parseInt(process.env.VC_VE_USER_ID ?? "", 10);
-  if (Number.isSafeInteger(legacy) && legacy > 0) {
-    await configuration.update("userId", legacy, vscode10.ConfigurationTarget.Workspace);
-    return legacy;
-  }
-  const input = await vscode10.window.showInputBox({
-    title: "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043E\u0431\u044A\u0435\u043A\u0442\u0430",
-    prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B Users. \u041E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.",
-    placeHolder: "ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F",
-    ignoreFocusOut: true,
-    validateInput: validateUserId
-  });
-  if (input === void 0) {
-    throw new Error("\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E: \u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0434\u043B\u044F \u0436\u0443\u0440\u043D\u0430\u043B\u0430 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439.");
-  }
-  const userId = Number.parseInt(input, 10);
-  await configuration.update("userId", userId, vscode10.ConfigurationTarget.Workspace);
-  return userId;
-}
-function validateUserId(value) {
-  return /^[1-9]\d*$/.test(value.trim()) && Number.isSafeInteger(Number(value)) ? void 0 : "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u0446\u0435\u043B\u043E\u0447\u0438\u0441\u043B\u0435\u043D\u043D\u044B\u0439 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F.";
 }
 
 // src/infrastructure/database/spuRepository.ts
@@ -11767,19 +12159,19 @@ async function allocateDeveloperId(client, database, range, purpose) {
   return id;
 }
 function encodeWindows1251(value, label) {
-  const encoded = iconv6.encode(value, "win1251");
-  if (iconv6.decode(encoded, "win1251") !== value) {
+  const encoded = iconv7.encode(value, "win1251");
+  if (iconv7.decode(encoded, "win1251") !== value) {
     throw new Error(`${label} \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B \u0432\u043D\u0435 Windows-1251.`);
   }
   return encoded;
 }
 function decodeWindows1251(value) {
   if (Buffer.isBuffer(value)) {
-    return iconv6.decode(value, "win1251");
+    return iconv7.decode(value, "win1251");
   }
   const text2 = value === null || value === void 0 ? "" : String(value);
   const bytea = text2.match(/^\\x([\da-f]+)$/i);
-  return bytea && bytea[1].length % 2 === 0 ? iconv6.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
+  return bytea && bytea[1].length % 2 === 0 ? iconv7.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
 }
 function toBoolean(value) {
   return value === true || Number(value) !== 0;
@@ -12043,6 +12435,89 @@ function shell5(webview, assetsRoot) {
   return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u041E\u0431\u044A\u0435\u043A\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430</title></head><body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
 
+// src/features/methods/methodCreation.ts
+var iconv8 = __toESM(require_lib3());
+
+// src/infrastructure/database/changeValuesSerialization.ts
+function serializeChangeValues(code, seniorId, signature) {
+  const escapedCode = code.replace(/"/g, '""');
+  const serializedSignature = signature === void 0 ? "" : `69,${signature ? `"${signature.replace(/"/g, '""')}"` : ""},`;
+  return `${serializedSignature}127,"${escapedCode}",102,${seniorId}`;
+}
+
+// src/features/methods/methodCreation.ts
+var methodClassId = 5;
+var defaultMethodVisibilityId = 12450286;
+var interpretedMethodType = 3;
+var defaultMethodKind = 0;
+var defaultMethodCode = "proc()\r\nbegin\r\n\r\nend;\r\n";
+function normalizeClassMethodDraft(draft) {
+  return {
+    ...draft,
+    name: draft.name.trim(),
+    signature: draft.signature.trim(),
+    code: draft.code.replace(/\r?\n/g, "\r\n")
+  };
+}
+function validateClassMethodDraft(input) {
+  const draft = normalizeClassMethodDraft(input);
+  if (!Number.isSafeInteger(draft.ownerClassId) || draft.ownerClassId <= 0) {
+    throw new Error("\u041A\u043B\u0430\u0441\u0441-\u0432\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u0434\u043E\u043B\u0436\u0435\u043D \u0438\u043C\u0435\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 ID.");
+  }
+  if (!draft.name) {
+    throw new Error("\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0438\u043C\u044F \u043C\u0435\u0442\u043E\u0434\u0430.");
+  }
+  if (draft.name.length > 250) {
+    throw new Error("\u0418\u043C\u044F \u043C\u0435\u0442\u043E\u0434\u0430 \u043D\u0435 \u0434\u043E\u043B\u0436\u043D\u043E \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0442\u044C 250 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432.");
+  }
+  if (!/^[\p{L}_][\p{L}\p{N}_]*$/u.test(draft.name)) {
+    throw new Error("\u0418\u043C\u044F \u043C\u0435\u0442\u043E\u0434\u0430 \u043C\u043E\u0436\u0435\u0442 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0431\u0443\u043A\u0432\u044B, \u0446\u0438\u0444\u0440\u044B \u0438 \u0437\u043D\u0430\u043A \u043F\u043E\u0434\u0447\u0451\u0440\u043A\u0438\u0432\u0430\u043D\u0438\u044F.");
+  }
+  if (draft.methodType !== interpretedMethodType) {
+    throw new Error("\u041F\u043E\u043A\u0430 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0435 \u0442\u043E\u043B\u044C\u043A\u043E \u0438\u043D\u0442\u0435\u0440\u043F\u0440\u0435\u0442\u0438\u0440\u0443\u0435\u043C\u044B\u0445 \u043C\u0435\u0442\u043E\u0434\u043E\u0432 (MethType=3).");
+  }
+  if (draft.methodKind !== defaultMethodKind) {
+    throw new Error("\u041F\u043E\u043A\u0430 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0431\u044B\u0447\u043D\u044B\u0439 \u0432\u0438\u0434 \u043C\u0435\u0442\u043E\u0434\u0430 (MethKind=0).");
+  }
+  if (!Number.isSafeInteger(draft.visibilityId) || draft.visibilityId <= 0) {
+    throw new Error("\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0432\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u0438 \u0434\u043E\u043B\u0436\u043D\u0430 \u0438\u043C\u0435\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 ID.");
+  }
+  if (!draft.code.trim()) {
+    throw new Error("\u041A\u043E\u0434 \u043C\u0435\u0442\u043E\u0434\u0430 \u043D\u0435 \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C.");
+  }
+  assertWindows12513(draft.name, "\u0418\u043C\u044F");
+  assertWindows12513(draft.signature, "\u0421\u0438\u0433\u043D\u0430\u0442\u0443\u0440\u0430");
+  assertWindows12513(draft.code, "\u041A\u043E\u0434");
+}
+function serializeMethodCreationAuditValues(input) {
+  const draft = normalizeClassMethodDraft(input);
+  return [
+    auditPair3(103, draft.name),
+    auditPair3(71, draft.visibilityId),
+    auditPair3(123, draft.methodType),
+    auditPair3(1800, draft.methodKind),
+    serializeChangeValues(draft.code, draft.ownerClassId, draft.signature)
+  ].join(",");
+}
+function encodeMethodCreationAuditValues(draft) {
+  return iconv8.encode(serializeMethodCreationAuditValues(draft), "win1251");
+}
+function auditPair3(attributeId, value) {
+  if (typeof value === "number") {
+    return `${attributeId},${value}`;
+  }
+  if (!/[",\r\n]/.test(value)) {
+    return `${attributeId},${value}`;
+  }
+  return `${attributeId},"${value.replace(/"/g, '""')}"`;
+}
+function assertWindows12513(value, label) {
+  const encoded = iconv8.encode(value, "win1251");
+  if (iconv8.decode(encoded, "win1251") !== value) {
+    throw new Error(`${label} \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B \u0432\u043D\u0435 Windows-1251.`);
+  }
+}
+
 // src/features/classes/views/classDetailsPanelManager.ts
 function postPendingMethod(entry) {
   if (!entry.ready || entry.pendingMethodId === void 0) {
@@ -12076,7 +12551,7 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = "c
     { enableScripts: true, localResourceRoots: [assetsRoot] }
   );
   panel2.webview.html = getClassDetailsShell(panel2.webview, assetsRoot);
-  const entry = { panel: panel2, pinned, details: classDetails, activeTab, ready: false };
+  const entry = { panel: panel2, pinned, details: classDetails, activeTab, ready: false, attributeIncludeInherited: false, methodIncludeInherited: false };
   panel2.webview.onDidReceiveMessage(async (message) => {
     if (isClassDetailsWebviewMessage(message)) {
       if (message.command === "classDetailsStateChanged") {
@@ -12127,11 +12602,55 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = "c
         await methodEditor.open(message.id);
         return;
       }
+      if (message.command === "createMethod") {
+        const name = await vscode13.window.showInputBox({
+          title: `\u041D\u043E\u0432\u044B\u0439 \u043C\u0435\u0442\u043E\u0434 \u2014 ${entry.details.name}`,
+          prompt: "\u0418\u043C\u044F \u0438\u043D\u0442\u0435\u0440\u043F\u0440\u0435\u0442\u0438\u0440\u0443\u0435\u043C\u043E\u0433\u043E \u043C\u0435\u0442\u043E\u0434\u0430",
+          placeHolder: "\u0418\u043C\u044F\u041C\u0435\u0442\u043E\u0434\u0430",
+          validateInput: (value) => !value.trim() ? "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0438\u043C\u044F \u043C\u0435\u0442\u043E\u0434\u0430." : !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(value.trim()) ? "\u0414\u043E\u043F\u0443\u0441\u0442\u0438\u043C\u044B \u0442\u043E\u043B\u044C\u043A\u043E \u0431\u0443\u043A\u0432\u044B, \u0446\u0438\u0444\u0440\u044B \u0438 \u0437\u043D\u0430\u043A \u043F\u043E\u0434\u0447\u0451\u0440\u043A\u0438\u0432\u0430\u043D\u0438\u044F." : void 0
+        });
+        if (!name) {
+          return;
+        }
+        try {
+          const created = await methodEditor.create({
+            ownerClassId: message.classId,
+            name: name.trim(),
+            visibilityId: defaultMethodVisibilityId,
+            methodType: interpretedMethodType,
+            methodKind: defaultMethodKind,
+            signature: "",
+            code: defaultMethodCode
+          });
+          if (entry.details.id === message.classId) {
+            const methods = await getClassMethods(entry.details.id, entry.details.name, entry.methodIncludeInherited);
+            void panel2.webview.postMessage({ command: "classMethodsLoaded", methods, includeInherited: entry.methodIncludeInherited });
+          }
+          void vscode13.window.showInformationMessage(`\u041C\u0435\u0442\u043E\u0434 ${created.name} (ID ${created.id}) \u0441\u043E\u0437\u0434\u0430\u043D.`);
+        } catch (error) {
+          void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u043C\u0435\u0442\u043E\u0434: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        return;
+      }
       if (message.command === "openAttribute") {
         try {
           await openAttributeDetails(context, message.id);
         } catch (error) {
           void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0430\u0442\u0440\u0438\u0431\u0443\u0442: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        return;
+      }
+      if (message.command === "createAttribute") {
+        try {
+          await openNewAttributeDetails(context, message.classId, async () => {
+            if (entry.details.id !== message.classId) {
+              return;
+            }
+            const attributes = await getClassAttributes(entry.details.id, entry.details.name, entry.attributeIncludeInherited);
+            void panel2.webview.postMessage({ command: "classAttributesLoaded", attributes, includeInherited: entry.attributeIncludeInherited });
+          });
+        } catch (error) {
+          void vscode13.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0435 \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u0430: ${error instanceof Error ? error.message : String(error)}`);
         }
         return;
       }
@@ -12163,6 +12682,7 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = "c
       const requestedClassId = entry.details.id;
       if (message.command === "loadClassMethods") {
         const includeInherited2 = message.includeInherited;
+        entry.methodIncludeInherited = includeInherited2;
         try {
           const methods = await getClassMethods(requestedClassId, entry.details.name, includeInherited2);
           if (entry.details.id === requestedClassId) {
@@ -12191,6 +12711,7 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = "c
         return;
       }
       const includeInherited = message.includeInherited;
+      entry.attributeIncludeInherited = includeInherited;
       try {
         const attributes = await getClassAttributes(requestedClassId, entry.details.name, includeInherited);
         if (entry.details.id === requestedClassId) {
@@ -12513,7 +13034,7 @@ var import_promises5 = require("node:fs/promises");
 var import_node_net = require("node:net");
 var path5 = __toESM(require("node:path"));
 var import_node_sqlite = require("node:sqlite");
-var iconv7 = __toESM(require_lib3());
+var iconv9 = __toESM(require_lib3());
 var vscode15 = __toESM(require("vscode"));
 
 // src/features/sql-monitor/oeSqlMonitorCollectorPaths.ts
@@ -12795,7 +13316,7 @@ async function loadMonitorProfile(workspacePath, log) {
   for (const iniPath of [path5.join(workspacePath, "bin.win64", "rdboadm.ini"), path5.join(workspacePath, "bin", "rdboadm.ini")]) {
     try {
       log("DEBUG", `\u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u0438: ${iniPath}`);
-      const databases = parseRdboadmIni(iconv7.decode(await (0, import_promises5.readFile)(iniPath), "win1251"));
+      const databases = parseRdboadmIni(iconv9.decode(await (0, import_promises5.readFile)(iniPath), "win1251"));
       log("DEBUG", `\u041D\u0430\u0439\u0434\u0435\u043D\u043E \u043F\u0440\u043E\u0444\u0438\u043B\u0435\u0439: ${databases.length}. \u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u044B: ${databases.map((item) => item.id).join(", ") || "<\u043D\u0435\u0442>"}.`);
       const profile = databases.find((item) => item.id.toLowerCase() === selected.toLowerCase()) ?? databases[0];
       if (profile) {
@@ -13316,15 +13837,50 @@ function createNonce5() {
 
 // src/features/methods/methodEditorProvider.ts
 var vscode18 = __toESM(require("vscode"));
-var iconv9 = __toESM(require_lib3());
+var iconv11 = __toESM(require_lib3());
 
 // src/infrastructure/database/methodRepository.ts
-var iconv8 = __toESM(require_lib3());
+var iconv10 = __toESM(require_lib3());
 
-// src/infrastructure/database/changeValuesSerialization.ts
-function serializeChangeValues(code, seniorId) {
-  const escapedCode = code.replace(/"/g, '""');
-  return `127,"${escapedCode}",102,${seniorId}`;
+// src/infrastructure/database/methodSignature.ts
+var declarationStart = /^(?:proc(?:edure)?|func(?:tion)?)\b/i;
+var bodySectionStart = /^(?:var|const|type|begin|function|procedure|proc|func)\b/i;
+function extractMethodSignature(code) {
+  const source = code.replace(/^\uFEFF/, "").trimStart();
+  const declaration = declarationStart.exec(source);
+  if (!declaration) {
+    return void 0;
+  }
+  const lines = source.slice(declaration[0].length).split(/\r?\n/);
+  const signatureLines = [];
+  let parenthesisDepth = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (signatureLines.length > 0 && parenthesisDepth === 0 && bodySectionStart.test(trimmed)) {
+      break;
+    }
+    signatureLines.push(trimmed);
+    parenthesisDepth += count(line, "(") - count(line, ")");
+    if (parenthesisDepth === 0 && /;\s*$/.test(trimmed)) {
+      break;
+    }
+  }
+  const signature = signatureLines.filter(Boolean).join(" ").replace(/;\s*$/, "").trim();
+  return signature || "()";
+}
+function resolveMethodSignature(oldCode, newCode, storedSignature) {
+  const oldDeclaration = extractMethodSignature(oldCode);
+  const newDeclaration = extractMethodSignature(newCode);
+  if (!newDeclaration || normalize(newDeclaration) === normalize(oldDeclaration)) {
+    return storedSignature;
+  }
+  return newDeclaration;
+}
+function normalize(value) {
+  return (value ?? "").replace(/\s+/g, " ").trim().toLocaleLowerCase("ru");
+}
+function count(value, character) {
+  return [...value].filter((item) => item === character).length;
 }
 
 // src/infrastructure/database/methodRepository.ts
@@ -13355,6 +13911,7 @@ async function getMethodSource(id) {
     await client.connect();
     const result = await executeMonitoredQuery(client, {
       text: `SELECT method.id, method.name, method.seniorid, method.methtype,
+			        method.signature, pg_typeof(method.signature)::text AS signaturetype,
 			        method.code, pg_typeof(method.code)::text AS codetype
 			 FROM methods AS method
 			 WHERE method.id = $1`,
@@ -13366,7 +13923,16 @@ async function getMethodSource(id) {
     if (!row) {
       throw new Error(`\u041C\u0435\u0442\u043E\u0434 ${id} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 \u0431\u0430\u0437\u0435.`);
     }
-    return { id: row.id, name: row.name, seniorId: row.seniorid, methodType: row.methtype, code: decodeCode(row.code), codeType: row.codetype };
+    return {
+      id: row.id,
+      name: row.name,
+      seniorId: row.seniorid,
+      methodType: row.methtype,
+      signature: decodeCode(row.signature),
+      signatureType: row.signaturetype,
+      code: decodeCode(row.code),
+      codeType: row.codetype
+    };
   } finally {
     await client.end().catch(() => void 0);
   }
@@ -13383,7 +13949,8 @@ async function saveMethodSource(method, code, log = () => void 0) {
     await client.query("BEGIN");
     log("\u0422\u0440\u0430\u043D\u0437\u0430\u043A\u0446\u0438\u044F BEGIN.");
     const oldCodeResult = await executeMonitoredQuery(client, {
-      text: `SELECT method.code, pg_typeof(method.code)::text AS codetype, abstract.sysfile
+      text: `SELECT method.signature, pg_typeof(method.signature)::text AS signaturetype,
+			        method.code, pg_typeof(method.code)::text AS codetype, abstract.sysfile
 			 FROM methods AS method
 			 JOIN abstract ON abstract.id = method.id
 			 WHERE method.id = $1`,
@@ -13396,7 +13963,10 @@ async function saveMethodSource(method, code, log = () => void 0) {
     }
     const oldCodeRow = oldCodeResult.rows[0];
     const oldCodeValue = decodeCode(oldCodeRow.code);
+    const oldSignature = decodeCode(oldCodeRow.signature);
+    const nextSignature = resolveMethodSignature(oldCodeValue, code, oldSignature);
     log(`\u0421\u0442\u0430\u0440\u044B\u0439 \u043A\u043E\u0434 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043D: ${inspectValue(oldCodeValue)}.`);
+    log(`\u0421\u0438\u0433\u043D\u0430\u0442\u0443\u0440\u0430 \u043C\u0435\u0442\u043E\u0434\u0430: \u0441\u0442\u0430\u0440\u0430\u044F=${JSON.stringify(oldSignature)}; \u043D\u043E\u0432\u0430\u044F=${JSON.stringify(nextSignature)}.`);
     if (oldCodeValue === code) {
       await client.query("ROLLBACK");
       return;
@@ -13404,11 +13974,12 @@ async function saveMethodSource(method, code, log = () => void 0) {
     const sessionContext = await getSessionContext(client, options.database);
     const lastChange = sessionContext.changeDate;
     const codeValue = isBinaryCodeType(method.codeType) ? encoded : code;
+    const signatureValue = isBinaryCodeType(oldCodeRow.signaturetype) ? encodeWindows12512(nextSignature) : nextSignature;
     const methodResult = await executeMonitoredQuery(client, {
       text: `UPDATE methods
-			 SET lastchange = $1, code = $2, seniorid = $3
-			 WHERE id = $4`,
-      values: [lastChange, codeValue, method.seniorId, method.id],
+			 SET lastchange = $1, signature = $2, code = $3, seniorid = $4
+			 WHERE id = $5`,
+      values: [lastChange, signatureValue, codeValue, method.seniorId, method.id],
       source: `\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 ${method.name}`,
       database: options.database
     });
@@ -13428,8 +13999,8 @@ async function saveMethodSource(method, code, log = () => void 0) {
     if (abstractResult.rowCount !== 1) {
       throw new Error(`\u0417\u0430\u043F\u0438\u0441\u044C abstract ${method.id} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u043F\u0440\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0438.`);
     }
-    const newValues = toWindows1251Text(serializeChangeValues(code, method.seniorId));
-    const oldValues = toWindows1251Text(serializeChangeValues(oldCodeValue, method.seniorId));
+    const newValues = toWindows1251Text(serializeChangeValues(code, method.seniorId, nextSignature));
+    const oldValues = toWindows1251Text(serializeChangeValues(oldCodeValue, method.seniorId, oldSignature));
     log(`\u0417\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0430\u0443\u0434\u0438\u0442\u0430 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043B\u0435\u043D\u044B: NewValues ${inspectValue(newValues)}; OldValues ${inspectValue(oldValues)}.`);
     const logResult = await executeMonitoredQuery(client, {
       text: `INSERT INTO LogCChangedObject (
@@ -13500,7 +14071,7 @@ async function saveMethodSource(method, code, log = () => void 0) {
     if (sysFileId !== void 0) {
       const packageResult = await executeMonitoredQuery(client, {
         text: `UPDATE syspackagebase
-				 SET objectchangestate = 1
+				 SET objectchangestate = 2
 				 WHERE objectid = $1`,
         values: [sysFileId],
         source: `\u041E\u0442\u043C\u0435\u0442\u043A\u0430 \u043F\u0430\u043A\u0435\u0442\u043D\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 ${sysFileId} \u0438\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u044B\u043C`,
@@ -13509,6 +14080,7 @@ async function saveMethodSource(method, code, log = () => void 0) {
       log(`UPDATE SysPackageBase.ObjectChangeState \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D: objectId=${sysFileId}; rowCount=${packageResult.rowCount}.`);
     }
     await client.query("COMMIT");
+    method.signature = nextSignature;
     log("\u0422\u0440\u0430\u043D\u0437\u0430\u043A\u0446\u0438\u044F COMMIT.");
   } catch (error) {
     log(`\u041E\u0448\u0438\u0431\u043A\u0430 SQL-\u044D\u0442\u0430\u043F\u0430: ${error instanceof Error ? error.message : String(error)}.`);
@@ -13519,26 +14091,168 @@ async function saveMethodSource(method, code, log = () => void 0) {
     await client.end().catch(() => void 0);
   }
 }
+async function createClassMethod(input) {
+  validateClassMethodDraft(input);
+  const draft = normalizeClassMethodDraft(input);
+  const encodedSignature = encodeWindows12512(draft.signature);
+  const encodedCode = encodeWindows12512(draft.code);
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    await client.query("BEGIN");
+    const session = await getSessionContext(client, options.database);
+    const ownerResult = await executeMonitoredQuery(client, {
+      text: `SELECT class.id,class.name,abstract.sysfile FROM classes AS class
+			 JOIN abstract ON abstract.id=class.id WHERE class.id=$1 FOR UPDATE OF class`,
+      values: [draft.ownerClassId],
+      source: `\u041A\u043B\u0430\u0441\u0441-\u0432\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u043D\u043E\u0432\u043E\u0433\u043E \u043C\u0435\u0442\u043E\u0434\u0430 ${draft.ownerClassId}`,
+      database: options.database
+    });
+    const owner = ownerResult.rows[0];
+    if (!owner) {
+      throw new Error(`\u041A\u043B\u0430\u0441\u0441 ${draft.ownerClassId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.`);
+    }
+    const developerRangeResult = await executeMonitoredQuery(client, {
+      text: `SELECT developer_range.id, developer_range.beginid, developer_range.endid
+			 FROM users AS session_user_row
+			 JOIN users AS developer_user ON developer_user.person = session_user_row.person
+			 JOIN developerids AS developer_range ON developer_range.userid = developer_user.id
+			 WHERE session_user_row.id = $1
+			 ORDER BY CASE WHEN developer_user.id = session_user_row.id THEN 0 ELSE 1 END, developer_range.beginid DESC
+			 LIMIT 1`,
+      values: [session.userId],
+      source: "\u0414\u0438\u0430\u043F\u0430\u0437\u043E\u043D ID \u043D\u043E\u0432\u043E\u0433\u043E \u043C\u0435\u0442\u043E\u0434\u0430",
+      database: options.database
+    });
+    const range = developerRangeResult.rows[0];
+    if (!range) {
+      throw new Error(`\u0414\u043B\u044F \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F ${session.userId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D DeveloperIDs.`);
+    }
+    await executeMonitoredQuery(client, {
+      text: "SELECT pg_advisory_xact_lock($1, $2)",
+      values: [methodClassId, range.id],
+      source: "\u0411\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u043A\u0430 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 ID \u043C\u0435\u0442\u043E\u0434\u0430",
+      database: options.database
+    });
+    const duplicate = await executeMonitoredQuery(client, {
+      text: "SELECT id FROM methods WHERE seniorid=$1 AND upper(name)=upper($2) LIMIT 1",
+      values: [draft.ownerClassId, draft.name],
+      source: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0438\u043C\u0435\u043D\u0438 \u043D\u043E\u0432\u043E\u0433\u043E \u043C\u0435\u0442\u043E\u0434\u0430",
+      database: options.database
+    });
+    if (duplicate.rowCount) {
+      throw new Error(`\u0412 \u043A\u043B\u0430\u0441\u0441\u0435 ${owner.name} \u0443\u0436\u0435 \u0435\u0441\u0442\u044C \u043C\u0435\u0442\u043E\u0434 ${draft.name}.`);
+    }
+    const visibility = await executeMonitoredQuery(client, {
+      text: "SELECT id FROM enum WHERE id=$1 AND classid=12450282",
+      values: [draft.visibilityId],
+      source: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0432\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u0438 \u043D\u043E\u0432\u043E\u0433\u043E \u043C\u0435\u0442\u043E\u0434\u0430",
+      database: options.database
+    });
+    if (visibility.rowCount !== 1) {
+      throw new Error(`\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0432\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u0438 ${draft.visibilityId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.`);
+    }
+    const idResult = await executeMonitoredQuery(client, {
+      text: `SELECT candidate AS id FROM generate_series($1::integer, $2::integer) AS candidate
+			 WHERE NOT EXISTS (SELECT 1 FROM abstract WHERE id=candidate) ORDER BY candidate LIMIT 1`,
+      values: [range.beginid, range.endid],
+      source: "\u0413\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F ID \u043D\u043E\u0432\u043E\u0433\u043E \u043C\u0435\u0442\u043E\u0434\u0430",
+      database: options.database
+    });
+    const id = Number(idResult.rows[0]?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new Error(`\u0412 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0435 DeveloperIDs ${range.beginid}\u2026${range.endid} \u043D\u0435\u0442 \u0441\u0432\u043E\u0431\u043E\u0434\u043D\u043E\u0433\u043E ID.`);
+    }
+    await executeMonitoredQuery(client, {
+      text: `INSERT INTO logcchangedobject
+			 (objid,objclassid,changetype,newvalues,userid,computername,changedate,oldvalues,transactioncomment,versionobject,rootobjid,rootobjclassid)
+			 VALUES ($1,$2,3,$3,$4,$5,$6,$7,'','1899-12-30 00:00:00',$8,3)`,
+      values: [
+        id,
+        methodClassId,
+        encodeMethodCreationAuditValues(draft),
+        session.userId,
+        session.computerName,
+        session.changeDate,
+        Buffer.alloc(0),
+        draft.ownerClassId
+      ],
+      source: `\u041B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u043C\u0435\u0442\u043E\u0434\u0430 ${draft.name}`,
+      database: options.database
+    });
+    await executeMonitoredQuery(client, {
+      text: `INSERT INTO methods
+			 (lastchange,name,visibility,methtype,methkind,signature,code,id,classid,seniorid)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      values: [
+        session.changeDate,
+        draft.name,
+        draft.visibilityId,
+        draft.methodType,
+        draft.methodKind,
+        encodedSignature,
+        encodedCode,
+        id,
+        methodClassId,
+        draft.ownerClassId
+      ],
+      source: `\u0421\u043E\u0437\u0434\u0430\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 ${draft.name}`,
+      database: options.database
+    });
+    await executeMonitoredQuery(client, {
+      text: "INSERT INTO abstract (lastchange,name,id,classid,seniorid,sysfile) VALUES ($1,$2,$3,$4,$5,$6)",
+      values: [session.changeDate, draft.name, id, methodClassId, draft.ownerClassId, owner.sysfile],
+      source: `\u0421\u043E\u0437\u0434\u0430\u043D\u0438\u0435 Abstract \u043C\u0435\u0442\u043E\u0434\u0430 ${id}`,
+      database: options.database
+    });
+    const version = await executeMonitoredQuery(client, {
+      text: `UPDATE classes SET classversion=CASE WHEN classversion=2147483647 THEN -2147483648
+			 ELSE COALESCE(classversion,0)+1 END WHERE id=$1`,
+      values: [draft.ownerClassId],
+      source: `\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435 \u0432\u0435\u0440\u0441\u0438\u0438 \u043A\u043B\u0430\u0441\u0441\u0430 ${draft.ownerClassId}`,
+      database: options.database
+    });
+    if (version.rowCount !== 1) {
+      throw new Error(`\u041A\u043B\u0430\u0441\u0441 ${draft.ownerClassId} \u0438\u0441\u0447\u0435\u0437 \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F.`);
+    }
+    if (owner.sysfile !== null) {
+      await executeMonitoredQuery(client, {
+        text: "UPDATE syspackagebase SET objectchangestate=2 WHERE objectid=$1",
+        values: [owner.sysfile],
+        source: `\u041E\u0442\u043C\u0435\u0442\u043A\u0430 \u043F\u0430\u043A\u0435\u0442\u043D\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 ${owner.sysfile} \u0438\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u044B\u043C`,
+        database: options.database
+      });
+    }
+    await client.query("COMMIT");
+    return { id, ownerClassId: draft.ownerClassId, name: draft.name };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => void 0);
+    throw error;
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
 function decodeCode(value) {
   if (Buffer.isBuffer(value)) {
-    return iconv8.decode(value, "win1251");
+    return iconv10.decode(value, "win1251");
   }
   const text2 = value === null || value === void 0 ? "" : String(value);
   const bytea = text2.match(/^\\x([\da-f]+)$/i);
-  return bytea && bytea[1].length % 2 === 0 ? iconv8.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
+  return bytea && bytea[1].length % 2 === 0 ? iconv10.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
 }
 function isBinaryCodeType(codeType) {
   return codeType.toLocaleLowerCase("en-US") === "bytea" || codeType.toLocaleLowerCase("en-US") === "bin";
 }
 function encodeWindows12512(value) {
-  const encoded = iconv8.encode(value, "win1251");
-  if (iconv8.decode(encoded, "win1251") !== value) {
+  const encoded = iconv10.encode(value, "win1251");
+  if (iconv10.decode(encoded, "win1251") !== value) {
     throw new Error("\u041A\u043E\u0434 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0432 Cyrillic Windows-1251.");
   }
   return encoded;
 }
 function toWindows1251Text(value) {
-  return iconv8.decode(iconv8.encode(value, "win1251"), "win1251");
+  return iconv10.decode(iconv10.encode(value, "win1251"), "win1251");
 }
 function inspectValue(value) {
   const replacementCount = [...value].filter((character) => character === "\uFFFD").length;
@@ -13576,6 +14290,11 @@ var MethodEditorProvider = class {
     await this.persistMethod(method, code);
     return { id: method.id, name: method.name, changed };
   }
+  async create(draft) {
+    const created = await createClassMethod(draft);
+    await this.open(created.id);
+    return created;
+  }
   async getUri(methodOrId) {
     const method = typeof methodOrId === "number" ? await getMethodSource(methodOrId) : methodOrId;
     const extension = method.methodType === 3 ? "pkf" : "pas";
@@ -13588,7 +14307,7 @@ var MethodEditorProvider = class {
   }
   async stat(uri) {
     await this.ensureMethod(uri);
-    return { type: vscode18.FileType.File, ctime: 0, mtime: Date.now(), size: iconv9.encode(this.methods.get(uri.toString())?.code ?? "", "win1251").byteLength };
+    return { type: vscode18.FileType.File, ctime: 0, mtime: Date.now(), size: iconv11.encode(this.methods.get(uri.toString())?.code ?? "", "win1251").byteLength };
   }
   readDirectory() {
     return [];
@@ -13598,13 +14317,13 @@ var MethodEditorProvider = class {
   }
   async readFile(uri) {
     const method = await this.ensureMethod(uri);
-    const bytes = iconv9.encode(method.code, "win1251");
-    this.log(`readFile ID=${method.id}: bytes=${bytes.byteLength}; source ${inspectText(method.code)}; decoded ${inspectText(iconv9.decode(bytes, "win1251"))}.`);
+    const bytes = iconv11.encode(method.code, "win1251");
+    this.log(`readFile ID=${method.id}: bytes=${bytes.byteLength}; source ${inspectText(method.code)}; decoded ${inspectText(iconv11.decode(bytes, "win1251"))}.`);
     return bytes;
   }
   async writeFile(uri, content) {
     const method = await this.ensureMethod(uri);
-    const code = iconv9.decode(Buffer.from(content), "win1251");
+    const code = iconv11.decode(Buffer.from(content), "win1251");
     this.log(`writeFile \u0432\u044B\u0437\u0432\u0430\u043D ID=${method.id}: bytes=${content.byteLength}; decoded ${inspectText(code)}.`);
     await this.persistMethod(method, code, uri);
   }
@@ -13677,7 +14396,7 @@ function inspectText(value) {
   for (let index = value.indexOf("\uFFFD"); index >= 0; index = value.indexOf("\uFFFD", index + 1)) {
     replacementPositions.push(index);
   }
-  const roundTrip = iconv9.decode(iconv9.encode(value, "win1251"), "win1251");
+  const roundTrip = iconv11.decode(iconv11.encode(value, "win1251"), "win1251");
   let unsupportedCount = 0;
   for (let index = 0; index < value.length; index++) {
     if (value[index] !== roundTrip[index]) {
@@ -13908,10 +14627,10 @@ function sameName(left, right) {
 var path7 = __toESM(require("node:path"));
 var import_promises6 = require("node:fs/promises");
 var vscode20 = __toESM(require("vscode"));
-var iconv12 = __toESM(require_lib3());
+var iconv14 = __toESM(require_lib3());
 
 // src/infrastructure/database/methodHistoryRepository.ts
-var iconv10 = __toESM(require_lib3());
+var iconv12 = __toESM(require_lib3());
 
 // src/infrastructure/database/methodHistoryParsing.ts
 function extractCodeFromChangeValues(value) {
@@ -14024,11 +14743,11 @@ function readText(row, ...names) {
 }
 function decodeText(value) {
   if (Buffer.isBuffer(value)) {
-    return iconv10.decode(value, "win1251");
+    return iconv12.decode(value, "win1251");
   }
   const text2 = value === void 0 || value === null ? "" : String(value);
   const bytea = text2.match(/^\\x([\da-f]+)$/i);
-  return bytea && bytea[1].length % 2 === 0 ? iconv10.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
+  return bytea && bytea[1].length % 2 === 0 ? iconv12.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
 }
 
 // src/infrastructure/database/methodWorkingCopyRepository.ts
@@ -14073,7 +14792,7 @@ async function getMethodWorkingCopyInfo(methodId) {
 // src/features/code-history/svnClient.ts
 var import_node_child_process2 = require("node:child_process");
 var path6 = __toESM(require("node:path"));
-var iconv11 = __toESM(require_lib3());
+var iconv13 = __toESM(require_lib3());
 async function svnLog(fileName, limit) {
   const args = ["log", "--xml"];
   if (limit !== void 0) {
@@ -14115,11 +14834,11 @@ async function svnCat(fileName, revision) {
     return "";
   }
   const bytes = await runSvn(["cat", "-r", String(revision), fileName], fileName);
-  return legacyExtension(fileName) ? iconv11.decode(bytes, "win1251") : bytes.toString("utf8");
+  return legacyExtension(fileName) ? iconv13.decode(bytes, "win1251") : bytes.toString("utf8");
 }
 async function svnCatBase(fileName) {
   const bytes = await runSvn(["cat", "-r", "BASE", fileName], fileName);
-  return legacyExtension(fileName) ? iconv11.decode(bytes, "win1251") : bytes.toString("utf8");
+  return legacyExtension(fileName) ? iconv13.decode(bytes, "win1251") : bytes.toString("utf8");
 }
 async function runSvn(args, fileName) {
   return new Promise((resolve6, reject) => {
@@ -14148,7 +14867,7 @@ function legacyExtension(fileName) {
 }
 function decodeConsole(value) {
   const utf8 = value.toString("utf8");
-  return utf8.includes("\uFFFD") ? iconv11.decode(value, "win1251") : utf8;
+  return utf8.includes("\uFFFD") ? iconv13.decode(value, "win1251") : utf8;
 }
 
 // src/features/code-history/codeHistoryService.ts
@@ -14247,7 +14966,7 @@ var CodeHistoryService = class {
       vscode20.workspace.openTextDocument(vscode20.Uri.file(fileName)),
       (0, import_promises6.readFile)(generatedFileName)
     ]);
-    const generated = iconv12.decode(generatedBytes, "win1251");
+    const generated = iconv14.decode(generatedBytes, "win1251");
     await vscode20.commands.executeCommand(
       "vscode.diff",
       local.uri,
@@ -14449,8 +15168,8 @@ function formatUser(entry) {
   }
   return entry.userName || entry.loginName || `\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${entry.userId}`;
 }
-function pluralChanges(count) {
-  return count % 10 === 1 && count % 100 !== 11 ? "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435" : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20) ? "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F" : "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439";
+function pluralChanges(count2) {
+  return count2 % 10 === 1 && count2 % 100 !== 11 ? "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435" : count2 % 10 >= 2 && count2 % 10 <= 4 && (count2 % 100 < 10 || count2 % 100 >= 20) ? "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F" : "\u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439";
 }
 function escapeGlob(value) {
   return value.replace(/[{}[\]*?]/g, (character) => `[${character}]`);
@@ -14471,15 +15190,16 @@ var path8 = __toESM(require("node:path"));
 var import_node_child_process3 = require("node:child_process");
 var import_node_util = require("node:util");
 var PackageSyncPanelManager = class _PackageSyncPanelManager {
-  constructor(extensionUri, loadItems) {
+  constructor(extensionUri, loadSnapshot) {
     this.extensionUri = extensionUri;
-    this.loadItems = loadItems;
+    this.loadSnapshot = loadSnapshot;
   }
   extensionUri;
-  loadItems;
+  loadSnapshot;
   static viewType = "vc-ve-tools.packageSync";
   panel;
   items = [];
+  issues = [];
   show() {
     if (this.panel) {
       this.panel.reveal(void 0, false);
@@ -14526,7 +15246,7 @@ var PackageSyncPanelManager = class _PackageSyncPanelManager {
     try {
       const fileName = await resolveExistingFile(item.localPath);
       item.localPath = fileName;
-      await this.post({ command: "packageSyncLoaded", items: this.items });
+      await this.post({ command: "packageSyncLoaded", items: this.items, issues: this.issues });
       const generatedFileName = await findOriginalClientGeneratedFile(fileName);
       await vscode21.commands.executeCommand("vc-ve-tools.openGeneratedPackageDiff", fileName, generatedFileName);
     } catch (error) {
@@ -14536,8 +15256,10 @@ var PackageSyncPanelManager = class _PackageSyncPanelManager {
   async refresh() {
     await this.post({ command: "packageSyncLoading" });
     try {
-      this.items = await this.loadItems();
-      await this.post({ command: "packageSyncLoaded", items: this.items });
+      const snapshot = await this.loadSnapshot();
+      this.items = snapshot.items;
+      this.issues = snapshot.issues;
+      await this.post({ command: "packageSyncLoaded", ...snapshot });
     } catch (error) {
       await this.post({ command: "packageSyncFailed", message: error instanceof Error ? error.message : String(error) });
     }
@@ -14622,6 +15344,108 @@ async function resolveExistingFile(fileName) {
 var path9 = __toESM(require("node:path"));
 var import_node_os4 = require("node:os");
 var vscode22 = __toESM(require("vscode"));
+
+// src/features/package-sync/packageSyncIssues.ts
+var referenceClassId = 10;
+var packagePlaceholder = "#package$";
+function findPackagePlaceholderIssues(items) {
+  return items.filter((item) => item.objectClassId === referenceClassId && isInsidePackagePlaceholder(item)).map((item) => ({
+    objectId: item.objectId,
+    objectName: item.objectName || `#${item.objectId}`,
+    classId: item.objectClassId,
+    className: "\u0420\u0435\u0444\u041E\u0431\u044A\u0435\u043A\u0442",
+    packagePath: item.packagePath,
+    objectPath: item.objectPath,
+    changedBy: item.changedBy,
+    message: `ID ${item.objectId} \u043F\u043E\u043F\u0430\u043B \u0432 ${packagePlaceholder}`,
+    type: "package-placeholder"
+  }));
+}
+function isInsidePackagePlaceholder(item) {
+  return [item.packagePath, item.objectPath].some((value) => value.split(/[\\/]+/u).some((segment) => segment.trim().toLocaleLowerCase("en-US") === packagePlaceholder));
+}
+
+// src/infrastructure/database/packageSyncRepository.ts
+async function loadPackageSyncSnapshot() {
+  const [items, boundaryIssues] = await Promise.all([loadPackageSyncItems(), loadPackageBoundaryIssues()]);
+  return { items, issues: [...findPackagePlaceholderIssues(items), ...boundaryIssues] };
+}
+async function loadPackageBoundaryIssues() {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const result = await executeMonitoredQuery(client, {
+      text: `WITH RECURSIVE package_edges AS (
+			 SELECT P.PackageName AS SourcePackage, trim(Dependency) AS TargetPackage
+			 FROM SysPackages P
+			 CROSS JOIN LATERAL regexp_split_to_table(COALESCE(P.Packages::text, ''), ';') Dependency
+			 WHERE trim(Dependency) <> ''
+			), package_dependencies(SourcePackage, TargetPackage) AS (
+			 SELECT SourcePackage, TargetPackage FROM package_edges
+			 UNION
+			 SELECT D.SourcePackage, E.TargetPackage
+			 FROM package_dependencies D
+			 JOIN package_edges E ON E.SourcePackage = D.TargetPackage
+			)
+			SELECT DISTINCT
+			 R.ID AS ObjectID,
+			 COALESCE(OwnerObject.Name, '#' || R.SeniorID::text) || ' --> ' || COALESCE(TargetObject.Name, '#' || R.ObjID::text) AS ObjectName,
+			 10 AS ClassID,
+			 '\u0420\u0435\u0444\u041E\u0431\u044A\u0435\u043A\u0442' AS ClassName,
+			 1320 AS AttributeID,
+			 'ObjID' AS AttributeName,
+			 R.ObjID AS ReferenceID,
+			 TargetObject.Name AS ReferenceName,
+			 SourcePackage.PackageName AS SourcePackage,
+			 TargetPackage.PackageName AS TargetPackage,
+			 SourceFile.FileName AS SourceFile,
+			 TargetFile.FileName AS RecommendedFile,
+			 COALESCE(ChangedUser.Name, Changed.ObjectChangeLastUser::text, '') AS ChangedBy
+			FROM Refs R
+			JOIN Abstract RelationObject ON RelationObject.ID = R.ID
+			LEFT JOIN Abstract OwnerObject ON OwnerObject.ID = R.SeniorID
+			JOIN Abstract TargetObject ON TargetObject.ID = R.ObjID
+			JOIN SysFile SourceFile ON SourceFile.ID = RelationObject.SysFile
+			JOIN SysGroups SourceGroup ON SourceGroup.ID = SourceFile.SysGroup
+			JOIN SysPackages SourcePackage ON SourcePackage.ID = SourceGroup.Package
+			JOIN SysFile TargetFile ON TargetFile.ID = TargetObject.SysFile
+			JOIN SysGroups TargetGroup ON TargetGroup.ID = TargetFile.SysGroup
+			JOIN SysPackages TargetPackage ON TargetPackage.ID = TargetGroup.Package
+			JOIN SysPackageBase Changed ON Changed.ObjectID = RelationObject.SysFile
+			LEFT JOIN Abstract ChangedUser ON ChangedUser.ID = Changed.ObjectChangeLastUser
+			WHERE Changed.ObjectChangeState IN (1, 2)
+			 AND SourcePackage.ID <> TargetPackage.ID
+			 AND NOT EXISTS (
+			  SELECT 1 FROM package_dependencies Allowed
+			  WHERE Allowed.SourcePackage = SourcePackage.PackageName
+			    AND Allowed.TargetPackage = TargetPackage.PackageName
+			 )
+			ORDER BY R.ID`,
+      source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u0430\u043A\u0435\u0442\u043D\u044B\u0445 \u0433\u0440\u0430\u043D\u0438\u0446",
+      database: options.database
+    });
+    return result.rows.map((row) => ({
+      objectId: Number(row.objectid),
+      objectName: row.objectname ?? `#${row.objectid}`,
+      classId: Number(row.classid),
+      className: row.classname ?? "",
+      attributeId: Number(row.attributeid),
+      attributeName: row.attributename ?? "",
+      referenceId: Number(row.referenceid),
+      referenceName: row.referencename ?? `#${row.referenceid}`,
+      sourcePackage: row.sourcepackage ?? "",
+      targetPackage: row.targetpackage ?? "",
+      sourceFile: row.sourcefile ?? "",
+      recommendedFile: row.recommendedfile ?? "",
+      changedBy: row.changedby === null ? "" : String(row.changedby),
+      message: `ID ${Number(row.objectid)} \u043D\u0430\u0440\u0443\u0448\u0430\u0435\u0442 \u0433\u0440\u0430\u043D\u0438\u0446\u0443 \u043F\u0430\u043A\u0435\u0442\u043E\u0432`,
+      type: "package-boundary"
+    }));
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
 async function loadPackageSyncItems() {
   const options = await getProjectDatabaseOptions();
   const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
@@ -14750,7 +15574,7 @@ function registerDatabaseMcpServer(context, logsPath, navigation, databaseSelect
           navigation.infoPath
         ],
         {},
-        "0.19.0"
+        "0.21.0"
       );
       server.cwd = workspaceFolder.uri;
       return [server];
@@ -15008,6 +15832,14 @@ async function handleRequest(request, response, token, actions) {
       const result = await actions.updateMethodSource(input.id, input.code);
       respond(response, 200, { ok: true, action: input.action, ...result });
       return;
+    } else if (input.action === "create_class_attribute") {
+      const result = await actions.createClassAttribute(input.draft);
+      respond(response, 200, { ok: true, action: input.action, ...result });
+      return;
+    } else if (input.action === "create_class_method") {
+      const result = await actions.createClassMethod(input.draft);
+      respond(response, 200, { ok: true, action: input.action, ...result });
+      return;
     } else if (input.action === "get_svn_file_history") {
       const result = await actions.getSvnFileHistory(input.filePath, input.limit);
       respond(response, 200, { ok: true, action: input.action, ...result });
@@ -15074,10 +15906,10 @@ function validateRequest(value) {
     throw new Error("Invalid navigation request.");
   }
   const { action, id } = value;
-  if (action !== "reveal_class" && action !== "open_class" && action !== "open_method" && action !== "reveal_method" && action !== "update_method_source" && action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && action !== "open_client_entity" && action !== "get_production_tasks" && action !== "get_production_tasks_in_progress" && action !== "update_packages" && action !== "update_binaries") {
+  if (action !== "reveal_class" && action !== "open_class" && action !== "open_method" && action !== "reveal_method" && action !== "update_method_source" && action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && action !== "open_client_entity" && action !== "get_production_tasks" && action !== "get_production_tasks_in_progress" && action !== "update_packages" && action !== "update_binaries" && action !== "create_class_attribute" && action !== "create_class_method") {
     throw new Error("Unknown navigation action.");
   }
-  if (action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && action !== "get_production_tasks" && action !== "get_production_tasks_in_progress" && action !== "update_packages" && action !== "update_binaries" && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
+  if (action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && action !== "get_production_tasks" && action !== "get_production_tasks_in_progress" && action !== "update_packages" && action !== "update_binaries" && action !== "create_class_attribute" && action !== "create_class_method" && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
     throw new Error("Navigation ID must be a positive integer.");
   }
   const classId = value.classId;
@@ -15087,6 +15919,13 @@ function validateRequest(value) {
   const code = value.code;
   if (action === "update_method_source" && typeof code !== "string") {
     throw new Error("Method code must be a string for update_method_source.");
+  }
+  const draft = value.draft;
+  if (action === "create_class_attribute" && (!draft || typeof draft !== "object")) {
+    throw new Error("draft is required for create_class_attribute.");
+  }
+  if (action === "create_class_method" && (!draft || typeof draft !== "object")) {
+    throw new Error("draft is required for create_class_method.");
   }
   const filePath = value.filePath;
   const limit = value.limit;
@@ -15121,7 +15960,7 @@ function validateRequest(value) {
   if (action === "open_client_entity" && (typeof entityType !== "string" || !entityType.trim())) {
     throw new Error("entityType is required for open_client_entity.");
   }
-  return { action, id, classId, code, filePath, limit, query, offset, role, entityType };
+  return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft };
 }
 function respond(response, statusCode, body) {
   response.writeHead(statusCode, { "content-type": "application/json; charset=utf-8" });
@@ -15130,10 +15969,10 @@ function respond(response, statusCode, body) {
 
 // src/features/dfm/dfmEditorProvider.ts
 var vscode26 = __toESM(require("vscode"));
-var iconv14 = __toESM(require_lib3());
+var iconv16 = __toESM(require_lib3());
 
 // src/features/dfm/dfmRepository.ts
-var iconv13 = __toESM(require_lib3());
+var iconv15 = __toESM(require_lib3());
 var dfmQuery = `WITH RECURSIVE class_chain AS (
 	SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
 	UNION ALL
@@ -15224,7 +16063,7 @@ async function saveDfmSource(source, text2) {
       return toSource(row);
     }
     const session = await getSessionContext(client, options.database);
-    const value = isBinaryType(row.valuetype) ? encode6(text2) : text2;
+    const value = isBinaryType(row.valuetype) ? encode8(text2) : text2;
     const updated = await executeMonitoredQuery(client, {
       text: `UPDATE dfltvalues SET lastchange = $1, seniorid = $2, attrid = $3, defvalue = $4, name = $5 WHERE id = $6`,
       values: [session.changeDate, source.classId, source.attributeId, value, source.valueName, source.valueId],
@@ -15260,14 +16099,14 @@ function toSource(row) {
   return { classId: row.classid, className: row.classname, attributeId: row.attrid, valueId: row.valueid, valueName: row.valuename ?? "DFM", text: decodeValue(row.defvalue), valueType: row.valuetype };
 }
 function decodeValue(value) {
-  if (Buffer.isBuffer(value)) return iconv13.decode(value, "win1251");
+  if (Buffer.isBuffer(value)) return iconv15.decode(value, "win1251");
   const text2 = value == null ? "" : String(value);
   const bytea = text2.match(/^\\x([\da-f]+)$/i);
-  return bytea ? iconv13.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
+  return bytea ? iconv15.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
 }
-function encode6(value) {
-  const result = iconv13.encode(value, "win1251");
-  if (iconv13.decode(result, "win1251") !== value) throw new Error("DFM \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B \u0432\u043D\u0435 Windows-1251.");
+function encode8(value) {
+  const result = iconv15.encode(value, "win1251");
+  if (iconv15.decode(result, "win1251") !== value) throw new Error("DFM \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B \u0432\u043D\u0435 Windows-1251.");
   return result;
 }
 function isBinaryType(value) {
@@ -15298,7 +16137,7 @@ var DfmEditorProvider = class {
   }
   async stat(uri) {
     const source = await this.ensure(uri);
-    return { type: vscode26.FileType.File, ctime: 0, mtime: Date.now(), size: iconv14.encode(source.text, "win1251").byteLength };
+    return { type: vscode26.FileType.File, ctime: 0, mtime: Date.now(), size: iconv16.encode(source.text, "win1251").byteLength };
   }
   readDirectory() {
     return [];
@@ -15307,11 +16146,11 @@ var DfmEditorProvider = class {
     throw vscode26.FileSystemError.NoPermissions();
   }
   async readFile(uri) {
-    return iconv14.encode((await this.ensure(uri)).text, "win1251");
+    return iconv16.encode((await this.ensure(uri)).text, "win1251");
   }
   async writeFile(uri, content) {
     const source = await this.ensure(uri);
-    const saved = await saveDfmSource(source, iconv14.decode(Buffer.from(content), "win1251"));
+    const saved = await saveDfmSource(source, iconv16.decode(Buffer.from(content), "win1251"));
     this.sources.set(uri.toString(), saved);
     this.changed.fire([{ type: vscode26.FileChangeType.Changed, uri }]);
     vscode26.window.setStatusBarMessage(`DFM ${source.className} \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D`, 2500);
@@ -15809,8 +16648,9 @@ function requireId(value, description) {
 
 // src/features/explorer/clipboardObjectNavigation.ts
 function registerClipboardObjectNavigation(actions) {
-  return vscode30.commands.registerCommand("vc-ve-tools.openClipboardObject", async (requestedId) => {
+  return vscode30.commands.registerCommand("vc-ve-tools.openClipboardObject", async (requestedId, requestedTarget) => {
     const id = requestedId === void 0 ? parseClipboardObjectId(await vscode30.env.clipboard.readText()) : Number.isSafeInteger(requestedId) && requestedId > 0 ? requestedId : void 0;
+    const directTarget = requestedTarget === "explorer" || requestedTarget === "object" ? requestedTarget : void 0;
     if (id === void 0) {
       void vscode30.window.showWarningMessage("\u0412 \u0431\u0443\u0444\u0435\u0440\u0435 \u043E\u0431\u043C\u0435\u043D\u0430 \u043D\u0435\u0442 \u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0433\u043E ID \u043E\u0431\u044A\u0435\u043A\u0442\u0430.");
       return;
@@ -15823,15 +16663,15 @@ function registerClipboardObjectNavigation(actions) {
       if (!object) {
         throw new Error(`\u041E\u0431\u044A\u0435\u043A\u0442 ID=${id} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.`);
       }
-      const selected = await vscode30.window.showQuickPick([
+      const target = directTarget ?? (await vscode30.window.showQuickPick([
         { label: "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0432 \u043F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A\u0435", description: explorerDescription(object.kind), target: "explorer" },
         { label: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043E\u0431\u044A\u0435\u043A\u0442", description: objectDescription(object.kind), target: "object" }
       ], {
         placeHolder: `${object.name || "\u041E\u0431\u044A\u0435\u043A\u0442"} \xB7 ID=${id}`,
         title: "\u041A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043E\u0431\u044A\u0435\u043A\u0442?"
-      });
-      if (selected) {
-        await navigateToDatabaseObject(object, selected.target, actions);
+      }))?.target;
+      if (target) {
+        await navigateToDatabaseObject(object, target, actions);
       }
     } catch (error) {
       void vscode30.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043E\u0431\u044A\u0435\u043A\u0442 ID=${id}: ${error instanceof Error ? error.message : String(error)}`);
@@ -16136,6 +16976,9 @@ var productionTaskSql = `SELECT T0.ID AS id,
   COALESCE((SELECT CAST(R.ReleaseByDigits AS VARCHAR(64)) FROM URRelease R WHERE R.ID = T0.ReleaseFact), '') AS releaseactual,
   COALESCE(CAST(T0.Revision_ReleaseBefore AS VARCHAR(64)), '') AS revisiontrunk,
   COALESCE(CAST(T0.Revision_ReleaseFact AS VARCHAR(64)), '') AS revisionbranch,
+  COALESCE(CAST((SELECT COUNT(SF.ID) FROM StoredFiles SF
+    WHERE SF.SeniorID = T0.ID OR SF.RootObj = T0.ID OR SF.MainStoredFile IN
+      (SELECT PSF.ID FROM StoredFiles PSF WHERE PSF.SeniorID = T0.ID OR PSF.RootObj = T0.ID)) AS VARCHAR(64)), '0') AS attachmentcount,
   COALESCE(CAST(left(T0.Comment, 6000) AS VARCHAR(6000)), '') AS workdescription,
   COALESCE((SELECT CAST(left(H.Comment, 6000) AS VARCHAR(6000)) FROM HistoryLC H WHERE H.ID = T0.LCLastActionID), '') AS statecomment,
   COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
@@ -16159,10 +17002,34 @@ function productionTaskAttachmentsSql(taskId) {
   COALESCE(CAST(SF.FileSizeStr AS VARCHAR(64)), '') AS filesizestr,
   COALESCE(CAST(SF.FileSize AS VARCHAR(64)), '') AS filesize,
   COALESCE(CAST(DateToStrFmt(SF.ChangeDate, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS changed,
-  COALESCE(CAST(left(SF.Comment, 2000) AS VARCHAR(2000)), '') AS comment
+  COALESCE(CAST(left(SF.Comment, 2000) AS VARCHAR(2000)), '') AS comment,
+  COALESCE(CAST(SF.StorageFileID AS VARCHAR(2000)), '') AS storagefileid,
+  COALESCE(CAST(SF.StorageType AS VARCHAR(64)), '') AS storagetype,
+  COALESCE(SF.MainStoredFile, 0) AS mainstoredfile,
+  COALESCE(SF.Important, 0) AS important
 FROM StoredFiles SF
-WHERE SF.SeniorID = ${taskId}
+WHERE SF.SeniorID = ${taskId} OR SF.RootObj = ${taskId} OR SF.MainStoredFile IN
+  (SELECT PSF.ID FROM StoredFiles PSF WHERE PSF.SeniorID = ${taskId} OR PSF.RootObj = ${taskId})
 ORDER BY SF.Name, SF.ID
+LIMIT 250`;
+}
+function productionTaskHistorySql(taskId) {
+  if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+    throw new Error("ID \u0437\u0430\u0434\u0430\u0447\u0438 \u0434\u043B\u044F \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u043C \u0446\u0435\u043B\u044B\u043C \u0447\u0438\u0441\u043B\u043E\u043C.");
+  }
+  return `SELECT H.ID AS id,
+  COALESCE(CAST(DateToStrFmt(H.CreDate, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS created,
+  COALESCE(CAST(A.FName AS VARCHAR(1000)), '') AS action,
+  COALESCE(CAST(S.FName AS VARCHAR(1000)), '') AS state,
+  COALESCE(CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)), '') AS person,
+  COALESCE(CAST(left(H.Comment, 6000) AS VARCHAR(6000)), '') AS comment
+FROM HistoryLC H
+LEFT JOIN ActionLC A ON A.ID = H.ActionID
+LEFT JOIN StateLC S ON S.ID = H.EndState
+LEFT JOIN Persons P ON P.ID = H.Person
+WHERE H.SeniorID = ${taskId}
+ORDER BY H.CreDate DESC, H.ID DESC
 LIMIT 250`;
 }
 async function loadProductionTaskAttachments(options, taskId, logger) {
@@ -16197,10 +17064,55 @@ async function loadProductionTaskAttachments(options, taskId, logger) {
       extension: text(row.fileextension),
       size: text(row.filesizestr) || text(row.filesize),
       changedAt: normalizeProductionDate(text(row.changed)),
-      comment: text(row.comment)
+      comment: text(row.comment),
+      storageFileId: text(row.storagefileid),
+      storageType: text(row.storagetype),
+      mainStoredFileId: positiveInteger(row.mainstoredfile),
+      important: Number(row.important) !== 0
     }));
     logger?.info("\u0412\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u0437\u0430\u0434\u0430\u0447\u0438 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u044B.", { taskId, count: attachments.length, elapsedMs: Date.now() - startedAt });
     return attachments;
+  } catch (error) {
+    logger?.error(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043D\u0430 \u044D\u0442\u0430\u043F\u0435 \xAB${stage}\xBB.`, { taskId, ...errorDetails(error), elapsedMs: Date.now() - startedAt });
+    throw error;
+  } finally {
+    connection.dispose();
+  }
+}
+async function loadProductionTaskHistory(options, taskId, logger) {
+  const connection = new OenpConnection(options.host, options.port);
+  const startedAt = Date.now();
+  let stage = "\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u0438";
+  logger?.info("\u041D\u0430\u0447\u0430\u0442\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0437\u0430\u0434\u0430\u0447\u0438.", { taskId });
+  try {
+    await connection.connect();
+    stage = "\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F \u043A\u043B\u0438\u0435\u043D\u0442\u0441\u043A\u043E\u0439 \u0441\u0435\u0441\u0441\u0438\u0438 \u0434\u043B\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438";
+    await exchangeLogged(connection, createInitialPacket(options.clientSessionKey), stage, logger);
+    stage = "\u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0432\u0435\u0440\u0441\u0438\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u0434\u043B\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438";
+    await exchangeLogged(connection, createClientVersionPacket(2), stage, logger);
+    stage = "\u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u0430 \u0434\u043B\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438";
+    await exchangeLogged(connection, createProtocolInitPacket(3), stage, logger);
+    stage = "\u0432\u044B\u0431\u043E\u0440 \u0431\u0430\u0437\u044B \u0434\u043B\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438";
+    await exchangeLogged(connection, createDatabaseProbePacket(4), stage, logger);
+    stage = "\u0433\u043E\u0442\u043E\u0432\u043D\u043E\u0441\u0442\u044C \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u0434\u043B\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438";
+    await exchangeLogged(connection, createClientReadyPacket(5), stage, logger);
+    stage = "\u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0435 challenge \u0434\u043B\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438";
+    const challenge = parseChallenge(await exchangeLogged(connection, createChallengePacket(6), stage, logger, false));
+    const authCompatibility = inspectAuthorizationCompatibility(options);
+    stage = "\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u0434\u043B\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438";
+    await exchangeLogged(connection, createLoginPacket(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
+    stage = "\u0437\u0430\u043F\u0440\u043E\u0441 \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0437\u0430\u0434\u0430\u0447\u0438";
+    const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskHistorySql(taskId), options.personId), stage, logger);
+    const history = parseMemoryDataPacket(response).map((row) => ({
+      id: Number(row.id) >>> 0,
+      createdAt: normalizeProductionDate(text(row.created)),
+      action: text(row.action),
+      state: text(row.state),
+      person: text(row.person),
+      comment: text(row.comment)
+    }));
+    logger?.info("\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0437\u0430\u0434\u0430\u0447\u0438 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430.", { taskId, count: history.length, elapsedMs: Date.now() - startedAt });
+    return history;
   } catch (error) {
     logger?.error(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043D\u0430 \u044D\u0442\u0430\u043F\u0435 \xAB${stage}\xBB.`, { taskId, ...errorDetails(error), elapsedMs: Date.now() - startedAt });
     throw error;
@@ -16271,6 +17183,7 @@ async function loadProductionTasks(options, logger) {
       releaseActual: text(row.releaseactual),
       revisionTrunk: text(row.revisiontrunk),
       revisionBranch: text(row.revisionbranch),
+      attachmentCount: Math.max(0, Number(row.attachmentcount) || 0),
       workDescription: text(row.workdescription),
       stateComment: text(row.statecomment),
       stateCommentAuthor: text(row.statecommentauthor)
@@ -16372,6 +17285,10 @@ function deriveAuthorizationHashes(username, password, challenge, mode) {
 }
 function text(value) {
   return value === null || value === void 0 ? "" : String(value);
+}
+function positiveInteger(value) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : void 0;
 }
 function normalizeProductionDate(value) {
   return /^30\.12\.1899(?:\s+00:00(?::00)?)?$/.test(value.trim()) ? "" : value;
@@ -16490,6 +17407,11 @@ var ProductionTasksPanelManager = class _ProductionTasksPanelManager {
         }
         return;
       }
+      if (message.command === "openProductionTaskInClient") {
+        const uri = vscode31.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/\u0420\u0430\u0431\u043E\u0442\u0430\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442/${message.id}`);
+        void vscode31.env.openExternal(uri);
+        return;
+      }
       if (message.command === "importProductionSessionKey") {
         void this.importSessionKey().then((imported) => {
           if (imported) {
@@ -16572,7 +17494,7 @@ function shell6(webview, assetsRoot) {
 // src/features/production-tasks/productionTaskDetailsPanel.ts
 var vscode32 = __toESM(require("vscode"));
 var panels7 = /* @__PURE__ */ new Map();
-function openProductionTaskDetails(context, task, findObjectById, loadAttachments) {
+function openProductionTaskDetails(context, task, findObjectById, loadAttachments, loadHistory) {
   const existing = panels7.get(task.id);
   if (existing) {
     existing.reveal(vscode32.ViewColumn.Active);
@@ -16585,6 +17507,7 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
     retainContextWhenHidden: true
   });
   panels7.set(task.id, panel2);
+  const attachments = /* @__PURE__ */ new Map();
   panel2.webview.html = shell7(panel2.webview, assetsRoot);
   panel2.webview.onDidReceiveMessage(async (message) => {
     if (!isProductionTaskDetailsWebviewMessage(message)) {
@@ -16604,8 +17527,12 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
     if (message.command === "loadProductionTaskAttachments") {
       await panel2.webview.postMessage({ command: "productionTaskAttachmentsLoading" });
       try {
-        const attachments = await loadAttachments();
-        await panel2.webview.postMessage({ command: "productionTaskAttachmentsLoaded", attachments });
+        const loaded = await loadAttachments();
+        attachments.clear();
+        for (const attachment of loaded) {
+          attachments.set(attachment.id, attachment);
+        }
+        await panel2.webview.postMessage({ command: "productionTaskAttachmentsLoaded", attachments: loaded });
       } catch (error) {
         await panel2.webview.postMessage({
           command: "productionTaskAttachmentsFailed",
@@ -16614,8 +17541,36 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
       }
       return;
     }
+    if (message.command === "loadProductionTaskHistory") {
+      await panel2.webview.postMessage({ command: "productionTaskHistoryLoading" });
+      try {
+        const history = await loadHistory();
+        await panel2.webview.postMessage({ command: "productionTaskHistoryLoaded", history });
+      } catch (error) {
+        await panel2.webview.postMessage({
+          command: "productionTaskHistoryFailed",
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+      return;
+    }
+    if (message.command === "productionTaskAttachmentAction") {
+      const attachment = attachments.get(message.id);
+      if (attachment) {
+        try {
+          await performAttachmentAction(attachment, message.action);
+        } catch (error) {
+          void vscode32.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u0442\u044C \u0432\u043B\u043E\u0436\u0435\u043D\u0438\u0435 ${message.id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      return;
+    }
+    if (message.command === "openExternalUrl") {
+      await vscode32.env.openExternal(vscode32.Uri.parse(message.url));
+      return;
+    }
     if (message.command === "openDatabaseObjectById") {
-      await vscode32.commands.executeCommand("vc-ve-tools.openClipboardObject", message.id);
+      await vscode32.commands.executeCommand("vc-ve-tools.openClipboardObject", message.id, message.target);
       return;
     }
     if (message.command === "loadDatabaseObjectPreview") {
@@ -16637,6 +17592,57 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
     }
   });
   panel2.onDidDispose(() => panels7.delete(task.id));
+}
+async function performAttachmentAction(attachment, action) {
+  const source = await resolveAttachmentUri(attachment);
+  if (!source) {
+    const selection = await vscode32.window.showInformationMessage(
+      `\u0424\u0430\u0439\u043B \xAB${attachment.fileName || attachment.name}\xBB \u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432\u043E \u0432\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u0435\u043C \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435 \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430.`,
+      "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0432\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432 \u043A\u043B\u0438\u0435\u043D\u0442\u0435"
+    );
+    if (selection === "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0432\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432 \u043A\u043B\u0438\u0435\u043D\u0442\u0435") {
+      await openAttachmentInClient(attachment.id);
+    }
+    return;
+  }
+  if (action === "save") {
+    const destination = await vscode32.window.showSaveDialog({ defaultUri: vscode32.Uri.file(attachment.fileName || attachment.name || `attachment-${attachment.id}`) });
+    if (destination) {
+      await vscode32.workspace.fs.copy(source, destination, { overwrite: true });
+    }
+    return;
+  }
+  if (action === "reveal") {
+    await vscode32.commands.executeCommand("revealFileInOS", source);
+    return;
+  }
+  if (action === "preview") {
+    await vscode32.commands.executeCommand("vscode.open", source, { preview: true });
+    return;
+  }
+  if (!await vscode32.env.openExternal(source)) {
+    void vscode32.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0432\u043B\u043E\u0436\u0435\u043D\u0438\u0435 ${attachment.id}.`);
+  }
+}
+async function resolveAttachmentUri(attachment) {
+  const value = attachment.storageFileId.trim();
+  if (!value || /^\d+$/.test(value)) {
+    return void 0;
+  }
+  const isWindowsPath = /^[a-z]:[\\/]/i.test(value) || /^\\\\/.test(value);
+  const uri = isWindowsPath || !/^[a-z][a-z\d+.-]*:/i.test(value) ? vscode32.Uri.file(value) : vscode32.Uri.parse(value);
+  try {
+    const stat2 = await vscode32.workspace.fs.stat(uri);
+    return stat2.type === vscode32.FileType.File ? uri : void 0;
+  } catch {
+    return void 0;
+  }
+}
+async function openAttachmentInClient(id) {
+  const uri = vscode32.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/StoredFiles/${id}`);
+  if (!await vscode32.env.openExternal(uri)) {
+    void vscode32.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0432\u043B\u043E\u0436\u0435\u043D\u0438\u0435 ${id} \u0432 \u043A\u043B\u0438\u0435\u043D\u0442\u0435.`);
+  }
 }
 function shell7(webview, assetsRoot) {
   const scriptUri = webview.asWebviewUri(vscode32.Uri.joinPath(assetsRoot, "production-task-details.js"));
@@ -16779,7 +17785,8 @@ async function activate(context) {
       context,
       task,
       findDatabaseObjectById,
-      async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger)
+      async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger),
+      async () => loadProductionTaskHistory(await getProductionConnectionOptions(), task.id, productionTasksLogger)
     ),
     async () => {
       const selected = await vscode33.window.showOpenDialog({
@@ -16879,6 +17886,17 @@ async function activate(context) {
     openMethod: (id) => methodEditor.open(id),
     revealMethod: (classId, methodId) => revealClassMethod(context, methodEditor, classId, methodId),
     updateMethodSource: async (methodId, code) => methodEditor.save(methodId, code),
+    createClassMethod: async (draft) => {
+      const created = await methodEditor.create(draft);
+      await explorerProvider.revealClass(created.ownerClassId);
+      return { methodId: created.id, ownerClassId: created.ownerClassId, name: created.name };
+    },
+    createClassAttribute: async (draft) => {
+      const created = await createClassAttribute(draft);
+      await explorerProvider.revealClass(created.ownerClassId);
+      await openAttributeDetails(context, created.id);
+      return { attributeId: created.id, ownerClassId: created.ownerClassId, name: created.name };
+    },
     getSvnFileHistory: async (filePath, limit) => {
       const workspaceFolder = vscode33.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) {
@@ -16955,7 +17973,7 @@ async function activate(context) {
   );
   const databaseMcpServerRegistration = registerDatabaseMcpServer(context, extensionLogger.logUri.fsPath, navigationBridge, databaseSelectionPath, sqlMonitorHistoryPath);
   const agentSkillInstaller = registerAgentSkillInstaller(context);
-  const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncItems);
+  const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncSnapshot);
   const openPackageSyncCommand = vscode33.commands.registerCommand(
     "vc-ve-tools.openPackageSync",
     () => packageSyncProvider.show()

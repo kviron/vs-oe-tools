@@ -14,7 +14,7 @@ import { registerMethodEditor } from '../features/methods/methodEditorProvider';
 import { registerMethodLanguageFeatures } from '../features/methods/methodLanguageFeatures';
 import { registerCodeHistory } from '../features/code-history/codeHistoryService';
 import { PackageSyncPanelManager } from '../features/package-sync/packageSyncViewProvider';
-import { loadPackageSyncItems } from '../infrastructure/database/packageSyncRepository';
+import { loadPackageSyncItems, loadPackageSyncSnapshot } from '../infrastructure/database/packageSyncRepository';
 import { registerDatabaseMcpServer } from '../mcp/registerMcpServer';
 import { ExtensionLogService } from '../infrastructure/logging/extensionLogService';
 import { registerNavigationTools, type NavigationActions } from '../features/ai/navigationTools';
@@ -36,11 +36,12 @@ import { getDatabaseSelectionPath, writeDatabaseSelection } from '../core/databa
 import { openProjectClientEntity, startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../features/project/projectCommandService';
 import { registerClipboardObjectNavigation } from '../features/explorer/clipboardObjectNavigation';
 import { ProductionTasksPanelManager, registerProductionTasksActivityLauncher } from '../features/production-tasks/productionTasksViewProvider';
-import { loadProductionTaskAttachments, loadProductionTasks } from '../features/production-tasks/productionTasksRepository';
+import { loadProductionTaskAttachments, loadProductionTaskHistory, loadProductionTasks } from '../features/production-tasks/productionTasksRepository';
 import { openProductionTaskDetails } from '../features/production-tasks/productionTaskDetailsPanel';
 import { extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId } from '../features/production-tasks/oenpProtocol';
 import type { CapturedAuthorization } from '../features/production-tasks/models';
 import { closeSpuEditorPanels } from '../features/spu/spuEditorPanel';
+import { createClassAttribute } from '../infrastructure/database/attributeRepository';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
@@ -175,6 +176,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			task,
 			findDatabaseObjectById,
 			async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger),
+			async () => loadProductionTaskHistory(await getProductionConnectionOptions(), task.id, productionTasksLogger),
 		),
 		async () => {
 			const selected = await vscode.window.showOpenDialog({
@@ -255,6 +257,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		openMethod: id => methodEditor.open(id),
 		revealMethod: (classId, methodId) => revealClassMethod(context, methodEditor, classId, methodId),
 		updateMethodSource: async (methodId, code) => methodEditor.save(methodId, code),
+		createClassMethod: async draft => {
+			const created = await methodEditor.create(draft);
+			await explorerProvider.revealClass(created.ownerClassId);
+			return { methodId: created.id, ownerClassId: created.ownerClassId, name: created.name };
+		},
+		createClassAttribute: async draft => {
+			const created = await createClassAttribute(draft);
+			await explorerProvider.revealClass(created.ownerClassId);
+			await openAttributeDetails(context, created.id);
+			return { attributeId: created.id, ownerClassId: created.ownerClassId, name: created.name };
+		},
 		getSvnFileHistory: async (filePath, limit) => {
 			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 			if (!workspaceFolder) {
@@ -334,7 +347,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 	const databaseMcpServerRegistration = registerDatabaseMcpServer(context, extensionLogger.logUri.fsPath, navigationBridge, databaseSelectionPath, sqlMonitorHistoryPath);
 	const agentSkillInstaller = registerAgentSkillInstaller(context);
-	const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncItems);
+	const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncSnapshot);
 	const openPackageSyncCommand = vscode.commands.registerCommand(
 		'vc-ve-tools.openPackageSync',
 		() => packageSyncProvider.show(),

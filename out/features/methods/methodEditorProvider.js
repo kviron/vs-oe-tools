@@ -65,6 +65,11 @@ class MethodEditorProvider {
         await this.persistMethod(method, code);
         return { id: method.id, name: method.name, changed };
     }
+    async create(draft) {
+        const created = await (0, methodRepository_1.createClassMethod)(draft);
+        await this.open(created.id);
+        return created;
+    }
     async getUri(methodOrId) {
         const method = typeof methodOrId === 'number' ? await (0, methodRepository_1.getMethodSource)(methodOrId) : methodOrId;
         const extension = method.methodType === 3 ? 'pkf' : 'pas';

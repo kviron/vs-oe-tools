@@ -42,13 +42,14 @@ const node_util_1 = require("node:util");
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 class PackageSyncPanelManager {
     extensionUri;
-    loadItems;
+    loadSnapshot;
     static viewType = 'vc-ve-tools.packageSync';
     panel;
     items = [];
-    constructor(extensionUri, loadItems) {
+    issues = [];
+    constructor(extensionUri, loadSnapshot) {
         this.extensionUri = extensionUri;
-        this.loadItems = loadItems;
+        this.loadSnapshot = loadSnapshot;
     }
     show() {
         if (this.panel) {
@@ -85,7 +86,7 @@ class PackageSyncPanelManager {
         try {
             const fileName = await resolveExistingFile(item.localPath);
             item.localPath = fileName;
-            await this.post({ command: 'packageSyncLoaded', items: this.items });
+            await this.post({ command: 'packageSyncLoaded', items: this.items, issues: this.issues });
             const generatedFileName = await findOriginalClientGeneratedFile(fileName);
             await vscode.commands.executeCommand('vc-ve-tools.openGeneratedPackageDiff', fileName, generatedFileName);
         }
@@ -96,8 +97,10 @@ class PackageSyncPanelManager {
     async refresh() {
         await this.post({ command: 'packageSyncLoading' });
         try {
-            this.items = await this.loadItems();
-            await this.post({ command: 'packageSyncLoaded', items: this.items });
+            const snapshot = await this.loadSnapshot();
+            this.items = snapshot.items;
+            this.issues = snapshot.issues;
+            await this.post({ command: 'packageSyncLoaded', ...snapshot });
         }
         catch (error) {
             await this.post({ command: 'packageSyncFailed', message: error instanceof Error ? error.message : String(error) });

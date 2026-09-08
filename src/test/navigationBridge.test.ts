@@ -14,6 +14,8 @@ suite('Navigation bridge', () => {
 		let productionTaskQuery: { query?: string; limit: number } | undefined;
 		let packagesUpdated = false;
 		let binariesUpdated = false;
+		let createdAttributeName: string | undefined;
+		let createdMethodName: string | undefined;
 		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
 		const bridge = await startNavigationBridge({
 			revealClass: async () => undefined,
@@ -23,6 +25,14 @@ suite('Navigation bridge', () => {
 			updateMethodSource: async (methodId, code) => {
 				updatedMethod = { methodId, code };
 				return { methodId, changed: true };
+			},
+			createClassMethod: async draft => {
+				createdMethodName = draft.name;
+				return { methodId: 3200151, ownerClassId: draft.ownerClassId, name: draft.name };
+			},
+			createClassAttribute: async draft => {
+				createdAttributeName = draft.name;
+				return { attributeId: 3200144, ownerClassId: draft.ownerClassId, name: draft.name };
 			},
 			getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
 			getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
@@ -60,6 +70,29 @@ suite('Navigation bridge', () => {
 			});
 			assert.equal(updateResponse.status, 200);
 			assert.deepEqual(updatedMethod, { methodId: 3200110, code: 'begin\r\nend' });
+			const createMethodResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'create_class_method', draft: {
+					ownerClassId: 3200139, name: 'acTestExecute', visibilityId: 12450286,
+					methodType: 3, methodKind: 0, signature: '', code: 'proc()\r\nbegin\r\nend;',
+				} }),
+			});
+			assert.equal(createMethodResponse.status, 200);
+			assert.equal(createdMethodName, 'acTestExecute');
+			assert.equal((await createMethodResponse.json() as { methodId: number }).methodId, 3200151);
+			const attributeResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'create_class_attribute', draft: {
+					ownerClassId: 3200139, name: 'аТест', aliases: 'aTest', dbFieldName: 'aTest', attributeTypeId: 303,
+					valueClasses: '', visibilityId: 12450284, distributionModeId: 12450505,
+					isNotNull: false, virtual: true, refIntegrityCheck: false,
+				} }),
+			});
+			assert.equal(attributeResponse.status, 200);
+			assert.equal(createdAttributeName, 'аТест');
+			assert.equal((await attributeResponse.json() as { attributeId: number }).attributeId, 3200144);
 			const historyResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
