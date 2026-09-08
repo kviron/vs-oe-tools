@@ -582,7 +582,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
             </template>
             <TableRow v-if="!methodsLoading && methodVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${methodVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
             <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" entity-type="Метод" edit svn @edit="openMethod(method)" @properties="viewEntityProperties(method.id)" @svn-action="methodSvnAction(method, $event)">
-            <TableRow :data-entity-id="method.id" class="cursor-default" :class="{ 'bg-primary/15 text-primary': method.id === revealedMethodId }" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
+            <TableRow :data-entity-id="method.id" class="cursor-default" :data-row-selected="method.id === revealedMethodId ? '' : undefined" :aria-selected="method.id === revealedMethodId ? 'true' : undefined" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>
                 <span class="truncate">{{ method.name }}</span>

@@ -158,10 +158,16 @@ export function parseMemoryDataPacket(packet: Buffer): MemoryDataRow[] {
 		const name = packet.subarray(offset, offset + nameLength).toString('ascii').toLowerCase();
 		offset += nameLength;
 		const type = packet[offset];
-		if (type !== 3 && type !== 15) {
+		if (type !== 3 && type !== 15 && type !== 24) {
 			throw new Error(`Неподдерживаемый тип поля ${name}: ${type}.`);
 		}
-		offset += 4;
+		if (type === 24) {
+			// WideString metadata stores MaxLength as a packed integer followed by two flag bytes.
+			// Values >= 0xfd therefore make the descriptor longer than the common four-byte form.
+			offset = readPackedLength(packet, offset + 1).nextOffset + 2;
+		} else {
+			offset += 4;
+		}
 		fields.push({ name, type });
 	}
 	offset += 2;
@@ -170,10 +176,12 @@ export function parseMemoryDataPacket(packet: Buffer): MemoryDataRow[] {
 	const rows: MemoryDataRow[] = [];
 	for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
 		offset += 1;
-		const present = packet.subarray(offset, offset + Math.ceil(fieldCount / 8));
+		const bitmapLength = Math.ceil(fieldCount / 8);
+		const present = packet.subarray(offset, offset + bitmapLength);
 		offset += present.length;
-		// DataPacket stores an additional row bookmark byte before field values.
-		offset += 1;
+		// A row carries a second field bitmap after the presence bitmap. Its size grows
+		// with the number of columns (13 fields = 2 bytes, 26 fields = 4 bytes).
+		offset += bitmapLength;
 		const row: MemoryDataRow = {};
 		for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex += 1) {
 			const field = fields[fieldIndex];
@@ -184,16 +192,29 @@ export function parseMemoryDataPacket(packet: Buffer): MemoryDataRow[] {
 			if (field.type === 3) {
 				row[field.name] = packet.readInt32LE(offset);
 				offset += 4;
-			} else {
+			} else if (field.type === 15) {
 				const length = packet.readUInt32LE(offset);
 				offset += 4;
 				row[field.name] = iconv.decode(packet.subarray(offset, offset + length), 'win1251');
 				offset += length;
+			} else {
+				const length = readPackedLength(packet, offset);
+				offset = length.nextOffset;
+				const byteLength = length.value * 2;
+				row[field.name] = packet.subarray(offset, offset + byteLength).toString('utf16le');
+				offset += byteLength;
 			}
 		}
 		rows.push(row);
 	}
 	return rows;
+}
+
+function readPackedLength(buffer: Buffer, offset: number): { value: number; nextOffset: number } {
+	const marker = buffer[offset];
+	if (marker < 0xfd) { return { value: marker, nextOffset: offset + 1 }; }
+	if (marker === 0xfd) { return { value: buffer.readUInt16LE(offset + 1), nextOffset: offset + 3 }; }
+	return { value: buffer.readUInt32LE(offset + 1), nextOffset: offset + 5 };
 }
 
 function packedLength(value: number): Buffer {

@@ -3,9 +3,9 @@ import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 import type { PackageSyncItem } from '../features/package-sync/models';
 import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSearch';
-import type { ProductionTaskSummary } from '../features/production-tasks/models';
+import type { ProductionTaskAttachment, ProductionTaskSummary } from '../features/production-tasks/models';
 import type { CreatedSpu, SpuDraft, SpuEditorOptions } from '../features/spu/models';
-import type { SqlCompletionSchema } from '../infrastructure/database/sqlCompletionSchema';
+import type { SqlCompletionSchema } from '../features/sql-executor/sqlCompletionSchema';
 
 export type ProductionTasksWebviewMessage =
 	| { command: 'productionTasksReady' }
@@ -13,15 +13,28 @@ export type ProductionTasksWebviewMessage =
 	| { command: 'importProductionSessionKey' }
 	| { command: 'setProductionTasksPassword' }
 	| { command: 'openProductionTasksLog' }
-	| { command: 'openProductionTask'; id: number };
+	| { command: 'openProductionTask'; id: number }
+	| CopyTableCellsMessage
+	| TableSelectionDebugMessage;
 export type ProductionTasksHostMessage =
 	| { command: 'productionTasksLoading' }
 	| { command: 'productionTasksLoaded'; tasks: ProductionTaskSummary[]; loadedAt: string }
 	| { command: 'productionTasksFailed'; message: string };
 export type ProductionTaskDetailsWebviewMessage =
 	| { command: 'productionTaskDetailsReady' }
-	| { command: 'openProductionTaskInClient'; id: number };
-export type ProductionTaskDetailsHostMessage = { command: 'productionTaskDetailsLoaded'; task: ProductionTaskSummary };
+	| { command: 'loadProductionTaskAttachments' }
+	| { command: 'openProductionTaskInClient'; id: number }
+	| { command: 'openDatabaseObjectById'; id: number }
+	| { command: 'loadDatabaseObjectPreview'; id: number }
+	| CopyTableCellsMessage
+	| TableSelectionDebugMessage;
+export type ProductionTaskDetailsHostMessage =
+	| { command: 'productionTaskDetailsLoaded'; task: ProductionTaskSummary }
+	| { command: 'productionTaskAttachmentsLoading' }
+	| { command: 'productionTaskAttachmentsLoaded'; attachments: ProductionTaskAttachment[] }
+	| { command: 'productionTaskAttachmentsFailed'; message: string }
+	| { command: 'databaseObjectPreviewLoaded'; id: number; object?: DatabaseObjectSearchResult }
+	| { command: 'databaseObjectPreviewFailed'; id: number; message: string };
 
 export type ExplorerWebviewMessage =
 	| { command: 'explorerReady' }
@@ -115,6 +128,7 @@ export type ClassObjectsWebviewMessage =
 export type ClassObjectsHostMessage =
 	| { command: 'classObjectsLoading'; append: boolean }
 	| { command: 'classObjectsLoaded'; result: ClassObjectsResult; append: boolean }
+	| { command: 'revealClassObject'; objectId: number }
 	| { command: 'classObjectsLoadFailed'; message: string };
 export type SpuEditorWebviewMessage =
 	| { command: 'spuEditorReady' }
@@ -198,6 +212,7 @@ export type SettingsWebviewMessage =
 	| { command: 'setDatabaseProfile'; profile: string }
 	| { command: 'saveDatabaseProfile'; profile: string; fields: Array<{ key: string; value: string }> }
 	| { command: 'runProjectCommand'; action: 'updateDatabase' | 'startClient'; role: 'main' | 'test' }
+	| { command: 'runProjectCommand'; action: 'updatePackages' | 'updateBinaries' }
 	| { command: 'setUserId'; userId: number }
 	| { command: 'setClientCredentials'; username: string; password?: string }
 	| { command: 'setMcpEnabled'; enabled: boolean }
@@ -215,13 +230,19 @@ export function isProductionTasksWebviewMessage(message: unknown): message is Pr
 	return message.command === 'productionTasksReady' || message.command === 'refreshProductionTasks' || message.command === 'importProductionSessionKey'
 		|| message.command === 'setProductionTasksPassword'
 		|| message.command === 'openProductionTasksLog'
+		|| (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
+		|| (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
 		|| (message.command === 'openProductionTask' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
 }
 
 export function isProductionTaskDetailsWebviewMessage(message: unknown): message is ProductionTaskDetailsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
 	return message.command === 'productionTaskDetailsReady'
-		|| (message.command === 'openProductionTaskInClient' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
+		|| message.command === 'loadProductionTaskAttachments'
+		|| (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
+		|| (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
+		|| ((message.command === 'openProductionTaskInClient' || message.command === 'openDatabaseObjectById' || message.command === 'loadDatabaseObjectPreview')
+			&& 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0);
 }
 
 export function isSettingsWebviewMessage(message: unknown): message is SettingsWebviewMessage {
@@ -242,7 +263,9 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 		&& 'fields' in message && Array.isArray(message.fields)
 		&& message.fields.every(field => typeof field === 'object' && field !== null && 'key' in field && typeof field.key === 'string' && 'value' in field && typeof field.value === 'string'); }
 	if (message.command === 'runProjectCommand') {
-		return 'action' in message && (message.action === 'updateDatabase' || message.action === 'startClient')
+		if (!('action' in message)) { return false; }
+		if (message.action === 'updatePackages' || message.action === 'updateBinaries') { return true; }
+		return (message.action === 'updateDatabase' || message.action === 'startClient')
 			&& 'role' in message && (message.role === 'main' || message.role === 'test');
 	}
 	if (message.command === 'setUserId') {

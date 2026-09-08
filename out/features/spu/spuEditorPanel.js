@@ -38,6 +38,7 @@ exports.closeSpuEditorPanels = closeSpuEditorPanels;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const spuRepository_1 = require("../../infrastructure/database/spuRepository");
+const sqlCompletionSchema_1 = require("../../infrastructure/database/sqlCompletionSchema");
 const panels = new Set();
 async function openSpuEditor(context, options = {}, onSaved = () => undefined) {
     const editing = options.spuId !== undefined;
@@ -55,6 +56,9 @@ async function openSpuEditor(context, options = {}, onSaved = () => undefined) {
             try {
                 const editorOptions = await (0, spuRepository_1.getSpuEditorOptions)(options.preferredPackageName, options.spuId);
                 await panel.webview.postMessage({ command: 'spuEditorInitialized', options: editorOptions });
+                void (0, sqlCompletionSchema_1.getSqlCompletionSchema)()
+                    .then(completion => panel.webview.postMessage({ command: 'sqlCompletionSchemaLoaded', completion }))
+                    .catch(error => output.appendLine(`[${new Date().toISOString()}] SQL-подсказки недоступны: ${errorMessage(error)}`));
             }
             catch (error) {
                 await panel.webview.postMessage({ command: 'spuSaveFailed', message: errorMessage(error) });

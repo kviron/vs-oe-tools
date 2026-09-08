@@ -43,6 +43,7 @@ const iconv = __importStar(require("iconv-lite"));
 const vscode = __importStar(require("vscode"));
 const constants_1 = require("../../core/constants");
 const rdboadmIni_1 = require("../../infrastructure/configuration/rdboadmIni");
+const oeSqlMonitorCollectorPaths_1 = require("./oeSqlMonitorCollectorPaths");
 const sqlMonitorService_1 = require("./sqlMonitorService");
 class OeSqlMonitorCollector {
     storagePath;
@@ -122,9 +123,9 @@ class OeSqlMonitorCollector {
         await ensureService(workspacePath, profile.id, port, log);
         await (0, promises_1.mkdir)(this.storagePath, { recursive: true });
         const resultPath = path.join(this.storagePath, `sql-monitor-${profile.id}.sqdb`);
-        const executable = path.join(workspacePath, 'bin', 'OESQLMonCon.exe');
-        await (0, promises_1.access)(executable).catch(error => { throw new Error(`Не найден OESQLMonCon.exe: ${executable}`, { cause: error }); });
-        this.log('INFO', `Коллектор: ${executable}`);
+        const executables = await this.findCollectorCandidates(workspacePath);
+        let executableIndex = 0;
+        this.log('INFO', `Коллектор: ${executables[executableIndex]}`);
         this.log('INFO', `Файл результата: ${resultPath}`);
         while (this.running) {
             await this.waitUntilResumed();
@@ -136,13 +137,42 @@ class OeSqlMonitorCollector {
                     throw error;
                 }
             });
-            await this.capture(executable, port, resultPath);
+            try {
+                await this.capture(executables[executableIndex], port, resultPath);
+            }
+            catch (error) {
+                const fallback = executables[executableIndex + 1];
+                if (!fallback || !(0, oeSqlMonitorCollectorPaths_1.isProtocolVersionMismatch)(error)) {
+                    throw error;
+                }
+                this.log('WARNING', `Коллектор ${executables[executableIndex]} несовместим с протоколом OEService. Переключение на ${fallback}.`);
+                executableIndex += 1;
+                continue;
+            }
             if (!this.running) {
                 break;
             }
             const imported = this.importRows(resultPath, profile.id, userId);
             this.log('DEBUG', `Цикл завершён: импортировано ${imported}, последний QueryID ${this.lastQueryId}.`);
         }
+    }
+    async findCollectorCandidates(workspacePath) {
+        const configuredPath = vscode.workspace.getConfiguration('vcVeTools').get(constants_1.sqlMonitorCollectorPathSetting, '');
+        const candidates = (0, oeSqlMonitorCollectorPaths_1.getSqlMonitorCollectorCandidates)(workspacePath, configuredPath);
+        const existing = [];
+        for (const candidate of candidates) {
+            try {
+                await (0, promises_1.access)(candidate);
+                existing.push(candidate);
+            }
+            catch {
+                this.log(configuredPath && candidate === candidates[0] ? 'WARNING' : 'DEBUG', `Коллектор не найден: ${candidate}`);
+            }
+        }
+        if (existing.length === 0) {
+            throw new Error(`Не найден OESQLMonCon.exe. Проверены пути: ${candidates.join(', ')}`);
+        }
+        return existing;
     }
     async waitUntilResumed() {
         if (!this.paused) {

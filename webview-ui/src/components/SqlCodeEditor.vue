@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue';
-import type { SqlCompletionSchema } from '../../../src/infrastructure/database/sqlCompletionSchema';
+import { completeAliasColumns, type SqlCompletionSchema } from '../../../src/features/sql-executor/sqlCompletionSchema';
+import type { CompletionSource } from '@codemirror/autocomplete';
 import { basicSetup, EditorView } from 'codemirror';
 import { indentWithTab } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { PostgreSQL, sql } from '@codemirror/lang-sql';
-import { Compartment, EditorState } from '@codemirror/state';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -102,13 +103,27 @@ onBeforeUnmount(() => view?.destroy());
 function focus(): void { view?.focus(); }
 defineExpose({ focus });
 
-function sqlLanguage(completion: SqlCompletionSchema | undefined) {
-	return sql({
+function sqlLanguage(completion: SqlCompletionSchema | undefined): Extension {
+	const language = sql({
 		dialect: PostgreSQL,
 		upperCaseKeywords: true,
 		schema: completion?.schema,
 		defaultSchema: completion?.defaultSchema,
 	});
+	return completion
+		? [language, PostgreSQL.language.data.of({ autocomplete: aliasColumnCompletion(completion) })]
+		: language;
+}
+
+function aliasColumnCompletion(completion: SqlCompletionSchema): CompletionSource {
+	return context => {
+		const result = completeAliasColumns(context.state.doc.toString(), context.pos, completion);
+		return result ? {
+			from: result.from,
+			options: result.columns.map(label => ({ label, type: 'property', detail: result.table })),
+			validFor: /^[\p{L}\p{N}_$]*$/u,
+		} : null;
+	};
 }
 </script>
 

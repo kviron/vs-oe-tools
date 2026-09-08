@@ -33,9 +33,10 @@ import { getNavigationInfoPath } from '../core/navigationInfo';
 import { svnLog } from '../features/code-history/svnClient';
 import { loadRdboadmDatabases } from '../infrastructure/configuration/rdboadmIni';
 import { getDatabaseSelectionPath, writeDatabaseSelection } from '../core/databaseSelection';
-import { openProjectClientEntity, startProjectClient, updateProjectDatabase } from '../features/project/projectCommandService';
+import { openProjectClientEntity, startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../features/project/projectCommandService';
 import { registerClipboardObjectNavigation } from '../features/explorer/clipboardObjectNavigation';
-import { ProductionTasksViewProvider } from '../features/production-tasks/productionTasksViewProvider';
+import { ProductionTasksPanelManager, registerProductionTasksActivityLauncher } from '../features/production-tasks/productionTasksViewProvider';
+import { loadProductionTaskAttachments, loadProductionTasks } from '../features/production-tasks/productionTasksRepository';
 import { openProductionTaskDetails } from '../features/production-tasks/productionTaskDetailsPanel';
 import { extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId } from '../features/production-tasks/oenpProtocol';
 import type { CapturedAuthorization } from '../features/production-tasks/models';
@@ -124,45 +125,57 @@ export async function activate(context: vscode.ExtensionContext) {
 		'vc-ve-tools.explorer',
 		explorerProvider,
 	);
-	const productionTasksProvider = new ProductionTasksViewProvider(
+	const getProductionConnectionOptions = async () => {
+		const configuration = vscode.workspace.getConfiguration('vcVeTools');
+		const credentials = await getClientCredentials();
+		const captureMetadata = await extractProductionMetadataFromCaptureDirectories(
+			[workspacePath, context.extensionUri.fsPath].filter((value): value is string => Boolean(value)),
+		);
+		const storedAuthorization = parseStoredAuthorization(await context.secrets.get(productionAuthorizationReferenceKey));
+		if (captureMetadata.authorization && !storedAuthorization) {
+			await context.secrets.store(productionAuthorizationReferenceKey, JSON.stringify(captureMetadata.authorization));
+		}
+		let personId = configuration.get<number>('productionPersonId', 0);
+		if (!/^\d{9}$/.test(String(personId))) {
+			const detectedPersonId = captureMetadata.personId;
+			if (detectedPersonId) {
+				personId = detectedPersonId;
+				await configuration.update('productionPersonId', personId, vscode.ConfigurationTarget.Workspace);
+				extensionLogger.info('Production Tasks', 'Persons.ID автоматически найден в захвате рабочей области.');
+			}
+		}
+		const authorizationReference = captureMetadata.authorization ?? storedAuthorization;
+		const productionPassword = await context.secrets.get(productionPasswordKey);
+		const productionUsername = authorizationReference?.username ?? credentials.username;
+		const effectivePassword = productionPassword ?? credentials.password;
+		if (!productionUsername || !effectivePassword) { throw new Error('Укажите пароль для production-задач.'); }
+		if (!/^\d{9}$/.test(String(personId))) { throw new Error('Укажите девятизначный vcVeTools.productionPersonId (Persons.ID) или импортируйте его из veworks.pcapng.'); }
+		return {
+			host: configuration.get<string>('productionHost', '172.20.0.23'),
+			port: configuration.get<number>('productionPort', 3060),
+			database: configuration.get<string>('productionDatabase', 'ric224'),
+			clientSessionKey: configuration.get<string>('productionClientSessionKey', ''),
+			username: productionUsername,
+			password: effectivePassword,
+			personId,
+			authorizationReference,
+		};
+	};
+	const productionTasksLogger = {
+		info: (message: string, details?: unknown) => extensionLogger.info('Production Tasks', message, details),
+		warning: (message: string, details?: unknown) => extensionLogger.warning('Production Tasks', message, details),
+		error: (message: string, details?: unknown) => extensionLogger.error('Production Tasks', message, details),
+	};
+	const findDatabaseObjectById = async (id: number) => (await searchDatabaseObjects(String(id), 1))[0];
+	const productionTasksProvider = new ProductionTasksPanelManager(
 		context.extensionUri,
-		async () => {
-			const configuration = vscode.workspace.getConfiguration('vcVeTools');
-			const credentials = await getClientCredentials();
-			const captureMetadata = await extractProductionMetadataFromCaptureDirectories(
-				[workspacePath, context.extensionUri.fsPath].filter((value): value is string => Boolean(value)),
-			);
-			const storedAuthorization = parseStoredAuthorization(await context.secrets.get(productionAuthorizationReferenceKey));
-			if (captureMetadata.authorization && !storedAuthorization) {
-				await context.secrets.store(productionAuthorizationReferenceKey, JSON.stringify(captureMetadata.authorization));
-			}
-			let personId = configuration.get<number>('productionPersonId', 0);
-			if (!/^\d{9}$/.test(String(personId))) {
-				const detectedPersonId = captureMetadata.personId;
-				if (detectedPersonId) {
-					personId = detectedPersonId;
-					await configuration.update('productionPersonId', personId, vscode.ConfigurationTarget.Workspace);
-					extensionLogger.info('Production Tasks', 'Persons.ID автоматически найден в захвате рабочей области.');
-				}
-			}
-			const authorizationReference = captureMetadata.authorization ?? storedAuthorization;
-			const productionPassword = await context.secrets.get(productionPasswordKey);
-			const productionUsername = authorizationReference?.username ?? credentials.username;
-			const effectivePassword = productionPassword ?? credentials.password;
-			if (!productionUsername || !effectivePassword) { throw new Error('Укажите пароль для production-задач.'); }
-			if (!/^\d{9}$/.test(String(personId))) { throw new Error('Укажите девятизначный vcVeTools.productionPersonId (Persons.ID) или импортируйте его из veworks.pcapng.'); }
-			return {
-				host: configuration.get<string>('productionHost', '172.20.0.23'),
-				port: configuration.get<number>('productionPort', 3060),
-				database: configuration.get<string>('productionDatabase', 'ric224'),
-				clientSessionKey: configuration.get<string>('productionClientSessionKey', ''),
-				username: productionUsername,
-				password: effectivePassword,
-				personId,
-				authorizationReference,
-			};
-		},
-		task => openProductionTaskDetails(context, task),
+		getProductionConnectionOptions,
+		task => openProductionTaskDetails(
+			context,
+			task,
+			findDatabaseObjectById,
+			async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger),
+		),
 		async () => {
 			const selected = await vscode.window.showOpenDialog({
 				canSelectFiles: true, canSelectFolders: false, canSelectMany: true,
@@ -218,20 +231,13 @@ export async function activate(context: vscode.ExtensionContext) {
 			extensionLogger.info('Production Tasks', 'Отдельный пароль production сохранён в SecretStorage.');
 			return true;
 		},
-		{
-			info: (message, details) => extensionLogger.info('Production Tasks', message, details),
-			warning: (message, details) => extensionLogger.warning('Production Tasks', message, details),
-			error: (message, details) => extensionLogger.error('Production Tasks', message, details),
-		},
+		productionTasksLogger,
 		() => extensionLogger.show(),
 	);
-	const productionTasksRegistration = vscode.window.registerWebviewViewProvider(
-		ProductionTasksViewProvider.viewType,
-		productionTasksProvider,
-		{ webviewOptions: { retainContextWhenHidden: true } },
-	);
+	const openProductionTasksCommand = vscode.commands.registerCommand('vc-ve-tools.openProductionTasks', () => productionTasksProvider.show());
+	const productionTasksRegistration = registerProductionTasksActivityLauncher(productionTasksProvider);
 	const clipboardObjectNavigation = registerClipboardObjectNavigation({
-		findById: async id => (await searchDatabaseObjects(String(id), 1))[0],
+		findById: findDatabaseObjectById,
 		revealClass: id => explorerProvider.revealClass(id),
 		openClass: id => openClassDetails(context, methodEditor, id, true),
 		revealMethod: (classId, methodId) => revealClassMethod(context, methodEditor, classId, methodId),
@@ -239,7 +245,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			await explorerProvider.revealClass(classId);
 			await openAttributeDetails(context, attributeId);
 		},
-		openDictionary: id => openClassObjects(context, id),
+		openDictionary: (classId, objectId) => openClassObjects(context, classId, objectId),
 		openMethod: id => methodEditor.open(id),
 		openObject: id => openObjectView(context, id),
 	});
@@ -284,6 +290,37 @@ export async function activate(context: vscode.ExtensionContext) {
 				items: filtered.slice(offset, offset + limit),
 			};
 		},
+		getProductionTasks: async (query, limit) => {
+			const options = await getProductionConnectionOptions();
+			productionTasksLogger.info('MCP запросил список production-задач.', { query: query ?? null, limit });
+			const tasks = await loadProductionTasks(options, productionTasksLogger);
+			const normalizedQuery = query?.trim().toLocaleLowerCase('ru-RU');
+			const filtered = normalizedQuery
+				? tasks.filter(task => [task.id, task.number, task.title]
+					.some(value => String(value).toLocaleLowerCase('ru-RU').includes(normalizedQuery)))
+				: tasks;
+			return {
+				database: options.database,
+				personId: options.personId,
+				query: query ?? null,
+				totalCount: filtered.length,
+				count: Math.min(filtered.length, limit),
+				truncated: filtered.length > limit,
+				tasks: filtered.slice(0, limit).map(task => ({
+					id: task.id, number: task.number, state: task.state, title: task.title,
+					createdAt: task.createdAt, deadline: task.deadline, project: task.project, executor: task.executor,
+				})),
+			};
+		},
+		getProductionTasksInProgress: async () => {
+			const options = await getProductionConnectionOptions();
+			productionTasksLogger.info('MCP запросил production-задачи в работе.');
+			const tasks = (await loadProductionTasks(options, productionTasksLogger))
+				.filter(task => task.state.trim().toLocaleLowerCase('ru-RU') === 'в работе');
+			return { database: options.database, personId: options.personId, count: tasks.length, tasks };
+		},
+		updatePackages: () => updateProjectPackages(),
+		updateBinaries: () => updateProjectBinaries(),
 		updateDatabase: role => updateProjectDatabase(role),
 		startClient: async role => startProjectClient(role, await getClientCredentials()),
 		openClientEntity: async (role, entityType, id) => openProjectClientEntity(role, entityType, id, await getClientCredentials()),
@@ -459,6 +496,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		explorerRegistration,
 		productionTasksProvider,
 		productionTasksRegistration,
+		openProductionTasksCommand,
 		clipboardObjectNavigation,
 		packageSyncProvider,
 		openPackageSyncCommand,

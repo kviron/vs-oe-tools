@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SqlExecutorHostMessage, SqlHistoryEntry } from '../../../src/core/webviewProtocol';
 import type { SerializedQueryResult } from '../../../src/infrastructure/database/databaseQueryExecutor';
-import type { SqlCompletionSchema } from '../../../src/infrastructure/database/sqlCompletionSchema';
+import type { SqlCompletionSchema } from '../../../src/features/sql-executor/sqlCompletionSchema';
 import { Copy01Icon, Download04Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, nextTick, ref } from 'vue';

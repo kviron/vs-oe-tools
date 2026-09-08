@@ -100,6 +100,12 @@
           "scope": "window",
           "description": "ID пользователя в системе Восточного Экспресса для журнала изменений объектов."
         },
+        "vcVeTools.sqlMonitorCollectorPath": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "Полный путь к совместимому OESQLMonCon.exe или каталогу с ним. Если не задан, используется trunk\\bin с автоматическим резервом на соседний R306\\bin при несовместимости протокола."
+        },
         "vcVeTools.clientUsername": {
           "type": "string",
           "default": "",
@@ -153,6 +159,11 @@
           "id": "vc-ve-tools",
           "title": "Восточный Экспресс",
           "icon": "resources/train.svg"
+        },
+        {
+          "id": "vc-ve-tools-production-tasks",
+          "title": "Задачи",
+          "icon": "resources/tasks.svg"
         }
       ],
       "panel": [
@@ -174,11 +185,12 @@
           "id": "vc-ve-tools.explorer",
           "name": "Проводник",
           "type": "webview"
-        },
+        }
+      ],
+      "vc-ve-tools-production-tasks": [
         {
-          "id": "vc-ve-tools.productionTasks",
-          "name": "Задачи",
-          "type": "webview"
+          "id": "vc-ve-tools.productionTasksLauncher",
+          "name": "Задачи"
         }
       ],
       "vc-ve-tools-sql-tools": [
@@ -224,6 +236,12 @@
         "title": "Синхронизация проектов",
         "category": "Восточный экспресс",
         "icon": "$(sync)"
+      },
+      {
+        "command": "vc-ve-tools.openProductionTasks",
+        "title": "Задачи",
+        "category": "Восточный экспресс",
+        "icon": "$(list-selection)"
       },
       {
         "command": "vc-ve-tools.openSettings",
@@ -524,6 +542,7 @@
     "serialize-javascript": "^7.0.6"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.0",
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/language": "^6.12.4",

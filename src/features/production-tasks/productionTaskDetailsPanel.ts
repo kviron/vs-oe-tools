@@ -1,11 +1,17 @@
 import * as vscode from 'vscode';
 import type { ProductionTaskDetailsHostMessage } from '../../core/webviewProtocol';
 import { isProductionTaskDetailsWebviewMessage } from '../../core/webviewProtocol';
-import type { ProductionTaskSummary } from './models';
+import type { DatabaseObjectSearchResult } from '../../core/objectSearch';
+import type { ProductionTaskAttachment, ProductionTaskSummary } from './models';
 
 const panels = new Map<number, vscode.WebviewPanel>();
 
-export function openProductionTaskDetails(context: vscode.ExtensionContext, task: ProductionTaskSummary): void {
+export function openProductionTaskDetails(
+	context: vscode.ExtensionContext,
+	task: ProductionTaskSummary,
+	findObjectById: (id: number) => Promise<DatabaseObjectSearchResult | undefined>,
+	loadAttachments: () => Promise<ProductionTaskAttachment[]>,
+): void {
 	const existing = panels.get(task.id);
 	if (existing) { existing.reveal(vscode.ViewColumn.Active); return; }
 	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
@@ -18,6 +24,40 @@ export function openProductionTaskDetails(context: vscode.ExtensionContext, task
 		if (!isProductionTaskDetailsWebviewMessage(message)) { return; }
 		if (message.command === 'productionTaskDetailsReady') {
 			await panel.webview.postMessage({ command: 'productionTaskDetailsLoaded', task } satisfies ProductionTaskDetailsHostMessage);
+			return;
+		}
+		if (message.command === 'copyTableCells') {
+			await vscode.env.clipboard.writeText(message.text);
+			return;
+		}
+		if (message.command === 'tableSelectionDebug') { return; }
+		if (message.command === 'loadProductionTaskAttachments') {
+			await panel.webview.postMessage({ command: 'productionTaskAttachmentsLoading' } satisfies ProductionTaskDetailsHostMessage);
+			try {
+				const attachments = await loadAttachments();
+				await panel.webview.postMessage({ command: 'productionTaskAttachmentsLoaded', attachments } satisfies ProductionTaskDetailsHostMessage);
+			} catch (error) {
+				await panel.webview.postMessage({
+					command: 'productionTaskAttachmentsFailed',
+					message: error instanceof Error ? error.message : String(error),
+				} satisfies ProductionTaskDetailsHostMessage);
+			}
+			return;
+		}
+		if (message.command === 'openDatabaseObjectById') {
+			await vscode.commands.executeCommand('vc-ve-tools.openClipboardObject', message.id);
+			return;
+		}
+		if (message.command === 'loadDatabaseObjectPreview') {
+			try {
+				const object = await findObjectById(message.id);
+				await panel.webview.postMessage({ command: 'databaseObjectPreviewLoaded', id: message.id, object } satisfies ProductionTaskDetailsHostMessage);
+			} catch (error) {
+				await panel.webview.postMessage({
+					command: 'databaseObjectPreviewFailed', id: message.id,
+					message: error instanceof Error ? error.message : String(error),
+				} satisfies ProductionTaskDetailsHostMessage);
+			}
 			return;
 		}
 		const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/РаботаДокумент/${message.id}`);

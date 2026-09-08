@@ -42,36 +42,51 @@ const objectViewPanelManager_1 = require("./objectViewPanelManager");
 const entityPropertiesPanelManager_1 = require("./entityPropertiesPanelManager");
 const spuEditorPanel_1 = require("../../spu/spuEditorPanel");
 const panels = new Map();
-async function openClassObjects(context, classId) {
+async function openClassObjects(context, classId, objectId) {
     const existing = panels.get(classId);
     if (existing) {
-        existing.reveal(vscode.ViewColumn.Active);
+        existing.panel.reveal(vscode.ViewColumn.Active);
+        if (objectId !== undefined) {
+            await existing.revealObject(objectId);
+        }
         return;
     }
     const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.classObjects', `Объекты класса ${classId}`, vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot] });
-    panels.set(classId, panel);
     panel.webview.html = shell(panel.webview, assetsRoot);
-    let loading = false;
-    const load = async (offset = 0) => {
-        if (loading) {
-            return;
-        }
-        loading = true;
+    let ready = false;
+    let selectedObjectId = objectId;
+    const performLoad = async (offset = 0, targetObjectId) => {
         const append = offset > 0;
         await panel.webview.postMessage({ command: 'classObjectsLoading', append });
         try {
-            const result = await (0, classObjectRepository_1.getClassObjects)(classId, offset, classObjectRepository_1.classObjectPageSize);
+            const result = await (0, classObjectRepository_1.getClassObjects)(classId, offset, classObjectRepository_1.classObjectPageSize, targetObjectId);
             panel.title = `Справочник — ${result.className}`;
             await panel.webview.postMessage({ command: 'classObjectsLoaded', result, append });
+            if (targetObjectId !== undefined) {
+                await panel.webview.postMessage({ command: 'revealClassObject', objectId: targetObjectId });
+            }
         }
         catch (error) {
             await panel.webview.postMessage({ command: 'classObjectsLoadFailed', message: error instanceof Error ? error.message : String(error) });
         }
-        finally {
-            loading = false;
-        }
     };
+    let loadQueue = Promise.resolve();
+    const load = (offset = 0, targetObjectId) => {
+        const operation = loadQueue.then(() => performLoad(offset, targetObjectId));
+        loadQueue = operation.catch(() => undefined);
+        return operation;
+    };
+    const controller = {
+        panel,
+        revealObject: async (targetObjectId) => {
+            selectedObjectId = targetObjectId;
+            if (ready) {
+                await load(0, targetObjectId);
+            }
+        },
+    };
+    panels.set(classId, controller);
     panel.webview.onDidReceiveMessage(async (message) => {
         if (!(0, webviewProtocol_1.isClassObjectsWebviewMessage)(message)) {
             return;
@@ -107,13 +122,22 @@ async function openClassObjects(context, classId) {
             await (0, spuEditorPanel_1.openSpuEditor)(context, { preferredPackageName: message.preferredPackageName }, () => load(0));
             return;
         }
-        await load(message.command === 'loadMoreClassObjects' ? message.offset : 0);
+        if (message.command === 'classObjectsReady') {
+            ready = true;
+            await load(0, selectedObjectId);
+            return;
+        }
+        if (message.command === 'refreshClassObjects') {
+            await load(0, selectedObjectId);
+            return;
+        }
+        await load(message.offset);
     });
     panel.onDidDispose(() => panels.delete(classId));
 }
 function closeClassObjectPanels() {
-    for (const panel of panels.values()) {
-        panel.dispose();
+    for (const controller of panels.values()) {
+        controller.panel.dispose();
     }
     panels.clear();
 }

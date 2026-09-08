@@ -16,10 +16,16 @@ suite('Clipboard object navigation', () => {
 		assert.deepEqual(calls, ['revealMethod:20:25']);
 	});
 
+	test('reveals a class and opens its card', async () => {
+		const calls: string[] = [];
+		await navigateToDatabaseObject(object({ id: '25', kind: 'class' }), 'explorer', actions(calls));
+		assert.deepEqual(calls, ['revealClass:25', 'openClass:25']);
+	});
+
 	test('opens a dictionary for a regular object', async () => {
 		const calls: string[] = [];
 		await navigateToDatabaseObject(object({ id: '25', classId: '5', kind: 'object' }), 'explorer', actions(calls));
-		assert.deepEqual(calls, ['openDictionary:5']);
+		assert.deepEqual(calls, ['openDictionary:5:25']);
 	});
 
 	test('opens a method editor when the object itself is selected', async () => {
@@ -40,7 +46,7 @@ function actions(calls: string[]): ClipboardObjectNavigationActions {
 		openClass: async id => { calls.push(`openClass:${id}`); },
 		revealMethod: async (classId, methodId) => { calls.push(`revealMethod:${classId}:${methodId}`); },
 		openAttribute: async (classId, attributeId) => { calls.push(`openAttribute:${classId}:${attributeId}`); },
-		openDictionary: async id => { calls.push(`openDictionary:${id}`); },
+		openDictionary: async (classId, objectId) => { calls.push(`openDictionary:${classId}:${objectId}`); },
 		openMethod: async id => { calls.push(`openMethod:${id}`); },
 		openObject: async id => { calls.push(`openObject:${id}`); },
 	};

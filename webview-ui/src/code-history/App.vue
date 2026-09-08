@@ -9,7 +9,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
 import { vscode } from '@/vscode';
 
@@ -127,7 +126,9 @@ vscode.postMessage({ command: 'codeHistoryReady' });
           <TableRow
             v-for="entry in displayedEntries"
             :key="entry.id"
-            :class="cn('cursor-default', selectedId === entry.id && 'bg-accent text-accent-foreground')"
+            class="cursor-default"
+            :data-row-selected="selectedId === entry.id ? '' : undefined"
+            :aria-selected="selectedId === entry.id ? 'true' : undefined"
             :aria-current="selectedId === entry.id ? 'true' : undefined"
             @click="openEntry(entry)"
           >

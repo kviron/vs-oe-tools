@@ -124,8 +124,14 @@ class SettingsViewProvider {
                 if (message.action === 'updateDatabase') {
                     await (0, projectCommandService_1.updateProjectDatabase)(message.role);
                 }
-                else {
+                else if (message.action === 'startClient') {
                     await (0, projectCommandService_1.startProjectClient)(message.role, await this.getClientCredentials());
+                }
+                else if (message.action === 'updatePackages') {
+                    await (0, projectCommandService_1.updateProjectPackages)();
+                }
+                else {
+                    await (0, projectCommandService_1.updateProjectBinaries)();
                 }
             }
             catch (error) {

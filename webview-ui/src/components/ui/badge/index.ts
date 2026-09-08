@@ -14,6 +14,13 @@ export const badgeVariants = cva(
         outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground bg-input/20 dark:bg-input/30',
         ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
         link: 'text-primary underline-offset-4 hover:underline',
+        class: 'border-kind-class/40 bg-kind-class/15 text-kind-class',
+        method: 'border-kind-method/40 bg-kind-method/15 text-kind-method',
+        attribute: 'border-kind-attribute/40 bg-kind-attribute/15 text-kind-attribute',
+        lifecycle: 'border-kind-lifecycle/40 bg-kind-lifecycle/15 text-kind-lifecycle',
+        journal: 'border-kind-journal/40 bg-kind-journal/15 text-kind-journal',
+        list: 'border-kind-list/40 bg-kind-list/15 text-kind-list',
+        object: 'border-kind-object/40 bg-kind-object/15 text-kind-object',
       },
     },
     defaultVariants: {

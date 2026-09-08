@@ -6,7 +6,7 @@ export interface ClipboardObjectNavigationActions {
 	openClass(id: number): Promise<void>;
 	revealMethod(classId: number, methodId: number): Promise<void>;
 	openAttribute(classId: number, attributeId: number): Promise<void>;
-	openDictionary(classId: number): Promise<void>;
+	openDictionary(classId: number, objectId: number): Promise<void>;
 	openMethod(methodId: number): Promise<void>;
 	openObject(objectId: number): Promise<void>;
 }
@@ -38,6 +38,7 @@ export async function navigateToDatabaseObject(object: DatabaseObjectSearchResul
 	}
 	if (object.kind === 'class') {
 		await actions.revealClass(id);
+		await actions.openClass(id);
 		return;
 	}
 	if (object.kind === 'method') {
@@ -48,7 +49,7 @@ export async function navigateToDatabaseObject(object: DatabaseObjectSearchResul
 		await actions.revealClass(requireId(object.seniorId, 'родительского класса'));
 		return;
 	}
-	await actions.openDictionary(requireId(object.classId, 'класса справочника'));
+	await actions.openDictionary(requireId(object.classId, 'класса справочника'), id);
 }
 
 function requireId(value: string | null, description: string): number {

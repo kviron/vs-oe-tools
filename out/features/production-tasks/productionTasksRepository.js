@@ -37,8 +37,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.productionTaskSql = void 0;
+exports.productionTaskAttachmentsSql = productionTaskAttachmentsSql;
+exports.loadProductionTaskAttachments = loadProductionTaskAttachments;
 exports.loadProductionTasks = loadProductionTasks;
 exports.createLoginParameters = createLoginParameters;
+exports.normalizeProductionDate = normalizeProductionDate;
 const node_crypto_1 = require("node:crypto");
 const net = __importStar(require("node:net"));
 const os = __importStar(require("node:os"));
@@ -47,19 +50,40 @@ const oenpProtocol_1 = require("./oenpProtocol");
 exports.productionTaskSql = `SELECT T0.ID AS id,
   COALESCE(CAST(T0.DNumber AS VARCHAR(64)), '') AS number,
   COALESCE(CAST(SO1.FName AS VARCHAR(250)), '') AS state,
-  COALESCE(CAST(left(T0.Description, 6000) AS VARCHAR(6000)), '') AS description,
-  COALESCE(CAST(DateToStrFmt(T0.CreDate, 'dd.mm.yyyy hh:mm') AS VARCHAR(32)), '') AS created,
-  COALESCE(CAST(DateToStrFmt(T0.Deadline, 'dd.mm.yyyy hh:mm') AS VARCHAR(32)), '') AS deadline,
+  COALESCE(CAST(left(T0.Description, 6000) AS VARCHAR(6000)), '') AS title,
+  COALESCE(CAST(DateToStrFmt(T0.CreDate, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS created,
+  COALESCE(CAST(DateToStrFmt(T0.Deadline, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS deadline,
+  COALESCE((SELECT CAST(SA.FName AS VARCHAR(250)) FROM StructureActivity SA WHERE SA.ID = T0.KindActivity), '') AS activitykind,
   COALESCE((SELECT CAST(SO2.FName AS VARCHAR(250)) FROM TypeWork SO2 WHERE SO2.ID = T0.Tip), '') AS worktype,
-  CAST(COALESCE((SELECT CommaToText(COMMAADDAGG(NotEmptyStr(PD.Number || ' - ', '') || PD.Description), ', ')
+  CAST(COALESCE((SELECT string_agg(CAST(PD.Description AS VARCHAR(6000)), ', ')
     FROM ProjectDoc PD
     WHERE commagetpos((SELECT R.Refs FROM GETREFOBJECTS(T0.ID, 8927966, 8927510) R), PD.ID) > -1), '') AS VARCHAR(6000)) AS project,
-  COALESCE((SELECT CAST(C.FullName AS VARCHAR(1000)) FROM Contractor C WHERE C.ID = T0.Customer), '') AS customer,
+  COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Initiator), '') AS author,
+  COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Manager), '') AS manager,
+  COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Analizer), '') AS analyst,
   COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
     CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Executor), '') AS executor,
   COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
-    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Initiator), '') AS initiator,
-  COALESCE(CAST(left(T0.Comment, 6000) AS VARCHAR(6000)), '') AS comment
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Controller), '') AS reviewer,
+  COALESCE(CAST(T0.Mantis AS VARCHAR(1000)), '') AS appeal,
+  COALESCE(CAST(T0.PackageOfWork AS VARCHAR(250)), '') AS packagename,
+  CAST(COALESCE((SELECT string_agg(CAST(PN.Name AS VARCHAR(1000)), ', ')
+    FROM PartNews PN
+    WHERE commagetpos((SELECT R.Refs FROM GETREFOBJECTS(T0.ID, 10763223, 10160264) R), PN.ID) > -1), '') AS VARCHAR(6000)) AS newssection,
+  COALESCE((SELECT CAST(E.Name AS VARCHAR(250)) FROM Enum E WHERE E.ID = T0.Priority), '') AS priority,
+  COALESCE(CAST(T0.Intensity AS VARCHAR(64)), '') AS effort,
+  COALESCE((SELECT CAST(R.ReleaseByDigits AS VARCHAR(64)) FROM URRelease R WHERE R.ID = T0.ReleasePlan), '') AS releaseplan,
+  COALESCE((SELECT CAST(R.ReleaseByDigits AS VARCHAR(64)) FROM URRelease R WHERE R.ID = T0.ReleaseFact), '') AS releaseactual,
+  COALESCE(CAST(T0.Revision_ReleaseBefore AS VARCHAR(64)), '') AS revisiontrunk,
+  COALESCE(CAST(T0.Revision_ReleaseFact AS VARCHAR(64)), '') AS revisionbranch,
+  COALESCE(CAST(left(T0.Comment, 6000) AS VARCHAR(6000)), '') AS workdescription,
+  COALESCE((SELECT CAST(left(H.Comment, 6000) AS VARCHAR(6000)) FROM HistoryLC H WHERE H.ID = T0.LCLastActionID), '') AS statecomment,
+  COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000))
+    FROM HistoryLC H JOIN Persons P ON P.ID = H.Person WHERE H.ID = T0.LCLastActionID), '') AS statecommentauthor
 FROM WorkDoc T0
 LEFT JOIN StateLC SO1 ON SO1.ID=T0.LCStateID
 WHERE T0.LCStateID NOT IN (11822369, 8929693, 8929692, 8929694, 11821629)
@@ -67,6 +91,68 @@ WHERE T0.LCStateID NOT IN (11822369, 8929693, 8929692, 8929694, 11821629)
   AND T0.RespPerson = %CurPerson
 ORDER BY CASE WHEN T0.LCStateID IN (11821106, 820069919) THEN 0 ELSE 1 END, T0.OrdPlan
 LIMIT 250`;
+function productionTaskAttachmentsSql(taskId) {
+    if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+        throw new Error('ID задачи для загрузки вложений должен быть положительным целым числом.');
+    }
+    return `SELECT SF.ID AS id,
+  COALESCE(CAST(SF.Name AS VARCHAR(1000)), '') AS name,
+  COALESCE(CAST(SF.FileName AS VARCHAR(1000)), '') AS filename,
+  COALESCE(CAST(SF.FileExtension AS VARCHAR(64)), '') AS fileextension,
+  COALESCE(CAST(SF.FileSizeStr AS VARCHAR(64)), '') AS filesizestr,
+  COALESCE(CAST(SF.FileSize AS VARCHAR(64)), '') AS filesize,
+  COALESCE(CAST(DateToStrFmt(SF.ChangeDate, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS changed,
+  COALESCE(CAST(left(SF.Comment, 2000) AS VARCHAR(2000)), '') AS comment
+FROM StoredFiles SF
+WHERE SF.SeniorID = ${taskId}
+ORDER BY SF.Name, SF.ID
+LIMIT 250`;
+}
+async function loadProductionTaskAttachments(options, taskId, logger) {
+    const connection = new OenpConnection(options.host, options.port);
+    const startedAt = Date.now();
+    let stage = 'подключение для загрузки вложений';
+    logger?.info('Начата загрузка вложений задачи.', { taskId });
+    try {
+        await connection.connect();
+        stage = 'регистрация клиентской сессии для вложений';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createInitialPacket)(options.clientSessionKey), stage, logger);
+        stage = 'проверка версии клиента для вложений';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createClientVersionPacket)(2), stage, logger);
+        stage = 'инициализация протокола для вложений';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createProtocolInitPacket)(3), stage, logger);
+        stage = 'выбор базы для вложений';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createDatabaseProbePacket)(4), stage, logger);
+        stage = 'готовность клиента для вложений';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createClientReadyPacket)(5), stage, logger);
+        stage = 'получение challenge для вложений';
+        const challenge = (0, oenpProtocol_1.parseChallenge)(await exchangeLogged(connection, (0, oenpProtocol_1.createChallengePacket)(6), stage, logger, false));
+        const authCompatibility = inspectAuthorizationCompatibility(options);
+        stage = 'авторизация для вложений';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createLoginPacket)(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
+        stage = 'запрос вложений задачи';
+        const response = await exchangeLogged(connection, (0, oenpProtocol_1.createReadonlyQueryPacket)(8, productionTaskAttachmentsSql(taskId), options.personId), stage, logger);
+        stage = 'разбор ответа со вложениями задачи';
+        const attachments = (0, oenpProtocol_1.parseMemoryDataPacket)(response).map(row => ({
+            id: Number(row.id) >>> 0,
+            name: text(row.name),
+            fileName: text(row.filename),
+            extension: text(row.fileextension),
+            size: text(row.filesizestr) || text(row.filesize),
+            changedAt: normalizeProductionDate(text(row.changed)),
+            comment: text(row.comment),
+        }));
+        logger?.info('Вложения задачи успешно загружены.', { taskId, count: attachments.length, elapsedMs: Date.now() - startedAt });
+        return attachments;
+    }
+    catch (error) {
+        logger?.error(`Ошибка на этапе «${stage}».`, { taskId, ...errorDetails(error), elapsedMs: Date.now() - startedAt });
+        throw error;
+    }
+    finally {
+        connection.dispose();
+    }
+}
 async function loadProductionTasks(options, logger) {
     const connection = new OenpConnection(options.host, options.port);
     const startedAt = Date.now();
@@ -103,9 +189,13 @@ async function loadProductionTasks(options, logger) {
         stage = 'разбор ответа со списком задач';
         const rows = (0, oenpProtocol_1.parseMemoryDataPacket)(response);
         const tasks = rows.map(row => ({
-            id: Number(row.id), number: text(row.number), state: text(row.state), description: text(row.description),
-            createdAt: text(row.created), deadline: text(row.deadline), workType: text(row.worktype), project: text(row.project),
-            customer: text(row.customer), executor: text(row.executor), initiator: text(row.initiator), comment: text(row.comment),
+            id: Number(row.id) >>> 0, number: text(row.number), state: text(row.state), title: text(row.title),
+            createdAt: normalizeProductionDate(text(row.created)), deadline: normalizeProductionDate(text(row.deadline)),
+            activityKind: text(row.activitykind), workType: text(row.worktype), project: text(row.project),
+            author: text(row.author), manager: text(row.manager), analyst: text(row.analyst), executor: text(row.executor), reviewer: text(row.reviewer),
+            appeal: text(row.appeal), packageName: text(row.packagename), newsSection: text(row.newssection), priority: text(row.priority), effort: text(row.effort),
+            releasePlan: text(row.releaseplan), releaseActual: text(row.releaseactual), revisionTrunk: text(row.revisiontrunk), revisionBranch: text(row.revisionbranch),
+            workDescription: text(row.workdescription), stateComment: text(row.statecomment), stateCommentAuthor: text(row.statecommentauthor),
         }));
         logger?.info('Задачи успешно загружены.', { count: tasks.length, elapsedMs: Date.now() - startedAt });
         return tasks;
@@ -201,6 +291,7 @@ function deriveAuthorizationHashes(username, password, challenge, mode) {
     };
 }
 function text(value) { return value === null || value === undefined ? '' : String(value); }
+function normalizeProductionDate(value) { return /^30\.12\.1899(?:\s+00:00(?::00)?)?$/.test(value.trim()) ? '' : value; }
 class OenpConnection {
     host;
     port;

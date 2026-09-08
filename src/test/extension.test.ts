@@ -7,7 +7,7 @@ import { formatSqlResult } from '../features/sql-executor/sqlResultExport';
 import { adaptCompositeDateTimeFields } from '../features/sql-executor/sqlDialectAdapter';
 import { parseVarsFile } from '../infrastructure/configuration/projectDatabaseOptions';
 import { parseRdboadmIni, rdboadmDatabaseOptions, updateRdboadmSection } from '../infrastructure/configuration/rdboadmIni';
-import { applyClientCredentials, applyClientOpenUri, extractBatchCommand } from '../features/project/projectCommandService';
+import { applyClientCredentials, applyClientOpenUri, createBatchFileCommand, extractBatchCommand } from '../features/project/projectCommandService';
 // import * as myExtension from '../../extension';
 
 suite('Extension Test Suite', () => {
@@ -49,6 +49,11 @@ suite('Extension Test Suite', () => {
 			extractBatchCommand('@call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "%~0" test', sourcePath),
 			'call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "C:\\OE\\trunk\\DBUpdate_test.bat" test',
 		);
+	});
+
+	test('project binary update invokes the wrapper batch file itself', () => {
+		assert.strictEqual(createBatchFileCommand('C:\\OE\\trunk\\BinUpdate.bat'), 'call "C:\\OE\\trunk\\BinUpdate.bat"');
+		assert.throws(() => createBatchFileCommand('C:\\OE\\bad"path\\BinUpdate.bat'), /недопустимые символы/);
 	});
 
 	test('client credentials replace values from start.bat', () => {

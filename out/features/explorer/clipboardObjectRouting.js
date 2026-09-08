@@ -29,6 +29,7 @@ async function navigateToDatabaseObject(object, target, actions) {
     }
     if (object.kind === 'class') {
         await actions.revealClass(id);
+        await actions.openClass(id);
         return;
     }
     if (object.kind === 'method') {
@@ -39,7 +40,7 @@ async function navigateToDatabaseObject(object, target, actions) {
         await actions.revealClass(requireId(object.seniorId, 'родительского класса'));
         return;
     }
-    await actions.openDictionary(requireId(object.classId, 'класса справочника'));
+    await actions.openDictionary(requireId(object.classId, 'класса справочника'), id);
 }
 function requireId(value, description) {
     const id = value === null ? Number.NaN : Number(value);

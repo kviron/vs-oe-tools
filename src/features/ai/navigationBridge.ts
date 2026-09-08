@@ -8,7 +8,8 @@ import type { NavigationActions } from './navigationTools';
 
 type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source'
 	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client'
-	| 'open_client_entity';
+	| 'open_client_entity' | 'get_production_tasks' | 'get_production_tasks_in_progress'
+	| 'update_packages' | 'update_binaries';
 
 interface NavigationRequest {
 	action: NavigationAction;
@@ -102,6 +103,22 @@ async function handleRequest(
 			const result = await actions.getPackageSyncChanges(input.query, input.offset as number, input.limit as number);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
+		} else if (input.action === 'get_production_tasks') {
+			const result = await actions.getProductionTasks(input.query, input.limit as number);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else if (input.action === 'get_production_tasks_in_progress') {
+			const result = await actions.getProductionTasksInProgress();
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else if (input.action === 'update_packages') {
+			const launched = await actions.updatePackages();
+			respond(response, 200, { ok: true, action: input.action, launched });
+			return;
+		} else if (input.action === 'update_binaries') {
+			const launched = await actions.updateBinaries();
+			respond(response, 200, { ok: true, action: input.action, launched });
+			return;
 		} else if (input.action === 'update_database') {
 			await actions.updateDatabase(input.role as 'main' | 'test');
 			respond(response, 200, { ok: true, action: input.action, role: input.role });
@@ -149,11 +166,15 @@ function validateRequest(value: unknown): NavigationRequest {
 	const { action, id } = value as Partial<NavigationRequest>;
 	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
 		&& action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
-		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity') {
+		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
+		&& action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
+		&& action !== 'update_packages' && action !== 'update_binaries') {
 		throw new Error('Unknown navigation action.');
 	}
 	if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
-		&& action !== 'start_client' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
+		&& action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
+		&& action !== 'update_packages' && action !== 'update_binaries'
+		&& (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
 		throw new Error('Navigation ID must be a positive integer.');
 	}
 	const classId = (value as Partial<NavigationRequest>).classId;
@@ -182,6 +203,12 @@ function validateRequest(value: unknown): NavigationRequest {
 	}
 	if (action === 'get_package_sync_changes' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
 		throw new Error('Package synchronization limit must be an integer from 1 to 500.');
+	}
+	if (action === 'get_production_tasks' && query !== undefined && typeof query !== 'string') {
+		throw new Error('Production tasks query must be a string.');
+	}
+	if (action === 'get_production_tasks' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 250)) {
+		throw new Error('Production tasks limit must be an integer from 1 to 250.');
 	}
 	const role = (value as Partial<NavigationRequest>).role;
 	if ((action === 'update_database' || action === 'start_client' || action === 'open_client_entity') && role !== 'main' && role !== 'test') {

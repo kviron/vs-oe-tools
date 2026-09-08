@@ -23,6 +23,8 @@ function isProductionTasksWebviewMessage(message) {
     return message.command === 'productionTasksReady' || message.command === 'refreshProductionTasks' || message.command === 'importProductionSessionKey'
         || message.command === 'setProductionTasksPassword'
         || message.command === 'openProductionTasksLog'
+        || (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
+        || (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
         || (message.command === 'openProductionTask' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
 }
 function isProductionTaskDetailsWebviewMessage(message) {
@@ -30,7 +32,11 @@ function isProductionTaskDetailsWebviewMessage(message) {
         return false;
     }
     return message.command === 'productionTaskDetailsReady'
-        || (message.command === 'openProductionTaskInClient' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id));
+        || message.command === 'loadProductionTaskAttachments'
+        || (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
+        || (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
+        || ((message.command === 'openProductionTaskInClient' || message.command === 'openDatabaseObjectById' || message.command === 'loadDatabaseObjectPreview')
+            && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0);
 }
 function isSettingsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -54,7 +60,13 @@ function isSettingsWebviewMessage(message) {
             && message.fields.every(field => typeof field === 'object' && field !== null && 'key' in field && typeof field.key === 'string' && 'value' in field && typeof field.value === 'string');
     }
     if (message.command === 'runProjectCommand') {
-        return 'action' in message && (message.action === 'updateDatabase' || message.action === 'startClient')
+        if (!('action' in message)) {
+            return false;
+        }
+        if (message.action === 'updatePackages' || message.action === 'updateBinaries') {
+            return true;
+        }
+        return (message.action === 'updateDatabase' || message.action === 'startClient')
             && 'role' in message && (message.role === 'main' || message.role === 'test');
     }
     if (message.command === 'setUserId') {

@@ -5,12 +5,20 @@ import { openObjectView } from './objectViewPanelManager';
 import { openEntityProperties } from './entityPropertiesPanelManager';
 import { openSpuEditor } from '../../spu/spuEditorPanel';
 
-const panels = new Map<number, vscode.WebviewPanel>();
+interface ClassObjectsPanelController {
+	panel: vscode.WebviewPanel;
+	revealObject(objectId: number): Promise<void>;
+}
 
-export async function openClassObjects(context: vscode.ExtensionContext, classId: number): Promise<void> {
+const panels = new Map<number, ClassObjectsPanelController>();
+
+export async function openClassObjects(context: vscode.ExtensionContext, classId: number, objectId?: number): Promise<void> {
 	const existing = panels.get(classId);
 	if (existing) {
-		existing.reveal(vscode.ViewColumn.Active);
+		existing.panel.reveal(vscode.ViewColumn.Active);
+		if (objectId !== undefined) {
+			await existing.revealObject(objectId);
+		}
 		return;
 	}
 	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
@@ -20,26 +28,39 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 		vscode.ViewColumn.Active,
 		{ enableScripts: true, localResourceRoots: [assetsRoot] },
 	);
-	panels.set(classId, panel);
 	panel.webview.html = shell(panel.webview, assetsRoot);
-	let loading = false;
-	const load = async (offset = 0): Promise<void> => {
-		if (loading) {
-			return;
-		}
-		loading = true;
+	let ready = false;
+	let selectedObjectId = objectId;
+	const performLoad = async (offset = 0, targetObjectId?: number): Promise<void> => {
 		const append = offset > 0;
 		await panel.webview.postMessage({ command: 'classObjectsLoading', append } satisfies ClassObjectsHostMessage);
 		try {
-			const result = await getClassObjects(classId, offset, classObjectPageSize);
+			const result = await getClassObjects(classId, offset, classObjectPageSize, targetObjectId);
 			panel.title = `Справочник — ${result.className}`;
 			await panel.webview.postMessage({ command: 'classObjectsLoaded', result, append } satisfies ClassObjectsHostMessage);
+			if (targetObjectId !== undefined) {
+				await panel.webview.postMessage({ command: 'revealClassObject', objectId: targetObjectId } satisfies ClassObjectsHostMessage);
+			}
 		} catch (error) {
 			await panel.webview.postMessage({ command: 'classObjectsLoadFailed', message: error instanceof Error ? error.message : String(error) } satisfies ClassObjectsHostMessage);
-		} finally {
-			loading = false;
 		}
 	};
+	let loadQueue = Promise.resolve();
+	const load = (offset = 0, targetObjectId?: number): Promise<void> => {
+		const operation = loadQueue.then(() => performLoad(offset, targetObjectId));
+		loadQueue = operation.catch(() => undefined);
+		return operation;
+	};
+	const controller: ClassObjectsPanelController = {
+		panel,
+		revealObject: async targetObjectId => {
+			selectedObjectId = targetObjectId;
+			if (ready) {
+				await load(0, targetObjectId);
+			}
+		},
+	};
+	panels.set(classId, controller);
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (!isClassObjectsWebviewMessage(message)) {
 			return;
@@ -73,14 +94,23 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 			await openSpuEditor(context, { preferredPackageName: message.preferredPackageName }, () => load(0));
 			return;
 		}
-		await load(message.command === 'loadMoreClassObjects' ? message.offset : 0);
+		if (message.command === 'classObjectsReady') {
+			ready = true;
+			await load(0, selectedObjectId);
+			return;
+		}
+		if (message.command === 'refreshClassObjects') {
+			await load(0, selectedObjectId);
+			return;
+		}
+		await load(message.offset);
 	});
 	panel.onDidDispose(() => panels.delete(classId));
 }
 
 export function closeClassObjectPanels(): void {
-	for (const panel of panels.values()) {
-		panel.dispose();
+	for (const controller of panels.values()) {
+		controller.panel.dispose();
 	}
 	panels.clear();
 }

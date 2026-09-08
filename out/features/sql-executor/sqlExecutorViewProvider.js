@@ -40,6 +40,7 @@ const sqlMonitorService_1 = require("../sql-monitor/sqlMonitorService");
 const executeSql_1 = require("./executeSql");
 const sqlResultExport_1 = require("./sqlResultExport");
 const tableSelectionLogger_1 = require("../../core/tableSelectionLogger");
+const sqlCompletionSchema_1 = require("../../infrastructure/database/sqlCompletionSchema");
 class SqlExecutorViewProvider {
     extensionUri;
     static viewType = 'vc-ve-tools.sqlExecutor';
@@ -75,6 +76,7 @@ class SqlExecutorViewProvider {
                     command: 'sqlExecutorInitialized',
                     history: sqlMonitorService_1.sqlMonitorService.getRecords().map(toHistoryEntry),
                 });
+                void this.loadCompletionSchema(webviewView.webview);
                 return;
             }
             if (message.command === 'executeSql') {
@@ -90,6 +92,15 @@ class SqlExecutorViewProvider {
                 void this.exportResult(latestResult);
             }
         });
+    }
+    async loadCompletionSchema(webview) {
+        try {
+            const completion = await (0, sqlCompletionSchema_1.getSqlCompletionSchema)();
+            await webview.postMessage({ command: 'sqlCompletionSchemaLoaded', completion });
+        }
+        catch (error) {
+            console.warn(`Не удалось загрузить SQL-подсказки: ${errorMessage(error)}`);
+        }
     }
     async runQuery(webview, text, onResult) {
         try {

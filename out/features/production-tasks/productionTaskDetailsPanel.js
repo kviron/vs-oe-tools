@@ -38,7 +38,7 @@ exports.closeProductionTaskDetailsPanels = closeProductionTaskDetailsPanels;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const panels = new Map();
-function openProductionTaskDetails(context, task) {
+function openProductionTaskDetails(context, task, findObjectById, loadAttachments) {
     const existing = panels.get(task.id);
     if (existing) {
         existing.reveal(vscode.ViewColumn.Active);
@@ -56,6 +56,44 @@ function openProductionTaskDetails(context, task) {
         }
         if (message.command === 'productionTaskDetailsReady') {
             await panel.webview.postMessage({ command: 'productionTaskDetailsLoaded', task });
+            return;
+        }
+        if (message.command === 'copyTableCells') {
+            await vscode.env.clipboard.writeText(message.text);
+            return;
+        }
+        if (message.command === 'tableSelectionDebug') {
+            return;
+        }
+        if (message.command === 'loadProductionTaskAttachments') {
+            await panel.webview.postMessage({ command: 'productionTaskAttachmentsLoading' });
+            try {
+                const attachments = await loadAttachments();
+                await panel.webview.postMessage({ command: 'productionTaskAttachmentsLoaded', attachments });
+            }
+            catch (error) {
+                await panel.webview.postMessage({
+                    command: 'productionTaskAttachmentsFailed',
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
+            return;
+        }
+        if (message.command === 'openDatabaseObjectById') {
+            await vscode.commands.executeCommand('vc-ve-tools.openClipboardObject', message.id);
+            return;
+        }
+        if (message.command === 'loadDatabaseObjectPreview') {
+            try {
+                const object = await findObjectById(message.id);
+                await panel.webview.postMessage({ command: 'databaseObjectPreviewLoaded', id: message.id, object });
+            }
+            catch (error) {
+                await panel.webview.postMessage({
+                    command: 'databaseObjectPreviewFailed', id: message.id,
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
             return;
         }
         const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/РаботаДокумент/${message.id}`);

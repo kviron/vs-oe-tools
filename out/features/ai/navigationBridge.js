@@ -79,6 +79,26 @@ async function handleRequest(request, response, token, actions) {
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
+        else if (input.action === 'get_production_tasks') {
+            const result = await actions.getProductionTasks(input.query, input.limit);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else if (input.action === 'get_production_tasks_in_progress') {
+            const result = await actions.getProductionTasksInProgress();
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else if (input.action === 'update_packages') {
+            const launched = await actions.updatePackages();
+            respond(response, 200, { ok: true, action: input.action, launched });
+            return;
+        }
+        else if (input.action === 'update_binaries') {
+            const launched = await actions.updateBinaries();
+            respond(response, 200, { ok: true, action: input.action, launched });
+            return;
+        }
         else if (input.action === 'update_database') {
             await actions.updateDatabase(input.role);
             respond(response, 200, { ok: true, action: input.action, role: input.role });
@@ -126,11 +146,15 @@ function validateRequest(value) {
     const { action, id } = value;
     if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
         && action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
-        && action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity') {
+        && action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
+        && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
+        && action !== 'update_packages' && action !== 'update_binaries') {
         throw new Error('Unknown navigation action.');
     }
     if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
-        && action !== 'start_client' && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
+        && action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
+        && action !== 'update_packages' && action !== 'update_binaries'
+        && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
         throw new Error('Navigation ID must be a positive integer.');
     }
     const classId = value.classId;
@@ -159,6 +183,12 @@ function validateRequest(value) {
     }
     if (action === 'get_package_sync_changes' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 500)) {
         throw new Error('Package synchronization limit must be an integer from 1 to 500.');
+    }
+    if (action === 'get_production_tasks' && query !== undefined && typeof query !== 'string') {
+        throw new Error('Production tasks query must be a string.');
+    }
+    if (action === 'get_production_tasks' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 250)) {
+        throw new Error('Production tasks limit must be an integer from 1 to 250.');
     }
     const role = value.role;
     if ((action === 'update_database' || action === 'start_client' || action === 'open_client_entity') && role !== 'main' && role !== 'test') {

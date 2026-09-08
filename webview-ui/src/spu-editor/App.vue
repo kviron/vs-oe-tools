@@ -4,7 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, ref, watch } from 'vue';
 import type { SpuEditorHostMessage } from '../../../src/core/webviewProtocol';
 import type { CreatedSpu, SpuEditorOptions } from '../../../src/features/spu/models';
-import type { SqlCompletionSchema } from '../../../src/infrastructure/database/sqlCompletionSchema';
+import type { SqlCompletionSchema } from '../../../src/features/sql-executor/sqlCompletionSchema';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';

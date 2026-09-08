@@ -37,8 +37,10 @@ exports.registerClipboardObjectNavigation = registerClipboardObjectNavigation;
 const vscode = __importStar(require("vscode"));
 const clipboardObjectRouting_1 = require("./clipboardObjectRouting");
 function registerClipboardObjectNavigation(actions) {
-    return vscode.commands.registerCommand('vc-ve-tools.openClipboardObject', async () => {
-        const id = (0, clipboardObjectRouting_1.parseClipboardObjectId)(await vscode.env.clipboard.readText());
+    return vscode.commands.registerCommand('vc-ve-tools.openClipboardObject', async (requestedId) => {
+        const id = requestedId === undefined
+            ? (0, clipboardObjectRouting_1.parseClipboardObjectId)(await vscode.env.clipboard.readText())
+            : Number.isSafeInteger(requestedId) && requestedId > 0 ? requestedId : undefined;
         if (id === undefined) {
             void vscode.window.showWarningMessage('В буфере обмена нет корректного положительного ID объекта.');
             return;

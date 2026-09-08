@@ -4,9 +4,9 @@ import { isProductionTasksWebviewMessage } from '../../core/webviewProtocol';
 import type { ProductionConnectionOptions, ProductionTasksLogger, ProductionTaskSummary } from './models';
 import { loadProductionTasks } from './productionTasksRepository';
 
-export class ProductionTasksViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
+export class ProductionTasksPanelManager implements vscode.Disposable {
 	static readonly viewType = 'vc-ve-tools.productionTasks';
-	private view?: vscode.WebviewView;
+	private panel?: vscode.WebviewPanel;
 	private tasks = new Map<number, ProductionTaskSummary>();
 	constructor(
 		private readonly extensionUri: vscode.Uri,
@@ -17,19 +17,29 @@ export class ProductionTasksViewProvider implements vscode.WebviewViewProvider, 
 		private readonly logger: ProductionTasksLogger,
 		private readonly openLog: () => void,
 	) {}
-	resolveWebviewView(view: vscode.WebviewView): void {
-		this.view = view;
+	show(): void {
+		if (this.panel) { this.panel.reveal(vscode.ViewColumn.Active, false); return; }
+		const panel = vscode.window.createWebviewPanel(
+			ProductionTasksPanelManager.viewType,
+			'Задачи',
+			vscode.ViewColumn.Active,
+			{ enableScripts: true, retainContextWhenHidden: true },
+		);
+		this.panel = panel;
 		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
-		view.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
-		view.webview.html = shell(view.webview, assetsRoot);
-		view.webview.onDidReceiveMessage((message: unknown) => {
+		panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
+		panel.webview.html = shell(panel.webview, assetsRoot);
+		panel.webview.onDidReceiveMessage((message: unknown) => {
 			if (!isProductionTasksWebviewMessage(message)) { return; }
+			if (message.command === 'copyTableCells') { void vscode.env.clipboard.writeText(message.text); return; }
+			if (message.command === 'tableSelectionDebug') { return; }
 			if (message.command === 'openProductionTask') { const task = this.tasks.get(message.id); if (task) { this.openTask(task); } return; }
 			if (message.command === 'importProductionSessionKey') { void this.importSessionKey().then(imported => { if (imported) { void this.refresh(); } }); return; }
 			if (message.command === 'setProductionTasksPassword') { void this.setPassword().then(changed => { if (changed) { void this.refresh(); } }); return; }
 			if (message.command === 'openProductionTasksLog') { this.openLog(); return; }
 			void this.refresh();
 		});
+		panel.onDidDispose(() => { this.panel = undefined; this.tasks.clear(); });
 	}
 	async refresh(): Promise<void> {
 		await this.post({ command: 'productionTasksLoading' });
@@ -43,8 +53,28 @@ export class ProductionTasksViewProvider implements vscode.WebviewViewProvider, 
 			await this.post({ command: 'productionTasksFailed', message: error instanceof Error ? error.message : String(error) });
 		}
 	}
-	dispose(): void { this.view = undefined; this.tasks.clear(); }
-	private async post(message: ProductionTasksHostMessage): Promise<void> { await this.view?.webview.postMessage(message); }
+	dispose(): void { this.panel?.dispose(); this.tasks.clear(); }
+	private async post(message: ProductionTasksHostMessage): Promise<void> { await this.panel?.webview.postMessage(message); }
+}
+
+export function registerProductionTasksActivityLauncher(panel: ProductionTasksPanelManager): vscode.Disposable {
+	const item = new vscode.TreeItem('Открыть таблицу задач');
+	item.iconPath = new vscode.ThemeIcon('list-selection');
+	item.command = { command: 'vc-ve-tools.openProductionTasks', title: 'Открыть таблицу задач' };
+	const view = vscode.window.createTreeView('vc-ve-tools.productionTasksLauncher', {
+		treeDataProvider: {
+			getTreeItem: element => element,
+			getChildren: () => [item],
+		},
+		showCollapseAll: false,
+	});
+	const openFromActivityBar = async (): Promise<void> => {
+		panel.show();
+		await vscode.commands.executeCommand('workbench.action.closeSidebar');
+	};
+	const visibility = view.onDidChangeVisibility(event => { if (event.visible) { void openFromActivityBar(); } });
+	if (view.visible) { void openFromActivityBar(); }
+	return vscode.Disposable.from(view, visibility);
 }
 
 function shell(webview: vscode.Webview, assetsRoot: vscode.Uri): string {

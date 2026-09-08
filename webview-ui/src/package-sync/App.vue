@@ -85,7 +85,7 @@ vscode.postMessage({ command: 'packageSyncReady' });
             v-for="item in visible"
             :key="item.objectId"
             class="cursor-default border-b border-border/50 hover:bg-accent"
-            :class="selected === item.objectId ? 'bg-primary/15 text-primary' : ''"
+            :class="selected === item.objectId ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)] hover:bg-[var(--vscode-list-activeSelectionBackground)]' : ''"
             :title="`ID ${item.objectId}. Двойной щелчок — Local Diff`"
             @click="selected = item.objectId"
             @dblclick="openDiff(item)"

@@ -33,11 +33,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProductionTasksViewProvider = void 0;
+exports.ProductionTasksPanelManager = void 0;
+exports.registerProductionTasksActivityLauncher = registerProductionTasksActivityLauncher;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const productionTasksRepository_1 = require("./productionTasksRepository");
-class ProductionTasksViewProvider {
+class ProductionTasksPanelManager {
     extensionUri;
     getOptions;
     openTask;
@@ -46,7 +47,7 @@ class ProductionTasksViewProvider {
     logger;
     openLog;
     static viewType = 'vc-ve-tools.productionTasks';
-    view;
+    panel;
     tasks = new Map();
     constructor(extensionUri, getOptions, openTask, importSessionKey, setPassword, logger, openLog) {
         this.extensionUri = extensionUri;
@@ -57,13 +58,25 @@ class ProductionTasksViewProvider {
         this.logger = logger;
         this.openLog = openLog;
     }
-    resolveWebviewView(view) {
-        this.view = view;
+    show() {
+        if (this.panel) {
+            this.panel.reveal(vscode.ViewColumn.Active, false);
+            return;
+        }
+        const panel = vscode.window.createWebviewPanel(ProductionTasksPanelManager.viewType, 'Задачи', vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
+        this.panel = panel;
         const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
-        view.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
-        view.webview.html = shell(view.webview, assetsRoot);
-        view.webview.onDidReceiveMessage((message) => {
+        panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
+        panel.webview.html = shell(panel.webview, assetsRoot);
+        panel.webview.onDidReceiveMessage((message) => {
             if (!(0, webviewProtocol_1.isProductionTasksWebviewMessage)(message)) {
+                return;
+            }
+            if (message.command === 'copyTableCells') {
+                void vscode.env.clipboard.writeText(message.text);
+                return;
+            }
+            if (message.command === 'tableSelectionDebug') {
                 return;
             }
             if (message.command === 'openProductionTask') {
@@ -91,6 +104,7 @@ class ProductionTasksViewProvider {
             }
             void this.refresh();
         });
+        panel.onDidDispose(() => { this.panel = undefined; this.tasks.clear(); });
     }
     async refresh() {
         await this.post({ command: 'productionTasksLoading' });
@@ -105,10 +119,33 @@ class ProductionTasksViewProvider {
             await this.post({ command: 'productionTasksFailed', message: error instanceof Error ? error.message : String(error) });
         }
     }
-    dispose() { this.view = undefined; this.tasks.clear(); }
-    async post(message) { await this.view?.webview.postMessage(message); }
+    dispose() { this.panel?.dispose(); this.tasks.clear(); }
+    async post(message) { await this.panel?.webview.postMessage(message); }
 }
-exports.ProductionTasksViewProvider = ProductionTasksViewProvider;
+exports.ProductionTasksPanelManager = ProductionTasksPanelManager;
+function registerProductionTasksActivityLauncher(panel) {
+    const item = new vscode.TreeItem('Открыть таблицу задач');
+    item.iconPath = new vscode.ThemeIcon('list-selection');
+    item.command = { command: 'vc-ve-tools.openProductionTasks', title: 'Открыть таблицу задач' };
+    const view = vscode.window.createTreeView('vc-ve-tools.productionTasksLauncher', {
+        treeDataProvider: {
+            getTreeItem: element => element,
+            getChildren: () => [item],
+        },
+        showCollapseAll: false,
+    });
+    const openFromActivityBar = async () => {
+        panel.show();
+        await vscode.commands.executeCommand('workbench.action.closeSidebar');
+    };
+    const visibility = view.onDidChangeVisibility(event => { if (event.visible) {
+        void openFromActivityBar();
+    } });
+    if (view.visible) {
+        void openFromActivityBar();
+    }
+    return vscode.Disposable.from(view, visibility);
+}
 function shell(webview, assetsRoot) {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'production-tasks.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'production-tasks.css'));

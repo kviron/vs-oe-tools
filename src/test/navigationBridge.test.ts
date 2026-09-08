@@ -11,6 +11,9 @@ suite('Navigation bridge', () => {
 		let updatedMethod: { methodId: number; code: string } | undefined;
 		let updatedDatabase: 'main' | 'test' | undefined;
 		let startedClient: 'main' | 'test' | undefined;
+		let productionTaskQuery: { query?: string; limit: number } | undefined;
+		let packagesUpdated = false;
+		let binariesUpdated = false;
 		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
 		const bridge = await startNavigationBridge({
 			revealClass: async () => undefined,
@@ -23,6 +26,13 @@ suite('Navigation bridge', () => {
 			},
 			getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
 			getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
+			getProductionTasks: async (query, limit) => {
+				productionTaskQuery = { query, limit };
+				return { count: 1, tasks: [{ id: 902173152, number: '85008' }] };
+			},
+			getProductionTasksInProgress: async () => ({ count: 1, tasks: [{ id: 902173152, state: 'В работе' }] }),
+			updatePackages: async () => { packagesUpdated = true; return true; },
+			updateBinaries: async () => { binariesUpdated = true; return false; },
 			updateDatabase: async role => { updatedDatabase = role; },
 			startClient: async role => { startedClient = role; },
 			openClientEntity: async (role, entityType, id) => `oe-${role}:/open/${entityType}/${id}`,
@@ -64,6 +74,21 @@ suite('Navigation bridge', () => {
 			});
 			assert.equal(syncResponse.status, 200);
 			assert.deepEqual((await syncResponse.json() as { items: unknown[] }).items, [{ objectId: 7 }]);
+			const tasksResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'get_production_tasks', query: '85008', limit: 25 }),
+			});
+			assert.equal(tasksResponse.status, 200);
+			assert.deepEqual(productionTaskQuery, { query: '85008', limit: 25 });
+			assert.deepEqual((await tasksResponse.json() as { tasks: unknown[] }).tasks, [{ id: 902173152, number: '85008' }]);
+			const inProgressResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'get_production_tasks_in_progress' }),
+			});
+			assert.equal(inProgressResponse.status, 200);
+			assert.deepEqual((await inProgressResponse.json() as { tasks: unknown[] }).tasks, [{ id: 902173152, state: 'В работе' }]);
 			const databaseResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
@@ -71,6 +96,22 @@ suite('Navigation bridge', () => {
 			});
 			assert.equal(databaseResponse.status, 200);
 			assert.equal(updatedDatabase, 'test');
+			const packagesResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'update_packages' }),
+			});
+			assert.equal(packagesResponse.status, 200);
+			assert.equal((await packagesResponse.json() as { launched: boolean }).launched, true);
+			assert.equal(packagesUpdated, true);
+			const binariesResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'update_binaries' }),
+			});
+			assert.equal(binariesResponse.status, 200);
+			assert.equal((await binariesResponse.json() as { launched: boolean }).launched, false);
+			assert.equal(binariesUpdated, true);
 			const clientResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

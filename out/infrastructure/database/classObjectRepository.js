@@ -6,7 +6,7 @@ const pg_1 = require("pg");
 const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
 exports.classObjectPageSize = 100;
-async function getClassObjects(classId, offset = 0, limit = exports.classObjectPageSize) {
+async function getClassObjects(classId, offset = 0, limit = exports.classObjectPageSize, targetObjectId) {
     if (!Number.isInteger(offset) || offset < 0) {
         throw new Error('Смещение страницы справочника должно быть целым неотрицательным числом.');
     }
@@ -92,6 +92,25 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
         const classIdColumn = physicalByLowerName.get('classid');
         const where = classIdColumn ? ` WHERE object_table.${quoteIdentifier(classIdColumn)} = $1` : '';
         const values = classIdColumn ? [classId] : [];
+        let effectiveOffset = offset;
+        if (targetObjectId !== undefined && idColumn) {
+            if (!Number.isSafeInteger(targetObjectId) || targetObjectId <= 0) {
+                throw new Error('ID выделяемого элемента справочника должен быть положительным целым числом.');
+            }
+            const targetParameter = values.length + 1;
+            const positionResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `SELECT COUNT(*) FILTER (WHERE object_table.${quoteIdentifier(idColumn)} < $${targetParameter})::text AS position,
+				 BOOL_OR(object_table.${quoteIdentifier(idColumn)} = $${targetParameter}) AS found
+				 FROM ${source} AS object_table${where}`,
+                values: [...values, targetObjectId],
+                source: `Позиция объекта ${targetObjectId} в классе ${classRow.name}`,
+                database: options.database,
+            });
+            const position = Number(positionResult.rows[0]?.position ?? 0);
+            if (positionResult.rows[0]?.found && Number.isSafeInteger(position) && position >= 0) {
+                effectiveOffset = Math.floor(position / limit) * limit;
+            }
+        }
         const countResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT COUNT(*)::text AS count FROM ${source} AS object_table${where}`,
             values,
@@ -108,7 +127,7 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
 			 ${where}
 			 ORDER BY object_table.${quoteIdentifier(idColumn ?? physicalColumns[0].column_name)}
 			 LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
-            values: [...values, limit, offset],
+            values: [...values, limit, effectiveOffset],
             source: `Объекты класса ${classRow.name}`,
             database: options.database,
         });
@@ -120,9 +139,9 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
             columns,
             rows: normalizedRows,
             totalCount,
-            offset,
+            offset: effectiveOffset,
             limit,
-            hasMore: offset + normalizedRows.length < totalCount,
+            hasMore: effectiveOffset + normalizedRows.length < totalCount,
         };
     }
     finally {

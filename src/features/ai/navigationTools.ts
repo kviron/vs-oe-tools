@@ -20,6 +20,10 @@ export interface NavigationActions {
 	updateMethodSource(methodId: number, code: string): Promise<Record<string, unknown>>;
 	getSvnFileHistory(filePath: string, limit: number): Promise<Record<string, unknown>>;
 	getPackageSyncChanges(query: string | undefined, offset: number, limit: number): Promise<Record<string, unknown>>;
+	getProductionTasks(query: string | undefined, limit: number): Promise<Record<string, unknown>>;
+	getProductionTasksInProgress(): Promise<Record<string, unknown>>;
+	updatePackages(): Promise<boolean>;
+	updateBinaries(): Promise<boolean>;
 	updateDatabase(role: 'main' | 'test'): Promise<void>;
 	startClient(role: 'main' | 'test'): Promise<void>;
 	openClientEntity(role: 'main' | 'test', entityType: string, id: number): Promise<string>;

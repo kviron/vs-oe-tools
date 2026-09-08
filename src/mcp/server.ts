@@ -30,7 +30,7 @@ const sqlMonitorHistoryPath = readOptionalArgument('--sql-monitor-history');
 const databaseSelectionPath = readOptionalArgument('--database-selection');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? getNavigationInfoPath(workspacePath);
 const server = new McpServer(
-	{ name: 'vc-ve-tools-database', version: '0.17.0' },
+	{ name: 'vc-ve-tools-database', version: '0.19.0' },
 	{
 		instructions: [
 			'East Express method names are stored separately in method cards and must never be included in method source code. Method source contains the body only: do not add procedure/function declarations containing the method name.',
@@ -40,9 +40,10 @@ const server = new McpServer(
 			'Use get_class_properties to inspect script properties declared by a class and optionally inherited from ancestors. Use get_property_details for the complete stored record.',
 			'Before update_method_source, read the complete current method body with get_method_source. Send only the method body, never its name or declaration wrapper.',
 			'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
+			'Use get_production_tasks for the current employee task list and get_production_tasks_in_progress for complete cards of tasks currently in status В работе. These calls use the production OENP session held by the VS Code extension.',
 			'Use get_recent_sql_queries to inspect the last 500 filtered queries captured by the SQL monitor without generating additional database traffic.',
 			'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
-			'Direct SQL access is read-only. Controlled mutations are available only through update_method_source and the explicitly confirmed update_database command in VS Code. Database updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue.',
+			'Direct SQL access is read-only. Controlled mutations are available only through update_method_source and explicitly confirmed update_database, update_packages, and update_binaries commands in VS Code. Project updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue.',
 		].join(' '),
 	},
 );
@@ -542,6 +543,18 @@ server.registerTool('update_database', {
 	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
 }, async ({ role }: { role: 'main' | 'test' }) => bridgeToolResult({ action: 'update_database', role }));
 
+server.registerTool('update_packages', {
+	description: 'Run svn update in the packages folder of the open East Express workspace. VS Code asks the user for confirmation, then runs the command in a visible terminal.',
+	inputSchema: {},
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+}, async () => bridgeToolResult({ action: 'update_packages' }));
+
+server.registerTool('update_binaries', {
+	description: 'Run BinUpdate.bat from the root of the open East Express workspace. VS Code asks the user for confirmation, then runs the batch file in a visible terminal.',
+	inputSchema: {},
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+}, async () => bridgeToolResult({ action: 'update_binaries' }));
+
 server.registerTool('start_client', {
 	description: 'Launch the original East Express client for the main or test database using start.bat or start_test.bat and the client credentials saved in VS Code settings.',
 	inputSchema: {
@@ -581,6 +594,23 @@ server.registerTool('get_package_sync_changes', {
 }, async ({ query, offset, limit }: { query?: string; offset?: number; limit?: number }) => bridgeToolResult({
 	action: 'get_package_sync_changes', query, offset: offset ?? 0, limit: limit ?? 100,
 }));
+
+server.registerTool('get_production_tasks', {
+	description: 'Load the current employee production task list through the authenticated OENP session held by the VS Code extension. Returns compact task summaries; optionally filter by task ID, number, or title.',
+	inputSchema: {
+		query: z.string().optional().describe('Optional partial task ID, number, or title'),
+		limit: z.number().int().min(1).max(250).optional().describe('Maximum tasks, default 100'),
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ query, limit }: { query?: string; limit?: number }) => bridgeToolResult({
+	action: 'get_production_tasks', query, limit: limit ?? 100,
+}));
+
+server.registerTool('get_production_tasks_in_progress', {
+	description: 'Load full production task cards for the current employee and return only tasks whose status is В работе.',
+	inputSchema: {},
+	annotations: { readOnlyHint: true },
+}, async () => bridgeToolResult({ action: 'get_production_tasks_in_progress' }));
 
 server.registerTool('get_dfm_source', {
 	description: 'Read the decoded Windows-1251 DFM source owned by an East Express class. Returns numbered lines and pagination metadata.',

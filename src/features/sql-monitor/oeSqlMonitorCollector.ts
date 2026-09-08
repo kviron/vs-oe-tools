@@ -5,9 +5,10 @@ import * as path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import * as iconv from 'iconv-lite';
 import * as vscode from 'vscode';
-import { databaseProfileSetting } from '../../core/constants';
+import { databaseProfileSetting, sqlMonitorCollectorPathSetting } from '../../core/constants';
 import { parseRdboadmIni, type RdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
 import type { SqlOperation } from './models';
+import { getSqlMonitorCollectorCandidates, isProtocolVersionMismatch } from './oeSqlMonitorCollectorPaths';
 import { sqlMonitorService } from './sqlMonitorService';
 
 interface OeQueryRow {
@@ -93,9 +94,9 @@ export class OeSqlMonitorCollector implements vscode.Disposable {
 		await ensureService(workspacePath, profile.id, port, log);
 		await mkdir(this.storagePath, { recursive: true });
 		const resultPath = path.join(this.storagePath, `sql-monitor-${profile.id}.sqdb`);
-		const executable = path.join(workspacePath, 'bin', 'OESQLMonCon.exe');
-		await access(executable).catch(error => { throw new Error(`Не найден OESQLMonCon.exe: ${executable}`, { cause: error }); });
-		this.log('INFO', `Коллектор: ${executable}`);
+		const executables = await this.findCollectorCandidates(workspacePath);
+		let executableIndex = 0;
+		this.log('INFO', `Коллектор: ${executables[executableIndex]}`);
 		this.log('INFO', `Файл результата: ${resultPath}`);
 		while (this.running) {
 			await this.waitUntilResumed();
@@ -103,11 +104,35 @@ export class OeSqlMonitorCollector implements vscode.Disposable {
 			await unlink(resultPath).catch(error => {
 				if ((error as NodeJS.ErrnoException).code !== 'ENOENT') { throw error; }
 			});
-			await this.capture(executable, port, resultPath);
+			try {
+				await this.capture(executables[executableIndex], port, resultPath);
+			} catch (error) {
+				const fallback = executables[executableIndex + 1];
+				if (!fallback || !isProtocolVersionMismatch(error)) { throw error; }
+				this.log('WARNING', `Коллектор ${executables[executableIndex]} несовместим с протоколом OEService. Переключение на ${fallback}.`);
+				executableIndex += 1;
+				continue;
+			}
 			if (!this.running) { break; }
 			const imported = this.importRows(resultPath, profile.id, userId);
 			this.log('DEBUG', `Цикл завершён: импортировано ${imported}, последний QueryID ${this.lastQueryId}.`);
 		}
+	}
+
+	private async findCollectorCandidates(workspacePath: string): Promise<string[]> {
+		const configuredPath = vscode.workspace.getConfiguration('vcVeTools').get<string>(sqlMonitorCollectorPathSetting, '');
+		const candidates = getSqlMonitorCollectorCandidates(workspacePath, configuredPath);
+		const existing: string[] = [];
+		for (const candidate of candidates) {
+			try {
+				await access(candidate);
+				existing.push(candidate);
+			} catch {
+				this.log(configuredPath && candidate === candidates[0] ? 'WARNING' : 'DEBUG', `Коллектор не найден: ${candidate}`);
+			}
+		}
+		if (existing.length === 0) { throw new Error(`Не найден OESQLMonCon.exe. Проверены пути: ${candidates.join(', ')}`); }
+		return existing;
 	}
 
 	private async waitUntilResumed(): Promise<void> {

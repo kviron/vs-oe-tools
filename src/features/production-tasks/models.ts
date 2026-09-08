@@ -2,14 +2,38 @@ export interface ProductionTaskSummary {
 	id: number;
 	number: string;
 	state: string;
-	description: string;
+	title: string;
 	createdAt: string;
 	deadline: string;
+	activityKind: string;
 	workType: string;
 	project: string;
-	customer: string;
+	author: string;
+	manager: string;
+	analyst: string;
 	executor: string;
-	initiator: string;
+	reviewer: string;
+	appeal: string;
+	packageName: string;
+	newsSection: string;
+	priority: string;
+	effort: string;
+	releasePlan: string;
+	releaseActual: string;
+	revisionTrunk: string;
+	revisionBranch: string;
+	workDescription: string;
+	stateComment: string;
+	stateCommentAuthor: string;
+}
+
+export interface ProductionTaskAttachment {
+	id: number;
+	name: string;
+	fileName: string;
+	extension: string;
+	size: string;
+	changedAt: string;
 	comment: string;
 }
 

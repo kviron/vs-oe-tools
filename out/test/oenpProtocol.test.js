@@ -52,8 +52,22 @@ suite('OENP protocol', () => {
         assert.equal(productionTasksRepository_1.productionTaskSql.includes('::'), false);
         assert.equal(productionTasksRepository_1.productionTaskSql.toLowerCase().includes('to_char('), false);
         assert.match(productionTasksRepository_1.productionTaskSql, /CAST\(T0\.DNumber AS VARCHAR\(64\)\)/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /DateToStrFmt\(T0\.CreDate, 'dd\.mm\.yyyy hh:mm'\)/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /DateToStrFmt\(T0\.Deadline, 'dd\.mm\.yyyy hh:mm'\)/);
+        assert.match(productionTasksRepository_1.productionTaskSql, /DateToStrFmt\(T0\.CreDate, 'dd\.mm\.yyyy hh:mm:ss'\)/);
+        assert.match(productionTasksRepository_1.productionTaskSql, /DateToStrFmt\(T0\.Deadline, 'dd\.mm\.yyyy hh:mm:ss'\)/);
+        assert.match(productionTasksRepository_1.productionTaskSql, /FROM StructureActivity SA WHERE SA\.ID = T0\.KindActivity/);
+        assert.match(productionTasksRepository_1.productionTaskSql, /FROM HistoryLC H WHERE H\.ID = T0\.LCLastActionID/);
+    });
+    test('builds a bounded attachment query for the exact task', () => {
+        const sql = (0, productionTasksRepository_1.productionTaskAttachmentsSql)(85008);
+        assert.match(sql, /FROM StoredFiles SF/);
+        assert.match(sql, /WHERE SF\.SeniorID = 85008/);
+        assert.match(sql, /LIMIT 250$/);
+        assert.throws(() => (0, productionTasksRepository_1.productionTaskAttachmentsSql)(0), /положительным целым/);
+    });
+    test('hides the zero Delphi date', () => {
+        assert.equal((0, productionTasksRepository_1.normalizeProductionDate)('30.12.1899 00:00'), '');
+        assert.equal((0, productionTasksRepository_1.normalizeProductionDate)('30.12.1899 00:00:00'), '');
+        assert.equal((0, productionTasksRepository_1.normalizeProductionDate)('09.10.2025 09:56:20'), '09.10.2025 09:56:20');
     });
     test('builds the registered-session packet and reads an authorization challenge', () => {
         const packet = (0, oenpProtocol_1.createInitialPacket)('00112233445566778899AABBCCDDEEFF');
@@ -92,6 +106,79 @@ suite('OENP protocol', () => {
         assert.deepEqual((0, oenpProtocol_1.parseMemoryDataPacket)(packet), [
             { id: 8928159, asql: 'T0.respperson = %CurrentPerson', cond: null, condint: null, classid: 40035 },
             { id: 10128376, asql: 'T0.executor = %CurrentPerson', cond: null, condint: null, classid: 40035 },
+        ]);
+    });
+    test('decodes Delphi WideString fields', () => {
+        const text = 'Задача № 42';
+        const packet = Buffer.concat([
+            Buffer.from('MemoryDataPacket', 'ascii'),
+            Buffer.alloc(9), Buffer.from([2]),
+            Buffer.from([2]), Buffer.from('id', 'ascii'), Buffer.from([3, 0, 0, 0]),
+            Buffer.from([6]), Buffer.from('number', 'ascii'), Buffer.from([24, 64, 0, 0]),
+            Buffer.alloc(2), Buffer.from([1, 0, 0, 0]),
+            Buffer.from([1, 3, 0]), Buffer.from([42, 0, 0, 0]),
+            Buffer.from([text.length]), Buffer.from(text, 'utf16le'),
+        ]);
+        assert.deepEqual((0, oenpProtocol_1.parseMemoryDataPacket)(packet), [{ id: 42, number: text }]);
+    });
+    test('decodes WideString metadata with a packed maximum length', () => {
+        const text = 'Длинное описание';
+        const packet = Buffer.concat([
+            Buffer.from('MemoryDataPacket', 'ascii'),
+            Buffer.alloc(9), Buffer.from([2]),
+            Buffer.from([2]), Buffer.from('id', 'ascii'), Buffer.from([3, 0, 0, 0]),
+            Buffer.from([11]), Buffer.from('description', 'ascii'), Buffer.from([24, 0xfd, 0x70, 0x17, 0, 0]),
+            Buffer.alloc(2), Buffer.from([1, 0, 0, 0]),
+            Buffer.from([1, 3, 0]), Buffer.from([42, 0, 0, 0]),
+            Buffer.from([text.length]), Buffer.from(text, 'utf16le'),
+        ]);
+        assert.deepEqual((0, oenpProtocol_1.parseMemoryDataPacket)(packet), [{ id: 42, description: text }]);
+    });
+    test('decodes the second row bitmap', () => {
+        const text = 'Задача в работе';
+        const packet = Buffer.concat([
+            Buffer.from('MemoryDataPacket', 'ascii'),
+            Buffer.alloc(9), Buffer.from([2]),
+            Buffer.from([2]), Buffer.from('id', 'ascii'), Buffer.from([3, 0, 0, 0]),
+            Buffer.from([5]), Buffer.from('title', 'ascii'), Buffer.from([24, 64, 0, 0]),
+            Buffer.alloc(2), Buffer.from([1, 0, 0, 0]),
+            Buffer.from([1, 3, 0]), Buffer.from([42, 0, 0, 0]),
+            Buffer.from([text.length]), Buffer.from(text, 'utf16le'),
+        ]);
+        assert.deepEqual((0, oenpProtocol_1.parseMemoryDataPacket)(packet), [{ id: 42, title: text }]);
+    });
+    test('scales both row bitmaps for 26 production fields', () => {
+        const fieldMetadata = Buffer.concat(Array.from({ length: 26 }, (_, index) => {
+            const name = `f${index}`;
+            return Buffer.concat([Buffer.from([name.length]), Buffer.from(name, 'ascii'), Buffer.from([3, 0, 0, 0])]);
+        }));
+        const values = Buffer.alloc(26 * 4);
+        for (let index = 0; index < 26; index += 1) {
+            values.writeInt32LE(index + 100, index * 4);
+        }
+        const packet = Buffer.concat([
+            Buffer.from('MemoryDataPacket', 'ascii'), Buffer.alloc(9), Buffer.from([26]), fieldMetadata,
+            Buffer.alloc(2), Buffer.from([1, 0, 0, 0]),
+            Buffer.from([1]), Buffer.from([0xff, 0xff, 0xff, 0x03]), Buffer.alloc(4), values,
+        ]);
+        const expected = Object.fromEntries(Array.from({ length: 26 }, (_, index) => [`f${index}`, index + 100]));
+        assert.deepEqual((0, oenpProtocol_1.parseMemoryDataPacket)(packet), [expected]);
+    });
+    test('keeps production field and row boundaries after Cyrillic values', () => {
+        const encode = (value) => Buffer.concat([Buffer.from([value.length]), Buffer.from(value, 'utf16le')]);
+        const packet = Buffer.concat([
+            Buffer.from('MemoryDataPacket', 'ascii'),
+            Buffer.alloc(9), Buffer.from([3]),
+            Buffer.from([2]), Buffer.from('id', 'ascii'), Buffer.from([3, 0, 0, 0]),
+            Buffer.from([5]), Buffer.from('title', 'ascii'), Buffer.from([24, 64, 0, 0]),
+            Buffer.from([7]), Buffer.from('created', 'ascii'), Buffer.from([24, 32, 0, 0]),
+            Buffer.alloc(2), Buffer.from([2, 0, 0, 0]),
+            Buffer.from([1, 7, 0]), Buffer.from([42, 0, 0, 0]), encode('Задача № 42'), encode('09.10.2025 09:56'),
+            Buffer.from([1, 7, 0]), Buffer.from([43, 0, 0, 0]), encode('Ещё задача'), encode('10.10.2025 10:00'),
+        ]);
+        assert.deepEqual((0, oenpProtocol_1.parseMemoryDataPacket)(packet), [
+            { id: 42, title: 'Задача № 42', created: '09.10.2025 09:56' },
+            { id: 43, title: 'Ещё задача', created: '10.10.2025 10:00' },
         ]);
     });
 });

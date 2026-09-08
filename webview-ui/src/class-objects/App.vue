@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RefreshIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import type { ClassObjectsHostMessage } from '../../../src/core/webviewProtocol';
 import type { ClassObjectsResult } from '../../../src/features/classes/models';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ const loadingMore = ref(false);
 const error = ref('');
 const sortKey = ref('');
 const sortDirection = ref<1 | -1>(1);
+const revealedObjectId = ref<string>();
 const canCreateSpu = computed(() => result.value?.classId === 12609684 || result.value?.className.toLocaleLowerCase('en-US') === 'syspackageupdate');
 
 const rows = computed(() => {
@@ -78,7 +79,18 @@ function editSpu(row: Record<string, unknown>): void {
 function loadMore(): void {
   if (!result.value?.hasMore || loading.value || loadingMore.value) return;
   loadingMore.value = true;
-  vscode.postMessage({ command: 'loadMoreClassObjects', offset: result.value.rows.length });
+  vscode.postMessage({ command: 'loadMoreClassObjects', offset: result.value.offset + result.value.rows.length });
+}
+
+async function revealObject(objectId: number): Promise<void> {
+  revealedObjectId.value = String(objectId);
+  await nextTick();
+  const row = document.querySelector<HTMLTableRowElement>(`tbody tr[data-entity-id="${objectId}"]`);
+  row?.scrollIntoView({ block: 'center', inline: 'nearest' });
+}
+
+function clearRevealedObject(): void {
+  revealedObjectId.value = undefined;
 }
 
 function handleScroll(event: Event): void {
@@ -95,10 +107,12 @@ window.addEventListener('message', (event: MessageEvent<ClassObjectsHostMessage>
     error.value = '';
   } else if (message.command === 'classObjectsLoaded') {
     result.value = message.append && result.value
-      ? { ...message.result, rows: [...result.value.rows, ...message.result.rows] }
+      ? { ...message.result, offset: result.value.offset, rows: [...result.value.rows, ...message.result.rows] }
       : message.result;
     loading.value = false;
     loadingMore.value = false;
+  } else if (message.command === 'revealClassObject') {
+    void revealObject(message.objectId);
   } else if (message.command === 'classObjectsLoadFailed') {
     error.value = message.message;
     loading.value = false;
@@ -143,7 +157,7 @@ vscode.postMessage({ command: 'classObjectsReady' });
 	  :view-as-edit="canCreateSpu"
 	  @create="createSpuForEntity"
 	>
-      <Table container-class="min-h-0 flex-1 overflow-auto" @scroll="handleScroll">
+      <Table container-class="min-h-0 flex-1 overflow-auto" @pointerdown="clearRevealedObject" @scroll="handleScroll">
         <TableHeader class="sticky top-0 bg-background">
           <TableRow>
             <TableHead
@@ -162,6 +176,8 @@ vscode.postMessage({ command: 'classObjectsReady' });
 			v-for="(row, index) in rows"
 			:key="String(row.ID ?? row.id ?? index)"
 			:data-entity-id="String(row.ID ?? row.id ?? '')"
+			:data-row-selected="revealedObjectId === String(row.ID ?? row.id ?? '') ? '' : undefined"
+			:aria-selected="revealedObjectId === String(row.ID ?? row.id ?? '') ? 'true' : undefined"
 			:class="canCreateSpu ? 'cursor-pointer' : undefined"
 			:title="canCreateSpu ? 'Двойной щелчок — редактировать СПУ' : undefined"
 			@dblclick="editSpu(row)"

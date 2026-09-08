@@ -74,6 +74,10 @@ suite('Extension Test Suite', () => {
         const sourcePath = 'C:\\OE\\trunk\\DBUpdate_test.bat';
         assert.strictEqual((0, projectCommandService_1.extractBatchCommand)('@call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "%~0" test', sourcePath), 'call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "C:\\OE\\trunk\\DBUpdate_test.bat" test');
     });
+    test('project binary update invokes the wrapper batch file itself', () => {
+        assert.strictEqual((0, projectCommandService_1.createBatchFileCommand)('C:\\OE\\trunk\\BinUpdate.bat'), 'call "C:\\OE\\trunk\\BinUpdate.bat"');
+        assert.throws(() => (0, projectCommandService_1.createBatchFileCommand)('C:\\OE\\bad"path\\BinUpdate.bat'), /недопустимые символы/);
+    });
     test('client credentials replace values from start.bat', () => {
         assert.strictEqual((0, projectCommandService_1.applyClientCredentials)('call _fme.bat -l "host=localhost,db=oetest,username=old,password=oldpass" -ok', { username: 'ВЭ_Пользователь', password: 'secret' }), 'call _fme.bat -l "host=localhost,db=oetest,username=ВЭ_Пользователь,password=secret" -ok');
     });

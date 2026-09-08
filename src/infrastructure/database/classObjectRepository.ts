@@ -26,7 +26,7 @@ interface PhysicalColumnRow {
 
 export const classObjectPageSize = 100;
 
-export async function getClassObjects(classId: number, offset = 0, limit = classObjectPageSize): Promise<ClassObjectsResult> {
+export async function getClassObjects(classId: number, offset = 0, limit = classObjectPageSize, targetObjectId?: number): Promise<ClassObjectsResult> {
 	if (!Number.isInteger(offset) || offset < 0) {
 		throw new Error('Смещение страницы справочника должно быть целым неотрицательным числом.');
 	}
@@ -116,6 +116,25 @@ export async function getClassObjects(classId: number, offset = 0, limit = class
 		const classIdColumn = physicalByLowerName.get('classid');
 		const where = classIdColumn ? ` WHERE object_table.${quoteIdentifier(classIdColumn)} = $1` : '';
 		const values = classIdColumn ? [classId] : [];
+		let effectiveOffset = offset;
+		if (targetObjectId !== undefined && idColumn) {
+			if (!Number.isSafeInteger(targetObjectId) || targetObjectId <= 0) {
+				throw new Error('ID выделяемого элемента справочника должен быть положительным целым числом.');
+			}
+			const targetParameter = values.length + 1;
+			const positionResult = await executeMonitoredQuery<{ position: string; found: boolean }>(client, {
+				text: `SELECT COUNT(*) FILTER (WHERE object_table.${quoteIdentifier(idColumn)} < $${targetParameter})::text AS position,
+				 BOOL_OR(object_table.${quoteIdentifier(idColumn)} = $${targetParameter}) AS found
+				 FROM ${source} AS object_table${where}`,
+				values: [...values, targetObjectId],
+				source: `Позиция объекта ${targetObjectId} в классе ${classRow.name}`,
+				database: options.database,
+			});
+			const position = Number(positionResult.rows[0]?.position ?? 0);
+			if (positionResult.rows[0]?.found && Number.isSafeInteger(position) && position >= 0) {
+				effectiveOffset = Math.floor(position / limit) * limit;
+			}
+		}
 		const countResult = await executeMonitoredQuery<{ count: string }>(client, {
 			text: `SELECT COUNT(*)::text AS count FROM ${source} AS object_table${where}`,
 			values,
@@ -132,7 +151,7 @@ export async function getClassObjects(classId: number, offset = 0, limit = class
 			 ${where}
 			 ORDER BY object_table.${quoteIdentifier(idColumn ?? physicalColumns[0].column_name)}
 			 LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
-			values: [...values, limit, offset],
+			values: [...values, limit, effectiveOffset],
 			source: `Объекты класса ${classRow.name}`,
 			database: options.database,
 		});
@@ -144,9 +163,9 @@ export async function getClassObjects(classId: number, offset = 0, limit = class
 			columns,
 			rows: normalizedRows,
 			totalCount,
-			offset,
+			offset: effectiveOffset,
 			limit,
-			hasMore: offset + normalizedRows.length < totalCount,
+			hasMore: effectiveOffset + normalizedRows.length < totalCount,
 		};
 	} finally {
 		await client.end().catch(() => undefined);

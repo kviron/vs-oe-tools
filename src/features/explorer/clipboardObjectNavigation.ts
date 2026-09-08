@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import { navigateToDatabaseObject, parseClipboardObjectId, type ClipboardObjectNavigationActions } from './clipboardObjectRouting';
 
 export function registerClipboardObjectNavigation(actions: ClipboardObjectNavigationActions): vscode.Disposable {
-	return vscode.commands.registerCommand('vc-ve-tools.openClipboardObject', async () => {
-		const id = parseClipboardObjectId(await vscode.env.clipboard.readText());
+	return vscode.commands.registerCommand('vc-ve-tools.openClipboardObject', async (requestedId?: number) => {
+		const id = requestedId === undefined
+			? parseClipboardObjectId(await vscode.env.clipboard.readText())
+			: Number.isSafeInteger(requestedId) && requestedId > 0 ? requestedId : undefined;
 		if (id === undefined) {
 			void vscode.window.showWarningMessage('В буфере обмена нет корректного положительного ID объекта.');
 			return;

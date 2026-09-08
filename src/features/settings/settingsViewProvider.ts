@@ -7,7 +7,7 @@ import { testDatabaseConnection } from '../../infrastructure/database/classRepos
 import type { ExtensionLogService } from '../../infrastructure/logging/extensionLogService';
 import type { McpNavigationConnection } from '../../mcp/registerMcpServer';
 import { loadRdboadmDatabases, saveRdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
-import { startProjectClient, updateProjectDatabase } from '../project/projectCommandService';
+import { startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../project/projectCommandService';
 import type { ClientCredentials } from '../project/projectCommandService';
 
 export class SettingsViewProvider implements vscode.Disposable {
@@ -87,8 +87,12 @@ export class SettingsViewProvider implements vscode.Disposable {
 			try {
 				if (message.action === 'updateDatabase') {
 					await updateProjectDatabase(message.role);
-				} else {
+				} else if (message.action === 'startClient') {
 					await startProjectClient(message.role, await this.getClientCredentials());
+				} else if (message.action === 'updatePackages') {
+					await updateProjectPackages();
+				} else {
+					await updateProjectBinaries();
 				}
 			} catch (error) {
 				void vscode.window.showErrorMessage(`Не удалось выполнить команду проекта: ${error instanceof Error ? error.message : String(error)}`);
