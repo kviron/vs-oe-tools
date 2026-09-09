@@ -25,6 +25,17 @@ export function productionDeadlineInfo(value: string, now = new Date()): Product
 	return { label: `Осталось ${days} ${pluralDays(days)}`, tone: 'normal', days };
 }
 
+export function productionTaskPublicUrl(reference: string | number): string {
+	return `https://r.oe-it.ru/${String(reference).trim()}`;
+}
+
+export function productionTaskMarkdown(number: string, title: string, fallbackId: number): string {
+	const reference = number.trim() || String(fallbackId);
+	const label = title.trim() ? `${reference} - ${title.trim()}` : reference;
+	const url = productionTaskPublicUrl(reference);
+	return `${label}\n[${url}](${url})`;
+}
+
 function pluralDays(value: number): string {
 	const mod100 = value % 100;
 	const mod10 = value % 10;

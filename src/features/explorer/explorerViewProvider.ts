@@ -3,6 +3,7 @@ import type { ExplorerHostMessage } from '../../core/webviewProtocol';
 import { isExplorerWebviewMessage } from '../../core/webviewProtocol';
 import type { ClassTreeRow } from '../classes/models';
 import type { DatabaseObjectKind, DatabaseObjectSearchResult } from '../../core/objectSearch';
+import type { PackageExplorerNode, PackageFileContent, PackageSummary } from '../packages/models';
 
 export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
 	private view?: vscode.WebviewView;
@@ -21,6 +22,10 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		private readonly openClassObjects: (id: number) => Promise<void>,
 		private readonly viewObject: (id: number) => Promise<void>,
 		private readonly viewEntityProperties: (id: number) => Promise<void>,
+		private readonly getPackages: () => Promise<PackageSummary[]>,
+		private readonly getPackageTree: (packageId: number) => Promise<PackageExplorerNode>,
+		private readonly getPackageFileContent: (fileId: number) => Promise<PackageFileContent>,
+		private readonly openPackageContent: (fileId: number, objectId?: number) => Promise<void>,
 	) {}
 	resolveWebviewView(webviewView: vscode.WebviewView): void {
 		this.view = webviewView;
@@ -38,13 +43,13 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 				return;
 			}
 			if (message.command === 'explorerReady') {
-				const state = this.workspaceState.get<{ activeTab: string; selectedClassId?: number }>('explorer.state', { activeTab: 'packages' });
+				const state = this.workspaceState.get<{ activeTab: string; selectedClassId?: number; selectedPackageId?: number }>('explorer.state', { activeTab: 'packages' });
 				void this.postMessage({ command: 'restoreExplorerState', ...state });
 				return;
 			}
 			if (message.command === 'explorerStateChanged') {
 				this.selectedEntityId = message.selectedClassId;
-				void this.workspaceState.update('explorer.state', { activeTab: message.activeTab, selectedClassId: message.selectedClassId });
+				void this.workspaceState.update('explorer.state', { activeTab: message.activeTab, selectedClassId: message.selectedClassId, selectedPackageId: message.selectedPackageId });
 				return;
 			}
 			if (message.command === 'setExplorerCopyContext') {
@@ -54,6 +59,13 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 			}
 			if (message.command === 'loadClasses') {
 				void this.sendClasses();
+				return;
+			}
+			if (message.command === 'loadPackages') { void this.sendPackages(); return; }
+			if (message.command === 'loadPackageTree') { void this.sendPackageTree(message.packageId); return; }
+			if (message.command === 'loadPackageFileObjects') { void this.sendPackageFileObjects(message.fileId); return; }
+			if (message.command === 'openPackageContent') {
+				void this.openPackageContent(message.fileId, message.objectId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть содержимое пакета: ${error instanceof Error ? error.message : String(error)}`));
 				return;
 			}
 			if (message.command === 'searchDatabaseObjects') {
@@ -96,10 +108,12 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 				void this.viewEntityProperties(message.id).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть свойства: ${error instanceof Error ? error.message : String(error)}`));
 				return;
 			}
-			void this.openClass(message.id, message.pinned).catch((error) => {
-				const detail = error instanceof Error ? error.message : String(error);
-				void vscode.window.showErrorMessage(`Не удалось открыть класс: ${detail}`);
-			});
+			if (message.command === 'openClass') {
+				void this.openClass(message.id, message.pinned).catch((error) => {
+					const detail = error instanceof Error ? error.message : String(error);
+					void vscode.window.showErrorMessage(`Не удалось открыть класс: ${detail}`);
+				});
+			}
 		});
 	}
 	dispose(): void {
@@ -107,7 +121,7 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		this.view = undefined;
 		this.output.dispose();
 	}
-	refreshClasses(): void { void this.postMessage({ command: 'resetClasses' }); }
+	refreshClasses(): void { void this.postMessage({ command: 'resetClasses' }); void this.postMessage({ command: 'resetPackages' }); }
 	async revealClass(id: number): Promise<void> {
 		this.selectedEntityId = id;
 		await vscode.commands.executeCommand('workbench.view.extension.vc-ve-tools');
@@ -131,6 +145,19 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 			const message = error instanceof Error ? error.message : String(error);
 			await this.postMessage({ command: 'classesLoadFailed', message });
 		}
+	}
+	private async sendPackages(): Promise<void> {
+		try { await this.postMessage({ command: 'packagesLoaded', packages: await this.getPackages() }); }
+		catch (error) { await this.postMessage({ command: 'packagesLoadFailed', message: error instanceof Error ? error.message : String(error) }); }
+	}
+	private async sendPackageTree(packageId: number): Promise<void> {
+		await this.postMessage({ command: 'packageTreeLoading', packageId });
+		try { await this.postMessage({ command: 'packageTreeLoaded', packageId, tree: await this.getPackageTree(packageId) }); }
+		catch (error) { await this.postMessage({ command: 'packageTreeLoadFailed', packageId, message: error instanceof Error ? error.message : String(error) }); }
+	}
+	private async sendPackageFileObjects(fileId: number): Promise<void> {
+		try { await this.postMessage({ command: 'packageFileObjectsLoaded', fileId, objects: (await this.getPackageFileContent(fileId)).objects }); }
+		catch (error) { await this.postMessage({ command: 'packageFileObjectsLoadFailed', fileId, message: error instanceof Error ? error.message : String(error) }); }
 	}
 	private async sendObjectSearch(query: string): Promise<void> {
 		const normalized = query.trim();

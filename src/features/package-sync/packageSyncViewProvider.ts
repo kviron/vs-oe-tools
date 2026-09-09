@@ -13,7 +13,11 @@ export class PackageSyncPanelManager implements vscode.Disposable {
 	private items: PackageSyncItem[] = [];
 	private issues: PackageSyncIssue[] = [];
 
-	constructor(private readonly extensionUri: vscode.Uri, private readonly loadSnapshot: () => Promise<PackageSyncSnapshot>) {}
+	constructor(
+		private readonly extensionUri: vscode.Uri,
+		private readonly loadSnapshot: () => Promise<PackageSyncSnapshot>,
+		private readonly loadDatabaseVersion: (item: PackageSyncItem, fileName: string) => Promise<{ content: string; addedObjectIds: number[]; localContent?: string }>,
+	) {}
 
 	show(): void {
 		if (this.panel) {
@@ -51,13 +55,26 @@ export class PackageSyncPanelManager implements vscode.Disposable {
 
 	private async openDiff(item: PackageSyncItem): Promise<void> {
 		try {
-			const fileName = await resolveExistingFile(item.localPath!);
+			const fileName = await resolvePackageFile(item);
 			item.localPath = fileName;
 			await this.post({ command: 'packageSyncLoaded', items: this.items, issues: this.issues });
-			const generatedFileName = await findOriginalClientGeneratedFile(fileName);
-			await vscode.commands.executeCommand('vc-ve-tools.openGeneratedPackageDiff', fileName, generatedFileName);
+			let databaseError: unknown;
+			try {
+				const version = await this.loadDatabaseVersion(item, fileName);
+				await vscode.commands.executeCommand('vc-ve-tools.openPackageDatabaseDiff', fileName, version.content, version.localContent);
+				vscode.window.setStatusBarMessage(`Версия PKF собрана из БД · добавлено объектов: ${version.addedObjectIds.length}`, 5000);
+				return;
+			} catch (error) {
+				databaseError = error;
+			}
+			try {
+				const generatedFileName = await findOriginalClientGeneratedFile(fileName);
+				await vscode.commands.executeCommand('vc-ve-tools.openGeneratedPackageDiff', fileName, generatedFileName);
+			} catch (fallbackError) {
+				throw new Error(`Из БД: ${errorMessage(databaseError)} Резервный способ: ${errorMessage(fallbackError)}`);
+			}
 		} catch (error) {
-			void vscode.window.showErrorMessage(`Не удалось открыть SVN diff: ${error instanceof Error ? error.message : String(error)}`);
+			void vscode.window.showErrorMessage(`Не удалось открыть сравнение: ${errorMessage(error)}`);
 		}
 	}
 
@@ -145,3 +162,14 @@ async function resolveExistingFile(fileName: string): Promise<string> {
 	if (!match) {throw new Error(`Локальный файл не найден: ${fileName} (файл с таким именем и расширением отсутствует)`);}
 	return path.join(directory, match);
 }
+
+async function resolvePackageFile(item: PackageSyncItem): Promise<string> {
+	try {
+		return await resolveExistingFile(item.localPath!);
+	} catch (error) {
+		if (item.contentMd5) {throw error;}
+		return path.extname(item.localPath!) ? item.localPath! : `${item.localPath!}.pkf`;
+	}
+}
+
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }

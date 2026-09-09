@@ -1,9 +1,11 @@
 import * as path from 'node:path';
 import { hostname } from 'node:os';
+import { readFile } from 'node:fs/promises';
 import * as vscode from 'vscode';
+import * as iconv from 'iconv-lite';
 import { Client } from 'pg';
 import type { PackageBoundaryIssue, PackageSyncItem, PackageSyncSnapshot } from '../../features/package-sync/models';
-import { findPackagePlaceholderIssues } from '../../features/package-sync/packageSyncIssues';
+import { createPackagePlaceholderIssues, isPackagePlaceholderItem, parsePackagePlaceholderObjects } from '../../features/package-sync/packageSyncIssues';
 import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 
@@ -39,8 +41,33 @@ interface PackageBoundaryRow {
 }
 
 export async function loadPackageSyncSnapshot(): Promise<PackageSyncSnapshot> {
-	const [items, boundaryIssues] = await Promise.all([loadPackageSyncItems(), loadPackageBoundaryIssues()]);
-	return { items, issues: [...findPackagePlaceholderIssues(items), ...boundaryIssues] };
+	const boundaryIssuesPromise = loadPackageBoundaryIssues();
+	const items = await loadPackageSyncItems();
+	const [placeholderIssues, boundaryIssues] = await Promise.all([loadPackagePlaceholderIssues(items), boundaryIssuesPromise]);
+	return { items, issues: [...placeholderIssues, ...boundaryIssues] };
+}
+
+async function loadPackagePlaceholderIssues(items: readonly PackageSyncItem[]) {
+	const groups = await Promise.all(items.filter(isPackagePlaceholderItem).map(async item => {
+		const filePath = await resolvePlaceholderFile(item.localPath);
+		if (!filePath) {return [];}
+		const content = iconv.decode(await readFile(filePath), 'win1251');
+		return createPackagePlaceholderIssues(item, filePath, parsePackagePlaceholderObjects(content));
+	}));
+	return groups.flat();
+}
+
+async function resolvePlaceholderFile(localPath: string | undefined): Promise<string | undefined> {
+	if (!localPath) {return undefined;}
+	for (const candidate of path.extname(localPath) ? [localPath] : [localPath, `${localPath}.pkf`]) {
+		try {
+			await readFile(candidate, { flag: 'r' });
+			return candidate;
+		} catch {
+			// Try the physical PKF extension used by the package editor.
+		}
+	}
+	return undefined;
 }
 
 export async function loadPackageBoundaryIssues(): Promise<PackageBoundaryIssue[]> {

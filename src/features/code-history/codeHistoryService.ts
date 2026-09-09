@@ -25,6 +25,7 @@ export function registerCodeHistory(context: vscode.ExtensionContext, methodEdit
 		vscode.commands.registerCommand('vc-ve-tools.svnBlame', (methodId?: number) => service.showBlame(methodId)),
 		vscode.commands.registerCommand('vc-ve-tools.svnLocalDiffFile', (fileName: string) => service.showFileLocalDiff(fileName)),
 		vscode.commands.registerCommand('vc-ve-tools.openGeneratedPackageDiff', (fileName: string, generatedFileName: string) => service.showGeneratedPackageDiff(fileName, generatedFileName)),
+		vscode.commands.registerCommand('vc-ve-tools.openPackageDatabaseDiff', (fileName: string, databaseContent: string, localContent?: string) => service.showPackageDatabaseDiff(fileName, databaseContent, localContent)),
 	);
 }
 
@@ -109,6 +110,19 @@ class CodeHistoryService implements vscode.TextDocumentContentProvider, vscode.W
 			'vscode.diff',
 			local.uri,
 			this.store(`${path.basename(fileName)} · версия из БД`, generated, path.extname(fileName)),
+			`${path.basename(fileName)} · БД ↔ файл`,
+			{ preview: true },
+		);
+	}
+
+	async showPackageDatabaseDiff(fileName: string, databaseContent: string, localContent?: string): Promise<void> {
+		const localUri = localContent === undefined
+			? (await vscode.workspace.openTextDocument(vscode.Uri.file(fileName))).uri
+			: this.store(`${path.basename(fileName)} · новый локальный файл`, localContent, path.extname(fileName));
+		await vscode.commands.executeCommand(
+			'vscode.diff',
+			localUri,
+			this.store(`${path.basename(fileName)} · версия из БД`, databaseContent, path.extname(fileName)),
 			`${path.basename(fileName)} · БД ↔ файл`,
 			{ preview: true },
 		);

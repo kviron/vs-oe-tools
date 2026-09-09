@@ -45,6 +45,12 @@ const projectCommandService_1 = require("../features/project/projectCommandServi
 // import * as myExtension from '../../extension';
 suite('Extension Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.');
+    test('development extension activates', async () => {
+        const extension = vscode.extensions.getExtension('undefined_publisher.vc-ve-tools');
+        assert.ok(extension, 'Расширение undefined_publisher.vc-ve-tools не найдено');
+        await extension.activate();
+        assert.equal(extension.isActive, true);
+    });
     test('Sample test', () => {
         assert.strictEqual(-1, [1, 2, 3].indexOf(5));
         assert.strictEqual(-1, [1, 2, 3].indexOf(0));

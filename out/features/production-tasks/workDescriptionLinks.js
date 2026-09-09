@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.splitWorkDescriptionObjectIds = splitWorkDescriptionObjectIds;
-const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{6,}\b/g;
+const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{3,}\b/g;
 function splitWorkDescriptionObjectIds(value) {
     const parts = [];
     let offset = 0;
@@ -20,11 +20,15 @@ function splitWorkDescriptionObjectIds(value) {
         if (!Number.isSafeInteger(id)) {
             continue;
         }
+        const prefix = value.slice(Math.max(0, matchOffset - 40), matchOffset);
+        const isTask = /задач\p{L}*\s*(?:№|#|id)?\s*$/ui.test(prefix);
+        if (!isTask && text.length < 7) {
+            continue;
+        }
         if (matchOffset > offset) {
             parts.push({ text: value.slice(offset, matchOffset) });
         }
-        const prefix = value.slice(Math.max(0, matchOffset - 40), matchOffset);
-        parts.push({ text, id, kind: /задач\p{L}*\s*(?:№|#|id)?\s*$/ui.test(prefix) ? 'task' : 'object' });
+        parts.push({ text, id, kind: isTask ? 'task' : 'object' });
         offset = matchOffset + text.length;
     }
     if (offset < value.length || parts.length === 0) {

@@ -37,8 +37,9 @@ exports.openProductionTaskDetails = openProductionTaskDetails;
 exports.closeProductionTaskDetailsPanels = closeProductionTaskDetailsPanels;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
+const productionTaskPresentation_1 = require("./productionTaskPresentation");
 const panels = new Map();
-function openProductionTaskDetails(context, task, findObjectById, loadAttachments, loadHistory) {
+function openProductionTaskDetails(context, task, findObjectById, loadTaskReference, openTaskReference, loadAttachments, loadHistory) {
     const existing = panels.get(task.id);
     if (existing) {
         existing.reveal(vscode.ViewColumn.Active);
@@ -50,6 +51,7 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
     });
     panels.set(task.id, panel);
     const attachments = new Map();
+    const taskPreviews = new Map();
     panel.webview.html = shell(panel.webview, assetsRoot);
     panel.webview.onDidReceiveMessage(async (message) => {
         if (!(0, webviewProtocol_1.isProductionTaskDetailsWebviewMessage)(message)) {
@@ -98,6 +100,35 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
             }
             return;
         }
+        if (message.command === 'loadProductionTaskPreview') {
+            try {
+                const preview = await loadTaskReference(message.id);
+                taskPreviews.set(message.id, preview);
+                await panel.webview.postMessage({ command: 'productionTaskPreviewLoaded', id: message.id, task: preview });
+            }
+            catch (error) {
+                await panel.webview.postMessage({
+                    command: 'productionTaskPreviewFailed', id: message.id,
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
+            return;
+        }
+        if (message.command === 'openProductionTaskReference') {
+            try {
+                const referencedTask = taskPreviews.has(message.id) ? taskPreviews.get(message.id) : await loadTaskReference(message.id);
+                if (referencedTask) {
+                    openTaskReference(referencedTask);
+                }
+                else {
+                    void vscode.window.showInformationMessage(`Задача ${message.id} не найдена.`);
+                }
+            }
+            catch (error) {
+                void vscode.window.showErrorMessage(`Не удалось открыть задачу ${message.id}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+            return;
+        }
         if (message.command === 'productionTaskAttachmentAction') {
             const attachment = attachments.get(message.id);
             if (attachment) {
@@ -131,7 +162,7 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
             }
             return;
         }
-        const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/РаботаДокумент/${message.id}`);
+        const uri = vscode.Uri.parse((0, productionTaskPresentation_1.productionTaskPublicUrl)(message.id));
         if (!await vscode.env.openExternal(uri)) {
             void vscode.window.showErrorMessage(`Не удалось открыть задачу ${message.id} в клиенте.`);
         }

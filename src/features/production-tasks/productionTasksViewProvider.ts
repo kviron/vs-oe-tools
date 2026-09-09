@@ -3,6 +3,7 @@ import type { ProductionTasksHostMessage } from '../../core/webviewProtocol';
 import { isProductionTasksWebviewMessage } from '../../core/webviewProtocol';
 import type { ProductionConnectionOptions, ProductionTasksLogger, ProductionTaskSummary } from './models';
 import { loadProductionTasks } from './productionTasksRepository';
+import { productionTaskPublicUrl } from './productionTaskPresentation';
 
 export class ProductionTasksPanelManager implements vscode.Disposable {
 	static readonly viewType = 'vc-ve-tools.productionTasks';
@@ -35,7 +36,7 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 			if (message.command === 'tableSelectionDebug') { return; }
 			if (message.command === 'openProductionTask') { const task = this.tasks.get(message.id); if (task) { this.openTask(task); } return; }
 			if (message.command === 'openProductionTaskInClient') {
-				const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/РаботаДокумент/${message.id}`);
+				const uri = vscode.Uri.parse(productionTaskPublicUrl(message.id));
 				void vscode.env.openExternal(uri);
 				return;
 			}

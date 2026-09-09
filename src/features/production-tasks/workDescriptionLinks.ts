@@ -5,7 +5,7 @@ export interface WorkDescriptionPart {
 	href?: string;
 }
 
-const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{6,}\b/g;
+const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{3,}\b/g;
 
 export function splitWorkDescriptionObjectIds(value: string): WorkDescriptionPart[] {
 	const parts: WorkDescriptionPart[] = [];
@@ -21,9 +21,11 @@ export function splitWorkDescriptionObjectIds(value: string): WorkDescriptionPar
 		}
 		const id = Number(text);
 		if (!Number.isSafeInteger(id)) { continue; }
-		if (matchOffset > offset) { parts.push({ text: value.slice(offset, matchOffset) }); }
 		const prefix = value.slice(Math.max(0, matchOffset - 40), matchOffset);
-		parts.push({ text, id, kind: /задач\p{L}*\s*(?:№|#|id)?\s*$/ui.test(prefix) ? 'task' : 'object' });
+		const isTask = /задач\p{L}*\s*(?:№|#|id)?\s*$/ui.test(prefix);
+		if (!isTask && text.length < 7) { continue; }
+		if (matchOffset > offset) { parts.push({ text: value.slice(offset, matchOffset) }); }
+		parts.push({ text, id, kind: isTask ? 'task' : 'object' });
 		offset = matchOffset + text.length;
 	}
 	if (offset < value.length || parts.length === 0) { parts.push({ text: value.slice(offset) }); }

@@ -43,6 +43,12 @@ export interface ClassObjectsResult {
 	hasMore: boolean;
 }
 
+export interface ClassObjectColumnSettings {
+	visible: string[];
+	order: string[];
+	compact: boolean;
+}
+
 export type ObjectFieldKind = 'attribute' | 'property';
 
 export interface ObjectFieldRow {

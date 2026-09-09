@@ -37,19 +37,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.productionTaskSql = void 0;
+exports.productionTaskReferenceSql = productionTaskReferenceSql;
 exports.productionTaskAttachmentsSql = productionTaskAttachmentsSql;
 exports.productionTaskHistorySql = productionTaskHistorySql;
 exports.loadProductionTaskAttachments = loadProductionTaskAttachments;
 exports.loadProductionTaskHistory = loadProductionTaskHistory;
 exports.loadProductionTasks = loadProductionTasks;
+exports.loadProductionTaskReference = loadProductionTaskReference;
 exports.createLoginParameters = createLoginParameters;
+exports.decodeProductionText = decodeProductionText;
 exports.normalizeProductionDate = normalizeProductionDate;
 const node_crypto_1 = require("node:crypto");
 const net = __importStar(require("node:net"));
 const os = __importStar(require("node:os"));
 const iconv_lite_1 = __importDefault(require("iconv-lite"));
 const oenpProtocol_1 = require("./oenpProtocol");
-exports.productionTaskSql = `SELECT T0.ID AS id,
+const productionTaskSelectSql = `SELECT T0.ID AS id,
   COALESCE(CAST(T0.DNumber AS VARCHAR(64)), '') AS number,
   COALESCE(CAST(SO1.FName AS VARCHAR(250)), '') AS state,
   COALESCE(CAST(left(T0.Description, 6000) AS VARCHAR(6000)), '') AS title,
@@ -90,12 +93,19 @@ exports.productionTaskSql = `SELECT T0.ID AS id,
     CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000))
     FROM HistoryLC H JOIN Persons P ON P.ID = H.Person WHERE H.ID = T0.LCLastActionID), '') AS statecommentauthor
 FROM WorkDoc T0
-LEFT JOIN StateLC SO1 ON SO1.ID=T0.LCStateID
+LEFT JOIN StateLC SO1 ON SO1.ID=T0.LCStateID`;
+exports.productionTaskSql = `${productionTaskSelectSql}
 WHERE T0.LCStateID NOT IN (11822369, 8929693, 8929692, 8929694, 11821629)
   AND (T0.Initiator = %CurPerson OR T0.LCStateID <> 11821554)
   AND T0.RespPerson = %CurPerson
 ORDER BY CASE WHEN T0.LCStateID IN (11821106, 820069919) THEN 0 ELSE 1 END, T0.OrdPlan
 LIMIT 250`;
+function productionTaskReferenceSql(reference) {
+    if (!Number.isSafeInteger(reference) || reference <= 0) {
+        throw new Error('Номер или ID задачи должен быть положительным целым числом.');
+    }
+    return `${productionTaskSelectSql}\nWHERE T0.DNumber = ${reference} OR T0.ID = ${reference}\nLIMIT 1`;
+}
 function productionTaskAttachmentsSql(taskId) {
     if (!Number.isSafeInteger(taskId) || taskId <= 0) {
         throw new Error('ID задачи для загрузки вложений должен быть положительным целым числом.');
@@ -264,16 +274,7 @@ async function loadProductionTasks(options, logger) {
         const response = await exchangeLogged(connection, (0, oenpProtocol_1.createReadonlyQueryPacket)(8, exports.productionTaskSql, options.personId), stage, logger);
         stage = 'разбор ответа со списком задач';
         const rows = (0, oenpProtocol_1.parseMemoryDataPacket)(response);
-        const tasks = rows.map(row => ({
-            id: Number(row.id) >>> 0, number: text(row.number), state: text(row.state), title: text(row.title),
-            createdAt: normalizeProductionDate(text(row.created)), deadline: normalizeProductionDate(text(row.deadline)),
-            activityKind: text(row.activitykind), workType: text(row.worktype), project: text(row.project),
-            author: text(row.author), manager: text(row.manager), analyst: text(row.analyst), executor: text(row.executor), reviewer: text(row.reviewer),
-            appeal: text(row.appeal), packageName: text(row.packagename), newsSection: text(row.newssection), priority: text(row.priority), effort: text(row.effort),
-            releasePlan: text(row.releaseplan), releaseActual: text(row.releaseactual), revisionTrunk: text(row.revisiontrunk), revisionBranch: text(row.revisionbranch),
-            attachmentCount: Math.max(0, Number(row.attachmentcount) || 0),
-            workDescription: text(row.workdescription), stateComment: text(row.statecomment), stateCommentAuthor: text(row.statecommentauthor),
-        }));
+        const tasks = rows.map(mapProductionTask);
         logger?.info('Задачи успешно загружены.', { count: tasks.length, elapsedMs: Date.now() - startedAt });
         return tasks;
     }
@@ -286,6 +287,42 @@ async function loadProductionTasks(options, logger) {
     finally {
         connection.dispose();
         logger?.info('TCP-соединение закрыто.', { elapsedMs: Date.now() - startedAt });
+    }
+}
+async function loadProductionTaskReference(options, reference, logger) {
+    const connection = new OenpConnection(options.host, options.port);
+    const startedAt = Date.now();
+    let stage = 'подключение для просмотра связанной задачи';
+    logger?.info('Начата загрузка связанной задачи.', { reference });
+    try {
+        await connection.connect();
+        stage = 'регистрация клиентской сессии для связанной задачи';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createInitialPacket)(options.clientSessionKey), stage, logger);
+        stage = 'проверка версии клиента для связанной задачи';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createClientVersionPacket)(2), stage, logger);
+        stage = 'инициализация протокола для связанной задачи';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createProtocolInitPacket)(3), stage, logger);
+        stage = 'выбор базы для связанной задачи';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createDatabaseProbePacket)(4), stage, logger);
+        stage = 'готовность клиента для связанной задачи';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createClientReadyPacket)(5), stage, logger);
+        stage = 'получение challenge для связанной задачи';
+        const challenge = (0, oenpProtocol_1.parseChallenge)(await exchangeLogged(connection, (0, oenpProtocol_1.createChallengePacket)(6), stage, logger, false));
+        const authCompatibility = inspectAuthorizationCompatibility(options);
+        stage = 'авторизация для связанной задачи';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createLoginPacket)(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
+        stage = 'запрос связанной задачи';
+        const response = await exchangeLogged(connection, (0, oenpProtocol_1.createReadonlyQueryPacket)(8, productionTaskReferenceSql(reference), options.personId), stage, logger);
+        const task = (0, oenpProtocol_1.parseMemoryDataPacket)(response)[0];
+        logger?.info('Связанная задача загружена.', { reference, found: Boolean(task), elapsedMs: Date.now() - startedAt });
+        return task ? mapProductionTask(task) : undefined;
+    }
+    catch (error) {
+        logger?.error(`Ошибка на этапе «${stage}».`, { reference, ...errorDetails(error), elapsedMs: Date.now() - startedAt });
+        throw error;
+    }
+    finally {
+        connection.dispose();
     }
 }
 async function exchangeLogged(connection, request, stage, logger, includeResponseHead = true) {
@@ -368,11 +405,28 @@ function deriveAuthorizationHashes(username, password, challenge, mode) {
     };
 }
 function text(value) { return value === null || value === undefined ? '' : String(value); }
+function decodeProductionText(value) {
+    const result = text(value);
+    const bytea = result.match(/^\\x([\da-f]+)$/i);
+    return bytea && bytea[1].length % 2 === 0 ? iconv_lite_1.default.decode(Buffer.from(bytea[1], 'hex'), 'win1251') : result;
+}
 function positiveInteger(value) {
     const parsed = Number(value);
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 function normalizeProductionDate(value) { return /^30\.12\.1899(?:\s+00:00(?::00)?)?$/.test(value.trim()) ? '' : value; }
+function mapProductionTask(row) {
+    return {
+        id: Number(row.id) >>> 0, number: text(row.number), state: text(row.state), title: text(row.title),
+        createdAt: normalizeProductionDate(text(row.created)), deadline: normalizeProductionDate(text(row.deadline)),
+        activityKind: text(row.activitykind), workType: text(row.worktype), project: decodeProductionText(row.project),
+        author: text(row.author), manager: text(row.manager), analyst: text(row.analyst), executor: text(row.executor), reviewer: text(row.reviewer),
+        appeal: text(row.appeal), packageName: text(row.packagename), newsSection: text(row.newssection), priority: text(row.priority), effort: text(row.effort),
+        releasePlan: text(row.releaseplan), releaseActual: text(row.releaseactual), revisionTrunk: text(row.revisiontrunk), revisionBranch: text(row.revisionbranch),
+        attachmentCount: Math.max(0, Number(row.attachmentcount) || 0),
+        workDescription: text(row.workdescription), stateComment: text(row.statecomment), stateCommentAuthor: text(row.statecommentauthor),
+    };
+}
 class OenpConnection {
     host;
     port;

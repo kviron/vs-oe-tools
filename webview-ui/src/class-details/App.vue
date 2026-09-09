@@ -27,6 +27,9 @@ interface SignaturePart {
 
 interface ClassDetailsViewState {
   activeTab?: string;
+  includeInheritedAttributes?: boolean;
+  includeInheritedMethods?: boolean;
+  includeInheritedProperties?: boolean;
 }
 
 const restoredState = (vscode.getState() ?? {}) as ClassDetailsViewState;
@@ -37,7 +40,7 @@ const attributes = shallowRef<ClassAttribute[]>([]);
 const attributesLoading = ref(false);
 const attributesLoaded = ref(false);
 const attributesError = ref('');
-const includeInheritedAttributes = ref(false);
+const includeInheritedAttributes = ref(restoredState.includeInheritedAttributes ?? false);
 const attributeSearchQuery = ref('');
 const attributeCreatorQuery = ref('');
 const attributeDateFrom = ref('');
@@ -46,7 +49,7 @@ const methods = shallowRef<ClassMethod[]>([]);
 const methodsLoading = ref(false);
 const methodsLoaded = ref(false);
 const methodsError = ref('');
-const includeInheritedMethods = ref(false);
+const includeInheritedMethods = ref(restoredState.includeInheritedMethods ?? false);
 const methodSearchQuery = ref('');
 const methodCreatorQuery = ref('');
 const methodDateFrom = ref('');
@@ -55,7 +58,7 @@ const classProperties = shallowRef<ClassProperty[]>([]);
 const classPropertiesLoading = ref(false);
 const classPropertiesLoaded = ref(false);
 const classPropertiesError = ref('');
-const includeInheritedProperties = ref(false);
+const includeInheritedProperties = ref(restoredState.includeInheritedProperties ?? false);
 const propertySearchQuery = ref('');
 const attributeSortKey = ref<string>();
 const attributeSortDirection = ref<SortDirection>('asc');
@@ -69,7 +72,12 @@ const localDateCache = new Map<string, string>();
 const signaturePartsCache = new Map<string, SignaturePart[]>();
 
 function persistViewState(): void {
-  vscode.setState({ activeTab: activeTab.value } satisfies ClassDetailsViewState);
+  vscode.setState({
+    activeTab: activeTab.value,
+    includeInheritedAttributes: includeInheritedAttributes.value,
+    includeInheritedMethods: includeInheritedMethods.value,
+    includeInheritedProperties: includeInheritedProperties.value,
+  } satisfies ClassDetailsViewState);
 }
 const tableColumns = [
   ['Имя', 'name'], ['Владелец', 'owner'], ['Сигнатура', 'signature'], ['Тип', 'type'],
@@ -245,6 +253,7 @@ function loadMethodsForActiveTab(): void {
 
 function toggleInheritedMethods(value: boolean | 'indeterminate'): void {
   includeInheritedMethods.value = value === true;
+  persistViewState();
   methods.value = [];
   methodsLoaded.value = false;
   loadMethodsForActiveTab();
@@ -259,6 +268,7 @@ function loadPropertiesForActiveTab(): void {
 
 function toggleInheritedProperties(value: boolean | 'indeterminate'): void {
   includeInheritedProperties.value = value === true;
+  persistViewState();
   classProperties.value = [];
   classPropertiesLoaded.value = false;
   loadPropertiesForActiveTab();
@@ -337,6 +347,7 @@ function loadAttributesForActiveTab(): void {
 
 function toggleInheritedAttributes(value: boolean | 'indeterminate'): void {
   includeInheritedAttributes.value = value === true;
+  persistViewState();
   attributes.value = [];
   attributesLoaded.value = false;
   loadAttributesForActiveTab();

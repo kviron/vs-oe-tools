@@ -15,6 +15,7 @@ import { registerMethodLanguageFeatures } from '../features/methods/methodLangua
 import { registerCodeHistory } from '../features/code-history/codeHistoryService';
 import { PackageSyncPanelManager } from '../features/package-sync/packageSyncViewProvider';
 import { loadPackageSyncItems, loadPackageSyncSnapshot } from '../infrastructure/database/packageSyncRepository';
+import { loadPackageDatabaseVersion } from '../infrastructure/database/packageSyncDiffRepository';
 import { registerDatabaseMcpServer } from '../mcp/registerMcpServer';
 import { ExtensionLogService } from '../infrastructure/logging/extensionLogService';
 import { registerNavigationTools, type NavigationActions } from '../features/ai/navigationTools';
@@ -36,12 +37,14 @@ import { getDatabaseSelectionPath, writeDatabaseSelection } from '../core/databa
 import { openProjectClientEntity, startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../features/project/projectCommandService';
 import { registerClipboardObjectNavigation } from '../features/explorer/clipboardObjectNavigation';
 import { ProductionTasksPanelManager, registerProductionTasksActivityLauncher } from '../features/production-tasks/productionTasksViewProvider';
-import { loadProductionTaskAttachments, loadProductionTaskHistory, loadProductionTasks } from '../features/production-tasks/productionTasksRepository';
+import { loadProductionTaskAttachments, loadProductionTaskHistory, loadProductionTaskReference, loadProductionTasks } from '../features/production-tasks/productionTasksRepository';
 import { openProductionTaskDetails } from '../features/production-tasks/productionTaskDetailsPanel';
 import { extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId } from '../features/production-tasks/oenpProtocol';
-import type { CapturedAuthorization } from '../features/production-tasks/models';
+import type { CapturedAuthorization, ProductionTaskSummary } from '../features/production-tasks/models';
 import { closeSpuEditorPanels } from '../features/spu/spuEditorPanel';
 import { createClassAttribute } from '../infrastructure/database/attributeRepository';
+import { loadPackageFileContent, loadPackages, loadPackageTree } from '../infrastructure/database/packageExplorerRepository';
+import { closePackageContentPanels, openPackageContent } from '../features/packages/packageContentPanelManager';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
@@ -121,6 +124,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		id => openClassObjects(context, id),
 		id => openObjectView(context, id),
 		id => openEntityProperties(context, id),
+		loadPackages,
+		loadPackageTree,
+		loadPackageFileContent,
+		(fileId, objectId) => openPackageContent(context, fileId, objectId, async (id, kind) => {
+			if (kind === 'class') { await openClassDetails(context, methodEditor, id, true); }
+			else if (kind === 'method') { await methodEditor.open(id); }
+			else if (kind === 'attribute') { await openAttributeDetails(context, id); }
+			else { await openObjectView(context, id); }
+		}),
 	);
 	const explorerRegistration = vscode.window.registerWebviewViewProvider(
 		'vc-ve-tools.explorer',
@@ -168,16 +180,19 @@ export async function activate(context: vscode.ExtensionContext) {
 		error: (message: string, details?: unknown) => extensionLogger.error('Production Tasks', message, details),
 	};
 	const findDatabaseObjectById = async (id: number) => (await searchDatabaseObjects(String(id), 1))[0];
+	const showProductionTask = (task: ProductionTaskSummary): void => openProductionTaskDetails(
+		context,
+		task,
+		findDatabaseObjectById,
+		async reference => loadProductionTaskReference(await getProductionConnectionOptions(), reference, productionTasksLogger),
+		showProductionTask,
+		async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger),
+		async () => loadProductionTaskHistory(await getProductionConnectionOptions(), task.id, productionTasksLogger),
+	);
 	const productionTasksProvider = new ProductionTasksPanelManager(
 		context.extensionUri,
 		getProductionConnectionOptions,
-		task => openProductionTaskDetails(
-			context,
-			task,
-			findDatabaseObjectById,
-			async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger),
-			async () => loadProductionTaskHistory(await getProductionConnectionOptions(), task.id, productionTasksLogger),
-		),
+		showProductionTask,
 		async () => {
 			const selected = await vscode.window.showOpenDialog({
 				canSelectFiles: true, canSelectFolders: false, canSelectMany: true,
@@ -347,7 +362,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 	const databaseMcpServerRegistration = registerDatabaseMcpServer(context, extensionLogger.logUri.fsPath, navigationBridge, databaseSelectionPath, sqlMonitorHistoryPath);
 	const agentSkillInstaller = registerAgentSkillInstaller(context);
-	const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncSnapshot);
+	const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncSnapshot, loadPackageDatabaseVersion);
 	const openPackageSyncCommand = vscode.commands.registerCommand(
 		'vc-ve-tools.openPackageSync',
 		() => packageSyncProvider.show(),
@@ -382,6 +397,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			closeEntityPropertiesPanels();
 			closeClassObjectPanels();
 			closeObjectViewPanels();
+			closePackageContentPanels();
 			closeSpuEditorPanels();
 			explorerProvider.refreshClasses();
 			packageSyncProvider.refreshForDatabaseChange();

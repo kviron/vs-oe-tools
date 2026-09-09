@@ -22,8 +22,12 @@ suite('Production task work description links', () => {
 		]);
 	});
 
-	test('does not link task numbers, releases, list numbers, or unsafe integers', () => {
-		const value = 'РИЦ 016, релиз 3.6, задача 85008, значение 99999999999999999999.';
-		assert.deepEqual(splitWorkDescriptionObjectIds(value), [{ text: value }]);
+	test('recognizes a contextual task number without linking unrelated short numbers', () => {
+		const value = 'РИЦ 016, релиз 3.6, задача 85008, список 12345, значение 99999999999999999999.';
+		assert.deepEqual(splitWorkDescriptionObjectIds(value), [
+			{ text: 'РИЦ 016, релиз 3.6, задача ' },
+			{ text: '85008', id: 85008, kind: 'task' },
+			{ text: ', список 12345, значение 99999999999999999999.' },
+		]);
 	});
 });

@@ -34,10 +34,11 @@ export interface PackageBoundaryIssue {
 export interface PackagePlaceholderIssue {
 	objectId: number;
 	objectName: string;
-	classId: number;
+	classId: number | null;
 	className: string;
 	packagePath: string;
 	objectPath: string;
+	filePath: string;
 	changedBy: string;
 	message: string;
 	type: 'package-placeholder';

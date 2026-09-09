@@ -29,28 +29,28 @@ const visibleIssues = computed(() => {
 });
 
 function issueSearchFields(issue: PackageSyncIssue): Array<string | number> {
-  const common = [issue.objectId, issue.objectName, issue.classId, issue.className, issue.message, issue.changedBy];
+  const common = [issue.objectId, issue.objectName, issue.classId ?? '', issue.className, issue.message, issue.changedBy];
   return issue.type === 'package-boundary'
     ? [...common, issue.referenceId, issue.referenceName, issue.sourcePackage, issue.targetPackage, issue.sourceFile, issue.recommendedFile]
-    : [...common, issue.packagePath, issue.objectPath, '#package$'];
+    : [...common, issue.packagePath, issue.objectPath, issue.filePath, '#package$.pkf', 'извлечь'];
 }
 
 function issueDetails(issue: PackageSyncIssue): string {
   return issue.type === 'package-boundary'
     ? `${issue.attributeName} · ${issue.attributeId}; ссылка ${issue.referenceName} · ${issue.referenceId}`
-    : issue.objectPath || 'РефОбъект не распределён по пакету';
+    : `${issue.className}; объект найден в содержимом #package$.pkf`;
 }
 
 function issueCurrentLocation(issue: PackageSyncIssue): string {
   return issue.type === 'package-boundary'
     ? [issue.sourcePackage, issue.sourceFile].filter(Boolean).join('\\')
-    : [issue.packagePath, issue.objectPath].filter(Boolean).join('\\');
+    : issue.filePath;
 }
 
 function issueExpectedLocation(issue: PackageSyncIssue): string {
   return issue.type === 'package-boundary'
     ? [issue.targetPackage, issue.recommendedFile].filter(Boolean).join('\\')
-    : 'Реальный пакет владельца ссылки';
+    : 'Извлечь объект из #package$.pkf';
 }
 
 function refresh(): void {
@@ -164,7 +164,7 @@ vscode.postMessage({ command: 'packageSyncReady' });
             <td class="max-w-96 px-2 py-1 font-medium text-destructive" :title="issue.message">{{ issue.message }}</td>
             <td class="max-w-96 truncate px-2 py-1" :title="issue.objectName">{{ issue.objectName }}</td>
             <td class="px-2 py-1 font-mono">{{ issue.objectId }}</td>
-            <td class="px-2 py-1">{{ issue.className }} · {{ issue.classId }}</td>
+            <td class="px-2 py-1">{{ issue.className }}<template v-if="issue.classId !== null"> · {{ issue.classId }}</template></td>
             <td class="max-w-96 truncate px-2 py-1" :title="issueDetails(issue)">{{ issueDetails(issue) }}</td>
             <td class="max-w-96 truncate px-2 py-1 text-destructive" :title="issueCurrentLocation(issue)">{{ issueCurrentLocation(issue) }}</td>
             <td class="max-w-96 truncate px-2 py-1 font-medium" :title="issueExpectedLocation(issue)">{{ issueExpectedLocation(issue) }}</td>

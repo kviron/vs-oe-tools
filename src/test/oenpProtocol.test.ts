@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict';
+import iconv from 'iconv-lite';
 import { createInitialPacket, createReadonlyQueryPacket, expectedPacketLength, extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId, parseChallenge, parseMemoryDataPacket } from '../features/production-tasks/oenpProtocol';
-import { createLoginParameters, normalizeProductionDate, productionTaskAttachmentsSql, productionTaskHistorySql, productionTaskSql } from '../features/production-tasks/productionTasksRepository';
+import { createLoginParameters, decodeProductionText, normalizeProductionDate, productionTaskAttachmentsSql, productionTaskHistorySql, productionTaskReferenceSql, productionTaskSql } from '../features/production-tasks/productionTasksRepository';
 
 suite('OENP protocol', () => {
 	test('builds a framed read-only query', () => {
@@ -46,10 +47,26 @@ suite('OENP protocol', () => {
 		assert.throws(() => productionTaskHistorySql(-1), /положительным целым/);
 	});
 
+	test('builds a bounded task preview query by number or ID', () => {
+		const sql = productionTaskReferenceSql(88605);
+		assert.match(sql, /FROM WorkDoc T0/);
+		assert.match(sql, /WHERE T0\.DNumber = 88605 OR T0\.ID = 88605/);
+		assert.match(sql, /LIMIT 1$/);
+		assert.throws(() => productionTaskReferenceSql(0), /положительным целым/);
+	});
+
 	test('hides the zero Delphi date', () => {
 		assert.equal(normalizeProductionDate('30.12.1899 00:00'), '');
 		assert.equal(normalizeProductionDate('30.12.1899 00:00:00'), '');
 		assert.equal(normalizeProductionDate('09.10.2025 09:56:20'), '09.10.2025 09:56:20');
+	});
+
+	test('decodes a bytea project name from Windows-1251', () => {
+		const project = 'Отразить в аудите';
+		const encoded = `\\x${iconv.encode(project, 'win1251').toString('hex')}`;
+		assert.equal(decodeProductionText(encoded), project);
+		assert.equal(decodeProductionText('Обычный проект'), 'Обычный проект');
+		assert.equal(decodeProductionText('\\x123'), '\\x123');
 	});
 
 	test('builds the registered-session packet and reads an authorization challenge', () => {

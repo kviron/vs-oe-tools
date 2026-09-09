@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseProductionDate = parseProductionDate;
 exports.productionDeadlineInfo = productionDeadlineInfo;
+exports.productionTaskPublicUrl = productionTaskPublicUrl;
+exports.productionTaskMarkdown = productionTaskMarkdown;
 function parseProductionDate(value) {
     const match = value.trim().match(/^(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
     if (!match) {
@@ -26,6 +28,15 @@ function productionDeadlineInfo(value, now = new Date()) {
         return { label: 'Сегодня', tone: 'today', days: 0 };
     }
     return { label: `Осталось ${days} ${pluralDays(days)}`, tone: 'normal', days };
+}
+function productionTaskPublicUrl(reference) {
+    return `https://r.oe-it.ru/${String(reference).trim()}`;
+}
+function productionTaskMarkdown(number, title, fallbackId) {
+    const reference = number.trim() || String(fallbackId);
+    const label = title.trim() ? `${reference} - ${title.trim()}` : reference;
+    const url = productionTaskPublicUrl(reference);
+    return `${label}\n[${url}](${url})`;
 }
 function pluralDays(value) {
     const mod100 = value % 100;

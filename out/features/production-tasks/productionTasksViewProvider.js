@@ -38,6 +38,7 @@ exports.registerProductionTasksActivityLauncher = registerProductionTasksActivit
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const productionTasksRepository_1 = require("./productionTasksRepository");
+const productionTaskPresentation_1 = require("./productionTaskPresentation");
 class ProductionTasksPanelManager {
     extensionUri;
     getOptions;
@@ -87,7 +88,7 @@ class ProductionTasksPanelManager {
                 return;
             }
             if (message.command === 'openProductionTaskInClient') {
-                const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/РаботаДокумент/${message.id}`);
+                const uri = vscode.Uri.parse((0, productionTaskPresentation_1.productionTaskPublicUrl)(message.id));
                 void vscode.env.openExternal(uri);
                 return;
             }

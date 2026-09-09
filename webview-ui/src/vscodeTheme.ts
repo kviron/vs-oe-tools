@@ -19,6 +19,18 @@ const themedVariables: Record<string, string> = {
 };
 
 export function applyVsCodeTheme(): void {
+	applyThemeClass();
+  for (const [name, value] of Object.entries(themedVariables)) {
+    document.documentElement.style.setProperty(name, value);
+  }
+  if (document.documentElement.dataset.vscodeThemeObserver === 'ready') { return; }
+  document.documentElement.dataset.vscodeThemeObserver = 'ready';
+  const observer = new MutationObserver(applyThemeClass);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+}
+
+function applyThemeClass(): void {
   const themeClasses = new Set([
     ...document.documentElement.classList,
     ...document.body.classList,
@@ -27,7 +39,4 @@ export function applyVsCodeTheme(): void {
     'dark',
     themeClasses.has('vscode-dark') || themeClasses.has('vscode-high-contrast'),
   );
-  for (const [name, value] of Object.entries(themedVariables)) {
-    document.documentElement.style.setProperty(name, value);
-  }
 }

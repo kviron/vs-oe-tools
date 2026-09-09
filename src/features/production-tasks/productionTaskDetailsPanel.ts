@@ -3,6 +3,7 @@ import type { ProductionTaskDetailsHostMessage } from '../../core/webviewProtoco
 import { isProductionTaskDetailsWebviewMessage } from '../../core/webviewProtocol';
 import type { DatabaseObjectSearchResult } from '../../core/objectSearch';
 import type { ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from './models';
+import { productionTaskPublicUrl } from './productionTaskPresentation';
 
 const panels = new Map<number, vscode.WebviewPanel>();
 
@@ -10,6 +11,8 @@ export function openProductionTaskDetails(
 	context: vscode.ExtensionContext,
 	task: ProductionTaskSummary,
 	findObjectById: (id: number) => Promise<DatabaseObjectSearchResult | undefined>,
+	loadTaskReference: (reference: number) => Promise<ProductionTaskSummary | undefined>,
+	openTaskReference: (task: ProductionTaskSummary) => void,
 	loadAttachments: () => Promise<ProductionTaskAttachment[]>,
 	loadHistory: () => Promise<ProductionTaskHistoryEntry[]>,
 ): void {
@@ -21,6 +24,7 @@ export function openProductionTaskDetails(
 	});
 	panels.set(task.id, panel);
 	const attachments = new Map<number, ProductionTaskAttachment>();
+	const taskPreviews = new Map<number, ProductionTaskSummary | undefined>();
 	panel.webview.html = shell(panel.webview, assetsRoot);
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (!isProductionTaskDetailsWebviewMessage(message)) { return; }
@@ -61,6 +65,29 @@ export function openProductionTaskDetails(
 			}
 			return;
 		}
+		if (message.command === 'loadProductionTaskPreview') {
+			try {
+				const preview = await loadTaskReference(message.id);
+				taskPreviews.set(message.id, preview);
+				await panel.webview.postMessage({ command: 'productionTaskPreviewLoaded', id: message.id, task: preview } satisfies ProductionTaskDetailsHostMessage);
+			} catch (error) {
+				await panel.webview.postMessage({
+					command: 'productionTaskPreviewFailed', id: message.id,
+					message: error instanceof Error ? error.message : String(error),
+				} satisfies ProductionTaskDetailsHostMessage);
+			}
+			return;
+		}
+		if (message.command === 'openProductionTaskReference') {
+			try {
+				const referencedTask = taskPreviews.has(message.id) ? taskPreviews.get(message.id) : await loadTaskReference(message.id);
+				if (referencedTask) { openTaskReference(referencedTask); }
+				else { void vscode.window.showInformationMessage(`Задача ${message.id} не найдена.`); }
+			} catch (error) {
+				void vscode.window.showErrorMessage(`Не удалось открыть задачу ${message.id}: ${error instanceof Error ? error.message : String(error)}`);
+			}
+			return;
+		}
 		if (message.command === 'productionTaskAttachmentAction') {
 			const attachment = attachments.get(message.id);
 			if (attachment) {
@@ -89,7 +116,7 @@ export function openProductionTaskDetails(
 			}
 			return;
 		}
-		const uri = vscode.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/РаботаДокумент/${message.id}`);
+		const uri = vscode.Uri.parse(productionTaskPublicUrl(message.id));
 		if (!await vscode.env.openExternal(uri)) { void vscode.window.showErrorMessage(`Не удалось открыть задачу ${message.id} в клиенте.`); }
 	});
 	panel.onDidDispose(() => panels.delete(task.id));

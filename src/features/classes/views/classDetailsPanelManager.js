@@ -1,0 +1,339 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.openClassDetails = openClassDetails;
+exports.revealClassMethod = revealClassMethod;
+exports.restoreClassDetailPanels = restoreClassDetailPanels;
+exports.closeClassDetailPanels = closeClassDetailPanels;
+const vscode = __importStar(require("vscode"));
+const webviewProtocol_1 = require("../../../core/webviewProtocol");
+const classRepository_1 = require("../../../infrastructure/database/classRepository");
+const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
+const attributeDetailsPanelManager_1 = require("./attributeDetailsPanelManager");
+const propertyDetailsPanelManager_1 = require("./propertyDetailsPanelManager");
+const classObjectsPanelManager_1 = require("./classObjectsPanelManager");
+const objectViewPanelManager_1 = require("./objectViewPanelManager");
+const entityPropertiesPanelManager_1 = require("./entityPropertiesPanelManager");
+const methodCreation_1 = require("../../methods/methodCreation");
+function postPendingMethod(entry) {
+    if (!entry.ready || entry.pendingMethodId === undefined) {
+        return;
+    }
+    const methodId = entry.pendingMethodId;
+    entry.pendingMethodId = undefined;
+    void entry.panel.webview.postMessage({ command: 'revealClassMethod', methodId });
+}
+const classDetailPanels = new Map();
+let previewClassPanelId;
+function postDetails(entry) {
+    const message = { command: 'classDetailsLoaded', details: entry.details, activeTab: entry.activeTab };
+    void entry.panel.webview.postMessage(message);
+}
+function updateClassDetailPanel(entry, classDetails) {
+    entry.details = classDetails;
+    entry.panel.title = `Класс ${classDetails.name}`;
+    postDetails(entry);
+    entry.panel.reveal(vscode.ViewColumn.Active, !entry.pinned);
+}
+function persistPanels(context) {
+    void context.workspaceState.update('classDetails.openPanels', [...classDetailPanels.values()].map(entry => ({ id: entry.details.id, pinned: entry.pinned, activeTab: entry.activeTab })));
+}
+function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'class') {
+    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, { viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned }, { enableScripts: true, localResourceRoots: [assetsRoot] });
+    panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
+    const entry = { panel, pinned, details: classDetails, activeTab, ready: false, attributeIncludeInherited: false, methodIncludeInherited: false };
+    panel.webview.onDidReceiveMessage(async (message) => {
+        if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
+            if (message.command === 'classDetailsStateChanged') {
+                entry.activeTab = message.activeTab;
+                persistPanels(context);
+                return;
+            }
+            if (message.command === 'tableSelectionDebug') {
+                (0, tableSelectionLogger_1.logTableSelection)('Класс', message.message);
+                return;
+            }
+            if (message.command === 'copyEntityId') {
+                const ids = String(message.id);
+                (0, tableSelectionLogger_1.logTableSelection)('Класс', `Контекстное меню copyEntityId: ${JSON.stringify(ids)}.`);
+                try {
+                    await vscode.env.clipboard.writeText(ids);
+                    (0, tableSelectionLogger_1.logTableSelection)('Класс', 'ID записаны в буфер успешно.');
+                    vscode.window.setStatusBarMessage(`ID ${ids} скопирован`, 1500);
+                }
+                catch (error) {
+                    (0, tableSelectionLogger_1.logTableSelection)('Класс', `Ошибка копирования ID: ${error instanceof Error ? error.message : String(error)}.`);
+                    void vscode.window.showErrorMessage(`Не удалось скопировать ID: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
+            if (message.command === 'openClientEntity') {
+                await vscode.commands.executeCommand('vc-ve-tools.openClientEntity', message.role, message.entityType, message.id);
+                return;
+            }
+            if (message.command === 'copyTableCells') {
+                (0, tableSelectionLogger_1.logTableSelection)('Класс', `extension host получил copyTableCells: символов=${message.text.length}, текст=${JSON.stringify(message.text.slice(0, 300))}.`);
+                try {
+                    await vscode.env.clipboard.writeText(message.text);
+                    (0, tableSelectionLogger_1.logTableSelection)('Класс', 'vscode.env.clipboard.writeText завершён успешно.');
+                    vscode.window.setStatusBarMessage('Выделенные ячейки скопированы', 1500);
+                }
+                catch (error) {
+                    (0, tableSelectionLogger_1.logTableSelection)('Класс', `Ошибка записи в буфер: ${error instanceof Error ? error.message : String(error)}.`);
+                    void vscode.window.showErrorMessage(`Не удалось скопировать ячейки: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
+            if (message.command === 'classDetailsReady') {
+                entry.ready = true;
+                postDetails(entry);
+                postPendingMethod(entry);
+                return;
+            }
+            if (message.command === 'openMethod') {
+                await methodEditor.open(message.id);
+                return;
+            }
+            if (message.command === 'createMethod') {
+                const name = await vscode.window.showInputBox({
+                    title: `Новый метод — ${entry.details.name}`,
+                    prompt: 'Имя интерпретируемого метода',
+                    placeHolder: 'ИмяМетода',
+                    validateInput: value => !value.trim() ? 'Укажите имя метода.'
+                        : !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(value.trim()) ? 'Допустимы только буквы, цифры и знак подчёркивания.' : undefined,
+                });
+                if (!name) {
+                    return;
+                }
+                try {
+                    const created = await methodEditor.create({
+                        ownerClassId: message.classId, name: name.trim(), visibilityId: methodCreation_1.defaultMethodVisibilityId,
+                        methodType: methodCreation_1.interpretedMethodType, methodKind: methodCreation_1.defaultMethodKind, signature: '', code: methodCreation_1.defaultMethodCode,
+                    });
+                    if (entry.details.id === message.classId) {
+                        const methods = await (0, classRepository_1.getClassMethods)(entry.details.id, entry.details.name, entry.methodIncludeInherited);
+                        void panel.webview.postMessage({ command: 'classMethodsLoaded', methods, includeInherited: entry.methodIncludeInherited });
+                    }
+                    void vscode.window.showInformationMessage(`Метод ${created.name} (ID ${created.id}) создан.`);
+                }
+                catch (error) {
+                    void vscode.window.showErrorMessage(`Не удалось создать метод: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
+            if (message.command === 'openAttribute') {
+                try {
+                    await (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, message.id);
+                }
+                catch (error) {
+                    void vscode.window.showErrorMessage(`Не удалось открыть атрибут: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
+            if (message.command === 'createAttribute') {
+                try {
+                    await (0, attributeDetailsPanelManager_1.openNewAttributeDetails)(context, message.classId, async () => {
+                        if (entry.details.id !== message.classId) {
+                            return;
+                        }
+                        const attributes = await (0, classRepository_1.getClassAttributes)(entry.details.id, entry.details.name, entry.attributeIncludeInherited);
+                        void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes, includeInherited: entry.attributeIncludeInherited });
+                    });
+                }
+                catch (error) {
+                    void vscode.window.showErrorMessage(`Не удалось открыть создание атрибута: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
+            if (message.command === 'openProperty') {
+                try {
+                    await (0, propertyDetailsPanelManager_1.openPropertyDetails)(context, message.id);
+                }
+                catch (error) {
+                    void vscode.window.showErrorMessage(`Не удалось открыть свойство: ${error instanceof Error ? error.message : String(error)}`);
+                }
+                return;
+            }
+            if (message.command === 'openClassObjects') {
+                await (0, classObjectsPanelManager_1.openClassObjects)(context, message.classId);
+                return;
+            }
+            if (message.command === 'viewObject') {
+                await (0, objectViewPanelManager_1.openObjectView)(context, message.id);
+                return;
+            }
+            if (message.command === 'viewEntityProperties') {
+                await (0, entityPropertiesPanelManager_1.openEntityProperties)(context, message.id);
+                return;
+            }
+            if (message.command === 'methodSvnAction') {
+                const command = message.action === 'localDiff' ? 'vc-ve-tools.svnLocalDiff' : message.action === 'history' ? 'vc-ve-tools.svnHistory' : 'vc-ve-tools.svnBlame';
+                await vscode.commands.executeCommand(command, message.id);
+                return;
+            }
+            const requestedClassId = entry.details.id;
+            if (message.command === 'loadClassMethods') {
+                const includeInherited = message.includeInherited;
+                entry.methodIncludeInherited = includeInherited;
+                try {
+                    const methods = await (0, classRepository_1.getClassMethods)(requestedClassId, entry.details.name, includeInherited);
+                    if (entry.details.id === requestedClassId) {
+                        void panel.webview.postMessage({ command: 'classMethodsLoaded', methods, includeInherited });
+                    }
+                }
+                catch (error) {
+                    if (entry.details.id === requestedClassId) {
+                        const failureMessage = error instanceof Error ? error.message : String(error);
+                        void panel.webview.postMessage({ command: 'classMethodsLoadFailed', message: failureMessage, includeInherited });
+                    }
+                }
+                return;
+            }
+            if (message.command === 'loadClassProperties') {
+                const includeInherited = message.includeInherited;
+                try {
+                    const properties = await (0, classRepository_1.getClassProperties)(requestedClassId, includeInherited);
+                    if (entry.details.id === requestedClassId) {
+                        void panel.webview.postMessage({ command: 'classPropertiesLoaded', properties, includeInherited });
+                    }
+                }
+                catch (error) {
+                    if (entry.details.id === requestedClassId) {
+                        void panel.webview.postMessage({ command: 'classPropertiesLoadFailed', message: error instanceof Error ? error.message : String(error), includeInherited });
+                    }
+                }
+                return;
+            }
+            const includeInherited = message.includeInherited;
+            entry.attributeIncludeInherited = includeInherited;
+            try {
+                const attributes = await (0, classRepository_1.getClassAttributes)(requestedClassId, entry.details.name, includeInherited);
+                if (entry.details.id === requestedClassId) {
+                    void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes, includeInherited });
+                }
+            }
+            catch (error) {
+                const failureMessage = error instanceof Error ? error.message : String(error);
+                void panel.webview.postMessage({ command: 'classAttributesLoadFailed', message: failureMessage, includeInherited });
+            }
+        }
+    });
+    return entry;
+}
+async function openClassDetails(context, methodEditor, id, pinned, activeTab = 'class') {
+    const existingPanel = classDetailPanels.get(id);
+    if (existingPanel) {
+        if (pinned && !existingPanel.pinned) {
+            existingPanel.pinned = true;
+            previewClassPanelId = undefined;
+        }
+        persistPanels(context);
+        existingPanel.panel.reveal(vscode.ViewColumn.Active, !pinned);
+        return;
+    }
+    const classDetails = await (0, classRepository_1.getClassDetails)(id);
+    const previousPreviewPanelId = previewClassPanelId;
+    const previewPanel = previousPreviewPanelId === undefined ? undefined : classDetailPanels.get(previousPreviewPanelId);
+    if (previewPanel && previousPreviewPanelId !== undefined && !previewPanel.pinned) {
+        classDetailPanels.delete(previousPreviewPanelId);
+        classDetailPanels.set(id, previewPanel);
+        previewPanel.pinned = pinned;
+        previewClassPanelId = pinned ? undefined : id;
+        updateClassDetailPanel(previewPanel, classDetails);
+        persistPanels(context);
+        return;
+    }
+    const entry = createPanel(context, classDetails, pinned, methodEditor, activeTab);
+    classDetailPanels.set(id, entry);
+    persistPanels(context);
+    if (!pinned) {
+        previewClassPanelId = id;
+    }
+    entry.panel.onDidDispose(() => {
+        for (const [panelId, candidate] of classDetailPanels) {
+            if (candidate.panel === entry.panel) {
+                classDetailPanels.delete(panelId);
+                if (previewClassPanelId === panelId) {
+                    previewClassPanelId = undefined;
+                }
+                persistPanels(context);
+            }
+        }
+    });
+}
+async function revealClassMethod(context, methodEditor, classId, methodId) {
+    await openClassDetails(context, methodEditor, classId, true, 'methods');
+    const entry = classDetailPanels.get(classId);
+    if (!entry) {
+        throw new Error(`Не удалось открыть карточку класса ${classId}.`);
+    }
+    entry.activeTab = 'methods';
+    entry.pendingMethodId = methodId;
+    persistPanels(context);
+    postDetails(entry);
+    entry.panel.reveal(vscode.ViewColumn.Active);
+    postPendingMethod(entry);
+}
+async function restoreClassDetailPanels(context, methodEditor) {
+    const panels = context.workspaceState.get('classDetails.openPanels', []);
+    for (const panel of panels) {
+        if (Number.isSafeInteger(panel.id)) {
+            await openClassDetails(context, methodEditor, panel.id, panel.pinned, panel.activeTab);
+        }
+    }
+}
+function closeClassDetailPanels() {
+    for (const { panel } of [...classDetailPanels.values()]) {
+        panel.dispose();
+    }
+    classDetailPanels.clear();
+    previewClassPanelId = undefined;
+}
+function getClassDetailsShell(webview, assetsRoot) {
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'class-details.js'));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'class-details.css'));
+    const nonce = createNonce();
+    return `<!doctype html><html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+<link rel="stylesheet" href="${styleUri}"><title>Класс</title></head>
+<body><div id="app">Загрузка класса…</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+}
+function createNonce() {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join('');
+}
+//# sourceMappingURL=classDetailsPanelManager.js.map

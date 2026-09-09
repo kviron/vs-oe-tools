@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  const entryName = mode === 'class-details' || mode === 'class-objects' || mode === 'object-view' || mode === 'attribute-details' || mode === 'property-details' || mode === 'entity-properties' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'settings' || mode === 'production-tasks' || mode === 'production-task-details' || mode === 'spu-editor' ? mode : 'explorer';
+  const entryName = mode === 'class-details' || mode === 'class-objects' || mode === 'object-view' || mode === 'package-content' || mode === 'attribute-details' || mode === 'property-details' || mode === 'entity-properties' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'settings' || mode === 'production-tasks' || mode === 'production-task-details' || mode === 'spu-editor' ? mode : 'explorer';
   return {
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
@@ -16,7 +16,9 @@ export default defineConfig(({ mode }) => {
     },
   },
   build: {
-    emptyOutDir: entryName === 'explorer',
+    // Every webview is built separately into the same directory. A focused build
+    // must not remove bundles that are already used by open editor panels.
+    emptyOutDir: false,
     outDir: 'dist/webview',
     lib: {
       entry: fileURLToPath(new URL(`./webview-ui/src/${entryName}/main.ts`, import.meta.url)),
@@ -27,6 +29,8 @@ export default defineConfig(({ mode }) => {
           ? 'VcVeToolsClassObjects'
         : entryName === 'object-view'
           ? 'VcVeToolsObjectView'
+        : entryName === 'package-content'
+          ? 'VcVeToolsPackageContent'
         : entryName === 'attribute-details'
           ? 'VcVeToolsAttributeDetails'
         : entryName === 'property-details'

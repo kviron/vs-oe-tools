@@ -3458,7 +3458,7 @@ var require_split2 = __commonJS({
 var require_helper = __commonJS({
   "node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
-    var path12 = require("path");
+    var path13 = require("path");
     var Stream = require("stream").Stream;
     var split = require_split2();
     var util = require("util");
@@ -3496,8 +3496,8 @@ var require_helper = __commonJS({
       return old;
     };
     module2.exports.getFileName = function(rawEnv) {
-      var env11 = rawEnv || process.env;
-      var file = env11.PGPASSFILE || (isWin ? path12.join(env11.APPDATA || "./", "postgresql", "pgpass.conf") : path12.join(env11.HOME || "./", ".pgpass"));
+      var env12 = rawEnv || process.env;
+      var file = env12.PGPASSFILE || (isWin ? path13.join(env12.APPDATA || "./", "postgresql", "pgpass.conf") : path13.join(env12.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -3629,7 +3629,7 @@ var require_helper = __commonJS({
 var require_lib = __commonJS({
   "node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
-    var path12 = require("path");
+    var path13 = require("path");
     var fs = require("fs");
     var helper = require_helper();
     module2.exports = function(connInfo, cb) {
@@ -5457,7 +5457,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv19) {
+    function InternalCodec(codecOptions, iconv22) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5469,7 +5469,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv19.defaultCharUnicode;
+          this.defaultCharUnicode = iconv22.defaultCharUnicode;
         }
       }
     }
@@ -5626,8 +5626,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv19) {
-      this.iconv = iconv19;
+    function Utf32Codec(codecOptions, iconv22) {
+      this.iconv = iconv22;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5755,8 +5755,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv19) {
-      this.iconv = iconv19;
+    function Utf32AutoCodec(options, iconv22) {
+      this.iconv = iconv22;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5906,8 +5906,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv19) {
-      this.iconv = iconv19;
+    function Utf16Codec(codecOptions, iconv22) {
+      this.iconv = iconv22;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6005,8 +6005,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv19) {
-      this.iconv = iconv19;
+    function Utf7Codec(codecOptions, iconv22) {
+      this.iconv = iconv22;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6088,8 +6088,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv19) {
-      this.iconv = iconv19;
+    function Utf7IMAPCodec(codecOptions, iconv22) {
+      this.iconv = iconv22;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6222,7 +6222,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv19) {
+    function SBCSCodec(codecOptions, iconv22) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6237,7 +6237,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv19.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv22.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6904,7 +6904,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv19) {
+    function DBCSCodec(codecOptions, iconv22) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6953,7 +6953,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv19.defaultCharUnicode;
+      this.defaultCharUnicode = iconv22.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6977,7 +6977,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv19.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv22.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8982,7 +8982,7 @@ var require_lib3 = __commonJS({
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode17(buf, encoding, options) {
+    module2.exports.decode = function decode20(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -9106,8 +9106,8 @@ __export(extension_exports, {
 module.exports = __toCommonJS(extension_exports);
 
 // src/application/activate.ts
-var vscode33 = __toESM(require("vscode"));
-var path11 = __toESM(require("node:path"));
+var vscode34 = __toESM(require("vscode"));
+var path12 = __toESM(require("node:path"));
 
 // src/core/constants.ts
 var projectRootSetting = "useFolderAsProjectRoot";
@@ -10079,7 +10079,7 @@ function isProductionTaskDetailsWebviewMessage(message) {
   if (message.command === "openExternalUrl") {
     return "url" in message && typeof message.url === "string" && /^https?:\/\//i.test(message.url);
   }
-  return message.command === "productionTaskDetailsReady" || message.command === "loadProductionTaskAttachments" || message.command === "loadProductionTaskHistory" || message.command === "copyTableCells" && "text" in message && typeof message.text === "string" || message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string" || (message.command === "openProductionTaskInClient" || message.command === "openProductionTaskReference" || message.command === "loadDatabaseObjectPreview") && "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id) && message.id > 0;
+  return message.command === "productionTaskDetailsReady" || message.command === "loadProductionTaskAttachments" || message.command === "loadProductionTaskHistory" || message.command === "copyTableCells" && "text" in message && typeof message.text === "string" || message.command === "tableSelectionDebug" && "message" in message && typeof message.message === "string" || (message.command === "openProductionTaskInClient" || message.command === "openProductionTaskReference" || message.command === "loadProductionTaskPreview" || message.command === "loadDatabaseObjectPreview") && "id" in message && typeof message.id === "number" && Number.isSafeInteger(message.id) && message.id > 0;
 }
 function isSettingsWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
@@ -10196,6 +10196,13 @@ function isClassObjectsWebviewMessage(message) {
   if (message.command === "createSpu") {
     return !("preferredPackageName" in message) || message.preferredPackageName === void 0 || typeof message.preferredPackageName === "string";
   }
+  if (message.command === "saveClassObjectColumnSettings") {
+    if (!("settings" in message) || typeof message.settings !== "object" || message.settings === null) {
+      return false;
+    }
+    const settings = message.settings;
+    return "visible" in settings && Array.isArray(settings.visible) && settings.visible.every((value) => typeof value === "string") && "order" in settings && Array.isArray(settings.order) && settings.order.every((value) => typeof value === "string") && "compact" in settings && typeof settings.compact === "boolean";
+  }
   return message.command === "classObjectsReady" || message.command === "refreshClassObjects" || isCopyTableCellsMessage(message) || isCopyEntityIdMessage(message) || isOpenClientEntityMessage(message);
 }
 function isSpuEditorWebviewMessage(message) {
@@ -10217,12 +10224,27 @@ function isObjectViewWebviewMessage(message) {
   }
   return message.command === "objectViewReady" || message.command === "refreshObjectView" || message.command === "copyObjectJson" || isCopyTableCellsMessage(message) || isTableSelectionDebugMessage(message);
 }
+function isPackageContentWebviewMessage(message) {
+  if (typeof message !== "object" || message === null || !("command" in message)) {
+    return false;
+  }
+  return message.command === "packageContentReady" || message.command === "refreshPackageContent" || isCopyTableCellsMessage(message) || isTableSelectionDebugMessage(message) || message.command === "openPackageContentObject" && "id" in message && typeof message.id === "number" && "kind" in message && ["class", "method", "attribute", "lifecycle", "journal", "list", "object"].includes(String(message.kind));
+}
 function isExplorerWebviewMessage(message) {
   if (typeof message !== "object" || message === null || !("command" in message)) {
     return false;
   }
   if (message.command === "loadClasses") {
     return true;
+  }
+  if (message.command === "loadPackages") {
+    return true;
+  }
+  if (message.command === "loadPackageTree") {
+    return "packageId" in message && typeof message.packageId === "number" && Number.isSafeInteger(message.packageId);
+  }
+  if (message.command === "loadPackageFileObjects" || message.command === "openPackageContent") {
+    return "fileId" in message && typeof message.fileId === "number" && Number.isSafeInteger(message.fileId) && (message.command !== "openPackageContent" || !("objectId" in message) || message.objectId === void 0 || typeof message.objectId === "number" && Number.isSafeInteger(message.objectId));
   }
   if (message.command === "searchDatabaseObjects") {
     return "query" in message && typeof message.query === "string";
@@ -10234,7 +10256,7 @@ function isExplorerWebviewMessage(message) {
     return true;
   }
   if (message.command === "explorerStateChanged") {
-    return "activeTab" in message && typeof message.activeTab === "string" && (!("selectedClassId" in message) || message.selectedClassId === void 0 || typeof message.selectedClassId === "number");
+    return "activeTab" in message && typeof message.activeTab === "string" && (!("selectedClassId" in message) || message.selectedClassId === void 0 || typeof message.selectedClassId === "number") && (!("selectedPackageId" in message) || message.selectedPackageId === void 0 || typeof message.selectedPackageId === "number");
   }
   if (message.command === "selectExplorerEntity") {
     return !("id" in message) || message.id === void 0 || typeof message.id === "number";
@@ -12323,6 +12345,37 @@ function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+// src/features/classes/classObjectColumnSettings.ts
+var storagePrefix = "vcVeTools.classObjectColumnSettings";
+function classObjectColumnSettingsKey(classId) {
+  return `${storagePrefix}.${classId}`;
+}
+function normalizeClassObjectColumnSettings(availableColumnKeys, stored) {
+  const available = uniqueStrings(availableColumnKeys);
+  const candidate = isSettingsCandidate(stored) ? stored : void 0;
+  const storedOrder = uniqueStrings(candidate?.order ?? []).filter((key) => available.includes(key));
+  const order = [...storedOrder, ...available.filter((key) => !storedOrder.includes(key))];
+  const knownStoredColumns = new Set(uniqueStrings(candidate?.order ?? []));
+  const storedVisible = uniqueStrings(candidate?.visible ?? []).filter((key) => available.includes(key));
+  const newlyAvailable = candidate ? available.filter((key) => !knownStoredColumns.has(key)) : available;
+  const visible = uniqueStrings([...storedVisible, ...newlyAvailable]);
+  return {
+    visible: visible.length || available.length === 0 ? visible : [available[0]],
+    order,
+    compact: candidate?.compact ?? true
+  };
+}
+function isSettingsCandidate(value) {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value;
+  return (!("visible" in candidate) || Array.isArray(candidate.visible)) && (!("order" in candidate) || Array.isArray(candidate.order)) && (!("compact" in candidate) || typeof candidate.compact === "boolean");
+}
+function uniqueStrings(values) {
+  return [...new Set(values.filter((value) => typeof value === "string"))];
+}
+
 // src/features/classes/views/classObjectsPanelManager.ts
 var panels6 = /* @__PURE__ */ new Map();
 async function openClassObjects(context, classId, objectId) {
@@ -12349,8 +12402,12 @@ async function openClassObjects(context, classId, objectId) {
     await panel2.webview.postMessage({ command: "classObjectsLoading", append });
     try {
       const result = await getClassObjects(classId, offset, classObjectPageSize, targetObjectId);
+      const columnSettings = append ? void 0 : normalizeClassObjectColumnSettings(
+        result.columns.map((column) => column.key),
+        context.workspaceState.get(classObjectColumnSettingsKey(classId))
+      );
       panel2.title = `\u0421\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A \u2014 ${result.className}`;
-      await panel2.webview.postMessage({ command: "classObjectsLoaded", result, append });
+      await panel2.webview.postMessage({ command: "classObjectsLoaded", result, append, columnSettings });
       if (targetObjectId !== void 0) {
         await panel2.webview.postMessage({ command: "revealClassObject", objectId: targetObjectId });
       }
@@ -12407,6 +12464,12 @@ async function openClassObjects(context, classId, objectId) {
         return;
       }
       await openSpuEditor(context, { preferredPackageName: message.preferredPackageName }, () => load(0));
+      return;
+    }
+    if (message.command === "saveClassObjectColumnSettings") {
+      const availableKeys = message.settings.order;
+      const settings = normalizeClassObjectColumnSettings(availableKeys, message.settings);
+      await context.workspaceState.update(classObjectColumnSettingsKey(classId), settings);
       return;
     }
     if (message.command === "classObjectsReady") {
@@ -12780,8 +12843,8 @@ async function revealClassMethod(context, methodEditor, classId, methodId) {
   postPendingMethod(entry);
 }
 async function restoreClassDetailPanels(context, methodEditor) {
-  const panels8 = context.workspaceState.get("classDetails.openPanels", []);
-  for (const panel2 of panels8) {
+  const panels9 = context.workspaceState.get("classDetails.openPanels", []);
+  for (const panel2 of panels9) {
     if (Number.isSafeInteger(panel2.id)) {
       await openClassDetails(context, methodEditor, panel2.id, panel2.pinned, panel2.activeTab);
     }
@@ -12812,7 +12875,7 @@ function createNonce3() {
 // src/features/explorer/explorerViewProvider.ts
 var vscode14 = __toESM(require("vscode"));
 var ExplorerViewProvider = class {
-  constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview2, searchObjects, openMethod, openAttribute, openClassObjects2, viewObject, viewEntityProperties) {
+  constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview2, searchObjects, openMethod, openAttribute, openClassObjects2, viewObject, viewEntityProperties, getPackages, getPackageTree, getPackageFileContent, openPackageContent2) {
     this.workspaceState = workspaceState;
     this.extensionUri = extensionUri;
     this.getClasses = getClasses;
@@ -12825,6 +12888,10 @@ var ExplorerViewProvider = class {
     this.openClassObjects = openClassObjects2;
     this.viewObject = viewObject;
     this.viewEntityProperties = viewEntityProperties;
+    this.getPackages = getPackages;
+    this.getPackageTree = getPackageTree;
+    this.getPackageFileContent = getPackageFileContent;
+    this.openPackageContent = openPackageContent2;
   }
   workspaceState;
   extensionUri;
@@ -12838,6 +12905,10 @@ var ExplorerViewProvider = class {
   openClassObjects;
   viewObject;
   viewEntityProperties;
+  getPackages;
+  getPackageTree;
+  getPackageFileContent;
+  openPackageContent;
   view;
   selectedEntityId;
   output = vscode14.window.createOutputChannel("\u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441: \u041F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A");
@@ -12863,7 +12934,7 @@ var ExplorerViewProvider = class {
       }
       if (message.command === "explorerStateChanged") {
         this.selectedEntityId = message.selectedClassId;
-        void this.workspaceState.update("explorer.state", { activeTab: message.activeTab, selectedClassId: message.selectedClassId });
+        void this.workspaceState.update("explorer.state", { activeTab: message.activeTab, selectedClassId: message.selectedClassId, selectedPackageId: message.selectedPackageId });
         return;
       }
       if (message.command === "setExplorerCopyContext") {
@@ -12873,6 +12944,22 @@ var ExplorerViewProvider = class {
       }
       if (message.command === "loadClasses") {
         void this.sendClasses();
+        return;
+      }
+      if (message.command === "loadPackages") {
+        void this.sendPackages();
+        return;
+      }
+      if (message.command === "loadPackageTree") {
+        void this.sendPackageTree(message.packageId);
+        return;
+      }
+      if (message.command === "loadPackageFileObjects") {
+        void this.sendPackageFileObjects(message.fileId);
+        return;
+      }
+      if (message.command === "openPackageContent") {
+        void this.openPackageContent(message.fileId, message.objectId).catch((error) => void vscode14.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u043F\u0430\u043A\u0435\u0442\u0430: ${error instanceof Error ? error.message : String(error)}`));
         return;
       }
       if (message.command === "searchDatabaseObjects") {
@@ -12915,10 +13002,12 @@ var ExplorerViewProvider = class {
         void this.viewEntityProperties(message.id).catch((error) => void vscode14.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u0432\u043E\u0439\u0441\u0442\u0432\u0430: ${error instanceof Error ? error.message : String(error)}`));
         return;
       }
-      void this.openClass(message.id, message.pinned).catch((error) => {
-        const detail = error instanceof Error ? error.message : String(error);
-        void vscode14.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043A\u043B\u0430\u0441\u0441: ${detail}`);
-      });
+      if (message.command === "openClass") {
+        void this.openClass(message.id, message.pinned).catch((error) => {
+          const detail = error instanceof Error ? error.message : String(error);
+          void vscode14.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043A\u043B\u0430\u0441\u0441: ${detail}`);
+        });
+      }
     });
   }
   dispose() {
@@ -12928,6 +13017,7 @@ var ExplorerViewProvider = class {
   }
   refreshClasses() {
     void this.postMessage({ command: "resetClasses" });
+    void this.postMessage({ command: "resetPackages" });
   }
   async revealClass(id) {
     this.selectedEntityId = id;
@@ -12951,6 +13041,28 @@ var ExplorerViewProvider = class {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.postMessage({ command: "classesLoadFailed", message });
+    }
+  }
+  async sendPackages() {
+    try {
+      await this.postMessage({ command: "packagesLoaded", packages: await this.getPackages() });
+    } catch (error) {
+      await this.postMessage({ command: "packagesLoadFailed", message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  async sendPackageTree(packageId) {
+    await this.postMessage({ command: "packageTreeLoading", packageId });
+    try {
+      await this.postMessage({ command: "packageTreeLoaded", packageId, tree: await this.getPackageTree(packageId) });
+    } catch (error) {
+      await this.postMessage({ command: "packageTreeLoadFailed", packageId, message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  async sendPackageFileObjects(fileId) {
+    try {
+      await this.postMessage({ command: "packageFileObjectsLoaded", fileId, objects: (await this.getPackageFileContent(fileId)).objects });
+    } catch (error) {
+      await this.postMessage({ command: "packageFileObjectsLoadFailed", fileId, message: error instanceof Error ? error.message : String(error) });
     }
   }
   async sendObjectSearch(query) {
@@ -14154,8 +14266,10 @@ async function createClassMethod(input) {
       throw new Error(`\u041E\u0431\u043B\u0430\u0441\u0442\u044C \u0432\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u0438 ${draft.visibilityId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.`);
     }
     const idResult = await executeMonitoredQuery(client, {
-      text: `SELECT candidate AS id FROM generate_series($1::integer, $2::integer) AS candidate
-			 WHERE NOT EXISTS (SELECT 1 FROM abstract WHERE id=candidate) ORDER BY candidate LIMIT 1`,
+      text: `SELECT afirstfreeid AS id
+			 FROM oe_system_genguid_enum_ranges_v3(2147483647, $1::bigint, $2::bigint - $1::bigint + 1)
+			 WHERE astartid = $1::bigint AND afirstfreeid <= $2::bigint
+			 LIMIT 1`,
       values: [range.beginid, range.endid],
       source: "\u0413\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F ID \u043D\u043E\u0432\u043E\u0433\u043E \u043C\u0435\u0442\u043E\u0434\u0430",
       database: options.database
@@ -14884,7 +14998,8 @@ function registerCodeHistory(context, methodEditor) {
     vscode20.commands.registerCommand("vc-ve-tools.svnHistory", (methodId) => service.showWorkingCopyHistory(methodId)),
     vscode20.commands.registerCommand("vc-ve-tools.svnBlame", (methodId) => service.showBlame(methodId)),
     vscode20.commands.registerCommand("vc-ve-tools.svnLocalDiffFile", (fileName) => service.showFileLocalDiff(fileName)),
-    vscode20.commands.registerCommand("vc-ve-tools.openGeneratedPackageDiff", (fileName, generatedFileName) => service.showGeneratedPackageDiff(fileName, generatedFileName))
+    vscode20.commands.registerCommand("vc-ve-tools.openGeneratedPackageDiff", (fileName, generatedFileName) => service.showGeneratedPackageDiff(fileName, generatedFileName)),
+    vscode20.commands.registerCommand("vc-ve-tools.openPackageDatabaseDiff", (fileName, databaseContent, localContent) => service.showPackageDatabaseDiff(fileName, databaseContent, localContent))
   );
 }
 var CodeHistoryService = class {
@@ -14971,6 +15086,16 @@ var CodeHistoryService = class {
       "vscode.diff",
       local.uri,
       this.store(`${path7.basename(fileName)} \xB7 \u0432\u0435\u0440\u0441\u0438\u044F \u0438\u0437 \u0411\u0414`, generated, path7.extname(fileName)),
+      `${path7.basename(fileName)} \xB7 \u0411\u0414 \u2194 \u0444\u0430\u0439\u043B`,
+      { preview: true }
+    );
+  }
+  async showPackageDatabaseDiff(fileName, databaseContent, localContent) {
+    const localUri = localContent === void 0 ? (await vscode20.workspace.openTextDocument(vscode20.Uri.file(fileName))).uri : this.store(`${path7.basename(fileName)} \xB7 \u043D\u043E\u0432\u044B\u0439 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0444\u0430\u0439\u043B`, localContent, path7.extname(fileName));
+    await vscode20.commands.executeCommand(
+      "vscode.diff",
+      localUri,
+      this.store(`${path7.basename(fileName)} \xB7 \u0432\u0435\u0440\u0441\u0438\u044F \u0438\u0437 \u0411\u0414`, databaseContent, path7.extname(fileName)),
       `${path7.basename(fileName)} \xB7 \u0411\u0414 \u2194 \u0444\u0430\u0439\u043B`,
       { preview: true }
     );
@@ -15190,12 +15315,14 @@ var path8 = __toESM(require("node:path"));
 var import_node_child_process3 = require("node:child_process");
 var import_node_util = require("node:util");
 var PackageSyncPanelManager = class _PackageSyncPanelManager {
-  constructor(extensionUri, loadSnapshot) {
+  constructor(extensionUri, loadSnapshot, loadDatabaseVersion) {
     this.extensionUri = extensionUri;
     this.loadSnapshot = loadSnapshot;
+    this.loadDatabaseVersion = loadDatabaseVersion;
   }
   extensionUri;
   loadSnapshot;
+  loadDatabaseVersion;
   static viewType = "vc-ve-tools.packageSync";
   panel;
   items = [];
@@ -15244,13 +15371,26 @@ var PackageSyncPanelManager = class _PackageSyncPanelManager {
   }
   async openDiff(item) {
     try {
-      const fileName = await resolveExistingFile(item.localPath);
+      const fileName = await resolvePackageFile(item);
       item.localPath = fileName;
       await this.post({ command: "packageSyncLoaded", items: this.items, issues: this.issues });
-      const generatedFileName = await findOriginalClientGeneratedFile(fileName);
-      await vscode21.commands.executeCommand("vc-ve-tools.openGeneratedPackageDiff", fileName, generatedFileName);
+      let databaseError;
+      try {
+        const version = await this.loadDatabaseVersion(item, fileName);
+        await vscode21.commands.executeCommand("vc-ve-tools.openPackageDatabaseDiff", fileName, version.content, version.localContent);
+        vscode21.window.setStatusBarMessage(`\u0412\u0435\u0440\u0441\u0438\u044F PKF \u0441\u043E\u0431\u0440\u0430\u043D\u0430 \u0438\u0437 \u0411\u0414 \xB7 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432: ${version.addedObjectIds.length}`, 5e3);
+        return;
+      } catch (error) {
+        databaseError = error;
+      }
+      try {
+        const generatedFileName = await findOriginalClientGeneratedFile(fileName);
+        await vscode21.commands.executeCommand("vc-ve-tools.openGeneratedPackageDiff", fileName, generatedFileName);
+      } catch (fallbackError) {
+        throw new Error(`\u0418\u0437 \u0411\u0414: ${errorMessage4(databaseError)} \u0420\u0435\u0437\u0435\u0440\u0432\u043D\u044B\u0439 \u0441\u043F\u043E\u0441\u043E\u0431: ${errorMessage4(fallbackError)}`);
+      }
     } catch (error) {
-      void vscode21.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C SVN diff: ${error instanceof Error ? error.message : String(error)}`);
+      void vscode21.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u0435: ${errorMessage4(error)}`);
     }
   }
   async refresh() {
@@ -15339,36 +15479,89 @@ async function resolveExistingFile(fileName) {
   }
   return path8.join(directory, match);
 }
+async function resolvePackageFile(item) {
+  try {
+    return await resolveExistingFile(item.localPath);
+  } catch (error) {
+    if (item.contentMd5) {
+      throw error;
+    }
+    return path8.extname(item.localPath) ? item.localPath : `${item.localPath}.pkf`;
+  }
+}
+function errorMessage4(error) {
+  return error instanceof Error ? error.message : String(error);
+}
 
 // src/infrastructure/database/packageSyncRepository.ts
 var path9 = __toESM(require("node:path"));
 var import_node_os4 = require("node:os");
+var import_promises8 = require("node:fs/promises");
 var vscode22 = __toESM(require("vscode"));
+var iconv15 = __toESM(require_lib3());
 
 // src/features/package-sync/packageSyncIssues.ts
-var referenceClassId = 10;
 var packagePlaceholder = "#package$";
-function findPackagePlaceholderIssues(items) {
-  return items.filter((item) => item.objectClassId === referenceClassId && isInsidePackagePlaceholder(item)).map((item) => ({
-    objectId: item.objectId,
-    objectName: item.objectName || `#${item.objectId}`,
-    classId: item.objectClassId,
-    className: "\u0420\u0435\u0444\u041E\u0431\u044A\u0435\u043A\u0442",
+function isPackagePlaceholderItem(item) {
+  return [item.localPath, item.objectPath].filter((value) => Boolean(value)).some((value) => value.split(/[\\/]+/u).some((segment) => segment.trim().replace(/\.pkf$/iu, "").toLocaleLowerCase("en-US") === packagePlaceholder));
+}
+function parsePackagePlaceholderObjects(content) {
+  const objects = [];
+  const declaration = /^\s*object\s+(?:\$"([^"]+)"|([^\s:]+))\s*:\s*([^\r\n;]+)\s*\r?\n\s*_Ид\s*=\s*'(\d+)'\s*;/gimu;
+  for (const match of content.matchAll(declaration)) {
+    objects.push({
+      objectId: Number(match[4]),
+      objectName: match[1] ?? match[2],
+      objectType: match[3].trim()
+    });
+  }
+  return objects;
+}
+function createPackagePlaceholderIssues(item, filePath, objects) {
+  return objects.map((object) => ({
+    objectId: object.objectId,
+    objectName: object.objectName,
+    classId: null,
+    className: object.objectType,
     packagePath: item.packagePath,
     objectPath: item.objectPath,
+    filePath,
     changedBy: item.changedBy,
-    message: `ID ${item.objectId} \u043F\u043E\u043F\u0430\u043B \u0432 ${packagePlaceholder}`,
+    message: `\u041E\u0431\u044A\u0435\u043A\u0442 \xAB${object.objectName}\xBB (ID ${object.objectId}) \u043F\u043E\u043F\u0430\u043B \u0432 ${packagePlaceholder}.pkf \u2014 \u0438\u0437\u0432\u043B\u0435\u043A\u0438\u0442\u0435 \u0435\u0433\u043E \u0438\u0437 \u044D\u0442\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430`,
     type: "package-placeholder"
   }));
-}
-function isInsidePackagePlaceholder(item) {
-  return [item.packagePath, item.objectPath].some((value) => value.split(/[\\/]+/u).some((segment) => segment.trim().toLocaleLowerCase("en-US") === packagePlaceholder));
 }
 
 // src/infrastructure/database/packageSyncRepository.ts
 async function loadPackageSyncSnapshot() {
-  const [items, boundaryIssues] = await Promise.all([loadPackageSyncItems(), loadPackageBoundaryIssues()]);
-  return { items, issues: [...findPackagePlaceholderIssues(items), ...boundaryIssues] };
+  const boundaryIssuesPromise = loadPackageBoundaryIssues();
+  const items = await loadPackageSyncItems();
+  const [placeholderIssues, boundaryIssues] = await Promise.all([loadPackagePlaceholderIssues(items), boundaryIssuesPromise]);
+  return { items, issues: [...placeholderIssues, ...boundaryIssues] };
+}
+async function loadPackagePlaceholderIssues(items) {
+  const groups = await Promise.all(items.filter(isPackagePlaceholderItem).map(async (item) => {
+    const filePath = await resolvePlaceholderFile(item.localPath);
+    if (!filePath) {
+      return [];
+    }
+    const content = iconv15.decode(await (0, import_promises8.readFile)(filePath), "win1251");
+    return createPackagePlaceholderIssues(item, filePath, parsePackagePlaceholderObjects(content));
+  }));
+  return groups.flat();
+}
+async function resolvePlaceholderFile(localPath) {
+  if (!localPath) {
+    return void 0;
+  }
+  for (const candidate of path9.extname(localPath) ? [localPath] : [localPath, `${localPath}.pkf`]) {
+    try {
+      await (0, import_promises8.readFile)(candidate, { flag: "r" });
+      return candidate;
+    } catch {
+    }
+  }
+  return void 0;
 }
 async function loadPackageBoundaryIssues() {
   const options = await getProjectDatabaseOptions();
@@ -15537,6 +15730,444 @@ function workspacePackagesRoot() {
     return void 0;
   }
   return path9.basename(workspaceRoot).toLocaleLowerCase("en-US") === "packages" ? workspaceRoot : path9.join(workspaceRoot, "packages");
+}
+
+// src/infrastructure/database/packageSyncDiffRepository.ts
+var import_node_crypto = require("node:crypto");
+var import_promises9 = require("node:fs/promises");
+var path10 = __toESM(require("node:path"));
+var iconv16 = __toESM(require_lib3());
+
+// src/features/package-sync/pkfDatabaseReconstruction.ts
+function createEmptyPkf(autogroup, newline = "\r\n") {
+  const lines = ["file"];
+  if (autogroup?.trim()) {
+    lines.push(`  autogroup '${escapePkfString(autogroup.trim())}';`);
+  }
+  lines.push("data", "end.");
+  return `${lines.join(newline)}${newline}`;
+}
+function extractPkfObjectIds(source) {
+  const ids = /* @__PURE__ */ new Set();
+  for (const match of source.matchAll(/^\s*_Ид\s*=\s*'(\d+)'\s*;/gmu)) {
+    ids.add(Number(match[1]));
+  }
+  return ids;
+}
+function appendPkfObjects(source, objects) {
+  if (!/^file\r?\n(?:  autogroup '.*';\r?\n)?data\s*$/mu.test(source)) {
+    throw new Error("\u0424\u0430\u0439\u043B \u043D\u0435 \u043F\u043E\u0445\u043E\u0436 \u043D\u0430 PKF (\u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A file/data).");
+  }
+  const existingIds = extractPkfObjectIds(source);
+  for (const object of objects) {
+    if (existingIds.has(object.id)) {
+      throw new Error(`\u041E\u0431\u044A\u0435\u043A\u0442 ID ${object.id} \u0443\u0436\u0435 \u043F\u0440\u0438\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0432 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u043E\u043C PKF.`);
+    }
+  }
+  const finalMarker = source.match(/^end\.\s*$/mu);
+  if (!finalMarker || finalMarker.index === void 0) {
+    throw new Error("\u0412 PKF \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0437\u0430\u0432\u0435\u0440\u0448\u0430\u044E\u0449\u0438\u0439 \u043C\u0430\u0440\u043A\u0435\u0440 end.");
+  }
+  if (!objects.length) {
+    return source;
+  }
+  const newline = source.includes("\r\n") ? "\r\n" : "\n";
+  const existingBlocks = [...source.matchAll(/^  object .*?^  end;\r?$/gmsu)].map((match) => ({
+    id: Number(match[0].match(/^\s*_Ид\s*=\s*'(\d+)'\s*;/mu)?.[1]),
+    position: match.index
+  }));
+  if (existingBlocks.some((block) => !Number.isSafeInteger(block.id))) {
+    throw new Error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C ID \u043E\u0434\u043D\u043E\u0433\u043E \u0438\u0437 \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432 PKF.");
+  }
+  if (existingBlocks.some((block, index) => index > 0 && existingBlocks[index - 1].id > block.id)) {
+    throw new Error("\u041F\u043E\u0440\u044F\u0434\u043E\u043A \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432 PKF \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u043E\u0442 \u043E\u0436\u0438\u0434\u0430\u0435\u043C\u043E\u0439 \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0438 \u043F\u043E ID.");
+  }
+  const insertions = /* @__PURE__ */ new Map();
+  for (const object of [...objects].sort((left, right) => left.id - right.id)) {
+    const position = existingBlocks.find((block) => block.id > object.id)?.position ?? finalMarker.index;
+    const group = insertions.get(position) ?? [];
+    group.push(object);
+    insertions.set(position, group);
+  }
+  let result = source;
+  for (const [position, group] of [...insertions].sort(([left], [right]) => right - left)) {
+    const serialized = group.map((object) => serializePkfObject(object, newline)).join(newline);
+    result = `${result.slice(0, position)}${serialized}${newline}${result.slice(position)}`;
+  }
+  return result;
+}
+function serializePkfObject(object, newline = "\n") {
+  if (!object.className.trim()) {
+    throw new Error(`\u0414\u043B\u044F \u043E\u0431\u044A\u0435\u043A\u0442\u0430 ID ${object.id} \u043D\u0435 \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u043E \u0438\u043C\u044F \u043A\u043B\u0430\u0441\u0441\u0430.`);
+  }
+  return [
+    `  object ${formatPkfObjectName(object.name)}: ${object.className}`,
+    `    _\u0418\u0434 = '${object.id}';`,
+    ...[...object.properties].sort((left, right) => left.attributeId - right.attributeId).map((property) => serializePkfProperty(property, newline)),
+    "  end;"
+  ].join(newline);
+}
+function serializePkfProperty(property, newline) {
+  const name = property.name.toLocaleLowerCase("ru") === "comment" ? `$${property.name}` : property.name;
+  if (property.format === "scalar") {
+    return `    ${name} = '${escapePkfString(property.value)}';`;
+  }
+  const normalized = property.value.replace(/\r\n|\r|\n/g, newline);
+  const indented = normalized.split(newline).map((line) => `    ${line}`).join(newline);
+  return `    ${name} = {{${newline}${indented}}};`;
+}
+function formatPkfObjectName(value) {
+  if (!value || value === "$") {
+    return "$";
+  }
+  return /^[\p{L}_][\p{L}\p{N}_]*$/u.test(value) ? value : `$"${value.replace(/"/g, '""')}"`;
+}
+function escapePkfString(value) {
+  return value.replace(/'/g, "''");
+}
+
+// src/features/package-sync/pkfMetaReconstruction.ts
+var visibilityOrder = ["private", "protected", "public", "published"];
+function serializePkfMetaFile(metaClass, members, newline = "\r\n") {
+  const modifiers = metaClass.isVirtual ? "virtual " : "";
+  const classMetadata = [
+    `_\u0418\u0434='${metaClass.id}'`,
+    ...metaClass.cacheObjectClass === null ? [] : [`\u041A\u044D\u0448\u041E\u0431\u044A\u0435\u043A\u0442\u041A\u043B\u0430\u0441\u0441='${metaClass.cacheObjectClass}'`],
+    ...metaClass.referenceIntegrityCheck === null ? [] : [`\u041F\u0440\u043E\u0432\u0421\u0441\u044B\u043B\u0426\u0435\u043B='${metaClass.referenceIntegrityCheck}'`]
+  ].join(",");
+  const lines = [
+    "file",
+    "meta",
+    `  ${withAlias(metaClass.name, metaClass.aliases)} = ${modifiers}class(${metaClass.parentName}) [${classMetadata}]`
+  ];
+  for (const visibility of visibilityOrder) {
+    const sectionMembers = members.filter((member) => member.visibility === visibility).sort((left, right) => left.id - right.id);
+    if (!sectionMembers.length) {
+      continue;
+    }
+    lines.push(`  ${visibility}`);
+    let previousKind;
+    for (const member of sectionMembers) {
+      if (member.kind === "method" && previousKind && previousKind !== "method") {
+        lines.push("");
+      }
+      if (member.kind === "method" && previousKind === "method") {
+        lines.push("");
+      }
+      lines.push(...serializeMember(member, newline));
+      previousKind = member.kind;
+    }
+  }
+  lines.push("  end;", "end.", "");
+  return lines.join(newline);
+}
+function serializeMember(member, newline) {
+  if (member.kind === "attribute") {
+    const metadata = [
+      `_\u0418\u0434='${member.id}'`,
+      ...member.databaseFieldName ? [`\u0418\u043C\u044F\u041F\u043E\u043B\u044F\u0411\u0414='${escapePkfString2(member.databaseFieldName)}'`] : [],
+      ...member.readRole === null ? [] : [`\u0420\u043E\u043B\u044C\u0414\u043B\u044F\u0427\u0442\u0435\u043D\u0438\u044F='${member.readRole}'`],
+      ...member.writeRole === null ? [] : [`\u0420\u043E\u043B\u044C\u0414\u043B\u044F\u0417\u0430\u043F\u0438\u0441\u0438='${member.writeRole}'`],
+      ...member.referenceIntegrityCheck === null ? [] : [`\u041F\u0440\u043E\u0432\u0421\u0441\u044B\u043B\u0426\u0435\u043B='${member.referenceIntegrityCheck}'`]
+    ].join(",");
+    return [`    var ${withAlias(member.name, member.aliases)}: embedded ${member.valueClassName} notstored [${metadata}];`];
+  }
+  if (member.kind === "default") {
+    const suffix = ` [\u0417\u043D\u0430\u0447\u0410\u0442\u0440\u041F\u043E\u0423\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E._\u0418\u0434='${member.id}'];`;
+    if (!member.block) {
+      return [`    class var ${member.name} = '${escapePkfString2(member.value)}'${suffix}`];
+    }
+    return [`    class var ${member.name} = {{${newline}${indentBlock(member.value, newline)}}}${suffix}`];
+  }
+  const keyword = member.methodKind === 5 ? "constructor" : methodKeyword(member.code);
+  const header = `    ${keyword} ${withAlias(member.name, member.aliases)} '${escapePkfString2(member.signature)}' [_\u0418\u0434='${member.id}']`;
+  return [header, `    {{${newline}${indentBlock(member.code, newline)}}};`];
+}
+function indentBlock(value, newline) {
+  return value.replace(/\r\n|\r|\n/g, newline).split(newline).map((line) => `    ${line}`).join(newline);
+}
+function methodKeyword(code) {
+  const keyword = code.trimStart().match(/^(constructor|destructor|function|procedure|proc)\b/iu)?.[1]?.toLocaleLowerCase("en-US");
+  return keyword === "constructor" || keyword === "destructor" || keyword === "function" ? keyword : "procedure";
+}
+function withAlias(name, aliases) {
+  return aliases ? `${name}/${aliases}` : name;
+}
+function escapePkfString2(value) {
+  return value.replace(/'/g, "''");
+}
+
+// src/infrastructure/database/packageSyncDiffRepository.ts
+var BLOB_ATTRIBUTE_TYPE = 320;
+var BOOLEAN_ATTRIBUTE_TYPE = 310;
+var META_CLASS_IDS = /* @__PURE__ */ new Set([3, 4, 5, 10200019]);
+async function loadPackageDatabaseVersion(item, fileName) {
+  if (path10.extname(fileName).toLocaleLowerCase("en-US") !== ".pkf") {
+    throw new Error("\u0420\u0435\u043A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0446\u0438\u044F \u0438\u0437 \u0411\u0414 \u043F\u043E\u043A\u0430 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F PKF.");
+  }
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools-package-diff", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    const fileResult = await executeMonitoredQuery(client, {
+      text: "SELECT ContentMD5 AS contentmd5, IsAutoGroup AS isautogroup, AutoGroup AS autogroup FROM SysFile WHERE ID = $1",
+      values: [item.objectId],
+      source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0431\u0430\u0437\u043E\u0432\u043E\u0439 \u0432\u0435\u0440\u0441\u0438\u0438 PKF",
+      database: options.database
+    });
+    const fileRow = fileResult.rows[0];
+    if (!fileRow) {
+      throw new Error(`\u0424\u0430\u0439\u043B ID ${item.objectId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 SysFile.`);
+    }
+    const databaseMd5 = String(fileRow.contentmd5 ?? item.contentMd5 ?? "").toUpperCase();
+    const bytes = await (0, import_promises9.readFile)(fileName).catch((error) => isFileNotFound(error) ? void 0 : Promise.reject(error));
+    let source;
+    let localContent;
+    if (bytes) {
+      const localMd5 = (0, import_node_crypto.createHash)("md5").update(bytes).digest("hex").toUpperCase();
+      if (!databaseMd5) {
+        throw new Error(`\u0423 \u0444\u0430\u0439\u043B\u0430 ID ${item.objectId} \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0431\u0430\u0437\u043E\u0432\u044B\u0439 MD5, \u043D\u043E \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0444\u0430\u0439\u043B \u0443\u0436\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442.`);
+      }
+      if (databaseMd5 !== localMd5) {
+        throw new Error(`\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 PKF \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441 \u0431\u0430\u0437\u043E\u0432\u043E\u0439 \u0432\u0435\u0440\u0441\u0438\u0435\u0439 \u0411\u0414 (MD5 ${localMd5}, \u043E\u0436\u0438\u0434\u0430\u043B\u0441\u044F ${databaseMd5}).`);
+      }
+      source = iconv16.decode(bytes, "win1251");
+    } else {
+      if (databaseMd5) {
+        throw new Error(`\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0444\u0430\u0439\u043B \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D, \u0445\u043E\u0442\u044F \u0432 \u0411\u0414 \u043F\u0440\u0438\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0431\u0430\u0437\u043E\u0432\u044B\u0439 MD5 ${databaseMd5}.`);
+      }
+      source = createEmptyPkf(Number(fileRow.isautogroup) !== 0 ? fileRow.autogroup : void 0);
+      localContent = "";
+    }
+    const localIds = extractPkfObjectIds(source);
+    const abstractResult = await executeMonitoredQuery(client, {
+      text: "SELECT ID AS id, ClassID AS classid, Name AS name FROM Abstract WHERE SysFile = $1 ORDER BY ID",
+      values: [item.objectId],
+      source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u0441\u043E\u0441\u0442\u0430\u0432 PKF \u0438\u0437 \u0411\u0414",
+      database: options.database
+    });
+    const missingRows = abstractResult.rows.filter((row) => !localIds.has(Number(row.id)));
+    const hasMetaObjects = abstractResult.rows.some((row) => META_CLASS_IDS.has(Number(row.classid)));
+    if (hasMetaObjects) {
+      if (localContent === void 0) {
+        throw new Error("\u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044E\u0449\u0435\u0433\u043E meta-PKF \u043F\u043E\u043A\u0430 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u0440\u0435\u0437\u0435\u0440\u0432\u043D\u043E\u0433\u043E \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u044F.");
+      }
+      if (abstractResult.rows.some((row) => !META_CLASS_IDS.has(Number(row.classid)))) {
+        throw new Error("\u041D\u043E\u0432\u044B\u0439 meta-PKF \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u043C\u0435\u0448\u0430\u043D\u043D\u044B\u0435 \u043A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0446\u0438\u0438, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043F\u043E\u043A\u0430 \u043D\u0435\u043B\u044C\u0437\u044F \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E \u0441\u0435\u0440\u0438\u0430\u043B\u0438\u0437\u043E\u0432\u0430\u0442\u044C.");
+      }
+      const content = await loadMetaPkf(client, options.database, item.objectId);
+      return { content, addedObjectIds: abstractResult.rows.map((row) => Number(row.id)), localContent };
+    }
+    const objects = await buildDatabaseObjects(client, options.database, abstractResult.rows);
+    const databaseSource = createEmptyPkf(Number(fileRow.isautogroup) !== 0 ? fileRow.autogroup : void 0);
+    return { content: appendPkfObjects(databaseSource, objects), addedObjectIds: missingRows.map((row) => Number(row.id)), localContent };
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+async function loadMetaPkf(client, database, fileId) {
+  const classResult = await executeMonitoredQuery(client, {
+    text: `SELECT C.ID AS id, C.Name AS name, C.Aliases AS aliases, Parent.Name AS parentname,
+			 C.Virtual AS virtual, C.CacheObjClass AS cacheobjclass, C.RefIntegrityCheck AS refintegritycheck
+			 FROM Abstract A JOIN Classes C ON C.ID = A.ID LEFT JOIN Abstract Parent ON Parent.ID = C.SeniorID
+			 WHERE A.SysFile = $1 ORDER BY C.ID`,
+    values: [fileId],
+    source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u043A\u043B\u0430\u0441\u0441 \u043D\u043E\u0432\u043E\u0433\u043E meta-PKF",
+    database
+  });
+  const attributeResult = await executeMonitoredQuery(client, {
+    text: `SELECT Attr.ID AS id, Attr.Name AS name, Attr.Aliases AS aliases, Attr.Visibility AS visibility,
+			 Attr.AttrType AS attrtype, ValueClass.Name AS valueclassname, Attr.DBFieldName AS dbfieldname,
+			 Attr.RoleRead AS roleread, Attr.RoleWrite AS rolewrite, Attr.RefIntegrityCheck AS refintegritycheck
+			 FROM Abstract A JOIN Attributes Attr ON Attr.ID = A.ID
+			 LEFT JOIN Abstract ValueClass ON ValueClass.ID = NULLIF(split_part(COALESCE(Attr.ValueClasses, ''), ',', 1), '')::integer
+			 WHERE A.SysFile = $1 ORDER BY Attr.ID`,
+    values: [fileId],
+    source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043D\u043E\u0432\u043E\u0433\u043E meta-PKF",
+    database
+  });
+  const defaultResult = await executeMonitoredQuery(client, {
+    text: `SELECT D.ID AS id, Attr.Name AS name, Attr.Visibility AS visibility, Attr.AttrType AS attrtype, D.DefValue AS defvalue
+			 FROM Abstract A JOIN DfltValues D ON D.ID = A.ID JOIN Attributes Attr ON Attr.ID = D.AttrID
+			 WHERE A.SysFile = $1 ORDER BY D.ID`,
+    values: [fileId],
+    source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u043D\u043E\u0432\u043E\u0433\u043E meta-PKF",
+    database
+  });
+  const methodResult = await executeMonitoredQuery(client, {
+    text: `SELECT M.ID AS id, M.Name AS name, M.Aliases AS aliases, M.Visibility AS visibility,
+			 M.MethKind AS methkind, M.Signature AS signature, M.Code AS code
+			 FROM Abstract A JOIN Methods M ON M.ID = A.ID WHERE A.SysFile = $1 ORDER BY M.ID`,
+    values: [fileId],
+    source: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u043C\u0435\u0442\u043E\u0434\u044B \u043D\u043E\u0432\u043E\u0433\u043E meta-PKF",
+    database
+  });
+  if (classResult.rows.length !== 1) {
+    throw new Error(`\u041E\u0436\u0438\u0434\u0430\u043B\u0441\u044F \u043E\u0434\u0438\u043D \u043A\u043E\u0440\u043D\u0435\u0432\u043E\u0439 \u043A\u043B\u0430\u0441\u0441 meta-PKF, \u043D\u0430\u0439\u0434\u0435\u043D\u043E: ${classResult.rows.length}.`);
+  }
+  if (attributeResult.rows.some((row) => Number(row.attrtype) !== 330 || !row.valueclassname)) {
+    throw new Error("\u041D\u043E\u0432\u044B\u0439 meta-PKF \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0430\u0442\u0440\u0438\u0431\u0443\u0442 \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0430\u043D\u043D\u043E\u0433\u043E \u0434\u0435\u043A\u043B\u0430\u0440\u0430\u0442\u0438\u0432\u043D\u043E\u0433\u043E \u0442\u0438\u043F\u0430.");
+  }
+  const root = classResult.rows[0];
+  const members = [
+    ...attributeResult.rows.map((row) => ({
+      kind: "attribute",
+      id: Number(row.id),
+      name: row.name,
+      aliases: row.aliases ?? "",
+      visibility: metaVisibility(row.visibility),
+      valueClassName: row.valueclassname,
+      databaseFieldName: row.dbfieldname ?? "",
+      readRole: nullableNumber(row.roleread),
+      writeRole: nullableNumber(row.rolewrite),
+      referenceIntegrityCheck: nullableNumber(row.refintegritycheck)
+    })),
+    ...defaultResult.rows.map((row) => {
+      const value = decodeAuditText(row.defvalue);
+      return { kind: "default", id: Number(row.id), name: row.name, visibility: metaVisibility(row.visibility), value, block: Number(row.attrtype) === BLOB_ATTRIBUTE_TYPE || /[\r\n]/u.test(value) };
+    }),
+    ...methodResult.rows.map((row) => ({
+      kind: "method",
+      id: Number(row.id),
+      name: row.name,
+      aliases: row.aliases ?? "",
+      visibility: metaVisibility(row.visibility),
+      methodKind: Number(row.methkind),
+      signature: decodeAuditText(row.signature),
+      code: decodeAuditText(row.code)
+    }))
+  ];
+  return serializePkfMetaFile({
+    id: Number(root.id),
+    name: root.name,
+    aliases: root.aliases ?? "",
+    parentName: root.parentname ?? "",
+    isVirtual: Number(root.virtual) !== 0,
+    cacheObjectClass: nullableNumber(root.cacheobjclass),
+    referenceIntegrityCheck: nullableNumber(root.refintegritycheck)
+  }, members);
+}
+async function buildDatabaseObjects(client, database, rows) {
+  const objects = [];
+  const byClass = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const classRows = byClass.get(Number(row.classid)) ?? [];
+    classRows.push(row);
+    byClass.set(Number(row.classid), classRows);
+  }
+  for (const [classId, classObjects] of byClass) {
+    objects.push(...await loadStoredDatabaseObjects(client, database, classId, classObjects));
+  }
+  return objects.sort((left, right) => left.id - right.id);
+}
+async function loadStoredDatabaseObjects(client, database, classId, objects) {
+  const classResult = await executeMonitoredQuery(client, {
+    text: "SELECT Name AS name, DBTableName AS dbtablename FROM Classes WHERE ID = $1",
+    values: [classId],
+    source: `\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435 \u043A\u043B\u0430\u0441\u0441\u0430 ${classId}`,
+    database
+  });
+  const classRow = classResult.rows[0];
+  if (!classRow?.dbtablename || !/^[a-z_][a-z\d_$]*$/iu.test(classRow.dbtablename)) {
+    throw new Error(`\u0414\u043B\u044F \u043A\u043B\u0430\u0441\u0441\u0430 ID ${classId} \u043D\u0435 \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0430 \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u0430\u044F \u0442\u0430\u0431\u043B\u0438\u0446\u0430 \u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F.`);
+  }
+  const attributeResult = await executeMonitoredQuery(client, {
+    text: `WITH RECURSIVE ClassTree(ID, SeniorID, Depth) AS (
+		 SELECT ID, SeniorID, 0 FROM Classes WHERE ID = $1
+		 UNION ALL SELECT C.ID, C.SeniorID, T.Depth + 1 FROM Classes C JOIN ClassTree T ON C.ID = T.SeniorID
+		)
+		SELECT Attr.ID AS id, Attr.Name AS name, Attr.DBFieldName AS dbfieldname, Attr.AttrType AS attrtype, T.Depth AS depth
+		FROM Attributes Attr JOIN ClassTree T ON T.ID = Attr.SeniorID
+		WHERE NULLIF(Attr.DBFieldName, '') IS NOT NULL ORDER BY T.Depth, Attr.ID`,
+    values: [classId],
+    source: `\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${classId}`,
+    database
+  });
+  const rowResult = await executeMonitoredQuery(client, {
+    text: `SELECT * FROM ${classRow.dbtablename} WHERE ID = ANY($1::integer[])`,
+    values: [objects.map((object) => Number(object.id))],
+    source: `\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0430\u043A\u0435\u0442\u043E\u0432: \u043E\u0431\u044A\u0435\u043A\u0442\u044B \u043A\u043B\u0430\u0441\u0441\u0430 ${classId} \u0438\u0437 ${classRow.dbtablename}`,
+    database
+  });
+  const storedById = new Map(rowResult.rows.map((row) => [Number(row.id), row]));
+  const attributesByField = /* @__PURE__ */ new Map();
+  for (const attribute of attributeResult.rows) {
+    const field = attribute.dbfieldname?.toLocaleLowerCase("en-US");
+    if (field && !attributesByField.has(field)) {
+      attributesByField.set(field, attribute);
+    }
+  }
+  return objects.map((object) => {
+    const stored = storedById.get(Number(object.id));
+    if (!stored) {
+      throw new Error(`\u041E\u0431\u044A\u0435\u043A\u0442 ID ${object.id} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 \u0442\u0430\u0431\u043B\u0438\u0446\u0435 ${classRow.dbtablename}.`);
+    }
+    const fields = new Map(Object.entries(stored).map(([name, value]) => [name.toLocaleLowerCase("en-US"), value]));
+    const properties = [...attributesByField].flatMap(([field, attribute]) => {
+      if ([100, 101, 103, 105, 106].includes(Number(attribute.id))) {
+        return [];
+      }
+      const rawValue = fields.get(field);
+      if (rawValue === null || rawValue === void 0 || rawValue === "") {
+        return [];
+      }
+      const value = formatStoredValue(rawValue, Number(attribute.attrtype), attribute.name, Number(object.id));
+      if (value === "") {
+        return [];
+      }
+      return [{ attributeId: Number(attribute.id), name: attribute.name, value, format: /[\r\n]/u.test(value) ? "block" : "scalar" }];
+    });
+    return { id: Number(object.id), className: classRow.name, name: object.name ?? "$", properties };
+  });
+}
+function decodeAuditText(value) {
+  if (Buffer.isBuffer(value)) {
+    return iconv16.decode(value, "win1251");
+  }
+  const text2 = String(value ?? "");
+  const bytea = text2.match(/^\\x([\da-f]+)$/iu);
+  return bytea ? iconv16.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
+}
+function formatBoolean(value, attributeName, objectId) {
+  if (value === "-1" || value === "1" || value.toLocaleLowerCase("en-US") === "true") {
+    return "true";
+  }
+  if (value === "0" || value.toLocaleLowerCase("en-US") === "false") {
+    return "false";
+  }
+  throw new Error(`\u0411\u0443\u043B\u0435\u0432 \u0430\u0442\u0440\u0438\u0431\u0443\u0442 ${attributeName} \u043E\u0431\u044A\u0435\u043A\u0442\u0430 ID ${objectId} \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 ${value}.`);
+}
+function formatStoredValue(value, attributeType, attributeName, objectId) {
+  if (attributeType === BOOLEAN_ATTRIBUTE_TYPE) {
+    return formatBoolean(String(value), attributeName, objectId);
+  }
+  if (value instanceof Date) {
+    const part = (number) => String(number).padStart(2, "0");
+    return `${part(value.getDate())}.${part(value.getMonth() + 1)}.${value.getFullYear()} ${value.getHours()}:${part(value.getMinutes())}:${part(value.getSeconds())}`;
+  }
+  const text2 = Buffer.isBuffer(value) ? iconv16.decode(value, "win1251") : String(value);
+  if (text2.includes("\0") || text2.includes("\uFFFD")) {
+    throw new Error(`\u0410\u0442\u0440\u0438\u0431\u0443\u0442 ${attributeName} \u043E\u0431\u044A\u0435\u043A\u0442\u0430 ID ${objectId} \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u043D\u0435\u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043C\u044B\u0435 \u0434\u0432\u043E\u0438\u0447\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435.`);
+  }
+  return text2;
+}
+function metaVisibility(value) {
+  if (Number(value) === 12450284) {
+    return "protected";
+  }
+  if (Number(value) === 12450285) {
+    return "private";
+  }
+  if (Number(value) === 12450287) {
+    return "published";
+  }
+  return "public";
+}
+function nullableNumber(value) {
+  return value === null ? null : Number(value);
+}
+function isFileNotFound(error) {
+  return error?.code === "ENOENT";
 }
 
 // src/mcp/registerMcpServer.ts
@@ -15771,12 +16402,12 @@ function textResult(text2) {
 }
 
 // src/features/ai/navigationBridge.ts
-var import_node_crypto = require("node:crypto");
-var import_promises8 = require("node:fs/promises");
+var import_node_crypto2 = require("node:crypto");
+var import_promises10 = require("node:fs/promises");
 var import_node_path = require("node:path");
 var import_node_http = require("node:http");
 async function startNavigationBridge(actions, infoPath) {
-  const token = (0, import_node_crypto.randomBytes)(32).toString("hex");
+  const token = (0, import_node_crypto2.randomBytes)(32).toString("hex");
   const server = (0, import_node_http.createServer)((request, response) => void handleRequest(request, response, token, actions));
   await new Promise((resolve6, reject) => {
     server.once("error", reject);
@@ -15787,8 +16418,8 @@ async function startNavigationBridge(actions, infoPath) {
   });
   const address = server.address();
   const url = `http://127.0.0.1:${address.port}/navigate`;
-  await (0, import_promises8.mkdir)((0, import_node_path.dirname)(infoPath), { recursive: true });
-  await (0, import_promises8.writeFile)(infoPath, JSON.stringify({ url, token }), { encoding: "utf8", mode: 384 });
+  await (0, import_promises10.mkdir)((0, import_node_path.dirname)(infoPath), { recursive: true });
+  await (0, import_promises10.writeFile)(infoPath, JSON.stringify({ url, token }), { encoding: "utf8", mode: 384 });
   return {
     url,
     token,
@@ -15801,9 +16432,9 @@ async function startNavigationBridge(actions, infoPath) {
 }
 async function removeOwnInfoFile(infoPath, token) {
   try {
-    const current = JSON.parse(await (0, import_promises8.readFile)(infoPath, "utf8"));
+    const current = JSON.parse(await (0, import_promises10.readFile)(infoPath, "utf8"));
     if (current.token === token) {
-      await (0, import_promises8.unlink)(infoPath);
+      await (0, import_promises10.unlink)(infoPath);
     }
   } catch {
   }
@@ -15886,7 +16517,7 @@ function isAuthorized(header, token) {
   const supplied = header?.startsWith("Bearer ") ? header.slice(7) : "";
   const expectedBytes = Buffer.from(token);
   const suppliedBytes = Buffer.from(supplied);
-  return expectedBytes.length === suppliedBytes.length && (0, import_node_crypto.timingSafeEqual)(expectedBytes, suppliedBytes);
+  return expectedBytes.length === suppliedBytes.length && (0, import_node_crypto2.timingSafeEqual)(expectedBytes, suppliedBytes);
 }
 async function readBody(request) {
   const chunks = [];
@@ -15969,10 +16600,10 @@ function respond(response, statusCode, body) {
 
 // src/features/dfm/dfmEditorProvider.ts
 var vscode26 = __toESM(require("vscode"));
-var iconv16 = __toESM(require_lib3());
+var iconv18 = __toESM(require_lib3());
 
 // src/features/dfm/dfmRepository.ts
-var iconv15 = __toESM(require_lib3());
+var iconv17 = __toESM(require_lib3());
 var dfmQuery = `WITH RECURSIVE class_chain AS (
 	SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
 	UNION ALL
@@ -16099,14 +16730,14 @@ function toSource(row) {
   return { classId: row.classid, className: row.classname, attributeId: row.attrid, valueId: row.valueid, valueName: row.valuename ?? "DFM", text: decodeValue(row.defvalue), valueType: row.valuetype };
 }
 function decodeValue(value) {
-  if (Buffer.isBuffer(value)) return iconv15.decode(value, "win1251");
+  if (Buffer.isBuffer(value)) return iconv17.decode(value, "win1251");
   const text2 = value == null ? "" : String(value);
   const bytea = text2.match(/^\\x([\da-f]+)$/i);
-  return bytea ? iconv15.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
+  return bytea ? iconv17.decode(Buffer.from(bytea[1], "hex"), "win1251") : text2;
 }
 function encode8(value) {
-  const result = iconv15.encode(value, "win1251");
-  if (iconv15.decode(result, "win1251") !== value) throw new Error("DFM \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B \u0432\u043D\u0435 Windows-1251.");
+  const result = iconv17.encode(value, "win1251");
+  if (iconv17.decode(result, "win1251") !== value) throw new Error("DFM \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B\u044B \u0432\u043D\u0435 Windows-1251.");
   return result;
 }
 function isBinaryType(value) {
@@ -16137,7 +16768,7 @@ var DfmEditorProvider = class {
   }
   async stat(uri) {
     const source = await this.ensure(uri);
-    return { type: vscode26.FileType.File, ctime: 0, mtime: Date.now(), size: iconv16.encode(source.text, "win1251").byteLength };
+    return { type: vscode26.FileType.File, ctime: 0, mtime: Date.now(), size: iconv18.encode(source.text, "win1251").byteLength };
   }
   readDirectory() {
     return [];
@@ -16146,11 +16777,11 @@ var DfmEditorProvider = class {
     throw vscode26.FileSystemError.NoPermissions();
   }
   async readFile(uri) {
-    return iconv16.encode((await this.ensure(uri)).text, "win1251");
+    return iconv18.encode((await this.ensure(uri)).text, "win1251");
   }
   async writeFile(uri, content) {
     const source = await this.ensure(uri);
-    const saved = await saveDfmSource(source, iconv16.decode(Buffer.from(content), "win1251"));
+    const saved = await saveDfmSource(source, iconv18.decode(Buffer.from(content), "win1251"));
     this.sources.set(uri.toString(), saved);
     this.changed.fire([{ type: vscode26.FileChangeType.Changed, uri }]);
     vscode26.window.setStatusBarMessage(`DFM ${source.className} \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D`, 2500);
@@ -16417,7 +17048,7 @@ async function searchDatabaseObjects(query, limit = 100) {
 }
 
 // src/features/ai/agentSkillInstaller.ts
-var import_node_crypto2 = require("node:crypto");
+var import_node_crypto3 = require("node:crypto");
 var vscode29 = __toESM(require("vscode"));
 var bundledSkill = { name: "east-express", version: 2 };
 function registerAgentSkillInstaller(context) {
@@ -16428,7 +17059,7 @@ function registerAgentSkillInstaller(context) {
         await installBundledSkill(context, workspaceFolder);
       }
     } catch (error) {
-      void vscode29.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043D\u0430\u0432\u044B\u043A \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430: ${errorMessage4(error)}`);
+      void vscode29.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043D\u0430\u0432\u044B\u043A \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430: ${errorMessage5(error)}`);
     }
   });
   void updateManagedSkills(context).catch((error) => {
@@ -16564,37 +17195,37 @@ async function readFileIfExists(uri) {
   }
 }
 function contentHash(content) {
-  return (0, import_node_crypto2.createHash)("sha256").update(content).digest("hex");
+  return (0, import_node_crypto3.createHash)("sha256").update(content).digest("hex");
 }
 function buffersEqual(left, right) {
   return left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
 }
-function errorMessage4(error) {
+function errorMessage5(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
 // src/core/navigationInfo.ts
-var import_node_crypto3 = require("node:crypto");
+var import_node_crypto4 = require("node:crypto");
 var import_node_os5 = require("node:os");
 var import_node_path2 = require("node:path");
 var import_node_path3 = require("node:path");
 function getNavigationInfoPath(workspacePath) {
   const normalized = process.platform === "win32" ? (0, import_node_path2.resolve)(workspacePath).toLocaleLowerCase("en-US") : (0, import_node_path2.resolve)(workspacePath);
-  const workspaceHash = (0, import_node_crypto3.createHash)("sha256").update(normalized).digest("hex").slice(0, 24);
+  const workspaceHash = (0, import_node_crypto4.createHash)("sha256").update(normalized).digest("hex").slice(0, 24);
   return (0, import_node_path3.join)((0, import_node_os5.tmpdir)(), "vc-ve-tools", `navigation-${workspaceHash}.json`);
 }
 
 // src/core/databaseSelection.ts
-var import_node_crypto4 = require("node:crypto");
-var import_promises9 = require("node:fs/promises");
-var path10 = __toESM(require("node:path"));
+var import_node_crypto5 = require("node:crypto");
+var import_promises11 = require("node:fs/promises");
+var path11 = __toESM(require("node:path"));
 function getDatabaseSelectionPath(storagePath, workspacePath) {
-  const workspaceId = (0, import_node_crypto4.createHash)("sha256").update(path10.resolve(workspacePath).toLowerCase()).digest("hex").slice(0, 16);
-  return path10.join(storagePath, `database-selection-${workspaceId}.json`);
+  const workspaceId = (0, import_node_crypto5.createHash)("sha256").update(path11.resolve(workspacePath).toLowerCase()).digest("hex").slice(0, 16);
+  return path11.join(storagePath, `database-selection-${workspaceId}.json`);
 }
 async function writeDatabaseSelection(selectionPath, workspacePath, profile) {
-  await (0, import_promises9.mkdir)(path10.dirname(selectionPath), { recursive: true });
-  await (0, import_promises9.writeFile)(selectionPath, JSON.stringify({ workspacePath, profile, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }), "utf8");
+  await (0, import_promises11.mkdir)(path11.dirname(selectionPath), { recursive: true });
+  await (0, import_promises11.writeFile)(selectionPath, JSON.stringify({ workspacePath, profile, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }), "utf8");
 }
 
 // src/features/explorer/clipboardObjectNavigation.ts
@@ -16707,7 +17338,7 @@ function objectDescription(kind) {
 var vscode31 = __toESM(require("vscode"));
 
 // src/features/production-tasks/productionTasksRepository.ts
-var import_node_crypto5 = require("node:crypto");
+var import_node_crypto6 = require("node:crypto");
 var net = __toESM(require("node:net"));
 var os = __toESM(require("node:os"));
 var import_iconv_lite2 = __toESM(require_lib3());
@@ -16944,7 +17575,7 @@ function readOenpError(packet) {
 }
 
 // src/features/production-tasks/productionTasksRepository.ts
-var productionTaskSql = `SELECT T0.ID AS id,
+var productionTaskSelectSql = `SELECT T0.ID AS id,
   COALESCE(CAST(T0.DNumber AS VARCHAR(64)), '') AS number,
   COALESCE(CAST(SO1.FName AS VARCHAR(250)), '') AS state,
   COALESCE(CAST(left(T0.Description, 6000) AS VARCHAR(6000)), '') AS title,
@@ -16985,12 +17616,21 @@ var productionTaskSql = `SELECT T0.ID AS id,
     CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000))
     FROM HistoryLC H JOIN Persons P ON P.ID = H.Person WHERE H.ID = T0.LCLastActionID), '') AS statecommentauthor
 FROM WorkDoc T0
-LEFT JOIN StateLC SO1 ON SO1.ID=T0.LCStateID
+LEFT JOIN StateLC SO1 ON SO1.ID=T0.LCStateID`;
+var productionTaskSql = `${productionTaskSelectSql}
 WHERE T0.LCStateID NOT IN (11822369, 8929693, 8929692, 8929694, 11821629)
   AND (T0.Initiator = %CurPerson OR T0.LCStateID <> 11821554)
   AND T0.RespPerson = %CurPerson
 ORDER BY CASE WHEN T0.LCStateID IN (11821106, 820069919) THEN 0 ELSE 1 END, T0.OrdPlan
 LIMIT 250`;
+function productionTaskReferenceSql(reference) {
+  if (!Number.isSafeInteger(reference) || reference <= 0) {
+    throw new Error("\u041D\u043E\u043C\u0435\u0440 \u0438\u043B\u0438 ID \u0437\u0430\u0434\u0430\u0447\u0438 \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u043C \u0446\u0435\u043B\u044B\u043C \u0447\u0438\u0441\u043B\u043E\u043C.");
+  }
+  return `${productionTaskSelectSql}
+WHERE T0.DNumber = ${reference} OR T0.ID = ${reference}
+LIMIT 1`;
+}
 function productionTaskAttachmentsSql(taskId) {
   if (!Number.isSafeInteger(taskId) || taskId <= 0) {
     throw new Error("ID \u0437\u0430\u0434\u0430\u0447\u0438 \u0434\u043B\u044F \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0432\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u043C \u0446\u0435\u043B\u044B\u043C \u0447\u0438\u0441\u043B\u043E\u043C.");
@@ -17159,35 +17799,7 @@ async function loadProductionTasks(options, logger) {
     const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskSql, options.personId), stage, logger);
     stage = "\u0440\u0430\u0437\u0431\u043E\u0440 \u043E\u0442\u0432\u0435\u0442\u0430 \u0441\u043E \u0441\u043F\u0438\u0441\u043A\u043E\u043C \u0437\u0430\u0434\u0430\u0447";
     const rows = parseMemoryDataPacket(response);
-    const tasks = rows.map((row) => ({
-      id: Number(row.id) >>> 0,
-      number: text(row.number),
-      state: text(row.state),
-      title: text(row.title),
-      createdAt: normalizeProductionDate(text(row.created)),
-      deadline: normalizeProductionDate(text(row.deadline)),
-      activityKind: text(row.activitykind),
-      workType: text(row.worktype),
-      project: text(row.project),
-      author: text(row.author),
-      manager: text(row.manager),
-      analyst: text(row.analyst),
-      executor: text(row.executor),
-      reviewer: text(row.reviewer),
-      appeal: text(row.appeal),
-      packageName: text(row.packagename),
-      newsSection: text(row.newssection),
-      priority: text(row.priority),
-      effort: text(row.effort),
-      releasePlan: text(row.releaseplan),
-      releaseActual: text(row.releaseactual),
-      revisionTrunk: text(row.revisiontrunk),
-      revisionBranch: text(row.revisionbranch),
-      attachmentCount: Math.max(0, Number(row.attachmentcount) || 0),
-      workDescription: text(row.workdescription),
-      stateComment: text(row.statecomment),
-      stateCommentAuthor: text(row.statecommentauthor)
-    }));
+    const tasks = rows.map(mapProductionTask);
     logger?.info("\u0417\u0430\u0434\u0430\u0447\u0438 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u044B.", { count: tasks.length, elapsedMs: Date.now() - startedAt });
     return tasks;
   } catch (error) {
@@ -17199,6 +17811,40 @@ async function loadProductionTasks(options, logger) {
   } finally {
     connection.dispose();
     logger?.info("TCP-\u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u0440\u044B\u0442\u043E.", { elapsedMs: Date.now() - startedAt });
+  }
+}
+async function loadProductionTaskReference(options, reference, logger) {
+  const connection = new OenpConnection(options.host, options.port);
+  const startedAt = Date.now();
+  let stage = "\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+  logger?.info("\u041D\u0430\u0447\u0430\u0442\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438.", { reference });
+  try {
+    await connection.connect();
+    stage = "\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F \u043A\u043B\u0438\u0435\u043D\u0442\u0441\u043A\u043E\u0439 \u0441\u0435\u0441\u0441\u0438\u0438 \u0434\u043B\u044F \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+    await exchangeLogged(connection, createInitialPacket(options.clientSessionKey), stage, logger);
+    stage = "\u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0432\u0435\u0440\u0441\u0438\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u0434\u043B\u044F \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+    await exchangeLogged(connection, createClientVersionPacket(2), stage, logger);
+    stage = "\u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u0430 \u0434\u043B\u044F \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+    await exchangeLogged(connection, createProtocolInitPacket(3), stage, logger);
+    stage = "\u0432\u044B\u0431\u043E\u0440 \u0431\u0430\u0437\u044B \u0434\u043B\u044F \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+    await exchangeLogged(connection, createDatabaseProbePacket(4), stage, logger);
+    stage = "\u0433\u043E\u0442\u043E\u0432\u043D\u043E\u0441\u0442\u044C \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u0434\u043B\u044F \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+    await exchangeLogged(connection, createClientReadyPacket(5), stage, logger);
+    stage = "\u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0435 challenge \u0434\u043B\u044F \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+    const challenge = parseChallenge(await exchangeLogged(connection, createChallengePacket(6), stage, logger, false));
+    const authCompatibility = inspectAuthorizationCompatibility(options);
+    stage = "\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u0434\u043B\u044F \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+    await exchangeLogged(connection, createLoginPacket(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
+    stage = "\u0437\u0430\u043F\u0440\u043E\u0441 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438";
+    const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskReferenceSql(reference), options.personId), stage, logger);
+    const task = parseMemoryDataPacket(response)[0];
+    logger?.info("\u0421\u0432\u044F\u0437\u0430\u043D\u043D\u0430\u044F \u0437\u0430\u0434\u0430\u0447\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430.", { reference, found: Boolean(task), elapsedMs: Date.now() - startedAt });
+    return task ? mapProductionTask(task) : void 0;
+  } catch (error) {
+    logger?.error(`\u041E\u0448\u0438\u0431\u043A\u0430 \u043D\u0430 \u044D\u0442\u0430\u043F\u0435 \xAB${stage}\xBB.`, { reference, ...errorDetails(error), elapsedMs: Date.now() - startedAt });
+    throw error;
+  } finally {
+    connection.dispose();
   }
 }
 async function exchangeLogged(connection, request, stage, logger, includeResponseHead = true) {
@@ -17275,7 +17921,7 @@ function inspectAuthorizationCompatibility(options) {
 }
 function deriveAuthorizationHashes(username, password, challenge, mode) {
   const normalizedUsername = mode.usernameCase === "lower" ? username.toLocaleLowerCase("ru-RU") : mode.usernameCase === "upper" ? username.toLocaleUpperCase("ru-RU") : username;
-  const hash = (value) => (0, import_node_crypto5.createHash)("md5").update(import_iconv_lite2.default.encode(value, mode.encoding)).digest("hex").toUpperCase();
+  const hash = (value) => (0, import_node_crypto6.createHash)("md5").update(import_iconv_lite2.default.encode(value, mode.encoding)).digest("hex").toUpperCase();
   const privatePassword = hash(`${normalizedUsername}:${password}`);
   const oldPrivatePassword = hash(password).slice(0, 30);
   return {
@@ -17286,12 +17932,48 @@ function deriveAuthorizationHashes(username, password, challenge, mode) {
 function text(value) {
   return value === null || value === void 0 ? "" : String(value);
 }
+function decodeProductionText(value) {
+  const result = text(value);
+  const bytea = result.match(/^\\x([\da-f]+)$/i);
+  return bytea && bytea[1].length % 2 === 0 ? import_iconv_lite2.default.decode(Buffer.from(bytea[1], "hex"), "win1251") : result;
+}
 function positiveInteger(value) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : void 0;
 }
 function normalizeProductionDate(value) {
   return /^30\.12\.1899(?:\s+00:00(?::00)?)?$/.test(value.trim()) ? "" : value;
+}
+function mapProductionTask(row) {
+  return {
+    id: Number(row.id) >>> 0,
+    number: text(row.number),
+    state: text(row.state),
+    title: text(row.title),
+    createdAt: normalizeProductionDate(text(row.created)),
+    deadline: normalizeProductionDate(text(row.deadline)),
+    activityKind: text(row.activitykind),
+    workType: text(row.worktype),
+    project: decodeProductionText(row.project),
+    author: text(row.author),
+    manager: text(row.manager),
+    analyst: text(row.analyst),
+    executor: text(row.executor),
+    reviewer: text(row.reviewer),
+    appeal: text(row.appeal),
+    packageName: text(row.packagename),
+    newsSection: text(row.newssection),
+    priority: text(row.priority),
+    effort: text(row.effort),
+    releasePlan: text(row.releaseplan),
+    releaseActual: text(row.releaseactual),
+    revisionTrunk: text(row.revisiontrunk),
+    revisionBranch: text(row.revisionbranch),
+    attachmentCount: Math.max(0, Number(row.attachmentcount) || 0),
+    workDescription: text(row.workdescription),
+    stateComment: text(row.statecomment),
+    stateCommentAuthor: text(row.statecommentauthor)
+  };
 }
 var OenpConnection = class {
   constructor(host, port) {
@@ -17353,6 +18035,11 @@ var OenpConnection = class {
   }
 };
 
+// src/features/production-tasks/productionTaskPresentation.ts
+function productionTaskPublicUrl(reference) {
+  return `https://r.oe-it.ru/${String(reference).trim()}`;
+}
+
 // src/features/production-tasks/productionTasksViewProvider.ts
 var ProductionTasksPanelManager = class _ProductionTasksPanelManager {
   constructor(extensionUri, getOptions, openTask, importSessionKey, setPassword, logger, openLog) {
@@ -17408,7 +18095,7 @@ var ProductionTasksPanelManager = class _ProductionTasksPanelManager {
         return;
       }
       if (message.command === "openProductionTaskInClient") {
-        const uri = vscode31.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/\u0420\u0430\u0431\u043E\u0442\u0430\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442/${message.id}`);
+        const uri = vscode31.Uri.parse(productionTaskPublicUrl(message.id));
         void vscode31.env.openExternal(uri);
         return;
       }
@@ -17494,7 +18181,7 @@ function shell6(webview, assetsRoot) {
 // src/features/production-tasks/productionTaskDetailsPanel.ts
 var vscode32 = __toESM(require("vscode"));
 var panels7 = /* @__PURE__ */ new Map();
-function openProductionTaskDetails(context, task, findObjectById, loadAttachments, loadHistory) {
+function openProductionTaskDetails(context, task, findObjectById, loadTaskReference, openTaskReference, loadAttachments, loadHistory) {
   const existing = panels7.get(task.id);
   if (existing) {
     existing.reveal(vscode32.ViewColumn.Active);
@@ -17508,6 +18195,7 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
   });
   panels7.set(task.id, panel2);
   const attachments = /* @__PURE__ */ new Map();
+  const taskPreviews = /* @__PURE__ */ new Map();
   panel2.webview.html = shell7(panel2.webview, assetsRoot);
   panel2.webview.onDidReceiveMessage(async (message) => {
     if (!isProductionTaskDetailsWebviewMessage(message)) {
@@ -17554,6 +18242,33 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
       }
       return;
     }
+    if (message.command === "loadProductionTaskPreview") {
+      try {
+        const preview = await loadTaskReference(message.id);
+        taskPreviews.set(message.id, preview);
+        await panel2.webview.postMessage({ command: "productionTaskPreviewLoaded", id: message.id, task: preview });
+      } catch (error) {
+        await panel2.webview.postMessage({
+          command: "productionTaskPreviewFailed",
+          id: message.id,
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+      return;
+    }
+    if (message.command === "openProductionTaskReference") {
+      try {
+        const referencedTask = taskPreviews.has(message.id) ? taskPreviews.get(message.id) : await loadTaskReference(message.id);
+        if (referencedTask) {
+          openTaskReference(referencedTask);
+        } else {
+          void vscode32.window.showInformationMessage(`\u0417\u0430\u0434\u0430\u0447\u0430 ${message.id} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.`);
+        }
+      } catch (error) {
+        void vscode32.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0443 ${message.id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return;
+    }
     if (message.command === "productionTaskAttachmentAction") {
       const attachment = attachments.get(message.id);
       if (attachment) {
@@ -17586,7 +18301,7 @@ function openProductionTaskDetails(context, task, findObjectById, loadAttachment
       }
       return;
     }
-    const uri = vscode32.Uri.parse(`https://dev.oe-it.ru/oe-ric224:/open/\u0420\u0430\u0431\u043E\u0442\u0430\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442/${message.id}`);
+    const uri = vscode32.Uri.parse(productionTaskPublicUrl(message.id));
     if (!await vscode32.env.openExternal(uri)) {
       void vscode32.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0443 ${message.id} \u0432 \u043A\u043B\u0438\u0435\u043D\u0442\u0435.`);
     }
@@ -17651,66 +18366,330 @@ function shell7(webview, assetsRoot) {
   return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u0417\u0430\u0434\u0430\u0447\u0430</title></head><body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
 
+// src/infrastructure/database/packageExplorerRepository.ts
+var iconv21 = __toESM(require_lib3());
+
+// src/features/packages/packageTree.ts
+function buildPackageTree(packageId, packageName, groups, files) {
+  const groupNodes = /* @__PURE__ */ new Map();
+  const groupPaths = /* @__PURE__ */ new Map();
+  for (const group of groups) {
+    const id = Number(group.id);
+    const path13 = normalizePath2(group.path ?? group.groupname);
+    groupPaths.set(path13.toLocaleLowerCase("ru"), id);
+    groupNodes.set(id, { key: `group:${id}`, id, name: group.groupname, kind: "group", hasChildren: false, children: [] });
+  }
+  const roots = [];
+  for (const group of groups) {
+    const node = groupNodes.get(Number(group.id));
+    const path13 = normalizePath2(group.path ?? group.groupname);
+    const parentPath = path13.includes("\\") ? path13.slice(0, path13.lastIndexOf("\\")).toLocaleLowerCase("ru") : "";
+    const parent = parentPath ? groupNodes.get(groupPaths.get(parentPath) ?? Number.NaN) : void 0;
+    (parent?.children ?? roots).push(node);
+  }
+  for (const file of files) {
+    const group = groupNodes.get(Number(file.sysgroup));
+    const node = {
+      key: `file:${file.id}`,
+      id: Number(file.id),
+      fileId: Number(file.id),
+      name: file.filename,
+      kind: "file",
+      hasChildren: Number(file.objectcount) > 0,
+      children: []
+    };
+    (group?.children ?? roots).push(node);
+  }
+  sortNodes(roots);
+  for (const group of groupNodes.values()) {
+    group.hasChildren = group.children.length > 0;
+    sortNodes(group.children);
+  }
+  const filesNode = { key: `files:${packageId}`, name: "\u0424\u0430\u0439\u043B\u044B", kind: "files", hasChildren: roots.length > 0, children: roots };
+  return { key: `package:${packageId}`, id: packageId, name: packageName, kind: "package", hasChildren: true, children: [filesNode] };
+}
+function normalizePath2(value) {
+  return value.replace(/\//g, "\\").replace(/^\\+|\\+$/g, "");
+}
+function sortNodes(nodes) {
+  nodes.sort((a, b) => a.kind === b.kind ? a.name.localeCompare(b.name, "ru", { numeric: true }) : a.kind === "group" ? -1 : 1);
+}
+
+// src/infrastructure/database/packageExplorerRepository.ts
+async function loadPackages() {
+  return withDatabase(async (client, database) => {
+    const result = await executeMonitoredQuery(client, {
+      text: `SELECT id::text, packagename FROM syspackages ORDER BY lower(packagename), id`,
+      source: "\u041F\u0430\u043A\u0435\u0442\u044B \u043F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A\u0430",
+      database
+    });
+    return result.rows.map((row) => ({ id: Number(row.id), name: decodeText2(row.packagename) }));
+  });
+}
+async function loadPackageTree(packageId) {
+  return withDatabase(async (client, database) => {
+    const packageResult = await executeMonitoredQuery(client, {
+      text: `SELECT id::text, packagename FROM syspackages WHERE id = $1`,
+      values: [packageId],
+      source: `\u041F\u0430\u043A\u0435\u0442 ${packageId}`,
+      database
+    });
+    const packageRow = packageResult.rows[0];
+    if (!packageRow) {
+      throw new Error(`\u041F\u0430\u043A\u0435\u0442 ${packageId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.`);
+    }
+    const groups = await executeMonitoredQuery(client, {
+      text: `SELECT id::text, groupname, path FROM sysgroups WHERE package = $1 ORDER BY lower(path), lower(groupname), id`,
+      values: [packageId],
+      source: `\u0413\u0440\u0443\u043F\u043F\u044B \u043F\u0430\u043A\u0435\u0442\u0430 ${decodeText2(packageRow.packagename)}`,
+      database
+    });
+    const files = await executeMonitoredQuery(client, {
+      text: `SELECT file.id::text, file.filename, file.sysgroup::text,
+			              count(object.id)::text AS objectcount
+			       FROM sysfile AS file
+			       JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			       LEFT JOIN abstract AS object ON object.sysfile = file.id
+			       WHERE file_group.package = $1
+			       GROUP BY file.id, file.filename, file.sysgroup
+			       ORDER BY lower(file.filename), file.id`,
+      values: [packageId],
+      source: `\u0424\u0430\u0439\u043B\u044B \u043F\u0430\u043A\u0435\u0442\u0430 ${decodeText2(packageRow.packagename)}`,
+      database
+    });
+    return buildPackageTree(
+      Number(packageRow.id),
+      decodeText2(packageRow.packagename),
+      groups.rows.map((row) => ({ ...row, groupname: decodeText2(row.groupname), path: row.path === null ? null : decodeText2(row.path) })),
+      files.rows.map((row) => ({ ...row, filename: decodeText2(row.filename) }))
+    );
+  });
+}
+async function loadPackageFileContent(fileId) {
+  return withDatabase(async (client, database) => {
+    const fileResult = await executeMonitoredQuery(client, {
+      text: `SELECT file.id::text, file.filename, file_group.path AS grouppath, package.packagename
+			       FROM sysfile AS file
+			       JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			       JOIN syspackages AS package ON package.id = file_group.package
+			       WHERE file.id = $1`,
+      values: [fileId],
+      source: `\u0424\u0430\u0439\u043B \u043F\u0430\u043A\u0435\u0442\u0430 ${fileId}`,
+      database
+    });
+    const file = fileResult.rows[0];
+    if (!file) {
+      throw new Error(`\u0424\u0430\u0439\u043B \u043F\u0430\u043A\u0435\u0442\u0430 ${fileId} \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.`);
+    }
+    const objects = await executeMonitoredQuery(client, {
+      text: `SELECT object.id::text, object.name, object.seniorid::text, object.classid::text,
+			              meta_class.name AS classname,
+			              (entity_class.id IS NOT NULL) AS isclass,
+			              (method.id IS NOT NULL) AS ismethod,
+			              (attribute.id IS NOT NULL) AS isattribute
+			       FROM abstract AS object
+			       LEFT JOIN classes AS meta_class ON meta_class.id = object.classid
+			       LEFT JOIN classes AS entity_class ON entity_class.id = object.id
+			       LEFT JOIN methods AS method ON method.id = object.id
+			       LEFT JOIN attributes AS attribute ON attribute.id = object.id
+			       WHERE object.sysfile = $1
+			       ORDER BY object.ord NULLS LAST, lower(object.name), object.id`,
+      values: [fileId],
+      source: `\u0421\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u0444\u0430\u0439\u043B\u0430 ${decodeText2(file.filename)}`,
+      database
+    });
+    return {
+      fileId: Number(file.id),
+      fileName: decodeText2(file.filename),
+      packageName: decodeText2(file.packagename),
+      groupPath: decodeText2(file.grouppath ?? ""),
+      objects: buildContentTree(objects.rows)
+    };
+  });
+}
+function buildContentTree(rows) {
+  const nodes = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const id = Number(row.id);
+    nodes.set(id, {
+      id,
+      name: decodeText2(row.name) || `\u041E\u0431\u044A\u0435\u043A\u0442 ${id}`,
+      classId: Number(row.classid),
+      className: decodeText2(row.classname ?? ""),
+      parentId: row.seniorid === null ? void 0 : Number(row.seniorid),
+      kind: objectKind(row),
+      children: []
+    });
+  }
+  const roots = [];
+  for (const node of nodes.values()) {
+    const parent = node.parentId === void 0 ? void 0 : nodes.get(node.parentId);
+    (parent?.children ?? roots).push(node);
+  }
+  return roots;
+}
+function objectKind(row) {
+  if (row.ismethod) {
+    return "method";
+  }
+  if (row.isattribute) {
+    return "attribute";
+  }
+  if (row.isclass) {
+    return "class";
+  }
+  const value = (row.classname ?? "").toLocaleLowerCase("ru").replace(/\s/g, "");
+  if (value.includes("\u0436\u0438\u0437\u043D\u0435\u043D\u043D\u044B\u0439\u0446\u0438\u043A\u043B")) {
+    return "lifecycle";
+  }
+  if (value.includes("\u0436\u0443\u0440\u043D\u0430\u043B")) {
+    return "journal";
+  }
+  if (value.includes("\u0441\u043F\u0438\u0441\u043E\u043A")) {
+    return "list";
+  }
+  return "object";
+}
+function decodeText2(value) {
+  const bytea = value.match(/^\\x([\da-f]+)$/i);
+  return bytea && bytea[1].length % 2 === 0 ? iconv21.decode(Buffer.from(bytea[1], "hex"), "win1251") : value;
+}
+async function withDatabase(action) {
+  const options = await getProjectDatabaseOptions();
+  const client = new Client({ ...options, application_name: "vc-ve-tools", connectionTimeoutMillis: 5e3 });
+  try {
+    await client.connect();
+    return await action(client, options.database);
+  } finally {
+    await client.end().catch(() => void 0);
+  }
+}
+
+// src/features/packages/packageContentPanelManager.ts
+var vscode33 = __toESM(require("vscode"));
+var panels8 = /* @__PURE__ */ new Map();
+async function openPackageContent(context, fileId, objectId, openObject) {
+  const existing = panels8.get(fileId);
+  if (existing) {
+    existing.selectedObjectId = objectId;
+    existing.panel.reveal(vscode33.ViewColumn.Active);
+    if (objectId !== void 0) {
+      await existing.panel.webview.postMessage({ command: "revealPackageContentObject", objectId });
+    }
+    return;
+  }
+  const assetsRoot = vscode33.Uri.joinPath(context.extensionUri, "dist", "webview");
+  const panel2 = vscode33.window.createWebviewPanel("vc-ve-tools.packageContent", `\u0421\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u0444\u0430\u0439\u043B\u0430 ${fileId}`, vscode33.ViewColumn.Active, {
+    enableScripts: true,
+    localResourceRoots: [assetsRoot],
+    retainContextWhenHidden: true
+  });
+  const entry = { panel: panel2, selectedObjectId: objectId };
+  panels8.set(fileId, entry);
+  panel2.webview.html = shell8(panel2.webview, assetsRoot);
+  const load = async () => {
+    await panel2.webview.postMessage({ command: "packageContentLoading" });
+    try {
+      entry.result = await loadPackageFileContent(fileId);
+      panel2.title = entry.result.fileName;
+      await panel2.webview.postMessage({ command: "packageContentLoaded", result: entry.result, selectedObjectId: entry.selectedObjectId });
+    } catch (error) {
+      await panel2.webview.postMessage({ command: "packageContentLoadFailed", message: error instanceof Error ? error.message : String(error) });
+    }
+  };
+  panel2.webview.onDidReceiveMessage(async (message) => {
+    if (!isPackageContentWebviewMessage(message)) {
+      return;
+    }
+    if (message.command === "packageContentReady" || message.command === "refreshPackageContent") {
+      await load();
+      return;
+    }
+    if (message.command === "copyTableCells") {
+      await vscode33.env.clipboard.writeText(message.text);
+      return;
+    }
+    if (message.command === "tableSelectionDebug") {
+      logTableSelection("\u0421\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u043F\u0430\u043A\u0435\u0442\u0430", message.message);
+      return;
+    }
+    await openObject(message.id, message.kind);
+  });
+  panel2.onDidDispose(() => panels8.delete(fileId));
+}
+function closePackageContentPanels() {
+  for (const entry of panels8.values()) {
+    entry.panel.dispose();
+  }
+  panels8.clear();
+}
+function shell8(webview, assetsRoot) {
+  const scriptUri = webview.asWebviewUri(vscode33.Uri.joinPath(assetsRoot, "package-content.js"));
+  const styleUri = webview.asWebviewUri(vscode33.Uri.joinPath(assetsRoot, "package-content.css"));
+  const nonce = Array.from({ length: 32 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".charAt(Math.floor(Math.random() * 62))).join("");
+  return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u0421\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u0444\u0430\u0439\u043B\u0430 \u043F\u0430\u043A\u0435\u0442\u0430</title></head><body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+}
+
 // src/application/activate.ts
 async function activate(context) {
-  const sqlMonitorHistoryPath = vscode33.Uri.joinPath(context.globalStorageUri, "sql-monitor", "recent-queries.json").fsPath;
+  const sqlMonitorHistoryPath = vscode34.Uri.joinPath(context.globalStorageUri, "sql-monitor", "recent-queries.json").fsPath;
   await sqlMonitorService.initialize(sqlMonitorHistoryPath);
   const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
   await extensionLogger.initialize();
   let navigationBridge;
-  const workspacePath = vscode33.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const workspacePath = vscode34.workspace.workspaceFolders?.[0]?.uri.fsPath;
   const databaseSelectionPath = workspacePath ? getDatabaseSelectionPath(context.globalStorageUri.fsPath, workspacePath) : void 0;
   const clientPasswordKey = `vcVeTools.clientPassword:${workspacePath?.toLowerCase() ?? "default"}`;
   const productionAuthorizationReferenceKey = `vcVeTools.productionAuthorizationReference:${workspacePath?.toLowerCase() ?? "default"}`;
   const productionPasswordKey = `vcVeTools.productionPassword:${workspacePath?.toLowerCase() ?? "default"}`;
   const getClientCredentials = async () => ({
-    username: vscode33.workspace.getConfiguration("vcVeTools").get(clientUsernameSetting, ""),
+    username: vscode34.workspace.getConfiguration("vcVeTools").get(clientUsernameSetting, ""),
     password: await context.secrets.get(clientPasswordKey)
   });
   const setClientCredentials = async (credentials) => {
-    await vscode33.workspace.getConfiguration("vcVeTools").update(clientUsernameSetting, credentials.username ?? "", vscode33.ConfigurationTarget.Workspace);
+    await vscode34.workspace.getConfiguration("vcVeTools").update(clientUsernameSetting, credentials.username ?? "", vscode34.ConfigurationTarget.Workspace);
     if (credentials.password) {
       await context.secrets.store(clientPasswordKey, credentials.password);
     }
   };
   if (workspacePath && databaseSelectionPath) {
-    await writeDatabaseSelection(databaseSelectionPath, workspacePath, vscode33.workspace.getConfiguration("vcVeTools").get(databaseProfileSetting, ""));
+    await writeDatabaseSelection(databaseSelectionPath, workspacePath, vscode34.workspace.getConfiguration("vcVeTools").get(databaseProfileSetting, ""));
   }
   const methodEditor = registerMethodEditor(context);
   const dfmEditor = registerDfmEditor(context);
   registerDfmLanguageFeatures(context, dfmEditor);
   registerCodeHistory(context, methodEditor);
-  const extensionConfiguration = vscode33.workspace.getConfiguration("vcVeTools");
+  const extensionConfiguration = vscode34.workspace.getConfiguration("vcVeTools");
   let isUpdatingSetting = false;
   const updateProjectRootSetting = async (enabled) => {
-    if (!vscode33.workspace.workspaceFolders?.length) {
-      void vscode33.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+    if (!vscode34.workspace.workspaceFolders?.length) {
+      void vscode34.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       return;
     }
     try {
       isUpdatingSetting = true;
-      await vscode33.workspace.getConfiguration("vcVeTools").update(
+      await vscode34.workspace.getConfiguration("vcVeTools").update(
         projectRootSetting,
         enabled,
-        vscode33.ConfigurationTarget.Workspace
+        vscode34.ConfigurationTarget.Workspace
       );
       await applyProjectEncoding(context, enabled);
-      void vscode33.window.showInformationMessage(
+      void vscode34.window.showInformationMessage(
         enabled ? "PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u044B \u0431\u0443\u0434\u0443\u0442 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C\u0441\u044F \u0432 \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0435 Cyrillic (Windows 1251)." : "\u041A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0430 PKF, Pascal \u0438 BAT-\u0444\u0430\u0439\u043B\u043E\u0432 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430."
       );
     } catch (error) {
-      void vscode33.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+      void vscode34.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
     } finally {
       isUpdatingSetting = false;
     }
   };
   const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials);
-  const openSettingsCommand = vscode33.commands.registerCommand("vc-ve-tools.openSettings", () => settingsProvider.show());
-  const updateMainDatabaseCommand = vscode33.commands.registerCommand("vc-ve-tools.updateMainDatabase", () => updateProjectDatabase("main"));
-  const updateTestDatabaseCommand = vscode33.commands.registerCommand("vc-ve-tools.updateTestDatabase", () => updateProjectDatabase("test"));
-  const startMainClientCommand = vscode33.commands.registerCommand("vc-ve-tools.startMainClient", async () => startProjectClient("main", await getClientCredentials()));
-  const startTestClientCommand = vscode33.commands.registerCommand("vc-ve-tools.startTestClient", async () => startProjectClient("test", await getClientCredentials()));
-  const openClientEntityCommand = vscode33.commands.registerCommand(
+  const openSettingsCommand = vscode34.commands.registerCommand("vc-ve-tools.openSettings", () => settingsProvider.show());
+  const updateMainDatabaseCommand = vscode34.commands.registerCommand("vc-ve-tools.updateMainDatabase", () => updateProjectDatabase("main"));
+  const updateTestDatabaseCommand = vscode34.commands.registerCommand("vc-ve-tools.updateTestDatabase", () => updateProjectDatabase("test"));
+  const startMainClientCommand = vscode34.commands.registerCommand("vc-ve-tools.startMainClient", async () => startProjectClient("main", await getClientCredentials()));
+  const startTestClientCommand = vscode34.commands.registerCommand("vc-ve-tools.startTestClient", async () => startProjectClient("test", await getClientCredentials()));
+  const openClientEntityCommand = vscode34.commands.registerCommand(
     "vc-ve-tools.openClientEntity",
     async (role, entityType, id) => openProjectClientEntity(role, entityType, id, await getClientCredentials())
   );
@@ -17726,14 +18705,28 @@ async function activate(context) {
     (id) => openAttributeDetails(context, id),
     (id) => openClassObjects(context, id),
     (id) => openObjectView(context, id),
-    (id) => openEntityProperties(context, id)
+    (id) => openEntityProperties(context, id),
+    loadPackages,
+    loadPackageTree,
+    loadPackageFileContent,
+    (fileId, objectId) => openPackageContent(context, fileId, objectId, async (id, kind) => {
+      if (kind === "class") {
+        await openClassDetails(context, methodEditor, id, true);
+      } else if (kind === "method") {
+        await methodEditor.open(id);
+      } else if (kind === "attribute") {
+        await openAttributeDetails(context, id);
+      } else {
+        await openObjectView(context, id);
+      }
+    })
   );
-  const explorerRegistration = vscode33.window.registerWebviewViewProvider(
+  const explorerRegistration = vscode34.window.registerWebviewViewProvider(
     "vc-ve-tools.explorer",
     explorerProvider
   );
   const getProductionConnectionOptions = async () => {
-    const configuration = vscode33.workspace.getConfiguration("vcVeTools");
+    const configuration = vscode34.workspace.getConfiguration("vcVeTools");
     const credentials = await getClientCredentials();
     const captureMetadata = await extractProductionMetadataFromCaptureDirectories(
       [workspacePath, context.extensionUri.fsPath].filter((value) => Boolean(value))
@@ -17747,7 +18740,7 @@ async function activate(context) {
       const detectedPersonId = captureMetadata.personId;
       if (detectedPersonId) {
         personId = detectedPersonId;
-        await configuration.update("productionPersonId", personId, vscode33.ConfigurationTarget.Workspace);
+        await configuration.update("productionPersonId", personId, vscode34.ConfigurationTarget.Workspace);
         extensionLogger.info("Production Tasks", "Persons.ID \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 \u0437\u0430\u0445\u0432\u0430\u0442\u0435 \u0440\u0430\u0431\u043E\u0447\u0435\u0439 \u043E\u0431\u043B\u0430\u0441\u0442\u0438.");
       }
     }
@@ -17778,22 +18771,25 @@ async function activate(context) {
     error: (message, details) => extensionLogger.error("Production Tasks", message, details)
   };
   const findDatabaseObjectById = async (id) => (await searchDatabaseObjects(String(id), 1))[0];
+  const showProductionTask = (task) => openProductionTaskDetails(
+    context,
+    task,
+    findDatabaseObjectById,
+    async (reference) => loadProductionTaskReference(await getProductionConnectionOptions(), reference, productionTasksLogger),
+    showProductionTask,
+    async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger),
+    async () => loadProductionTaskHistory(await getProductionConnectionOptions(), task.id, productionTasksLogger)
+  );
   const productionTasksProvider = new ProductionTasksPanelManager(
     context.extensionUri,
     getProductionConnectionOptions,
-    (task) => openProductionTaskDetails(
-      context,
-      task,
-      findDatabaseObjectById,
-      async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger),
-      async () => loadProductionTaskHistory(await getProductionConnectionOptions(), task.id, productionTasksLogger)
-    ),
+    showProductionTask,
     async () => {
-      const selected = await vscode33.window.showOpenDialog({
+      const selected = await vscode34.window.showOpenDialog({
         canSelectFiles: true,
         canSelectFolders: false,
         canSelectMany: true,
-        defaultUri: workspacePath ? vscode33.Uri.file(workspacePath) : void 0,
+        defaultUri: workspacePath ? vscode34.Uri.file(workspacePath) : void 0,
         filters: { "Wireshark capture": ["pcapng"] },
         openLabel: "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 OENP"
       });
@@ -17801,15 +18797,15 @@ async function activate(context) {
         return false;
       }
       const captures = new Map(selected.map((uri) => [uri.fsPath.toLowerCase(), uri]));
-      const captureDirectories = new Set(selected.map((uri) => path11.dirname(uri.fsPath)));
+      const captureDirectories = new Set(selected.map((uri) => path12.dirname(uri.fsPath)));
       if (workspacePath) {
         captureDirectories.add(workspacePath);
       }
       for (const directory of captureDirectories) {
         try {
-          for (const [name, fileType] of await vscode33.workspace.fs.readDirectory(vscode33.Uri.file(directory))) {
-            if (fileType === vscode33.FileType.File && name.toLowerCase().endsWith(".pcapng")) {
-              const uri = vscode33.Uri.file(path11.join(directory, name));
+          for (const [name, fileType] of await vscode34.workspace.fs.readDirectory(vscode34.Uri.file(directory))) {
+            if (fileType === vscode34.FileType.File && name.toLowerCase().endsWith(".pcapng")) {
+              const uri = vscode34.Uri.file(path12.join(directory, name));
               captures.set(uri.fsPath.toLowerCase(), uri);
             }
           }
@@ -17821,7 +18817,7 @@ async function activate(context) {
       let personId;
       let authorization;
       for (const uri of captures.values()) {
-        const capture = Buffer.from(await vscode33.workspace.fs.readFile(uri));
+        const capture = Buffer.from(await vscode34.workspace.fs.readFile(uri));
         key ??= extractClientSessionKey(capture);
         personId ??= extractCurrentPersonId(capture);
         authorization ??= extractCapturedAuthorization(capture);
@@ -17830,25 +18826,25 @@ async function activate(context) {
         }
       }
       if (!key && !personId) {
-        void vscode33.window.showErrorMessage("\u0412 \u0437\u0430\u0445\u0432\u0430\u0442\u0430\u0445 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u044B \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0441\u043A\u043E\u0439 \u0441\u0435\u0441\u0441\u0438\u0438 OENP.");
+        void vscode34.window.showErrorMessage("\u0412 \u0437\u0430\u0445\u0432\u0430\u0442\u0430\u0445 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u044B \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0441\u043A\u043E\u0439 \u0441\u0435\u0441\u0441\u0438\u0438 OENP.");
         return false;
       }
-      const configuration = vscode33.workspace.getConfiguration("vcVeTools");
+      const configuration = vscode34.workspace.getConfiguration("vcVeTools");
       if (key) {
-        await configuration.update("productionClientSessionKey", key, vscode33.ConfigurationTarget.Workspace);
+        await configuration.update("productionClientSessionKey", key, vscode34.ConfigurationTarget.Workspace);
       }
       if (personId) {
-        await configuration.update("productionPersonId", personId, vscode33.ConfigurationTarget.Workspace);
+        await configuration.update("productionPersonId", personId, vscode34.ConfigurationTarget.Workspace);
       }
       if (authorization) {
         await context.secrets.store(productionAuthorizationReferenceKey, JSON.stringify(authorization));
       }
       extensionLogger.info("Production Tasks", "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0438\u0437 \u0437\u0430\u0445\u0432\u0430\u0442\u0430 \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u044B.", { checkedCaptureFiles: captures.size, importedSessionKey: Boolean(key), importedPersonId: Boolean(personId), foundAuthorizationReference: Boolean(authorization) });
-      void vscode33.window.showInformationMessage(`\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 OENP \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u044B: ${[key && "\u043A\u043B\u044E\u0447 \u0441\u0435\u0441\u0441\u0438\u0438", personId && "Persons.ID"].filter(Boolean).join(", ")}.`);
+      void vscode34.window.showInformationMessage(`\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 OENP \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u044B: ${[key && "\u043A\u043B\u044E\u0447 \u0441\u0435\u0441\u0441\u0438\u0438", personId && "Persons.ID"].filter(Boolean).join(", ")}.`);
       return true;
     },
     async () => {
-      const password = await vscode33.window.showInputBox({
+      const password = await vscode34.window.showInputBox({
         title: "\u0414\u043E\u0441\u0442\u0443\u043F \u043A \u0437\u0430\u0434\u0430\u0447\u0430\u043C production",
         prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043F\u0430\u0440\u043E\u043B\u044C, \u0441 \u043A\u043E\u0442\u043E\u0440\u044B\u043C \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0430\u0435\u0442\u0441\u044F \u043A production. \u041E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0432 SecretStorage VS Code.",
         password: true,
@@ -17865,7 +18861,7 @@ async function activate(context) {
     productionTasksLogger,
     () => extensionLogger.show()
   );
-  const openProductionTasksCommand = vscode33.commands.registerCommand("vc-ve-tools.openProductionTasks", () => productionTasksProvider.show());
+  const openProductionTasksCommand = vscode34.commands.registerCommand("vc-ve-tools.openProductionTasks", () => productionTasksProvider.show());
   const productionTasksRegistration = registerProductionTasksActivityLauncher(productionTasksProvider);
   const clipboardObjectNavigation = registerClipboardObjectNavigation({
     findById: findDatabaseObjectById,
@@ -17898,14 +18894,14 @@ async function activate(context) {
       return { attributeId: created.id, ownerClassId: created.ownerClassId, name: created.name };
     },
     getSvnFileHistory: async (filePath, limit) => {
-      const workspaceFolder = vscode33.workspace.workspaceFolders?.[0];
+      const workspaceFolder = vscode34.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) {
         throw new Error("\u041E\u0442\u043A\u0440\u044B\u0442\u0430\u044F \u043F\u0430\u043F\u043A\u0430 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.");
       }
-      const workspaceRoot = path11.resolve(workspaceFolder.uri.fsPath);
-      const resolvedPath = path11.resolve(workspaceRoot, filePath);
-      const relativePath = path11.relative(workspaceRoot, resolvedPath);
-      if (relativePath.startsWith("..") || path11.isAbsolute(relativePath)) {
+      const workspaceRoot = path12.resolve(workspaceFolder.uri.fsPath);
+      const resolvedPath = path12.resolve(workspaceRoot, filePath);
+      const relativePath = path12.relative(workspaceRoot, resolvedPath);
+      if (relativePath.startsWith("..") || path12.isAbsolute(relativePath)) {
         throw new Error("SVN-\u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u043E\u0436\u043D\u043E \u0447\u0438\u0442\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u0444\u0430\u0439\u043B\u043E\u0432 \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0433\u043E \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       }
       const entries = await svnLog(resolvedPath, limit);
@@ -17969,12 +18965,12 @@ async function activate(context) {
   registerNavigationTools(context, navigationActions);
   navigationBridge = await startNavigationBridge(
     navigationActions,
-    vscode33.workspace.workspaceFolders?.[0] ? getNavigationInfoPath(vscode33.workspace.workspaceFolders[0].uri.fsPath) : vscode33.Uri.joinPath(context.globalStorageUri, "navigation-bridge.json").fsPath
+    vscode34.workspace.workspaceFolders?.[0] ? getNavigationInfoPath(vscode34.workspace.workspaceFolders[0].uri.fsPath) : vscode34.Uri.joinPath(context.globalStorageUri, "navigation-bridge.json").fsPath
   );
   const databaseMcpServerRegistration = registerDatabaseMcpServer(context, extensionLogger.logUri.fsPath, navigationBridge, databaseSelectionPath, sqlMonitorHistoryPath);
   const agentSkillInstaller = registerAgentSkillInstaller(context);
-  const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncSnapshot);
-  const openPackageSyncCommand = vscode33.commands.registerCommand(
+  const packageSyncProvider = new PackageSyncPanelManager(context.extensionUri, loadPackageSyncSnapshot, loadPackageDatabaseVersion);
+  const openPackageSyncCommand = vscode34.commands.registerCommand(
     "vc-ve-tools.openPackageSync",
     () => packageSyncProvider.show()
   );
@@ -17986,18 +18982,18 @@ async function activate(context) {
     console.error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u0438 \u043A\u043B\u0430\u0441\u0441\u043E\u0432:", error);
   });
   const sqlExecutorProvider = new SqlExecutorViewProvider(context.extensionUri);
-  const sqlExecutorRegistration = vscode33.window.registerWebviewViewProvider(
+  const sqlExecutorRegistration = vscode34.window.registerWebviewViewProvider(
     SqlExecutorViewProvider.viewType,
     sqlExecutorProvider,
     { webviewOptions: { retainContextWhenHidden: true } }
   );
-  const configurationListener = vscode33.workspace.onDidChangeConfiguration(async (event) => {
+  const configurationListener = vscode34.workspace.onDidChangeConfiguration(async (event) => {
     if (event.affectsConfiguration("vcVeTools.productionHost") || event.affectsConfiguration("vcVeTools.productionPort") || event.affectsConfiguration("vcVeTools.productionDatabase") || event.affectsConfiguration("vcVeTools.productionClientSessionKey") || event.affectsConfiguration("vcVeTools.productionPersonId") || event.affectsConfiguration(`vcVeTools.${clientUsernameSetting}`)) {
       void productionTasksProvider.refresh();
     }
     if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`) || event.affectsConfiguration(`vcVeTools.${databaseProfileSetting}`)) {
       if (workspacePath && databaseSelectionPath) {
-        await writeDatabaseSelection(databaseSelectionPath, workspacePath, vscode33.workspace.getConfiguration("vcVeTools").get(databaseProfileSetting, ""));
+        await writeDatabaseSelection(databaseSelectionPath, workspacePath, vscode34.workspace.getConfiguration("vcVeTools").get(databaseProfileSetting, ""));
       }
       closeClassDetailPanels();
       closeAttributeDetailPanels();
@@ -18005,82 +19001,83 @@ async function activate(context) {
       closeEntityPropertiesPanels();
       closeClassObjectPanels();
       closeObjectViewPanels();
+      closePackageContentPanels();
       closeSpuEditorPanels();
       explorerProvider.refreshClasses();
       packageSyncProvider.refreshForDatabaseChange();
     }
     if (!isUpdatingSetting && event.affectsConfiguration(`vcVeTools.${projectRootSetting}`)) {
-      const enabled = vscode33.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
+      const enabled = vscode34.workspace.getConfiguration("vcVeTools").get(projectRootSetting, false);
       try {
         await applyProjectEncoding(context, enabled);
       } catch (error) {
-        void vscode33.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
+        void vscode34.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434\u0438\u0440\u043E\u0432\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430: ${String(error)}`);
       }
     }
   });
-  if (extensionConfiguration.get(projectRootSetting, false) && vscode33.workspace.workspaceFolders?.length) {
+  if (extensionConfiguration.get(projectRootSetting, false) && vscode34.workspace.workspaceFolders?.length) {
     await applyProjectEncoding(context, true);
   }
   console.log('Congratulations, your extension "vc-ve-tools" is now active!');
-  const disposable = vscode33.commands.registerCommand("vc-ve-tools.helloWorld", () => {
-    vscode33.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
+  const disposable = vscode34.commands.registerCommand("vc-ve-tools.helloWorld", () => {
+    vscode34.window.showInformationMessage("Hello World from \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u044B\u0439 \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435!");
   });
-  const testDatabaseConnectionCommand = vscode33.commands.registerCommand(
+  const testDatabaseConnectionCommand = vscode34.commands.registerCommand(
     "vc-ve-tools.testDatabaseConnection",
     async () => {
       try {
-        const result = await vscode33.window.withProgress(
+        const result = await vscode34.window.withProgress(
           {
-            location: vscode33.ProgressLocation.Notification,
+            location: vscode34.ProgressLocation.Notification,
             title: "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0431\u0430\u0437\u0435"
           },
           testDatabaseConnection
         );
-        void vscode33.window.showInformationMessage(
+        void vscode34.window.showInformationMessage(
           `\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${result.database}, \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C ${result.user}.`
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        void vscode33.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
+        void vscode34.window.showErrorMessage(`\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435: ${message}`);
       }
     }
   );
-  const selectDatabaseRoleCommand = vscode33.commands.registerCommand(
+  const selectDatabaseRoleCommand = vscode34.commands.registerCommand(
     "vc-ve-tools.selectDatabaseRole",
     async () => {
-      if (!vscode33.workspace.workspaceFolders?.length) {
-        void vscode33.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
+      if (!vscode34.workspace.workspaceFolders?.length) {
+        void vscode34.window.showWarningMessage("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
         return;
       }
       try {
-        const { databases } = await loadRdboadmDatabases(vscode33.workspace.workspaceFolders[0].uri.fsPath);
-        const selected = await vscode33.window.showQuickPick(databases.map((database) => ({ label: database.name, description: `[${database.id}]`, profile: database.id })), { placeHolder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0431\u0430\u0437\u0443 \u0434\u0430\u043D\u043D\u044B\u0445 \u0438\u0437 rdboadm.ini" });
+        const { databases } = await loadRdboadmDatabases(vscode34.workspace.workspaceFolders[0].uri.fsPath);
+        const selected = await vscode34.window.showQuickPick(databases.map((database) => ({ label: database.name, description: `[${database.id}]`, profile: database.id })), { placeHolder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0431\u0430\u0437\u0443 \u0434\u0430\u043D\u043D\u044B\u0445 \u0438\u0437 rdboadm.ini" });
         if (selected) {
-          await vscode33.workspace.getConfiguration("vcVeTools").update(databaseProfileSetting, selected.profile, vscode33.ConfigurationTarget.Workspace);
+          await vscode34.workspace.getConfiguration("vcVeTools").update(databaseProfileSetting, selected.profile, vscode34.ConfigurationTarget.Workspace);
         }
       } catch {
-        const selected = await vscode33.window.showQuickPick([{ label: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F", role: "main" }, { label: "\u0422\u0435\u0441\u0442\u043E\u0432\u0430\u044F", role: "test" }], { placeHolder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0431\u0430\u0437\u0443 \u0434\u0430\u043D\u043D\u044B\u0445" });
+        const selected = await vscode34.window.showQuickPick([{ label: "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F", role: "main" }, { label: "\u0422\u0435\u0441\u0442\u043E\u0432\u0430\u044F", role: "test" }], { placeHolder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0431\u0430\u0437\u0443 \u0434\u0430\u043D\u043D\u044B\u0445" });
         if (selected && selected.role !== getDatabaseRole()) {
-          await vscode33.workspace.getConfiguration("vcVeTools").update(databaseRoleSetting, selected.role, vscode33.ConfigurationTarget.Workspace);
+          await vscode34.workspace.getConfiguration("vcVeTools").update(databaseRoleSetting, selected.role, vscode34.ConfigurationTarget.Workspace);
         }
       }
     }
   );
-  const openSqlMonitorCommand = vscode33.commands.registerCommand(
+  const openSqlMonitorCommand = vscode34.commands.registerCommand(
     "vc-ve-tools.openSqlMonitor",
     () => openSqlMonitor(context)
   );
-  const copySelectedExplorerIdCommand = vscode33.commands.registerCommand(
+  const copySelectedExplorerIdCommand = vscode34.commands.registerCommand(
     "vc-ve-tools.copySelectedExplorerId",
     () => explorerProvider.copySelectedEntityId()
   );
-  const setUserIdCommand = vscode33.commands.registerCommand(
+  const setUserIdCommand = vscode34.commands.registerCommand(
     "vc-ve-tools.setUserId",
     async () => {
-      const input = await vscode33.window.showInputBox({
+      const input = await vscode34.window.showInputBox({
         placeHolder: "3130673",
         prompt: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B Users \u0434\u043B\u044F \u043B\u043E\u0433\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439 \u043C\u0435\u0442\u043E\u0434\u043E\u0432",
-        value: vscode33.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
+        value: vscode34.workspace.getConfiguration("vcVeTools").get("userId", 0).toString(),
         validateInput: (value) => {
           if (!value.trim()) {
             return "ID \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C";
@@ -18096,13 +19093,13 @@ async function activate(context) {
         return;
       }
       const userId = Number.parseInt(input, 10);
-      await vscode33.workspace.getConfiguration("vcVeTools").update(
+      await vscode34.workspace.getConfiguration("vcVeTools").update(
         "userId",
         userId,
-        vscode33.ConfigurationTarget.Workspace
+        vscode34.ConfigurationTarget.Workspace
       );
       settingsProvider.refresh();
-      void vscode33.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
+      void vscode34.window.showInformationMessage(`ID \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D: ${userId}`);
     }
   );
   context.subscriptions.push(
@@ -18138,14 +19135,14 @@ async function activate(context) {
 async function extractProductionMetadataFromCaptureDirectories(directories) {
   let personId;
   let authorization;
-  for (const directoryPath of new Set(directories.map((directory) => path11.resolve(directory)))) {
+  for (const directoryPath of new Set(directories.map((directory) => path12.resolve(directory)))) {
     try {
-      const directory = vscode33.Uri.file(directoryPath);
-      for (const [name, fileType] of await vscode33.workspace.fs.readDirectory(directory)) {
-        if (fileType !== vscode33.FileType.File || !name.toLowerCase().endsWith(".pcapng")) {
+      const directory = vscode34.Uri.file(directoryPath);
+      for (const [name, fileType] of await vscode34.workspace.fs.readDirectory(directory)) {
+        if (fileType !== vscode34.FileType.File || !name.toLowerCase().endsWith(".pcapng")) {
           continue;
         }
-        const capture = Buffer.from(await vscode33.workspace.fs.readFile(vscode33.Uri.joinPath(directory, name)));
+        const capture = Buffer.from(await vscode34.workspace.fs.readFile(vscode34.Uri.joinPath(directory, name)));
         personId ??= extractCurrentPersonId(capture);
         authorization ??= extractCapturedAuthorization(capture);
         if (personId && authorization) {

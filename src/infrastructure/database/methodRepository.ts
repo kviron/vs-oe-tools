@@ -314,8 +314,10 @@ export async function createClassMethod(input: ClassMethodDraft): Promise<Create
 		});
 		if (visibility.rowCount !== 1) { throw new Error(`Область видимости ${draft.visibilityId} не найдена.`); }
 		const idResult = await executeMonitoredQuery<IdRow>(client, {
-			text: `SELECT candidate AS id FROM generate_series($1::integer, $2::integer) AS candidate
-			 WHERE NOT EXISTS (SELECT 1 FROM abstract WHERE id=candidate) ORDER BY candidate LIMIT 1`,
+			text: `SELECT afirstfreeid AS id
+			 FROM oe_system_genguid_enum_ranges_v3(2147483647, $1::bigint, $2::bigint - $1::bigint + 1)
+			 WHERE astartid = $1::bigint AND afirstfreeid <= $2::bigint
+			 LIMIT 1`,
 			values: [range.beginid, range.endid], source: 'Генерация ID нового метода', database: options.database,
 		});
 		const id = Number(idResult.rows[0]?.id);

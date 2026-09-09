@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { RefreshIcon } from '@hugeicons/core-free-icons';
+import { ColumnsThreeCogIcon, RefreshIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, nextTick, ref } from 'vue';
 import type { ClassObjectsHostMessage } from '../../../src/core/webviewProtocol';
-import type { ClassObjectsResult } from '../../../src/features/classes/models';
+import { normalizeClassObjectColumnSettings } from '../../../src/features/classes/classObjectColumnSettings';
+import type { ClassObjectColumn, ClassObjectColumnSettings, ClassObjectsResult } from '../../../src/features/classes/models';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
 
@@ -18,7 +23,17 @@ const error = ref('');
 const sortKey = ref('');
 const sortDirection = ref<1 | -1>(1);
 const revealedObjectId = ref<string>();
+const visibleColumns = ref<string[]>([]);
+const columnOrder = ref<string[]>([]);
+const compact = ref(true);
 const canCreateSpu = computed(() => result.value?.classId === 12609684 || result.value?.className.toLocaleLowerCase('en-US') === 'syspackageupdate');
+const activeColumns = computed<ClassObjectColumn[]>(() => {
+  const columns = result.value?.columns ?? [];
+  return columnOrder.value.flatMap(key => {
+    const column = columns.find(item => item.key === key);
+    return column && visibleColumns.value.includes(column.key) ? [column] : [];
+  });
+});
 
 const rows = computed(() => {
   const source = result.value?.rows ?? [];
@@ -41,6 +56,55 @@ function sort(key: string): void {
     sortKey.value = key;
     sortDirection.value = 1;
   }
+}
+
+function toggleColumn(key: string, checked: boolean | 'indeterminate'): void {
+  if (checked) {
+    if (!visibleColumns.value.includes(key)) visibleColumns.value.push(key);
+  } else if (visibleColumns.value.length > 1) {
+    visibleColumns.value = visibleColumns.value.filter(value => value !== key);
+  }
+  saveColumnSettings();
+}
+
+function moveColumn(key: string, direction: -1 | 1): void {
+  const index = columnOrder.value.indexOf(key);
+  const target = index + direction;
+  if (target < 0 || target >= columnOrder.value.length) return;
+  const next = [...columnOrder.value];
+  [next[index], next[target]] = [next[target], next[index]];
+  columnOrder.value = next;
+  saveColumnSettings();
+}
+
+function resetColumns(): void {
+  const keys = result.value?.columns.map(column => column.key) ?? [];
+  visibleColumns.value = [...keys];
+  columnOrder.value = [...keys];
+  compact.value = true;
+  saveColumnSettings();
+}
+
+function setCompact(value: boolean | 'indeterminate'): void {
+  compact.value = value === true;
+  saveColumnSettings();
+}
+
+function saveColumnSettings(): void {
+  vscode.postMessage({
+    command: 'saveClassObjectColumnSettings',
+    settings: { visible: [...visibleColumns.value], order: [...columnOrder.value], compact: compact.value },
+  });
+}
+
+function applyColumnSettings(settings?: ClassObjectColumnSettings): void {
+  const normalized = normalizeClassObjectColumnSettings(
+    result.value?.columns.map(column => column.key) ?? [],
+    settings,
+  );
+  visibleColumns.value = normalized.visible;
+  columnOrder.value = normalized.order;
+  compact.value = normalized.compact;
 }
 
 function display(value: unknown): string {
@@ -109,6 +173,9 @@ window.addEventListener('message', (event: MessageEvent<ClassObjectsHostMessage>
     result.value = message.append && result.value
       ? { ...message.result, offset: result.value.offset, rows: [...result.value.rows, ...message.result.rows] }
       : message.result;
+    if (!message.append) {
+      applyColumnSettings(message.columnSettings);
+    }
     loading.value = false;
     loadingMore.value = false;
   } else if (message.command === 'revealClassObject') {
@@ -132,10 +199,40 @@ vscode.postMessage({ command: 'classObjectsReady' });
           Загружено {{ result.rows.length }} из {{ result.totalCount }}
         </div>
       </div>
-      <Button variant="outline" size="sm" :disabled="loading || loadingMore" @click="refresh">
-        <HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />
-        Обновить
-      </Button>
+      <div class="flex items-center gap-2">
+        <Popover>
+          <PopoverTrigger as-child>
+            <Button variant="outline" size="sm" :disabled="!result">
+              <HugeiconsIcon :icon="ColumnsThreeCogIcon" data-icon="inline-start" />
+              Колонки
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent class="w-80" align="end">
+            <div class="flex items-center justify-between">
+              <p class="font-semibold">Отображение таблицы</p>
+              <Button size="xs" variant="ghost" @click="resetColumns">Сбросить</Button>
+            </div>
+            <div class="flex max-h-80 flex-col gap-1 overflow-auto">
+              <div v-for="(key, index) in columnOrder" :key="key" class="flex items-center gap-2">
+                <Checkbox :id="`dictionary-column-${key}`" :model-value="visibleColumns.includes(key)" @update:model-value="toggleColumn(key, $event)" />
+                <label class="min-w-0 flex-1 truncate" :for="`dictionary-column-${key}`" :title="result?.columns.find(column => column.key === key)?.attributeName">
+                  {{ result?.columns.find(column => column.key === key)?.title || key }}
+                </label>
+                <Button size="icon-xs" variant="ghost" title="Сдвинуть влево" :disabled="index === 0" @click="moveColumn(key, -1)">←</Button>
+                <Button size="icon-xs" variant="ghost" title="Сдвинуть вправо" :disabled="index === columnOrder.length - 1" @click="moveColumn(key, 1)">→</Button>
+              </div>
+            </div>
+            <Field orientation="horizontal">
+              <Checkbox id="compact-dictionary-rows" :model-value="compact" @update:model-value="setCompact" />
+              <FieldLabel for="compact-dictionary-rows" class="font-normal">Компактные строки</FieldLabel>
+            </Field>
+          </PopoverContent>
+        </Popover>
+        <Button variant="outline" size="sm" :disabled="loading || loadingMore" @click="refresh">
+          <HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />
+          Обновить
+        </Button>
+      </div>
     </header>
 
     <div v-if="loading" class="flex flex-col gap-1 p-1">
@@ -161,7 +258,7 @@ vscode.postMessage({ command: 'classObjectsReady' });
         <TableHeader class="sticky top-0 bg-background">
           <TableRow>
             <TableHead
-              v-for="column in result.columns"
+              v-for="column in activeColumns"
               :key="column.key"
               class="min-w-32 cursor-pointer whitespace-nowrap"
               :title="`${column.attributeName} · ${column.key}`"
@@ -178,11 +275,11 @@ vscode.postMessage({ command: 'classObjectsReady' });
 			:data-entity-id="String(row.ID ?? row.id ?? '')"
 			:data-row-selected="revealedObjectId === String(row.ID ?? row.id ?? '') ? '' : undefined"
 			:aria-selected="revealedObjectId === String(row.ID ?? row.id ?? '') ? 'true' : undefined"
-			:class="canCreateSpu ? 'cursor-pointer' : undefined"
+			:class="cn(compact ? 'h-7' : 'h-10', canCreateSpu && 'cursor-pointer')"
 			:title="canCreateSpu ? 'Двойной щелчок — редактировать СПУ' : undefined"
 			@dblclick="editSpu(row)"
 		  >
-            <TableCell v-for="column in result.columns" :key="column.key" class="max-w-80 whitespace-nowrap" :title="display(row[column.key])">
+            <TableCell v-for="column in activeColumns" :key="column.key" class="max-w-80 whitespace-nowrap" :title="display(row[column.key])">
               {{ display(row[column.key]) }}
             </TableCell>
           </TableRow>

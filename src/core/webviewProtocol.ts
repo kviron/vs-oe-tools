@@ -1,4 +1,4 @@
-import type { AttributeDetails, AttributeEditorOptions, ClassAttribute, ClassAttributeDraft, ClassDetails, ClassMethod, ClassObjectsResult, ClassProperty, ClassTreeRow, ObjectViewResult, PropertyDetails } from '../features/classes/models';
+import type { AttributeDetails, AttributeEditorOptions, ClassAttribute, ClassAttributeDraft, ClassDetails, ClassMethod, ClassObjectColumnSettings, ClassObjectsResult, ClassProperty, ClassTreeRow, ObjectViewResult, PropertyDetails } from '../features/classes/models';
 import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 import type { PackageSyncIssue, PackageSyncItem } from '../features/package-sync/models';
@@ -6,6 +6,7 @@ import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSea
 import type { ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../features/production-tasks/models';
 import type { CreatedSpu, SpuDraft, SpuEditorOptions } from '../features/spu/models';
 import type { SqlCompletionSchema } from '../features/sql-executor/sqlCompletionSchema';
+import type { PackageExplorerNode, PackageFileContent, PackageSummary } from '../features/packages/models';
 
 export type ProductionTasksWebviewMessage =
 	| { command: 'productionTasksReady' }
@@ -26,6 +27,7 @@ export type ProductionTaskDetailsWebviewMessage =
 	| { command: 'loadProductionTaskAttachments' }
 	| { command: 'openProductionTaskInClient'; id: number }
 	| { command: 'openProductionTaskReference'; id: number }
+	| { command: 'loadProductionTaskPreview'; id: number }
 	| { command: 'openDatabaseObjectById'; id: number; target?: 'explorer' | 'object' }
 	| { command: 'loadDatabaseObjectPreview'; id: number }
 	| { command: 'loadProductionTaskHistory' }
@@ -42,11 +44,17 @@ export type ProductionTaskDetailsHostMessage =
 	| { command: 'productionTaskHistoryLoaded'; history: ProductionTaskHistoryEntry[] }
 	| { command: 'productionTaskHistoryFailed'; message: string }
 	| { command: 'databaseObjectPreviewLoaded'; id: number; object?: DatabaseObjectSearchResult }
-	| { command: 'databaseObjectPreviewFailed'; id: number; message: string };
+	| { command: 'databaseObjectPreviewFailed'; id: number; message: string }
+	| { command: 'productionTaskPreviewLoaded'; id: number; task?: ProductionTaskSummary }
+	| { command: 'productionTaskPreviewFailed'; id: number; message: string };
 
 export type ExplorerWebviewMessage =
 	| { command: 'explorerReady' }
-	| { command: 'explorerStateChanged'; activeTab: string; selectedClassId?: number }
+	| { command: 'explorerStateChanged'; activeTab: string; selectedClassId?: number; selectedPackageId?: number }
+	| { command: 'loadPackages' }
+	| { command: 'loadPackageTree'; packageId: number }
+	| { command: 'loadPackageFileObjects'; fileId: number }
+	| { command: 'openPackageContent'; fileId: number; objectId?: number }
 	| { command: 'loadClasses' }
 	| { command: 'searchDatabaseObjects'; query: string }
 	| { command: 'openDatabaseObject'; id: number; kind: DatabaseObjectKind; pinned: boolean }
@@ -63,11 +71,19 @@ export type ExplorerWebviewMessage =
 	| OpenClientEntityMessage;
 
 export type ExplorerHostMessage =
-	| { command: 'restoreExplorerState'; activeTab: string; selectedClassId?: number }
+	| { command: 'restoreExplorerState'; activeTab: string; selectedClassId?: number; selectedPackageId?: number }
+	| { command: 'packagesLoaded'; packages: PackageSummary[] }
+	| { command: 'packagesLoadFailed'; message: string }
+	| { command: 'packageTreeLoading'; packageId: number }
+	| { command: 'packageTreeLoaded'; packageId: number; tree: PackageExplorerNode }
+	| { command: 'packageTreeLoadFailed'; packageId: number; message: string }
+	| { command: 'packageFileObjectsLoaded'; fileId: number; objects: PackageFileContent['objects'] }
+	| { command: 'packageFileObjectsLoadFailed'; fileId: number; message: string }
 	| { command: 'classesLoaded'; classes: ClassTreeRow[] }
 	| { command: 'classesLoadFailed'; message: string }
 	| { command: 'revealClass'; id: number }
 	| { command: 'resetClasses' }
+	| { command: 'resetPackages' }
 	| { command: 'databaseObjectsLoading'; query: string }
 	| { command: 'databaseObjectsLoaded'; query: string; objects: DatabaseObjectSearchResult[] }
 	| { command: 'databaseObjectsLoadFailed'; query: string; message: string };
@@ -136,6 +152,7 @@ export type ClassObjectsWebviewMessage =
 	| { command: 'classObjectsReady' }
 	| { command: 'refreshClassObjects' }
 	| { command: 'loadMoreClassObjects'; offset: number }
+	| { command: 'saveClassObjectColumnSettings'; settings: ClassObjectColumnSettings }
 	| { command: 'createSpu'; preferredPackageName?: string }
 	| { command: 'viewObject'; id: number }
 	| { command: 'viewEntityProperties'; id: number }
@@ -144,7 +161,7 @@ export type ClassObjectsWebviewMessage =
 	| OpenClientEntityMessage;
 export type ClassObjectsHostMessage =
 	| { command: 'classObjectsLoading'; append: boolean }
-	| { command: 'classObjectsLoaded'; result: ClassObjectsResult; append: boolean }
+	| { command: 'classObjectsLoaded'; result: ClassObjectsResult; append: boolean; columnSettings?: ClassObjectColumnSettings }
 	| { command: 'revealClassObject'; objectId: number }
 	| { command: 'classObjectsLoadFailed'; message: string };
 export type SpuEditorWebviewMessage =
@@ -166,6 +183,17 @@ export type ObjectViewHostMessage =
 	| { command: 'objectViewLoading' }
 	| { command: 'objectViewLoaded'; result: ObjectViewResult }
 	| { command: 'objectViewLoadFailed'; message: string };
+export type PackageContentWebviewMessage =
+	| { command: 'packageContentReady' }
+	| { command: 'refreshPackageContent' }
+	| { command: 'openPackageContentObject'; id: number; kind: DatabaseObjectKind }
+	| CopyTableCellsMessage
+	| TableSelectionDebugMessage;
+export type PackageContentHostMessage =
+	| { command: 'packageContentLoading' }
+	| { command: 'packageContentLoaded'; result: PackageFileContent; selectedObjectId?: number }
+	| { command: 'revealPackageContentObject'; objectId: number }
+	| { command: 'packageContentLoadFailed'; message: string };
 export type SqlMonitorWebviewMessage =
 	| { command: 'sqlMonitorReady' }
 	| { command: 'clearSqlMonitor' }
@@ -240,7 +268,7 @@ export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
 
 export function isProductionTasksWebviewMessage(message: unknown): message is ProductionTasksWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
@@ -269,7 +297,7 @@ export function isProductionTaskDetailsWebviewMessage(message: unknown): message
 		|| message.command === 'loadProductionTaskHistory'
 		|| (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
 		|| (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
-		|| ((message.command === 'openProductionTaskInClient' || message.command === 'openProductionTaskReference' || message.command === 'loadDatabaseObjectPreview')
+		|| ((message.command === 'openProductionTaskInClient' || message.command === 'openProductionTaskReference' || message.command === 'loadProductionTaskPreview' || message.command === 'loadDatabaseObjectPreview')
 			&& 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0);
 }
 
@@ -411,6 +439,13 @@ export function isClassObjectsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'createSpu') {
 		return !('preferredPackageName' in message) || message.preferredPackageName === undefined || typeof message.preferredPackageName === 'string';
 	}
+	if (message.command === 'saveClassObjectColumnSettings') {
+		if (!('settings' in message) || typeof message.settings !== 'object' || message.settings === null) { return false; }
+		const settings = message.settings;
+		return 'visible' in settings && Array.isArray(settings.visible) && settings.visible.every(value => typeof value === 'string')
+			&& 'order' in settings && Array.isArray(settings.order) && settings.order.every(value => typeof value === 'string')
+			&& 'compact' in settings && typeof settings.compact === 'boolean';
+	}
 	return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects'
 		|| isCopyTableCellsMessage(message) || isCopyEntityIdMessage(message) || isOpenClientEntityMessage(message);
 }
@@ -443,12 +478,30 @@ export function isObjectViewWebviewMessage(message: unknown): message is ObjectV
 		|| isTableSelectionDebugMessage(message);
 }
 
+export function isPackageContentWebviewMessage(message: unknown): message is PackageContentWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
+	return message.command === 'packageContentReady'
+		|| message.command === 'refreshPackageContent'
+		|| isCopyTableCellsMessage(message)
+		|| isTableSelectionDebugMessage(message)
+		|| (message.command === 'openPackageContentObject' && 'id' in message && typeof message.id === 'number'
+			&& 'kind' in message && ['class', 'method', 'attribute', 'lifecycle', 'journal', 'list', 'object'].includes(String(message.kind)));
+}
+
 export function isExplorerWebviewMessage(message: unknown): message is ExplorerWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
 		return false;
 	}
 	if (message.command === 'loadClasses') {
 		return true;
+	}
+	if (message.command === 'loadPackages') { return true; }
+	if (message.command === 'loadPackageTree') {
+		return 'packageId' in message && typeof message.packageId === 'number' && Number.isSafeInteger(message.packageId);
+	}
+	if (message.command === 'loadPackageFileObjects' || message.command === 'openPackageContent') {
+		return 'fileId' in message && typeof message.fileId === 'number' && Number.isSafeInteger(message.fileId)
+			&& (message.command !== 'openPackageContent' || !('objectId' in message) || message.objectId === undefined || (typeof message.objectId === 'number' && Number.isSafeInteger(message.objectId)));
 	}
 	if (message.command === 'searchDatabaseObjects') {
 		return 'query' in message && typeof message.query === 'string';
@@ -463,7 +516,8 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	}
 	if (message.command === 'explorerStateChanged') {
 		return 'activeTab' in message && typeof message.activeTab === 'string'
-			&& (!('selectedClassId' in message) || message.selectedClassId === undefined || typeof message.selectedClassId === 'number');
+			&& (!('selectedClassId' in message) || message.selectedClassId === undefined || typeof message.selectedClassId === 'number')
+			&& (!('selectedPackageId' in message) || message.selectedPackageId === undefined || typeof message.selectedPackageId === 'number');
 	}
 	if (message.command === 'selectExplorerEntity') {
 		return !('id' in message) || message.id === undefined || typeof message.id === 'number';

@@ -2,20 +2,33 @@
 import type { ExplorerHostMessage } from '../../../src/core/webviewProtocol';
 import type { ClassTreeRow } from '../../../src/features/classes/models';
 import type { DatabaseObjectSearchResult } from '../../../src/core/objectSearch';
+import type { PackageContentNode, PackageExplorerNode, PackageSummary } from '../../../src/features/packages/models';
 import { computed, nextTick, ref, watch } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 import ClassTreeNode, { type TreeNode } from './ClassTreeNode.vue';
+import PackageTreeNode from './PackageTreeNode.vue';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
-import { BrowserIcon } from '@hugeicons/core-free-icons';
+import { ArrowDown01Icon, BrowserIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 
 const activeTab = ref('packages');
+const packages = ref<PackageSummary[]>([]);
+const packagesLoading = ref(false);
+const packagesLoaded = ref(false);
+const packagesError = ref('');
+const selectedPackageId = ref('');
+const packageTree = ref<PackageExplorerNode>();
+const packageTreeLoading = ref(false);
+const packageTreeError = ref('');
+const loadingFileId = ref<number>();
 const classes = ref<ClassTreeRow[]>([]);
 const loading = ref(false);
 const loaded = ref(false);
@@ -30,6 +43,7 @@ const objectSearchLoading = ref(false);
 const objectSearchError = ref('');
 let searchClickTimer: number | undefined;
 let objectSearchTimer: number | undefined;
+const selectedPackageName = computed(() => packages.value.find(item => item.id === Number(selectedPackageId.value))?.name ?? 'Выберите пакет');
 
 const normalizedSearchQuery = computed(() => searchQuery.value.trim());
 const searchResults = computed(() => {
@@ -81,9 +95,60 @@ function loadClasses(): void {
   vscode.postMessage({ command: 'loadClasses' });
 }
 
+function loadPackages(): void {
+  if (packagesLoading.value || packagesLoaded.value) return;
+  packagesLoading.value = true;
+  packagesError.value = '';
+  vscode.postMessage({ command: 'loadPackages' });
+}
+
+function loadSelectedPackage(): void {
+  const packageId = Number(selectedPackageId.value);
+  packageTree.value = undefined;
+  packageTreeError.value = '';
+  persistExplorerState();
+  if (!Number.isSafeInteger(packageId)) return;
+  packageTreeLoading.value = true;
+  vscode.postMessage({ command: 'loadPackageTree', packageId });
+}
+
+function selectPackage(packageId: number): void {
+  if (selectedPackageId.value === String(packageId)) return;
+  selectedPackageId.value = String(packageId);
+  loadSelectedPackage();
+}
+
+function loadPackageFile(fileId: number): void {
+  if (loadingFileId.value !== undefined) return;
+  loadingFileId.value = fileId;
+  vscode.postMessage({ command: 'loadPackageFileObjects', fileId });
+}
+
+function openPackageContent(fileId: number, objectId?: number): void {
+  vscode.postMessage({ command: 'openPackageContent', fileId, objectId });
+}
+
+function attachFileObjects(node: PackageExplorerNode, fileId: number, objects: PackageContentNode[]): boolean {
+  if (node.kind === 'file' && node.fileId === fileId) {
+    node.children = objects.map(object => objectNode(object, fileId));
+    node.hasChildren = node.children.length > 0;
+    return true;
+  }
+  return node.children.some(child => attachFileObjects(child, fileId, objects));
+}
+
+function objectNode(node: PackageContentNode, fileId: number): PackageExplorerNode {
+  return {
+    key: `object:${node.id}`, id: node.id, objectId: node.id, fileId,
+    name: node.name, kind: 'object', objectKind: node.kind, className: node.className,
+    hasChildren: node.children.length > 0, children: node.children.map(child => objectNode(child, fileId)),
+  };
+}
+
 function onTabChange(value: string | number): void {
   activeTab.value = String(value);
   persistExplorerState();
+  if (activeTab.value === 'packages') loadPackages();
   if (activeTab.value === 'classes') loadClasses();
 }
 
@@ -206,8 +271,42 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
   } else if (message.command === 'restoreExplorerState') {
     activeTab.value = message.activeTab;
     selectedClassId.value = message.selectedClassId;
+    selectedPackageId.value = message.selectedPackageId === undefined ? '' : String(message.selectedPackageId);
+    if (activeTab.value === 'packages') loadPackages();
     if (activeTab.value === 'classes') loadClasses();
     if (message.selectedClassId !== undefined) revealClassId.value = message.selectedClassId;
+  } else if (message.command === 'packagesLoaded') {
+    packages.value = message.packages;
+    packagesLoading.value = false;
+    packagesLoaded.value = true;
+    if (!selectedPackageId.value && packages.value.length) {
+      selectedPackageId.value = String(packages.value.find(item => item.name.toLocaleLowerCase('ru') === 'консультант')?.id ?? packages.value[0]?.id ?? '');
+    }
+    if (selectedPackageId.value) loadSelectedPackage();
+  } else if (message.command === 'packagesLoadFailed') {
+    packagesLoading.value = false;
+    packagesError.value = message.message;
+  } else if (message.command === 'resetPackages') {
+    packages.value = [];
+    packagesLoaded.value = false;
+    packageTree.value = undefined;
+    selectedPackageId.value = '';
+    if (activeTab.value === 'packages') loadPackages();
+  } else if (message.command === 'packageTreeLoading') {
+    packageTreeLoading.value = true;
+    packageTreeError.value = '';
+  } else if (message.command === 'packageTreeLoaded') {
+    if (message.packageId === Number(selectedPackageId.value)) packageTree.value = message.tree;
+    packageTreeLoading.value = false;
+  } else if (message.command === 'packageTreeLoadFailed') {
+    if (message.packageId === Number(selectedPackageId.value)) packageTreeError.value = message.message;
+    packageTreeLoading.value = false;
+  } else if (message.command === 'packageFileObjectsLoaded') {
+    if (packageTree.value) attachFileObjects(packageTree.value, message.fileId, message.objects);
+    loadingFileId.value = undefined;
+  } else if (message.command === 'packageFileObjectsLoadFailed') {
+    packageTreeError.value = message.message;
+    loadingFileId.value = undefined;
   } else if (message.command === 'revealClass') {
     activeTab.value = 'classes';
     selectedClassId.value = message.id;
@@ -249,7 +348,7 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
 });
 
 function persistExplorerState(): void {
-  vscode.postMessage({ command: 'explorerStateChanged', activeTab: activeTab.value, selectedClassId: selectedClassId.value });
+  vscode.postMessage({ command: 'explorerStateChanged', activeTab: activeTab.value, selectedClassId: selectedClassId.value, selectedPackageId: selectedPackageId.value ? Number(selectedPackageId.value) : undefined });
 }
 
 vscode.postMessage({ command: 'explorerReady' });
@@ -262,8 +361,28 @@ vscode.postMessage({ command: 'explorerReady' });
       <TabsTrigger value="objects" class="flex-1">Объекты</TabsTrigger>
       <TabsTrigger value="classes" class="flex-1">Классы</TabsTrigger>
     </TabsList>
-    <TabsContent value="packages" class="min-h-0 overflow-auto">
-      <Empty class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Пакеты</EmptyTitle><EmptyDescription>Данные пакетов пока не загружены.</EmptyDescription></EmptyHeader></Empty>
+    <TabsContent value="packages" class="min-h-0 min-w-0 overflow-hidden">
+      <div class="flex h-full min-h-0 min-w-0 flex-col">
+        <div class="shrink-0 border-b bg-background p-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="outline" size="sm" class="h-7 w-full justify-between px-2 font-normal" :disabled="packagesLoading" aria-label="Выбрать пакет">
+                <span class="truncate">{{ selectedPackageName }}</span><HugeiconsIcon :icon="ArrowDown01Icon" data-icon="inline-end" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="max-h-96" align="start">
+              <DropdownMenuRadioGroup :model-value="selectedPackageId">
+                <DropdownMenuRadioItem v-for="item in packages" :key="item.id" :value="String(item.id)" @select="selectPackage(item.id)">{{ item.name }}</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div v-if="packagesLoading || packageTreeLoading" class="flex flex-col gap-1 p-1"><Skeleton v-for="index in 8" :key="index" class="h-7 w-full" /></div>
+        <Empty v-else-if="packagesError || packageTreeError" class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Не удалось загрузить пакет</EmptyTitle><EmptyDescription>{{ packagesError || packageTreeError }}</EmptyDescription></EmptyHeader></Empty>
+        <Empty v-else-if="packagesLoaded && packages.length === 0" class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Пакеты не найдены</EmptyTitle><EmptyDescription>В базе нет доступных пакетов.</EmptyDescription></EmptyHeader></Empty>
+        <div v-else-if="packageTree" class="min-h-0 min-w-0 flex-1 overflow-auto p-1"><div class="w-max min-w-full"><PackageTreeNode :node="packageTree" :loading-file-id="loadingFileId" initially-open @load-file="loadPackageFile" @open-content="openPackageContent" /></div></div>
+        <Empty v-else class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Выберите пакет</EmptyTitle><EmptyDescription>Его папки, файлы и вложенные объекты появятся в дереве.</EmptyDescription></EmptyHeader></Empty>
+      </div>
     </TabsContent>
     <TabsContent value="objects" class="min-h-0 overflow-hidden">
       <div class="flex h-full min-h-0 flex-col">

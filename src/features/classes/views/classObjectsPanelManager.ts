@@ -4,6 +4,7 @@ import { classObjectPageSize, getClassObjects } from '../../../infrastructure/da
 import { openObjectView } from './objectViewPanelManager';
 import { openEntityProperties } from './entityPropertiesPanelManager';
 import { openSpuEditor } from '../../spu/spuEditorPanel';
+import { classObjectColumnSettingsKey, normalizeClassObjectColumnSettings } from '../classObjectColumnSettings';
 
 interface ClassObjectsPanelController {
 	panel: vscode.WebviewPanel;
@@ -36,8 +37,12 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 		await panel.webview.postMessage({ command: 'classObjectsLoading', append } satisfies ClassObjectsHostMessage);
 		try {
 			const result = await getClassObjects(classId, offset, classObjectPageSize, targetObjectId);
+			const columnSettings = append ? undefined : normalizeClassObjectColumnSettings(
+				result.columns.map(column => column.key),
+				context.workspaceState.get(classObjectColumnSettingsKey(classId)),
+			);
 			panel.title = `Справочник — ${result.className}`;
-			await panel.webview.postMessage({ command: 'classObjectsLoaded', result, append } satisfies ClassObjectsHostMessage);
+			await panel.webview.postMessage({ command: 'classObjectsLoaded', result, append, columnSettings } satisfies ClassObjectsHostMessage);
 			if (targetObjectId !== undefined) {
 				await panel.webview.postMessage({ command: 'revealClassObject', objectId: targetObjectId } satisfies ClassObjectsHostMessage);
 			}
@@ -92,6 +97,12 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 		if (message.command === 'createSpu') {
 			if (classId !== 12609684) { return; }
 			await openSpuEditor(context, { preferredPackageName: message.preferredPackageName }, () => load(0));
+			return;
+		}
+		if (message.command === 'saveClassObjectColumnSettings') {
+			const availableKeys = message.settings.order;
+			const settings = normalizeClassObjectColumnSettings(availableKeys, message.settings);
+			await context.workspaceState.update(classObjectColumnSettingsKey(classId), settings);
 			return;
 		}
 		if (message.command === 'classObjectsReady') {
