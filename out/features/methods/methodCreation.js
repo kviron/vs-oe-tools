@@ -39,6 +39,7 @@ exports.validateClassMethodDraft = validateClassMethodDraft;
 exports.serializeMethodCreationAuditValues = serializeMethodCreationAuditValues;
 exports.encodeMethodCreationAuditValues = encodeMethodCreationAuditValues;
 const iconv = __importStar(require("iconv-lite"));
+const methodSignature_1 = require("../../infrastructure/database/methodSignature");
 const changeValuesSerialization_1 = require("../../infrastructure/database/changeValuesSerialization");
 exports.methodClassId = 5;
 exports.defaultMethodVisibilityId = 12450286;
@@ -46,11 +47,12 @@ exports.interpretedMethodType = 3;
 exports.defaultMethodKind = 0;
 exports.defaultMethodCode = 'proc()\r\nbegin\r\n\r\nend;\r\n';
 function normalizeClassMethodDraft(draft) {
+    const code = draft.code.replace(/\r?\n/g, '\r\n');
     return {
         ...draft,
         name: draft.name.trim(),
-        signature: draft.signature.trim(),
-        code: draft.code.replace(/\r?\n/g, '\r\n'),
+        signature: (0, methodSignature_1.extractMethodSignature)(code) ?? draft.signature.trim(),
+        code,
     };
 }
 function validateClassMethodDraft(input) {
@@ -79,6 +81,9 @@ function validateClassMethodDraft(input) {
     if (!draft.code.trim()) {
         throw new Error('Код метода не должен быть пустым.');
     }
+    if (!(0, methodSignature_1.extractMethodSignature)(draft.code)) {
+        throw new Error('Код метода должен начинаться с анонимного proc, procedure, func или function.');
+    }
     assertWindows1251(draft.name, 'Имя');
     assertWindows1251(draft.signature, 'Сигнатура');
     assertWindows1251(draft.code, 'Код');
@@ -93,8 +98,8 @@ function serializeMethodCreationAuditValues(input) {
         (0, changeValuesSerialization_1.serializeChangeValues)(draft.code, draft.ownerClassId, draft.signature),
     ].join(',');
 }
-function encodeMethodCreationAuditValues(draft) {
-    return iconv.encode(serializeMethodCreationAuditValues(draft), 'win1251');
+function encodeMethodCreationAuditValues(input) {
+    return iconv.encode(serializeMethodCreationAuditValues(input), 'win1251');
 }
 function auditPair(attributeId, value) {
     if (typeof value === 'number') {

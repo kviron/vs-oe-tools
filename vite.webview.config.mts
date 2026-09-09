@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => {
-  const entryName = mode === 'class-details' || mode === 'class-objects' || mode === 'object-view' || mode === 'package-content' || mode === 'attribute-details' || mode === 'property-details' || mode === 'entity-properties' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'settings' || mode === 'production-tasks' || mode === 'production-task-details' || mode === 'spu-editor' ? mode : 'explorer';
+  const entryName = mode === 'class-details' || mode === 'class-objects' || mode === 'object-view' || mode === 'package-content' || mode === 'attribute-details' || mode === 'property-details' || mode === 'entity-properties' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'svn-conflict' || mode === 'settings' || mode === 'production-tasks' || mode === 'production-task-details' || mode === 'spu-editor' ? mode : 'explorer';
   return {
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
@@ -45,6 +45,8 @@ export default defineConfig(({ mode }) => {
               ? 'VcVeToolsCodeHistory'
             : entryName === 'package-sync'
               ? 'VcVeToolsPackageSync'
+            : entryName === 'svn-conflict'
+              ? 'VcVeToolsSvnConflict'
             : entryName === 'settings'
               ? 'VcVeToolsSettings'
             : entryName === 'production-tasks'

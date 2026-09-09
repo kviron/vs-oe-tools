@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import type { ProductionTaskDetailsHostMessage } from '../../core/webviewProtocol';
 import { isProductionTaskDetailsWebviewMessage } from '../../core/webviewProtocol';
 import type { DatabaseObjectSearchResult } from '../../core/objectSearch';
-import type { ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from './models';
+import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from './models';
 import { productionTaskPublicUrl } from './productionTaskPresentation';
 
 const panels = new Map<number, vscode.WebviewPanel>();
@@ -13,6 +13,7 @@ export function openProductionTaskDetails(
 	findObjectById: (id: number) => Promise<DatabaseObjectSearchResult | undefined>,
 	loadTaskReference: (reference: number) => Promise<ProductionTaskSummary | undefined>,
 	openTaskReference: (task: ProductionTaskSummary) => void,
+	loadActions: () => Promise<ProductionTaskAction[]>,
 	loadAttachments: () => Promise<ProductionTaskAttachment[]>,
 	loadHistory: () => Promise<ProductionTaskHistoryEntry[]>,
 ): void {
@@ -34,6 +35,19 @@ export function openProductionTaskDetails(
 		}
 		if (message.command === 'copyTableCells') {
 			await vscode.env.clipboard.writeText(message.text);
+			return;
+		}
+		if (message.command === 'loadProductionTaskActions') {
+			await panel.webview.postMessage({ command: 'productionTaskActionsLoading' } satisfies ProductionTaskDetailsHostMessage);
+			try {
+				const actions = await loadActions();
+				await panel.webview.postMessage({ command: 'productionTaskActionsLoaded', actions } satisfies ProductionTaskDetailsHostMessage);
+			} catch (error) {
+				await panel.webview.postMessage({
+					command: 'productionTaskActionsFailed',
+					message: error instanceof Error ? error.message : String(error),
+				} satisfies ProductionTaskDetailsHostMessage);
+			}
 			return;
 		}
 		if (message.command === 'tableSelectionDebug') { return; }

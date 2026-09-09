@@ -51,7 +51,11 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 		let localContent: string | undefined;
 		if (bytes) {
 			const localMd5 = createHash('md5').update(bytes).digest('hex').toUpperCase();
-			if (!databaseMd5) {throw new Error(`У файла ID ${item.objectId} отсутствует базовый MD5, но локальный файл уже существует.`);}
+			if (!databaseMd5) {
+				// The package editor keeps the previous working-copy file when the database file is deleted.
+				// Show that file on the left and an empty database version on the right.
+				return { content: '', addedObjectIds: [] };
+			}
 			if (databaseMd5 !== localMd5) {throw new Error(`Локальный PKF не совпадает с базовой версией БД (MD5 ${localMd5}, ожидался ${databaseMd5}).`);}
 			source = iconv.decode(bytes, 'win1251');
 		} else {
@@ -68,10 +72,9 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 		const missingRows = abstractResult.rows.filter(row => !localIds.has(Number(row.id)));
 		const hasMetaObjects = abstractResult.rows.some(row => META_CLASS_IDS.has(Number(row.classid)));
 		if (hasMetaObjects) {
-			if (localContent === undefined) {throw new Error('Изменение существующего meta-PKF пока требует резервного сравнения.');}
-			if (abstractResult.rows.some(row => !META_CLASS_IDS.has(Number(row.classid)))) {throw new Error('Новый meta-PKF содержит смешанные конструкции, которые пока нельзя безопасно сериализовать.');}
+			if (abstractResult.rows.some(row => !META_CLASS_IDS.has(Number(row.classid)))) {throw new Error('Meta-PKF содержит смешанные конструкции, которые пока нельзя безопасно сериализовать.');}
 			const content = await loadMetaPkf(client, options.database, item.objectId);
-			return { content, addedObjectIds: abstractResult.rows.map(row => Number(row.id)), localContent };
+			return { content, addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
 		}
 		const objects = await buildDatabaseObjects(client, options.database, abstractResult.rows);
 		const databaseSource = createEmptyPkf(Number(fileRow.isautogroup) !== 0 ? fileRow.autogroup : undefined);

@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict';
 import iconv from 'iconv-lite';
 import { createInitialPacket, createReadonlyQueryPacket, expectedPacketLength, extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId, parseChallenge, parseMemoryDataPacket } from '../features/production-tasks/oenpProtocol';
-import { createLoginParameters, decodeProductionText, normalizeProductionDate, productionTaskAttachmentsSql, productionTaskHistorySql, productionTaskReferenceSql, productionTaskSql } from '../features/production-tasks/productionTasksRepository';
+import { createLoginParameters, decodeProductionText, normalizeProductionDate, productionTaskActionsSql, productionTaskAttachmentsSql, productionTaskHistorySql, productionTaskReferenceSql, productionTaskSearchSql, productionTaskSql } from '../features/production-tasks/productionTasksRepository';
 
 suite('OENP protocol', () => {
 	test('builds a framed read-only query', () => {
@@ -25,6 +25,10 @@ suite('OENP protocol', () => {
 		assert.match(productionTaskSql, /FROM StructureActivity SA WHERE SA\.ID = T0\.KindActivity/);
 		assert.match(productionTaskSql, /FROM HistoryLC H WHERE H\.ID = T0\.LCLastActionID/);
 		assert.match(productionTaskSql, /CAST\(\(SELECT COUNT\(SF\.ID\)[\s\S]+AS VARCHAR\(64\)\), '0'\) AS attachmentcount/);
+		assert.match(productionTaskSql, /P\.ID = T0\.RespPerson\), ''\) AS responsibleuser/);
+		assert.equal(productionTaskSql.includes('%CurPerson'), false);
+		assert.equal(productionTaskSql.includes('LIMIT 250'), false);
+		assert.match(productionTaskSql, /ORDER BY T0\.CreDate DESC, T0\.ID DESC$/);
 	});
 
 	test('builds a bounded attachment query for the exact task', () => {
@@ -47,12 +51,38 @@ suite('OENP protocol', () => {
 		assert.throws(() => productionTaskHistorySql(-1), /положительным целым/);
 	});
 
+	test('builds a bounded read-only action query for the current task state', () => {
+		const sql = productionTaskActionsSql(934593105);
+		assert.match(sql, /FROM WorkDoc T0/);
+		assert.match(sql, /R\.ObjID = T0\.LCStateID AND R\.AttrID = 12956168/);
+		assert.match(sql, /JOIN ActionLC A ON A\.ID = R\.SeniorID/);
+		assert.match(sql, /WHERE T0\.ID = 934593105/);
+		assert.match(sql, /LIMIT 100$/);
+		assert.throws(() => productionTaskActionsSql(0), /положительным целым/);
+	});
+
 	test('builds a bounded task preview query by number or ID', () => {
 		const sql = productionTaskReferenceSql(88605);
 		assert.match(sql, /FROM WorkDoc T0/);
 		assert.match(sql, /WHERE T0\.DNumber = 88605 OR T0\.ID = 88605/);
 		assert.match(sql, /LIMIT 1$/);
 		assert.throws(() => productionTaskReferenceSql(0), /положительным целым/);
+	});
+
+	test('searches the complete production task table by exact ID or number', () => {
+		const sql = productionTaskSearchSql('934593105', 5);
+		assert.match(sql, /FROM WorkDoc T0/);
+		assert.match(sql, /WHERE T0\.ID = 934593105 OR T0\.DNumber = 934593105/);
+		assert.match(sql, /LIMIT 5$/);
+		assert.equal(sql.includes('RespPerson = %CurPerson'), false);
+	});
+
+	test('searches production tasks by partial title and escapes quotes', () => {
+		const sql = productionTaskSearchSql("  Связанные объекты client's  ");
+		assert.match(sql, /T0\.Description ILIKE '%Связанные объекты client''s%'/);
+		assert.match(sql, /LIMIT 10$/);
+		assert.throws(() => productionTaskSearchSql('   '), /Укажите ID/);
+		assert.throws(() => productionTaskSearchSql('test', 26), /от 1 до 25/);
 	});
 
 	test('hides the zero Delphi date', () => {

@@ -45,18 +45,20 @@ suite('Class method creation', () => {
         signature: '',
         code: 'proc()\r\nbegin\r\n\r\nend;',
     };
-    test('serializes the exact native creation audit contract', () => {
-        assert.equal((0, methodCreation_1.serializeMethodCreationAuditValues)(captured), '103,acDeleteObjectExecute,71,12450286,123,3,1800,0,69,,127,"proc()\r\nbegin\r\n\r\nend;",102,3200139');
+    test('serializes the native creation audit contract and derives Signature from Code', () => {
+        assert.equal((0, methodCreation_1.serializeMethodCreationAuditValues)(captured), '103,acDeleteObjectExecute,71,12450286,123,3,1800,0,69,"()",127,"proc()\r\nbegin\r\n\r\nend;",102,3200139');
     });
     test('normalizes line endings and accepts the default interpreted method', () => {
         const normalized = (0, methodCreation_1.normalizeClassMethodDraft)({ ...captured, name: ' acTest ', code: 'proc()\nbegin\nend;' });
         assert.equal(normalized.name, 'acTest');
         assert.equal(normalized.code, 'proc()\r\nbegin\r\nend;');
+        assert.equal(normalized.signature, '()');
         assert.doesNotThrow(() => (0, methodCreation_1.validateClassMethodDraft)({ ...captured, code: methodCreation_1.defaultMethodCode }));
     });
     test('rejects unsupported method types and invalid names', () => {
         assert.throws(() => (0, methodCreation_1.validateClassMethodDraft)({ ...captured, name: 'bad name' }), /Имя метода/);
         assert.throws(() => (0, methodCreation_1.validateClassMethodDraft)({ ...captured, methodType: 1 }), /интерпретируемых/);
+        assert.throws(() => (0, methodCreation_1.validateClassMethodDraft)({ ...captured, code: 'begin\r\nend;' }), /анонимного/);
     });
 });
 //# sourceMappingURL=methodCreation.test.js.map

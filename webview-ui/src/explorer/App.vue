@@ -36,16 +36,20 @@ const error = ref('');
 const selectedClassId = ref<number>();
 const explorerActive = ref(document.hasFocus());
 const revealClassId = ref<number>();
-const searchQuery = ref('');
+const debouncedSearchQuery = ref('');
+const classSearchInput = ref<{ $el?: HTMLInputElement }>();
 const objectSearchQuery = ref('');
 const objectSearchResults = ref<DatabaseObjectSearchResult[]>([]);
 const objectSearchLoading = ref(false);
 const objectSearchError = ref('');
 let searchClickTimer: number | undefined;
+let classSearchTimer: number | undefined;
 let objectSearchTimer: number | undefined;
+let classSearchInputValue = '';
+const searchDebounceMs = 600;
 const selectedPackageName = computed(() => packages.value.find(item => item.id === Number(selectedPackageId.value))?.name ?? 'Выберите пакет');
 
-const normalizedSearchQuery = computed(() => searchQuery.value.trim());
+const normalizedSearchQuery = computed(() => debouncedSearchQuery.value);
 const searchResults = computed(() => {
   const query = normalizedSearchQuery.value;
   if (!query) return [];
@@ -161,8 +165,39 @@ watch(objectSearchQuery, (value) => {
     objectSearchError.value = '';
     return;
   }
-  objectSearchTimer = window.setTimeout(() => vscode.postMessage({ command: 'searchDatabaseObjects', query }), 250);
+  objectSearchTimer = window.setTimeout(() => searchDatabaseObjects(query), searchDebounceMs);
 });
+
+function onClassSearchInput(event: Event): void {
+  if (!(event.target instanceof HTMLInputElement)) return;
+  window.clearTimeout(classSearchTimer);
+  classSearchInputValue = event.target.value.trim();
+  const query = classSearchInputValue;
+  if (!query) {
+    debouncedSearchQuery.value = '';
+    return;
+  }
+  classSearchTimer = window.setTimeout(() => { debouncedSearchQuery.value = query; }, searchDebounceMs);
+}
+
+function searchClasses(): void {
+  window.clearTimeout(classSearchTimer);
+  debouncedSearchQuery.value = classSearchInputValue;
+}
+
+function clearClassSearch(): void {
+  window.clearTimeout(classSearchTimer);
+  classSearchInputValue = '';
+  debouncedSearchQuery.value = '';
+  const input = classSearchInput.value?.$el;
+  if (input instanceof HTMLInputElement) input.value = '';
+}
+
+function searchDatabaseObjects(query = objectSearchQuery.value.trim()): void {
+  window.clearTimeout(objectSearchTimer);
+  if (!query) return;
+  vscode.postMessage({ command: 'searchDatabaseObjects', query });
+}
 
 function objectKindLabel(kind: DatabaseObjectSearchResult['kind']): string {
   if (kind === 'class') return 'Класс';
@@ -192,7 +227,7 @@ function selectSearchResult(item: ClassTreeRow, pinned: boolean): void {
     searchClickTimer = window.setTimeout(() => vscode.postMessage({ command: 'openClass', id: item.id, pinned: false }), 180);
     return;
   }
-  searchQuery.value = '';
+  clearClassSearch();
   revealClassId.value = undefined;
   void nextTick(async () => {
     revealClassId.value = item.id;
@@ -311,7 +346,7 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
     activeTab.value = 'classes';
     selectedClassId.value = message.id;
     persistExplorerState();
-    searchQuery.value = '';
+    clearClassSearch();
     vscode.postMessage({ command: 'selectExplorerEntity', id: message.id });
     if (!loaded.value) loadClasses();
     void nextTick(async () => {
@@ -387,7 +422,7 @@ vscode.postMessage({ command: 'explorerReady' });
     <TabsContent value="objects" class="min-h-0 overflow-hidden">
       <div class="flex h-full min-h-0 flex-col">
         <div class="shrink-0 border-b bg-background p-1">
-          <Input v-model="objectSearchQuery" type="search" class="h-7 bg-background dark:bg-background" placeholder="ID или имя любого объекта" aria-label="Поиск объекта по ID или имени" />
+          <Input v-model="objectSearchQuery" type="search" class="h-7 bg-background dark:bg-background" placeholder="ID или имя любого объекта" aria-label="Поиск объекта по ID или имени" @keydown.enter.prevent="searchDatabaseObjects()" />
         </div>
         <div v-if="objectSearchLoading" class="flex flex-col gap-1 p-1">
           <Skeleton v-for="index in 6" :key="index" class="h-10 w-full" />
@@ -440,11 +475,13 @@ vscode.postMessage({ command: 'explorerReady' });
       <template v-else-if="loaded">
         <div class="z-10 shrink-0 border-b bg-background p-1">
           <Input
-            v-model="searchQuery"
+            ref="classSearchInput"
             type="search"
             class="h-7 bg-background dark:bg-background"
             placeholder="Поиск класса по названию или ID"
             aria-label="Поиск класса по названию или ID"
+            @input="onClassSearchInput"
+            @keydown.enter.prevent="searchClasses"
           />
         </div>
         <div v-if="normalizedSearchQuery" class="flex min-h-0 flex-1 flex-col overflow-auto p-1">

@@ -11,7 +11,7 @@ import { databaseObjectSearchSelect, mapDatabaseObject, type DatabaseObjectSearc
 import { getNavigationInfoPath } from '../core/navigationInfo';
 import { selectVisibleProperties, type McpClassProperty } from './classProperties';
 import { loadRdboadmDatabases, rdboadmDatabaseOptions, type RdboadmDatabase } from '../infrastructure/configuration/rdboadmIni';
-import { readDatabaseSelection } from '../core/databaseSelection';
+import { getActiveDatabaseSelectionPath, readDatabaseSelection } from '../core/databaseSelection';
 import { classifySqlQuery } from '../features/sql-monitor/queryCategory';
 import { buildLifecycleMethodParameter, createLifecycleParameterMethodId, lifecycleFunctionsClassId } from '../features/lifecycle/lifecycleMethodExecution';
 
@@ -21,15 +21,15 @@ const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const z = require('zod');
 
-const workspacePath = readArgument('--workspace');
+let workspacePath = readArgument('--workspace');
 const databaseRole = readRoleArgument();
 let activeDatabaseProfile = readOptionalArgument('--database-profile');
 let lastDatabaseSelectionUpdate: string | undefined;
 let lastWorkspaceDatabaseProfile: string | undefined;
 const logsPath = readOptionalArgument('--logs');
 const sqlMonitorHistoryPath = readOptionalArgument('--sql-monitor-history');
-const databaseSelectionPath = readOptionalArgument('--database-selection');
-const navigationInfoPath = readOptionalArgument('--navigation-info') ?? getNavigationInfoPath(workspacePath);
+const databaseSelectionPath = readOptionalArgument('--database-selection') ?? getActiveDatabaseSelectionPath();
+const explicitNavigationInfoPath = readOptionalArgument('--navigation-info');
 const server = new McpServer(
 	{ name: 'vc-ve-tools-database', version: '0.22.0' },
 	{
@@ -41,10 +41,10 @@ const server = new McpServer(
 			'Use get_class_properties to inspect script properties declared by a class and optionally inherited from ancestors. Use get_property_details for the complete stored record.',
 			'Before update_method_source, read the complete current source with get_method_source. Send the complete replacement including its anonymous declaration wrapper, but never add the method card name.',
 			'Use create_class_attribute only for virtual attributes. It runs through the VS Code extension, allocates a developer ID, writes audit history, links the package file, updates the owning class version, and opens the created attribute card.',
-			'Use create_class_method to create an interpreted method. It allocates a developer ID, writes native-style audit history, links the owner package, updates the owning class version, and opens the new source in the editor.',
+			'Use create_class_method to create an interpreted method through the controlled VS Code database transaction. It mirrors the persistence side effects of Функции_Объект.СоздатьМетод (11148540), then opens the new source in the editor.',
 			'Use execute_lifecycle_method to run the allowlisted static Функции_ЖЦ.СоздатьПараметрИПраво method immediately through OEExecTask. Verify the active database first. This creates lifecycle metadata directly and does not create an SPU.',
 			'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
-			'Use get_production_tasks for the current employee task list and get_production_tasks_in_progress for complete cards of tasks currently in status В работе. These calls use the production OENP session held by the VS Code extension.',
+			'Use get_production_task to find a task across production by its ID, task number, or title and return the complete card. Use get_production_tasks only for the current employee compact task list and get_production_tasks_in_progress for complete cards currently in status В работе. These calls use the production OENP session held by the VS Code extension.',
 			'Use get_recent_sql_queries to inspect the last 500 filtered queries captured by the SQL monitor without generating additional database traffic.',
 			'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
 			'Direct SQL access is read-only. Controlled mutations are available only through update_method_source, create_class_method, create_class_attribute, and explicitly confirmed update_database, update_packages, and update_binaries commands in VS Code. Project updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue.',
@@ -588,18 +588,22 @@ server.registerTool('update_method_source', {
 }, async ({ methodId, code }: { methodId: number; code: string }) => bridgeToolResult({ action: 'update_method_source', id: methodId, code }));
 
 server.registerTool('create_class_method', {
-	description: 'Create an interpreted East Express method in an existing class through the VS Code save pipeline. The operation allocates an ID from DeveloperIDs, inserts Methods and Abstract, writes the native ChangeType=3 audit record, links the owner package, updates ClassVersion, and opens the created source.',
+	description: 'Create an interpreted East Express method in an existing class through the controlled VS Code database transaction. It allocates an ID from DeveloperIDs, rejects duplicate names, derives Signature from Code, writes Methods/Abstract and ChangeType=3 audit data atomically, inherits the owner SysFile, updates ClassVersion and package change state, then opens the source.',
 	inputSchema: {
 		ownerClassId: z.number().int().positive().describe('Owning class ID'),
 		name: z.string().min(1).max(250).regex(/^[\p{L}_][\p{L}\p{N}_]*$/u).describe('Method card name without a proc/function declaration'),
 		visibilityId: z.number().int().positive().optional().describe('Visibility enum ID, default 12450286 (Public)'),
-		signature: z.string().max(4000).optional().describe('Optional stored method signature, for example (AObj: Абстракт)'),
+		signature: z.string().max(4000).optional().describe('Legacy compatibility field; the stored signature is derived from the anonymous declaration in code'),
 		code: z.string().max(1_500_000).optional().describe('Complete anonymous proc/procedure/func/function source; defaults to an empty proc() block'),
 	},
 	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
-}, async (input: { ownerClassId: number; name: string; visibilityId?: number; signature?: string; code?: string }) => bridgeToolResult({
-	action: 'create_class_method',
-	draft: {
+}, async (input: { ownerClassId: number; name: string; visibilityId?: number; signature?: string; code?: string }) => {
+	const options = await loadActiveDatabaseOptions();
+	return bridgeToolResult({
+		action: 'create_class_method',
+		database: options.database,
+		host: options.host,
+		draft: {
 		ownerClassId: input.ownerClassId,
 		name: input.name,
 		visibilityId: input.visibilityId ?? 12450286,
@@ -607,8 +611,9 @@ server.registerTool('create_class_method', {
 		methodKind: 0,
 		signature: input.signature ?? '',
 		code: input.code ?? 'proc()\r\nbegin\r\n\r\nend;\r\n',
-	},
-}));
+		},
+	});
+});
 
 server.registerTool('create_class_attribute', {
 	description: 'Create a virtual attribute in an existing East Express class through the VS Code save pipeline. The operation allocates an ID from DeveloperIDs, writes Attributes/Abstract/ObjRefs and audit history atomically, inherits the owner package file, updates ClassVersion, and opens the new attribute card.',
@@ -764,7 +769,7 @@ server.registerTool('get_package_sync_changes', {
 }));
 
 server.registerTool('get_production_tasks', {
-	description: 'Load the current employee production task list through the authenticated OENP session held by the VS Code extension. Returns compact task summaries; optionally filter by task ID, number, or title.',
+	description: 'Load the current employee production task list through the authenticated OENP session held by the VS Code extension. Returns compact task summaries; optionally filter only that current list.',
 	inputSchema: {
 		query: z.string().optional().describe('Optional partial task ID, number, or title'),
 		limit: z.number().int().min(1).max(250).optional().describe('Maximum tasks, default 100'),
@@ -772,6 +777,17 @@ server.registerTool('get_production_tasks', {
 	annotations: { readOnlyHint: true },
 }, async ({ query, limit }: { query?: string; limit?: number }) => bridgeToolResult({
 	action: 'get_production_tasks', query, limit: limit ?? 100,
+}));
+
+server.registerTool('get_production_task', {
+	description: 'Find production tasks across WorkDoc by exact stable ID, exact task number, or partial title. Returns every field from the complete task card, including description, people, project, priority, releases, revisions, attachment count, and current state comment.',
+	inputSchema: {
+		query: z.string().trim().min(1).max(500).describe('Stable task ID, task number, or partial task title'),
+		limit: z.number().int().min(1).max(25).optional().describe('Maximum title matches, default 10'),
+	},
+	annotations: { readOnlyHint: true },
+}, async ({ query, limit }: { query: string; limit?: number }) => bridgeToolResult({
+	action: 'get_production_task', query, limit: limit ?? 10,
 }));
 
 server.registerTool('get_production_tasks_in_progress', {
@@ -1436,8 +1452,19 @@ async function synchronizeDatabaseSelection(): Promise<void> {
 		try {
 			const selection = await readDatabaseSelection(databaseSelectionPath);
 			if (selection.updatedAt !== lastDatabaseSelectionUpdate) {
+				if (!path.isAbsolute(selection.workspacePath)) {
+					throw new Error(`Active workspace path is not absolute: ${selection.workspacePath}`);
+				}
+				const selectedWorkspacePath = path.resolve(selection.workspacePath);
+				const workspaceChanged = selectedWorkspacePath.toLowerCase() !== path.resolve(workspacePath).toLowerCase();
 				lastDatabaseSelectionUpdate = selection.updatedAt;
-				if (selection.profile) { activeDatabaseProfile = selection.profile; }
+				workspacePath = selectedWorkspacePath;
+				lastWorkspaceDatabaseProfile = undefined;
+				if (workspaceChanged) {
+					activeDatabaseProfile = selection.profile || undefined;
+				} else if (selection.profile) {
+					activeDatabaseProfile = selection.profile;
+				}
 			}
 			return;
 		} catch (error) {
@@ -1479,6 +1506,8 @@ async function navigationToolResult(action: 'reveal_class' | 'open_class' | 'ope
 
 async function bridgeToolResult(body: Record<string, unknown>) {
 	try {
+		await synchronizeDatabaseSelection();
+		const navigationInfoPath = explicitNavigationInfoPath ?? getNavigationInfoPath(workspacePath);
 		const connection = JSON.parse(await readFile(navigationInfoPath, 'utf8')) as { url?: unknown; token?: unknown };
 		if (typeof connection.url !== 'string' || typeof connection.token !== 'string') {
 			throw new Error('VS Code navigation bridge information is invalid.');

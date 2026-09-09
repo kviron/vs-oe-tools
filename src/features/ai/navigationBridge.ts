@@ -10,7 +10,7 @@ import { createLifecycleParameterMethodId } from '../lifecycle/lifecycleMethodEx
 
 type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source'
 	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client'
-	| 'open_client_entity' | 'get_production_tasks' | 'get_production_tasks_in_progress'
+	| 'open_client_entity' | 'get_production_tasks' | 'get_production_task' | 'get_production_tasks_in_progress'
 	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'create_class_method' | 'execute_lifecycle_method';
 
 interface NavigationRequest {
@@ -106,7 +106,7 @@ async function handleRequest(
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
 		} else if (input.action === 'create_class_method') {
-			const result = await actions.createClassMethod(input.draft as ClassMethodDraft);
+			const result = await actions.createClassMethod(input.draft as ClassMethodDraft, input.database as string, input.host as string);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
 		} else if (input.action === 'execute_lifecycle_method') {
@@ -123,6 +123,10 @@ async function handleRequest(
 			return;
 		} else if (input.action === 'get_production_tasks') {
 			const result = await actions.getProductionTasks(input.query, input.limit as number);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else if (input.action === 'get_production_task') {
+			const result = await actions.getProductionTask(input.query as string, input.limit as number);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
 		} else if (input.action === 'get_production_tasks_in_progress') {
@@ -185,13 +189,13 @@ function validateRequest(value: unknown): NavigationRequest {
 	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
 		&& action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
 		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
-		&& action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
+		&& action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
 		&& action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method'
 		&& action !== 'execute_lifecycle_method') {
 		throw new Error('Unknown navigation action.');
 	}
 	if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
-		&& action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
+		&& action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
 		&& action !== 'update_packages' && action !== 'update_binaries'
 		&& action !== 'create_class_attribute' && action !== 'create_class_method'
 		&& (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
@@ -215,6 +219,12 @@ function validateRequest(value: unknown): NavigationRequest {
 	const methodParameter = (value as Partial<NavigationRequest>).methodParameter;
 	const database = (value as Partial<NavigationRequest>).database;
 	const host = (value as Partial<NavigationRequest>).host;
+	if (action === 'create_class_method' && (typeof database !== 'string' || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
+		throw new Error('database is invalid for create_class_method.');
+	}
+	if (action === 'create_class_method' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
+		throw new Error('host is invalid for create_class_method.');
+	}
 	if (action === 'execute_lifecycle_method' && (typeof methodParameter !== 'string' || !methodParameter.trim())) {
 		throw new Error('methodParameter is required for execute_lifecycle_method.');
 	}
@@ -251,6 +261,12 @@ function validateRequest(value: unknown): NavigationRequest {
 	}
 	if (action === 'get_production_tasks' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 250)) {
 		throw new Error('Production tasks limit must be an integer from 1 to 250.');
+	}
+	if (action === 'get_production_task' && (typeof query !== 'string' || !query.trim())) {
+		throw new Error('Production task query must be a non-empty string.');
+	}
+	if (action === 'get_production_task' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 25)) {
+		throw new Error('Production task search limit must be an integer from 1 to 25.');
 	}
 	const role = (value as Partial<NavigationRequest>).role;
 	if ((action === 'update_database' || action === 'start_client' || action === 'open_client_entity') && role !== 'main' && role !== 'test') {

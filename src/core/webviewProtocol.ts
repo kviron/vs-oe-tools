@@ -1,9 +1,9 @@
 import type { AttributeDetails, AttributeEditorOptions, ClassAttribute, ClassAttributeDraft, ClassDetails, ClassMethod, ClassObjectColumnSettings, ClassObjectsResult, ClassProperty, ClassTreeRow, ObjectViewResult, PropertyDetails } from '../features/classes/models';
 import type { SqlQueryRecord } from '../features/sql-monitor/models';
 import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
-import type { PackageSyncIssue, PackageSyncItem } from '../features/package-sync/models';
+import type { PackageSyncIssue, PackageSyncItem, SvnConflictContent, SvnMergeResult } from '../features/package-sync/models';
 import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSearch';
-import type { ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../features/production-tasks/models';
+import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../features/production-tasks/models';
 import type { CreatedSpu, SpuDraft, SpuEditorOptions } from '../features/spu/models';
 import type { SqlCompletionSchema } from '../features/sql-executor/sqlCompletionSchema';
 import type { PackageExplorerNode, PackageFileContent, PackageSummary } from '../features/packages/models';
@@ -25,6 +25,7 @@ export type ProductionTasksHostMessage =
 export type ProductionTaskDetailsWebviewMessage =
 	| { command: 'productionTaskDetailsReady' }
 	| { command: 'loadProductionTaskAttachments' }
+	| { command: 'loadProductionTaskActions' }
 	| { command: 'openProductionTaskInClient'; id: number }
 	| { command: 'openProductionTaskReference'; id: number }
 	| { command: 'loadProductionTaskPreview'; id: number }
@@ -37,6 +38,9 @@ export type ProductionTaskDetailsWebviewMessage =
 	| TableSelectionDebugMessage;
 export type ProductionTaskDetailsHostMessage =
 	| { command: 'productionTaskDetailsLoaded'; task: ProductionTaskSummary }
+	| { command: 'productionTaskActionsLoading' }
+	| { command: 'productionTaskActionsLoaded'; actions: ProductionTaskAction[] }
+	| { command: 'productionTaskActionsFailed'; message: string }
 	| { command: 'productionTaskAttachmentsLoading' }
 	| { command: 'productionTaskAttachmentsLoaded'; attachments: ProductionTaskAttachment[] }
 	| { command: 'productionTaskAttachmentsFailed'; message: string }
@@ -229,11 +233,25 @@ export type SqlExecutorHostMessage =
 export type PackageSyncWebviewMessage =
 	| { command: 'packageSyncReady' }
 	| { command: 'refreshPackageSync' }
-	| { command: 'openPackageSyncDiff'; objectId: number };
+	| { command: 'openPackageSyncDiff'; objectId: number }
+	| { command: 'mergeSvnRevision'; branch: string; revision: number }
+	| { command: 'openSvnConflict'; path: string };
 export type PackageSyncHostMessage =
 	| { command: 'packageSyncLoading' }
 	| { command: 'packageSyncLoaded'; items: PackageSyncItem[]; issues: PackageSyncIssue[] }
-	| { command: 'packageSyncFailed'; message: string };
+	| { command: 'packageSyncFailed'; message: string }
+	| { command: 'svnMergeStarted' }
+	| { command: 'svnMergeCancelled' }
+	| { command: 'svnMergeCompleted'; result: SvnMergeResult }
+	| { command: 'svnMergeFailed'; message: string };
+export type SvnConflictWebviewMessage =
+	| { command: 'svnConflictReady' }
+	| { command: 'saveSvnConflict'; content: string; resolve: boolean };
+export type SvnConflictHostMessage =
+	| { command: 'svnConflictLoaded'; conflict: SvnConflictContent }
+	| { command: 'svnConflictSaving' }
+	| { command: 'svnConflictSaved'; resolved: boolean }
+	| { command: 'svnConflictFailed'; message: string };
 export interface SettingsState {
 	useFolderAsProjectRoot: boolean;
 	databaseRole: 'main' | 'test';
@@ -268,7 +286,7 @@ export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SvnConflictWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
 
 export function isProductionTasksWebviewMessage(message: unknown): message is ProductionTasksWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
@@ -294,6 +312,7 @@ export function isProductionTaskDetailsWebviewMessage(message: unknown): message
 	if (message.command === 'openExternalUrl') { return 'url' in message && typeof message.url === 'string' && /^https?:\/\//i.test(message.url); }
 	return message.command === 'productionTaskDetailsReady'
 		|| message.command === 'loadProductionTaskAttachments'
+		|| message.command === 'loadProductionTaskActions'
 		|| message.command === 'loadProductionTaskHistory'
 		|| (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
 		|| (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
@@ -338,7 +357,17 @@ export function isPackageSyncWebviewMessage(message: unknown): message is Packag
 	if (typeof message !== 'object' || message === null || !('command' in message)) {return false;}
 	return message.command === 'packageSyncReady'
 		|| message.command === 'refreshPackageSync'
-		|| (message.command === 'openPackageSyncDiff' && 'objectId' in message && typeof message.objectId === 'number');
+		|| (message.command === 'openPackageSyncDiff' && 'objectId' in message && typeof message.objectId === 'number')
+		|| (message.command === 'openSvnConflict' && 'path' in message && typeof message.path === 'string')
+		|| (message.command === 'mergeSvnRevision' && 'branch' in message && typeof message.branch === 'string'
+			&& 'revision' in message && typeof message.revision === 'number' && Number.isSafeInteger(message.revision) && message.revision > 0);
+}
+
+export function isSvnConflictWebviewMessage(message: unknown): message is SvnConflictWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
+	return message.command === 'svnConflictReady'
+		|| (message.command === 'saveSvnConflict' && 'content' in message && typeof message.content === 'string'
+			&& 'resolve' in message && typeof message.resolve === 'boolean');
 }
 
 export interface CodeHistoryListEntry {

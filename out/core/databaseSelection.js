@@ -34,14 +34,19 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDatabaseSelectionPath = getDatabaseSelectionPath;
+exports.getActiveDatabaseSelectionPath = getActiveDatabaseSelectionPath;
 exports.writeDatabaseSelection = writeDatabaseSelection;
 exports.readDatabaseSelection = readDatabaseSelection;
 const node_crypto_1 = require("node:crypto");
 const promises_1 = require("node:fs/promises");
+const node_os_1 = require("node:os");
 const path = __importStar(require("node:path"));
 function getDatabaseSelectionPath(storagePath, workspacePath) {
     const workspaceId = (0, node_crypto_1.createHash)('sha256').update(path.resolve(workspacePath).toLowerCase()).digest('hex').slice(0, 16);
     return path.join(storagePath, `database-selection-${workspaceId}.json`);
+}
+function getActiveDatabaseSelectionPath() {
+    return path.join((0, node_os_1.tmpdir)(), 'vc-ve-tools', 'active-database-selection.json');
 }
 async function writeDatabaseSelection(selectionPath, workspacePath, profile) {
     await (0, promises_1.mkdir)(path.dirname(selectionPath), { recursive: true });

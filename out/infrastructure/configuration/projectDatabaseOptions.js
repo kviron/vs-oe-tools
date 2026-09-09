@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseVarsFile = parseVarsFile;
 exports.getDatabaseRole = getDatabaseRole;
 exports.getProjectDatabaseOptions = getProjectDatabaseOptions;
+exports.getProjectDatabaseOptionsForDatabase = getProjectDatabaseOptionsForDatabase;
 const promises_1 = require("node:fs/promises");
 const vscode = __importStar(require("vscode"));
 const iconv = __importStar(require("iconv-lite"));
@@ -117,5 +118,15 @@ async function getProjectDatabaseOptions() {
         user: getRoleVariable(variables, 'oedbmsusername', databaseRole) ?? 'postgres',
         password,
     };
+}
+async function getProjectDatabaseOptionsForDatabase(workspacePath, databaseName, host) {
+    const { databases } = await (0, rdboadmIni_1.loadRdboadmDatabases)(workspacePath);
+    const candidates = databases.map(database => (0, rdboadmIni_1.rdboadmDatabaseOptions)(database));
+    const selected = candidates.find(database => database.database.toLowerCase() === databaseName.toLowerCase()
+        && (!host || database.host.toLowerCase() === host.toLowerCase()));
+    if (!selected) {
+        throw new Error(`База ${databaseName}${host ? ` на ${host}` : ''} не найдена в bin\\rdboadm.ini.`);
+    }
+    return selected;
 }
 //# sourceMappingURL=projectDatabaseOptions.js.map

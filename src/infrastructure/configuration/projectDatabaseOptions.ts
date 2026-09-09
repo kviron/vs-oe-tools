@@ -89,3 +89,18 @@ export async function getProjectDatabaseOptions(): Promise<DatabaseConnectionOpt
 		password,
 	};
 }
+
+export async function getProjectDatabaseOptionsForDatabase(
+	workspacePath: string,
+	databaseName: string,
+	host?: string,
+): Promise<DatabaseConnectionOptions> {
+	const { databases } = await loadRdboadmDatabases(workspacePath);
+	const candidates = databases.map(database => rdboadmDatabaseOptions(database));
+	const selected = candidates.find(database => database.database.toLowerCase() === databaseName.toLowerCase()
+		&& (!host || database.host.toLowerCase() === host.toLowerCase()));
+	if (!selected) {
+		throw new Error(`База ${databaseName}${host ? ` на ${host}` : ''} не найдена в bin\\rdboadm.ini.`);
+	}
+	return selected;
+}

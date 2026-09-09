@@ -5,19 +5,24 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { PackageSyncHostMessage } from '../../core/webviewProtocol';
 import { isPackageSyncWebviewMessage } from '../../core/webviewProtocol';
-import type { PackageSyncIssue, PackageSyncItem, PackageSyncSnapshot } from './models';
+import type { PackageSyncIssue, PackageSyncItem, PackageSyncSnapshot, SvnMergeResult } from './models';
+import { SvnConflictPanel } from './svnConflictPanel';
+import { mergePackageRevision } from './svnMergeService';
 
 export class PackageSyncPanelManager implements vscode.Disposable {
 	static readonly viewType = 'vc-ve-tools.packageSync';
 	private panel?: vscode.WebviewPanel;
 	private items: PackageSyncItem[] = [];
 	private issues: PackageSyncIssue[] = [];
+	private mergeWorkingCopy?: string;
+	private mergeResult?: SvnMergeResult;
+	private readonly conflictPanel: SvnConflictPanel;
 
 	constructor(
 		private readonly extensionUri: vscode.Uri,
 		private readonly loadSnapshot: () => Promise<PackageSyncSnapshot>,
 		private readonly loadDatabaseVersion: (item: PackageSyncItem, fileName: string) => Promise<{ content: string; addedObjectIds: number[]; localContent?: string }>,
-	) {}
+	) { this.conflictPanel = new SvnConflictPanel(extensionUri, filePath => { void this.markConflictResolved(filePath); }); }
 
 	show(): void {
 		if (this.panel) {
@@ -40,6 +45,11 @@ export class PackageSyncPanelManager implements vscode.Disposable {
 				void this.refresh();
 				return;
 			}
+			if (message.command === 'mergeSvnRevision') { void this.merge(message.branch, message.revision); return; }
+			if (message.command === 'openSvnConflict') {
+				if (this.mergeWorkingCopy) { void this.conflictPanel.show(this.mergeWorkingCopy, message.path).catch(error => vscode.window.showErrorMessage(`Не удалось открыть конфликт: ${errorMessage(error)}`)); }
+				return;
+			}
 			const item = this.items.find(candidate => candidate.objectId === message.objectId);
 			if (!item?.localPath) {
 				void vscode.window.showWarningMessage(`Для объекта ${message.objectId} не удалось определить локальный путь.`);
@@ -51,7 +61,40 @@ export class PackageSyncPanelManager implements vscode.Disposable {
 	}
 
 	refreshForDatabaseChange(): void { if (this.panel) {void this.refresh();} }
-	dispose(): void { this.panel?.dispose(); }
+	dispose(): void { this.panel?.dispose(); this.conflictPanel.dispose(); }
+
+	private async merge(branch: string, revision: number): Promise<void> {
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+		if (!workspacePath) { await this.post({ command: 'svnMergeFailed', message: 'Сначала откройте папку проекта Восточного Экспресса.' }); return; }
+		const answer = await vscode.window.showWarningMessage(
+			`Выполнить merge ревизии r${revision}?`,
+			{ modal: true, detail: `Источник: ${branch}\nРабочая копия: ${path.join(workspacePath, 'packages')}\nCommit выполняться не будет.` },
+			'Выполнить merge',
+		);
+		if (answer !== 'Выполнить merge') { await this.post({ command: 'svnMergeCancelled' }); return; }
+		await this.post({ command: 'svnMergeStarted' });
+		try {
+			const result = await mergePackageRevision(workspacePath, branch, revision);
+			this.mergeWorkingCopy = result.workingCopy;
+			this.mergeResult = result;
+			await this.post({ command: 'svnMergeCompleted', result });
+		} catch (error) {
+			await this.post({ command: 'svnMergeFailed', message: errorMessage(error) });
+		}
+	}
+
+	private async markConflictResolved(filePath: string): Promise<void> {
+		if (!this.mergeResult) { return; }
+		const normalized = path.normalize(filePath).toLocaleLowerCase('ru');
+		const workingCopy = this.mergeResult.workingCopy;
+		this.mergeResult = {
+			...this.mergeResult,
+			files: this.mergeResult.files.map(file => path.normalize(path.join(workingCopy, file.path)).toLocaleLowerCase('ru') === normalized
+				? { ...file, conflicted: false, treeConflict: false, status: file.status === 'conflicted' ? 'modified' : file.status }
+				: file),
+		};
+		await this.post({ command: 'svnMergeCompleted', result: this.mergeResult });
+	}
 
 	private async openDiff(item: PackageSyncItem): Promise<void> {
 		try {

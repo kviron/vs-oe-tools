@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ArrowUpRight01Icon, Copy01Icon, Download01Icon, FolderOpenIcon, ViewIcon } from '@hugeicons/core-free-icons';
+import { ArrowDown01Icon, ArrowUpRight01Icon, Copy01Icon, Download01Icon, FolderOpenIcon, ViewIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, reactive, ref } from 'vue';
 import type { ProductionTaskDetailsHostMessage } from '../../../src/core/webviewProtocol';
 import type { DatabaseObjectSearchResult } from '../../../src/core/objectSearch';
-import type { ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../../../src/features/production-tasks/models';
+import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../../../src/features/production-tasks/models';
 import { productionDeadlineInfo, productionTaskMarkdown } from '../../../src/features/production-tasks/productionTaskPresentation';
 import { splitWorkDescriptionObjectIds } from '../../../src/features/production-tasks/workDescriptionLinks';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
@@ -20,6 +21,10 @@ import { vscode } from '@/vscode';
 
 const task = ref<ProductionTaskSummary>();
 const detailsTab = ref('description');
+const actions = ref<ProductionTaskAction[]>([]);
+const actionsLoading = ref(false);
+const actionsLoaded = ref(false);
+const actionsError = ref('');
 const attachments = ref<ProductionTaskAttachment[]>([]);
 const attachmentsLoading = ref(false);
 const attachmentsLoaded = ref(false);
@@ -71,6 +76,17 @@ function displayValue(key: keyof ProductionTaskSummary): string {
 function taskReference(value: ProductionTaskSummary): number { return Number(value.number) || value.id; }
 function openInClient(): void { if (task.value) vscode.postMessage({ command: 'openProductionTaskInClient', id: taskReference(task.value) }); }
 function copyTaskTitle(): void { if (task.value) copyText(productionTaskMarkdown(task.value.number, task.value.title, task.value.id)); }
+function loadActions(force = false): void {
+  if (actionsLoading.value || actionsLoaded.value && !force) return;
+  actionsLoading.value = true;
+  actionsError.value = '';
+  vscode.postMessage({ command: 'loadProductionTaskActions' });
+}
+function onActionsMenuOpen(open: boolean): void { if (open) loadActions(); }
+function actionCaption(action: ProductionTaskAction): string { return action.verb || action.name || `Действие ${action.id}`; }
+function actionDetails(action: ProductionTaskAction): string {
+  return [action.group, action.targetState && `→ ${action.targetState}`].filter(Boolean).join(' · ');
+}
 function loadAttachments(force = false): void {
   if (attachmentsLoading.value || attachmentsLoaded.value && !force) return;
   attachmentsLoading.value = true;
@@ -148,6 +164,20 @@ function previewRows(object: DatabaseObjectSearchResult): Array<[string, string]
 window.addEventListener('message', (event: MessageEvent<ProductionTaskDetailsHostMessage>) => {
   const message = event.data;
   if (message.command === 'productionTaskDetailsLoaded') { task.value = message.task; return; }
+  if (message.command === 'productionTaskActionsLoading') { actionsLoading.value = true; actionsError.value = ''; return; }
+  if (message.command === 'productionTaskActionsLoaded') {
+    actions.value = message.actions;
+    actionsLoading.value = false;
+    actionsLoaded.value = true;
+    actionsError.value = '';
+    return;
+  }
+  if (message.command === 'productionTaskActionsFailed') {
+    actionsLoading.value = false;
+    actionsLoaded.value = false;
+    actionsError.value = message.message;
+    return;
+  }
   if (message.command === 'productionTaskAttachmentsLoading') {
     attachmentsLoading.value = true;
     attachmentsError.value = '';
@@ -196,6 +226,30 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
             </div>
             <div class="flex shrink-0 gap-1">
               <Button size="icon-sm" variant="outline" title="Скопировать название и ссылку" @click="copyTaskTitle"><HugeiconsIcon :icon="Copy01Icon" /></Button>
+              <DropdownMenu @update:open="onActionsMenuOpen">
+                <DropdownMenuTrigger as-child>
+                  <Button size="sm" variant="outline">Действия<HugeiconsIcon :icon="ArrowDown01Icon" data-icon="inline-end" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent class="w-80" align="end">
+                  <DropdownMenuLabel>Действия по текущему состоянию</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem v-if="actionsLoading" disabled>Загрузка…</DropdownMenuItem>
+                    <DropdownMenuItem v-else-if="actionsError" @select="loadActions(true)">
+                      <div class="flex min-w-0 flex-col gap-0.5"><span>Повторить загрузку</span><span class="truncate text-muted-foreground" :title="actionsError">{{ actionsError }}</span></div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem v-else-if="actionsLoaded && !actions.length" disabled>Для текущего состояния действий не найдено</DropdownMenuItem>
+                    <DropdownMenuItem v-for="action in actions" v-else :key="action.id" disabled>
+                      <div class="flex min-w-0 flex-col gap-0.5">
+                        <span class="truncate" :title="action.name">{{ actionCaption(action) }}</span>
+                        <span v-if="actionDetails(action)" class="truncate text-muted-foreground" :title="actionDetails(action)">{{ actionDetails(action) }}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator v-if="actions.length" />
+                  <DropdownMenuLabel v-if="actions.length" class="font-normal text-muted-foreground">Выполнение действий пока отключено</DropdownMenuLabel>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button size="sm" @click="openInClient"><HugeiconsIcon :icon="ArrowUpRight01Icon" data-icon="inline-start" />Открыть в клиенте</Button>
             </div>
           </div>

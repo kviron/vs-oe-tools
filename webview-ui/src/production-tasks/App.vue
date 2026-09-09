@@ -19,10 +19,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 
-type ColumnKey = 'id' | 'number' | 'title' | 'state' | 'createdAt' | 'deadline' | 'priority' | 'workType' | 'project' | 'releasePlan' | 'executor' | 'attachmentCount';
+type ColumnKey = 'id' | 'number' | 'title' | 'state' | 'createdAt' | 'deadline' | 'priority' | 'workType' | 'project' | 'releasePlan' | 'responsibleUser' | 'executor' | 'attachmentCount';
 type SortDirection = 'asc' | 'desc';
 interface Column { key: ColumnKey; label: string; width: string }
-interface SavedState { search?: string; status?: string; project?: string; priority?: string; workType?: string; release?: string; overdue?: boolean; compact?: boolean; sortKey?: ColumnKey; sortDirection?: SortDirection; visible?: ColumnKey[]; order?: ColumnKey[]; selected?: number }
+interface SavedState { search?: string; user?: string; status?: string; project?: string; priority?: string; workType?: string; release?: string; overdue?: boolean; compact?: boolean; sortKey?: ColumnKey; sortDirection?: SortDirection; visible?: ColumnKey[]; order?: ColumnKey[]; selected?: number }
 
 const columns: readonly Column[] = [
   { key: 'id', label: 'ID', width: 'w-32' }, { key: 'number', label: '№ задачи', width: 'w-28' },
@@ -30,7 +30,8 @@ const columns: readonly Column[] = [
   { key: 'createdAt', label: 'Создана', width: 'w-40' }, { key: 'deadline', label: 'Срок', width: 'w-44' },
   { key: 'priority', label: 'Приоритет', width: 'w-28' }, { key: 'workType', label: 'Вид работ', width: 'w-36' },
   { key: 'project', label: 'Проект', width: 'w-56' }, { key: 'releasePlan', label: 'Релиз', width: 'w-24' },
-  { key: 'executor', label: 'Исполнитель', width: 'w-52' }, { key: 'attachmentCount', label: 'Файлы', width: 'w-20' },
+  { key: 'responsibleUser', label: 'Ответственный', width: 'w-52' }, { key: 'executor', label: 'Исполнитель', width: 'w-52' },
+  { key: 'attachmentCount', label: 'Файлы', width: 'w-20' },
 ];
 const defaultOrder = columns.map(column => column.key);
 const saved = (vscode.getState() as SavedState | undefined) ?? {};
@@ -40,6 +41,7 @@ const loading = ref(true);
 const error = ref('');
 const loadedAt = ref('');
 const searchQuery = ref(saved.search ?? '');
+const userFilter = ref(saved.user ?? '');
 const statusFilter = ref(saved.status ?? '');
 const projectFilter = ref(saved.project ?? '');
 const priorityFilter = ref(saved.priority ?? '');
@@ -59,9 +61,11 @@ const projects = computed(() => uniqueValues('project'));
 const priorities = computed(() => uniqueValues('priority'));
 const workTypes = computed(() => uniqueValues('workType'));
 const releases = computed(() => uniqueValues('releasePlan'));
+const users = computed(() => uniqueValues('responsibleUser'));
 const filteredTasks = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase('ru-RU');
-  return tasks.value.filter(task => (!query || [task.id, task.number, task.title, task.state, task.project, task.executor, task.appeal, task.packageName, task.releasePlan].join(' ').toLocaleLowerCase('ru-RU').includes(query))
+  return tasks.value.filter(task => (!query || [task.id, task.number, task.title, task.state, task.project, task.responsibleUser, task.executor, task.appeal, task.packageName, task.releasePlan].join(' ').toLocaleLowerCase('ru-RU').includes(query))
+    && (!userFilter.value || task.responsibleUser === userFilter.value)
     && (!statusFilter.value || task.state === statusFilter.value) && (!projectFilter.value || task.project === projectFilter.value)
     && (!priorityFilter.value || task.priority === priorityFilter.value) && (!workTypeFilter.value || task.workType === workTypeFilter.value)
     && (!releaseFilter.value || task.releasePlan === releaseFilter.value) && (!overdueOnly.value || productionDeadlineInfo(task.deadline).tone === 'overdue'));
@@ -70,11 +74,11 @@ const sortedTasks = computed(() => filteredTasks.value.map((task, index) => ({ t
   const comparison = collator.compare(sortValue(left.task, sortKey.value), sortValue(right.task, sortKey.value));
   return comparison ? comparison * (sortDirection.value === 'asc' ? 1 : -1) : left.index - right.index;
 }).map(entry => entry.task));
-const filtersActive = computed(() => Boolean(searchQuery.value.trim() || statusFilter.value || projectFilter.value || priorityFilter.value || workTypeFilter.value || releaseFilter.value || overdueOnly.value));
+const filtersActive = computed(() => Boolean(searchQuery.value.trim() || userFilter.value || statusFilter.value || projectFilter.value || priorityFilter.value || workTypeFilter.value || releaseFilter.value || overdueOnly.value));
 const countLabel = computed(() => loading.value ? 'Загрузка…' : filtersActive.value ? `${filteredTasks.value.length} из ${tasks.value.length}` : `${tasks.value.length}`);
 
-watch([searchQuery, statusFilter, projectFilter, priorityFilter, workTypeFilter, releaseFilter, overdueOnly, compact, sortKey, sortDirection, visibleColumns, columnOrder, selectedTaskId], () => vscode.setState({
-  search: searchQuery.value, status: statusFilter.value, project: projectFilter.value, priority: priorityFilter.value, workType: workTypeFilter.value,
+watch([searchQuery, userFilter, statusFilter, projectFilter, priorityFilter, workTypeFilter, releaseFilter, overdueOnly, compact, sortKey, sortDirection, visibleColumns, columnOrder, selectedTaskId], () => vscode.setState({
+  search: searchQuery.value, user: userFilter.value, status: statusFilter.value, project: projectFilter.value, priority: priorityFilter.value, workType: workTypeFilter.value,
   release: releaseFilter.value, overdue: overdueOnly.value, compact: compact.value, sortKey: sortKey.value, sortDirection: sortDirection.value,
   visible: visibleColumns.value, order: columnOrder.value, selected: selectedTaskId.value,
 } satisfies SavedState), { deep: true });
@@ -90,7 +94,7 @@ function copyText(text: string): void { vscode.postMessage({ command: 'copyTable
 function changeSort(key: ColumnKey): void { if (sortKey.value === key) sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'; else { sortKey.value = key; sortDirection.value = 'asc'; } }
 function sortValue(task: ProductionTaskSummary, key: ColumnKey): string { return key === 'deadline' ? String(productionDeadlineInfo(task.deadline).days).padStart(8, '0') : String(task[key] ?? ''); }
 function uniqueValues(key: keyof ProductionTaskSummary): string[] { return [...new Set(tasks.value.map(task => String(task[key] ?? '')).filter(Boolean))].sort(collator.compare); }
-function clearFilters(): void { searchQuery.value = ''; statusFilter.value = ''; projectFilter.value = ''; priorityFilter.value = ''; workTypeFilter.value = ''; releaseFilter.value = ''; overdueOnly.value = false; }
+function clearFilters(): void { searchQuery.value = ''; userFilter.value = ''; statusFilter.value = ''; projectFilter.value = ''; priorityFilter.value = ''; workTypeFilter.value = ''; releaseFilter.value = ''; overdueOnly.value = false; }
 function toggleColumn(key: ColumnKey, checked: boolean | 'indeterminate'): void { if (checked) { if (!visibleColumns.value.includes(key)) visibleColumns.value.push(key); } else if (visibleColumns.value.length > 1) visibleColumns.value = visibleColumns.value.filter(value => value !== key); }
 function moveColumn(key: ColumnKey, direction: -1 | 1): void { const index = columnOrder.value.indexOf(key); const target = index + direction; if (target < 0 || target >= columnOrder.value.length) return; const next = [...columnOrder.value]; [next[index], next[target]] = [next[target], next[index]]; columnOrder.value = next; }
 function resetColumns(): void { visibleColumns.value = [...defaultOrder]; columnOrder.value = [...defaultOrder]; compact.value = true; }
@@ -122,6 +126,7 @@ vscode.postMessage({ command: 'productionTasksReady' });
         <Button variant="outline" size="sm" :disabled="loading" @click="refresh"><HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />Обновить</Button>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        <NativeSelect v-model="userFilter" size="sm" aria-label="Ответственный пользователь"><NativeSelectOption value="">Все пользователи</NativeSelectOption><NativeSelectOption v-for="value in users" :key="value" :value="value">{{ value }}</NativeSelectOption></NativeSelect>
         <NativeSelect v-model="statusFilter" size="sm" aria-label="Статус"><NativeSelectOption value="">Все статусы</NativeSelectOption><NativeSelectOption v-for="value in statuses" :key="value" :value="value">{{ value }}</NativeSelectOption></NativeSelect>
         <NativeSelect v-model="projectFilter" size="sm" aria-label="Проект"><NativeSelectOption value="">Все проекты</NativeSelectOption><NativeSelectOption v-for="value in projects" :key="value" :value="value">{{ value }}</NativeSelectOption></NativeSelect>
         <NativeSelect v-model="priorityFilter" size="sm" aria-label="Приоритет"><NativeSelectOption value="">Все приоритеты</NativeSelectOption><NativeSelectOption v-for="value in priorities" :key="value" :value="value">{{ value }}</NativeSelectOption></NativeSelect>
@@ -133,7 +138,7 @@ vscode.postMessage({ command: 'productionTasksReady' });
     </header>
     <div v-if="loading" class="flex min-h-0 flex-1 flex-col gap-2 p-4"><Skeleton class="h-10 w-full" /><Skeleton v-for="index in 10" :key="index" class="h-9 w-full" /></div>
     <Empty v-else-if="error" class="min-h-0 flex-1 px-3"><EmptyHeader><EmptyTitle>Не удалось загрузить задачи</EmptyTitle><EmptyDescription class="break-words">{{ error }}</EmptyDescription></EmptyHeader><div class="flex flex-wrap justify-center gap-2"><Button size="sm" variant="outline" @click="refresh">Повторить</Button><Button size="sm" variant="outline" @click="openLog">Открыть лог</Button><Button v-if="error.includes('пароль')" size="sm" @click="setPassword">Указать пароль production</Button><Button v-if="error.includes('productionClientSessionKey') || error.includes('productionPersonId')" size="sm" @click="importSessionKey">Импортировать настройки</Button></div></Empty>
-    <Empty v-else-if="!tasks.length" class="min-h-0 flex-1"><EmptyHeader><EmptyTitle>Задач нет</EmptyTitle><EmptyDescription>Для текущего исполнителя нет активных задач.</EmptyDescription></EmptyHeader></Empty>
+    <Empty v-else-if="!tasks.length" class="min-h-0 flex-1"><EmptyHeader><EmptyTitle>Задач нет</EmptyTitle><EmptyDescription>В рабочей базе нет задач.</EmptyDescription></EmptyHeader></Empty>
     <Empty v-else-if="!sortedTasks.length" class="min-h-0 flex-1"><EmptyHeader><EmptyTitle>Ничего не найдено</EmptyTitle><EmptyDescription>Измените поиск или фильтры.</EmptyDescription></EmptyHeader></Empty>
     <Table v-else container-class="min-h-0 flex-1 overflow-auto" class="min-w-[1100px]"><TableHeader class="sticky top-0 z-10 bg-background"><TableRow><TableHead v-for="column in activeColumns" :key="column.key" :class="column.width"><Button class="-ml-2 h-8 px-2" variant="ghost" size="sm" @click.stop="changeSort(column.key)">{{ column.label }} <span v-if="sortKey === column.key">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></Button></TableHead></TableRow></TableHeader><TableBody>
       <ContextMenu v-for="task in sortedTasks" :key="task.id"><ContextMenuTrigger as-child><TableRow tabindex="0" :class="cn('cursor-default', compact ? 'h-7' : 'h-10')" :data-row-selected="selectedTaskId === task.id ? '' : undefined" @click="selectedTaskId = task.id" @dblclick="openTask(task.id)" @keydown.enter.prevent="openTask(task.id)"><TableCell v-for="column in activeColumns" :key="column.key" :class="cn(column.key === 'id' && 'font-mono', column.key === 'number' && 'font-semibold')"><Badge v-if="column.key === 'state'" variant="secondary">{{ task.state || 'Без статуса' }}</Badge><Badge v-else-if="column.key === 'deadline'" :variant="deadlineVariant(task)" :title="task.deadline">{{ productionDeadlineInfo(task.deadline).label }}</Badge><template v-else-if="column.key === 'attachmentCount'">{{ task.attachmentCount || '—' }}</template><Button v-else-if="column.key === 'title'" variant="link" class="h-auto justify-start whitespace-normal p-0 text-left text-foreground" title="Скопировать название и ссылку" @click.stop="copyText(productionTaskMarkdown(task.number, task.title, task.id))">{{ task.title || '—' }}</Button><template v-else>{{ task[column.key] || '—' }}</template></TableCell></TableRow></ContextMenuTrigger><ContextMenuContent><ContextMenuGroup><ContextMenuItem @select="openTask(task.id)"><HugeiconsIcon :icon="ViewIcon" data-icon="inline-start" />Просмотр</ContextMenuItem><ContextMenuItem @select="openTaskInClient(task)"><HugeiconsIcon :icon="ExternalLinkIcon" data-icon="inline-start" />Открыть в клиенте</ContextMenuItem></ContextMenuGroup><ContextMenuSeparator /><ContextMenuGroup><ContextMenuItem @select="copyText(String(task.id))"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Копировать ID</ContextMenuItem><ContextMenuItem @select="copyText(productionTaskMarkdown(task.number, task.title, task.id))"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Копировать название и ссылку</ContextMenuItem><ContextMenuItem @select="copyText(productionTaskPublicUrl(taskReference(task)))"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Копировать URL</ContextMenuItem></ContextMenuGroup></ContextMenuContent></ContextMenu>

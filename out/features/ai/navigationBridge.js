@@ -76,7 +76,7 @@ async function handleRequest(request, response, token, actions) {
             return;
         }
         else if (input.action === 'create_class_method') {
-            const result = await actions.createClassMethod(input.draft);
+            const result = await actions.createClassMethod(input.draft, input.database, input.host);
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
@@ -97,6 +97,11 @@ async function handleRequest(request, response, token, actions) {
         }
         else if (input.action === 'get_production_tasks') {
             const result = await actions.getProductionTasks(input.query, input.limit);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else if (input.action === 'get_production_task') {
+            const result = await actions.getProductionTask(input.query, input.limit);
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
@@ -163,13 +168,13 @@ function validateRequest(value) {
     if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
         && action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
         && action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
-        && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
+        && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
         && action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method'
         && action !== 'execute_lifecycle_method') {
         throw new Error('Unknown navigation action.');
     }
     if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
-        && action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
+        && action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
         && action !== 'update_packages' && action !== 'update_binaries'
         && action !== 'create_class_attribute' && action !== 'create_class_method'
         && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
@@ -193,6 +198,12 @@ function validateRequest(value) {
     const methodParameter = value.methodParameter;
     const database = value.database;
     const host = value.host;
+    if (action === 'create_class_method' && (typeof database !== 'string' || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
+        throw new Error('database is invalid for create_class_method.');
+    }
+    if (action === 'create_class_method' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
+        throw new Error('host is invalid for create_class_method.');
+    }
     if (action === 'execute_lifecycle_method' && (typeof methodParameter !== 'string' || !methodParameter.trim())) {
         throw new Error('methodParameter is required for execute_lifecycle_method.');
     }
@@ -229,6 +240,12 @@ function validateRequest(value) {
     }
     if (action === 'get_production_tasks' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 250)) {
         throw new Error('Production tasks limit must be an integer from 1 to 250.');
+    }
+    if (action === 'get_production_task' && (typeof query !== 'string' || !query.trim())) {
+        throw new Error('Production task query must be a non-empty string.');
+    }
+    if (action === 'get_production_task' && (!Number.isSafeInteger(limit) || (limit ?? 0) < 1 || (limit ?? 0) > 25)) {
+        throw new Error('Production task search limit must be an integer from 1 to 25.');
     }
     const role = value.role;
     if ((action === 'update_database' || action === 'start_client' || action === 'open_client_entity') && role !== 'main' && role !== 'test') {

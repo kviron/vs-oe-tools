@@ -12,6 +12,7 @@ export interface ProductionTaskSummary {
 	manager: string;
 	analyst: string;
 	executor: string;
+	responsibleUser: string;
 	reviewer: string;
 	appeal: string;
 	packageName: string;
@@ -49,6 +50,18 @@ export interface ProductionTaskHistoryEntry {
 	state: string;
 	person: string;
 	comment: string;
+}
+
+export interface ProductionTaskAction {
+	id: number;
+	name: string;
+	verb: string;
+	targetState: string;
+	group: string;
+	requiresComment: boolean;
+	mandatoryComment: boolean;
+	requiresCause: boolean;
+	requiresDate: boolean;
 }
 
 export interface ProductionConnectionOptions {

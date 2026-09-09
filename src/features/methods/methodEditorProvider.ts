@@ -1,22 +1,27 @@
 import * as vscode from 'vscode';
 import * as iconv from 'iconv-lite';
-import { createClassMethod, getMethodSource, saveMethodSource, type MethodSource } from '../../infrastructure/database/methodRepository';
-import type { ClassMethodDraft, CreatedClassMethod } from '../classes/models';
+import { getMethodSource, saveMethodSource, type MethodSource } from '../../infrastructure/database/methodRepository';
+import type { ClassMethodDraft, CreatedClassMethod, DatabaseConnectionOptions } from '../classes/models';
 
 export const methodDocumentScheme = 'vc-ve-method';
 
 export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.Disposable {
 	private readonly changed = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
 	private readonly methods = new Map<string, MethodSource>();
+	private readonly methodDatabases = new Map<string, DatabaseConnectionOptions>();
 	private readonly sessionRevision = Date.now();
 	private readonly output = vscode.window.createOutputChannel('Восточный Экспресс: Методы');
 	readonly onDidChangeFile = this.changed.event;
+	constructor(private readonly createMethod: (
+		draft: ClassMethodDraft,
+		target?: { database: string; host: string },
+	) => Promise<CreatedClassMethod & { databaseOptions?: DatabaseConnectionOptions }>) {}
 
-	async open(id: number): Promise<void> {
+	async open(id: number, databaseOptions?: DatabaseConnectionOptions): Promise<void> {
 		this.log(`Открытие метода ID=${id}.`);
-		const method = await getMethodSource(id);
+		const method = await getMethodSource(id, databaseOptions);
 		this.log(`Код получен из БД: type=${method.codeType}; ${inspectText(method.code)}.`);
-		const uri = await this.getUri(method);
+		const uri = await this.getUri(method, databaseOptions);
 		const extension = method.methodType === 3 ? 'pkf' : 'pas';
 		const languageId = extension === 'pkf' ? 've-pkf' : 've-pascal';
 		await ensureWindows1251(languageId);
@@ -32,16 +37,17 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 		await this.persistMethod(method, code);
 		return { id: method.id, name: method.name, changed };
 	}
-	async create(draft: ClassMethodDraft): Promise<CreatedClassMethod> {
-		const created = await createClassMethod(draft);
-		await this.open(created.id);
+	async create(draft: ClassMethodDraft, target?: { database: string; host: string }): Promise<CreatedClassMethod> {
+		const created = await this.createMethod(draft, target);
+		await this.open(created.id, created.databaseOptions);
 		return created;
 	}
-	async getUri(methodOrId: MethodSource | number): Promise<vscode.Uri> {
-		const method = typeof methodOrId === 'number' ? await getMethodSource(methodOrId) : methodOrId;
+	async getUri(methodOrId: MethodSource | number, databaseOptions?: DatabaseConnectionOptions): Promise<vscode.Uri> {
+		const method = typeof methodOrId === 'number' ? await getMethodSource(methodOrId, databaseOptions) : methodOrId;
 		const extension = method.methodType === 3 ? 'pkf' : 'pas';
 		const uri = vscode.Uri.from({ scheme: methodDocumentScheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
 		this.methods.set(uri.toString(), method);
+		if (databaseOptions) { this.methodDatabases.set(uri.toString(), databaseOptions); }
 		return uri;
 	}
 
@@ -62,15 +68,15 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 		const method = await this.ensureMethod(uri);
 		const code = iconv.decode(Buffer.from(content), 'win1251');
 		this.log(`writeFile вызван ID=${method.id}: bytes=${content.byteLength}; decoded ${inspectText(code)}.`);
-		await this.persistMethod(method, code, uri);
+		await this.persistMethod(method, code, uri, this.methodDatabases.get(uri.toString()));
 	}
 	delete(): void { throw vscode.FileSystemError.NoPermissions('Удаление метода из редактора запрещено.'); }
 	rename(): void { throw vscode.FileSystemError.NoPermissions('Переименование метода из редактора запрещено.'); }
-	dispose(): void { this.changed.dispose(); this.methods.clear(); this.output.dispose(); }
+	dispose(): void { this.changed.dispose(); this.methods.clear(); this.methodDatabases.clear(); this.output.dispose(); }
 
-	private async persistMethod(method: MethodSource, code: string, sourceUri?: vscode.Uri): Promise<void> {
+	private async persistMethod(method: MethodSource, code: string, sourceUri?: vscode.Uri, databaseOptions?: DatabaseConnectionOptions): Promise<void> {
 		try {
-			await saveMethodSource(method, code, message => this.log(`[repository] ${message}`));
+			await saveMethodSource(method, code, message => this.log(`[repository] ${message}`), databaseOptions);
 		} catch (error) {
 			this.log(`writeFile завершился ошибкой: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
 			this.output.show(true);
@@ -103,14 +109,17 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 		if (!Number.isSafeInteger(id)) {
 			throw vscode.FileSystemError.FileNotFound(uri);
 		}
-		const method = await getMethodSource(id);
+		const method = await getMethodSource(id, this.methodDatabases.get(uri.toString()));
 		this.methods.set(uri.toString(), method);
 		return method;
 	}
 }
 
-export function registerMethodEditor(context: vscode.ExtensionContext): MethodEditorProvider {
-	const provider = new MethodEditorProvider();
+export function registerMethodEditor(
+	context: vscode.ExtensionContext,
+	createMethod: (draft: ClassMethodDraft, target?: { database: string; host: string }) => Promise<CreatedClassMethod & { databaseOptions?: DatabaseConnectionOptions }>,
+): MethodEditorProvider {
+	const provider = new MethodEditorProvider(createMethod);
 	context.subscriptions.push(provider, vscode.workspace.registerFileSystemProvider(methodDocumentScheme, provider, { isCaseSensitive: true }));
 	return provider;
 }

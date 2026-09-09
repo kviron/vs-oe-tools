@@ -42,6 +42,7 @@ const sqlDialectAdapter_1 = require("../features/sql-executor/sqlDialectAdapter"
 const projectDatabaseOptions_1 = require("../infrastructure/configuration/projectDatabaseOptions");
 const rdboadmIni_1 = require("../infrastructure/configuration/rdboadmIni");
 const projectCommandService_1 = require("../features/project/projectCommandService");
+const databaseSelection_1 = require("../core/databaseSelection");
 // import * as myExtension from '../../extension';
 suite('Extension Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.');
@@ -73,6 +74,11 @@ suite('Extension Test Suite', () => {
     });
     test('rdboadm.ini is resolved from the opened project root regardless of its folder name', () => {
         assert.strictEqual((0, rdboadmIni_1.resolveRdboadmPath)('C:\\OE\\release-3.7'), 'C:\\OE\\release-3.7\\bin\\rdboadm.ini');
+    });
+    test('active MCP workspace selection uses one stable cross-workspace path', () => {
+        const selectionPath = (0, databaseSelection_1.getActiveDatabaseSelectionPath)();
+        assert.ok(selectionPath.endsWith('vc-ve-tools\\active-database-selection.json'));
+        assert.ok(!selectionPath.toLowerCase().includes('oetrunk'));
     });
     test('rdboadm.ini update preserves comments and formatting', () => {
         const content = '; comment\r\n[oetrunk]\r\nDispName = Old name\r\nTCPport = 3060\r\n';

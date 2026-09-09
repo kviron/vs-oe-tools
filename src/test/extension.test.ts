@@ -8,6 +8,7 @@ import { adaptCompositeDateTimeFields } from '../features/sql-executor/sqlDialec
 import { parseVarsFile } from '../infrastructure/configuration/projectDatabaseOptions';
 import { parseRdboadmIni, rdboadmDatabaseOptions, resolveRdboadmPath, updateRdboadmSection } from '../infrastructure/configuration/rdboadmIni';
 import { applyClientCredentials, applyClientOpenUri, createBatchFileCommand, extractBatchCommand } from '../features/project/projectCommandService';
+import { getActiveDatabaseSelectionPath } from '../core/databaseSelection';
 // import * as myExtension from '../../extension';
 
 suite('Extension Test Suite', () => {
@@ -46,6 +47,12 @@ suite('Extension Test Suite', () => {
 
 	test('rdboadm.ini is resolved from the opened project root regardless of its folder name', () => {
 		assert.strictEqual(resolveRdboadmPath('C:\\OE\\release-3.7'), 'C:\\OE\\release-3.7\\bin\\rdboadm.ini');
+	});
+
+	test('active MCP workspace selection uses one stable cross-workspace path', () => {
+		const selectionPath = getActiveDatabaseSelectionPath();
+		assert.ok(selectionPath.endsWith('vc-ve-tools\\active-database-selection.json'));
+		assert.ok(!selectionPath.toLowerCase().includes('oetrunk'));
 	});
 
 	test('rdboadm.ini update preserves comments and formatting', () => {

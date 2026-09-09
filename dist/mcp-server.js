@@ -3070,7 +3070,7 @@ var require_dist = __commonJS({
     function parse(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve2) => stream.on("end", () => resolve2()));
+      return new Promise((resolve4) => stream.on("end", () => resolve4()));
     }
   }
 });
@@ -3453,7 +3453,7 @@ var require_split2 = __commonJS({
 var require_helper = __commonJS({
   "node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
-    var path4 = require("path");
+    var path5 = require("path");
     var Stream = require("stream").Stream;
     var split = require_split2();
     var util = require("util");
@@ -3492,7 +3492,7 @@ var require_helper = __commonJS({
     };
     module2.exports.getFileName = function(rawEnv) {
       var env = rawEnv || process.env;
-      var file = env.PGPASSFILE || (isWin ? path4.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path4.join(env.HOME || "./", ".pgpass"));
+      var file = env.PGPASSFILE || (isWin ? path5.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path5.join(env.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -3624,7 +3624,7 @@ var require_helper = __commonJS({
 var require_lib = __commonJS({
   "node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
-    var path4 = require("path");
+    var path5 = require("path");
     var fs = require("fs");
     var helper = require_helper();
     module2.exports = function(connInfo, cb) {
@@ -3835,12 +3835,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve2, reject) => {
+        return new this._Promise((resolve4, reject) => {
           this._connect((error) => {
             if (error) {
               reject(error);
             } else {
-              resolve2(this);
+              resolve4(this);
             }
           });
         });
@@ -4222,8 +4222,8 @@ var require_client = __commonJS({
         } else {
           query = new Query2(config, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve2, reject) => {
-              query.callback = (err, res) => err ? reject(err) : resolve2(res);
+            result = new this._Promise((resolve4, reject) => {
+              query.callback = (err, res) => err ? reject(err) : resolve4(res);
             }).catch((err) => {
               Error.captureStackTrace(err);
               throw err;
@@ -4314,8 +4314,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve2) => {
-            this.connection.once("end", resolve2);
+          return new this._Promise((resolve4) => {
+            this.connection.once("end", resolve4);
           });
         }
       }
@@ -4364,8 +4364,8 @@ var require_pg_pool = __commonJS({
       const cb = function(err, client) {
         err ? rej(err) : res(client);
       };
-      const result = new Promise2(function(resolve2, reject) {
-        res = resolve2;
+      const result = new Promise2(function(resolve4, reject) {
+        res = resolve4;
         rej = reject;
       }).catch((err) => {
         Error.captureStackTrace(err);
@@ -4426,7 +4426,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve2) => resolve2(f()));
+        return new Promise2((resolve4) => resolve4(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -4819,8 +4819,8 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve2, reject) {
-          this._once("end", resolve2);
+        function(resolve4, reject) {
+          this._once("end", resolve4);
           this._once("error", reject);
         }.bind(this)
       );
@@ -4999,12 +4999,12 @@ var require_client2 = __commonJS({
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve2, reject) => {
+      return new this._Promise((resolve4, reject) => {
         this._connect((error) => {
           if (error) {
             reject(error);
           } else {
-            resolve2(this);
+            resolve4(this);
           }
         });
       });
@@ -5028,8 +5028,8 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve2, reject) => {
-            resolveOut = resolve2;
+          result = new this._Promise((resolve4, reject) => {
+            resolveOut = resolve4;
             rejectOut = reject;
           }).catch((err) => {
             Error.captureStackTrace(err);
@@ -5092,8 +5092,8 @@ var require_client2 = __commonJS({
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve2, reject) {
-          cb = (err) => err ? reject(err) : resolve2();
+        result = new this._Promise(function(resolve4, reject) {
+          cb = (err) => err ? reject(err) : resolve4();
         });
       }
       const doEnd = function() {
@@ -9509,8 +9509,8 @@ var require_parseUtil = __commonJS({
     var errors_js_1 = require_errors();
     var en_js_1 = __importDefault(require_en());
     var makeIssue = (params) => {
-      const { data, path: path4, errorMaps, issueData } = params;
-      const fullPath = [...path4, ...issueData.path || []];
+      const { data, path: path5, errorMaps, issueData } = params;
+      const fullPath = [...path5, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -9664,11 +9664,11 @@ var require_types = __commonJS({
     var parseUtil_js_1 = require_parseUtil();
     var util_js_1 = require_util();
     var ParseInputLazyPath = class {
-      constructor(parent, value, path4, key) {
+      constructor(parent, value, path5, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path4;
+        this._path = path5;
         this._key = key;
       }
       get path() {
@@ -13463,10 +13463,10 @@ var require_util2 = __commonJS({
         configurable: true
       });
     }
-    function getElementAtPath(obj, path4) {
-      if (!path4)
+    function getElementAtPath(obj, path5) {
+      if (!path5)
         return obj;
-      return path4.reduce((acc, key) => acc?.[key], obj);
+      return path5.reduce((acc, key) => acc?.[key], obj);
     }
     function promiseAllObject(promisesObj) {
       const keys = Object.keys(promisesObj);
@@ -13787,11 +13787,11 @@ var require_util2 = __commonJS({
       }
       return false;
     }
-    function prefixIssues(path4, issues) {
+    function prefixIssues(path5, issues) {
       return issues.map((iss) => {
         var _a;
         (_a = iss).path ?? (_a.path = []);
-        iss.path.unshift(path4);
+        iss.path.unshift(path5);
         return iss;
       });
     }
@@ -13970,7 +13970,7 @@ var require_errors2 = __commonJS({
         return issue.message;
       };
       const result = { errors: [] };
-      const processError = (error2, path4 = []) => {
+      const processError = (error2, path5 = []) => {
         var _a, _b;
         for (const issue of error2.issues) {
           if (issue.code === "invalid_union" && issue.errors.length) {
@@ -13980,7 +13980,7 @@ var require_errors2 = __commonJS({
           } else if (issue.code === "invalid_element") {
             processError({ issues: issue.issues }, issue.path);
           } else {
-            const fullpath = [...path4, ...issue.path];
+            const fullpath = [...path5, ...issue.path];
             if (fullpath.length === 0) {
               result.errors.push(mapper(issue));
               continue;
@@ -14010,9 +14010,9 @@ var require_errors2 = __commonJS({
       processError(error);
       return result;
     }
-    function toDotPath(path4) {
+    function toDotPath(path5) {
       const segs = [];
-      for (const seg of path4) {
+      for (const seg of path5) {
         if (typeof seg === "number")
           segs.push(`[${seg}]`);
         else if (typeof seg === "symbol")
@@ -26169,11 +26169,11 @@ var require_zod_compat = __commonJS({
       }
       return void 0;
     }
-    function getDotPath(path4) {
-      if (path4.length === 0) {
+    function getDotPath(path5) {
+      if (path5.length === 0) {
         return "object root";
       }
-      return path4.reduce((acc, seg, index) => {
+      return path5.reduce((acc, seg, index) => {
         if (index === 0) {
           return String(seg);
         }
@@ -31827,7 +31827,7 @@ var require_protocol = __commonJS({
               return;
             }
             const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-            await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+            await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
             options?.signal?.throwIfAborted();
           }
         } catch (error) {
@@ -31844,7 +31844,7 @@ var require_protocol = __commonJS({
        */
       request(request, resultSchema, options) {
         const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-        return new Promise((resolve2, reject) => {
+        return new Promise((resolve4, reject) => {
           const earlyReject = (error) => {
             reject(error);
           };
@@ -31922,7 +31922,7 @@ var require_protocol = __commonJS({
               if (!parseResult.success) {
                 reject(parseResult.error);
               } else {
-                resolve2(parseResult.data);
+                resolve4(parseResult.data);
               }
             } catch (error) {
               reject(error);
@@ -32183,12 +32183,12 @@ var require_protocol = __commonJS({
           }
         } catch {
         }
-        return new Promise((resolve2, reject) => {
+        return new Promise((resolve4, reject) => {
           if (signal.aborted) {
             reject(new types_js_1.McpError(types_js_1.ErrorCode.InvalidRequest, "Request cancelled"));
             return;
           }
-          const timeoutId = setTimeout(resolve2, interval);
+          const timeoutId = setTimeout(resolve4, interval);
           signal.addEventListener("abort", () => {
             clearTimeout(timeoutId);
             reject(new types_js_1.McpError(types_js_1.ErrorCode.InvalidRequest, "Request cancelled"));
@@ -35235,7 +35235,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve2.call(this, root, ref);
+      let _sch = resolve4.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -35262,7 +35262,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve2(root, ref) {
+    function resolve4(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -35512,8 +35512,8 @@ var require_utils3 = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path4) {
-      let input = path4;
+    function removeDotSegments(path5) {
+      let input = path5;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -35918,8 +35918,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path4 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
+        const path5 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path5 && path5 !== "/" ? path5 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -36087,7 +36087,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve2(baseURI, relativeURI, options) {
+    function resolve4(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -36449,7 +36449,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve2,
+      resolve: resolve4,
       resolveComponent,
       equal,
       serialize,
@@ -42240,7 +42240,7 @@ var require_compile2 = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve2.call(this, root, ref);
+      let _sch = resolve4.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -42267,7 +42267,7 @@ var require_compile2 = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve2(root, ref) {
+    function resolve4(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -46500,7 +46500,7 @@ var require_mcp = __commonJS({
         let task = createTaskResult.task;
         const pollInterval = task.pollInterval ?? 5e3;
         while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-          await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+          await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
           const updatedTask = await extra.taskStore.getTask(taskId);
           if (!updatedTask) {
             throw new types_js_1.McpError(types_js_1.ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -47210,12 +47210,12 @@ var require_stdio2 = __commonJS({
         this.onclose?.();
       }
       send(message) {
-        return new Promise((resolve2) => {
+        return new Promise((resolve4) => {
           const json = (0, stdio_js_1.serializeMessage)(message);
           if (this._stdout.write(json)) {
-            resolve2();
+            resolve4();
           } else {
-            this._stdout.once("drain", resolve2);
+            this._stdout.once("drain", resolve4);
           }
         });
       }
@@ -47240,7 +47240,7 @@ var defaults = import_lib.default.defaults;
 
 // src/mcp/server.ts
 var import_promises4 = require("node:fs/promises");
-var path3 = __toESM(require("node:path"));
+var path4 = __toESM(require("node:path"));
 
 // src/mcp/databaseConfig.ts
 var import_promises2 = require("node:fs/promises");
@@ -47600,6 +47600,11 @@ function selectVisibleProperties(properties, includeShadowed) {
 
 // src/core/databaseSelection.ts
 var import_promises3 = require("node:fs/promises");
+var import_node_os2 = require("node:os");
+var path3 = __toESM(require("node:path"));
+function getActiveDatabaseSelectionPath() {
+  return path3.join((0, import_node_os2.tmpdir)(), "vc-ve-tools", "active-database-selection.json");
+}
 async function readDatabaseSelection(selectionPath) {
   return JSON.parse(await (0, import_promises3.readFile)(selectionPath, "utf8"));
 }
@@ -47706,8 +47711,8 @@ var lastDatabaseSelectionUpdate;
 var lastWorkspaceDatabaseProfile;
 var logsPath = readOptionalArgument("--logs");
 var sqlMonitorHistoryPath = readOptionalArgument("--sql-monitor-history");
-var databaseSelectionPath = readOptionalArgument("--database-selection");
-var navigationInfoPath = readOptionalArgument("--navigation-info") ?? getNavigationInfoPath(workspacePath);
+var databaseSelectionPath = readOptionalArgument("--database-selection") ?? getActiveDatabaseSelectionPath();
+var explicitNavigationInfoPath = readOptionalArgument("--navigation-info");
 var server = new McpServer(
   { name: "vc-ve-tools-database", version: "0.22.0" },
   {
@@ -47719,10 +47724,10 @@ var server = new McpServer(
       "Use get_class_properties to inspect script properties declared by a class and optionally inherited from ancestors. Use get_property_details for the complete stored record.",
       "Before update_method_source, read the complete current source with get_method_source. Send the complete replacement including its anonymous declaration wrapper, but never add the method card name.",
       "Use create_class_attribute only for virtual attributes. It runs through the VS Code extension, allocates a developer ID, writes audit history, links the package file, updates the owning class version, and opens the created attribute card.",
-      "Use create_class_method to create an interpreted method. It allocates a developer ID, writes native-style audit history, links the owner package, updates the owning class version, and opens the new source in the editor.",
+      "Use create_class_method to create an interpreted method through the controlled VS Code database transaction. It mirrors the persistence side effects of \u0424\u0443\u043D\u043A\u0446\u0438\u0438_\u041E\u0431\u044A\u0435\u043A\u0442.\u0421\u043E\u0437\u0434\u0430\u0442\u044C\u041C\u0435\u0442\u043E\u0434 (11148540), then opens the new source in the editor.",
       "Use execute_lifecycle_method to run the allowlisted static \u0424\u0443\u043D\u043A\u0446\u0438\u0438_\u0416\u0426.\u0421\u043E\u0437\u0434\u0430\u0442\u044C\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0418\u041F\u0440\u0430\u0432\u043E method immediately through OEExecTask. Verify the active database first. This creates lifecycle metadata directly and does not create an SPU.",
       "Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.",
-      "Use get_production_tasks for the current employee task list and get_production_tasks_in_progress for complete cards of tasks currently in status \u0412 \u0440\u0430\u0431\u043E\u0442\u0435. These calls use the production OENP session held by the VS Code extension.",
+      "Use get_production_task to find a task across production by its ID, task number, or title and return the complete card. Use get_production_tasks only for the current employee compact task list and get_production_tasks_in_progress for complete cards currently in status \u0412 \u0440\u0430\u0431\u043E\u0442\u0435. These calls use the production OENP session held by the VS Code extension.",
       "Use get_recent_sql_queries to inspect the last 500 filtered queries captured by the SQL monitor without generating additional database traffic.",
       "For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.",
       "Direct SQL access is read-only. Controlled mutations are available only through update_method_source, create_class_method, create_class_attribute, and explicitly confirmed update_database, update_packages, and update_binaries commands in VS Code. Project updates run in a visible terminal. Include relevant object IDs in analysis so navigation can continue."
@@ -47735,9 +47740,9 @@ server.registerTool("list_databases", {
   annotations: { readOnlyHint: true }
 }, async () => databaseToolResult(async () => {
   await synchronizeDatabaseSelection();
-  const { path: path4, databases } = await loadRdboadmDatabases(workspacePath);
+  const { path: path5, databases } = await loadRdboadmDatabases(workspacePath);
   return {
-    path: path4,
+    path: path5,
     activeProfile: activeDatabaseProfile ?? databases[0]?.id ?? null,
     databases: databases.map((database) => databaseSummary(database))
   };
@@ -48248,27 +48253,32 @@ server.registerTool("update_method_source", {
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true }
 }, async ({ methodId, code }) => bridgeToolResult({ action: "update_method_source", id: methodId, code }));
 server.registerTool("create_class_method", {
-  description: "Create an interpreted East Express method in an existing class through the VS Code save pipeline. The operation allocates an ID from DeveloperIDs, inserts Methods and Abstract, writes the native ChangeType=3 audit record, links the owner package, updates ClassVersion, and opens the created source.",
+  description: "Create an interpreted East Express method in an existing class through the controlled VS Code database transaction. It allocates an ID from DeveloperIDs, rejects duplicate names, derives Signature from Code, writes Methods/Abstract and ChangeType=3 audit data atomically, inherits the owner SysFile, updates ClassVersion and package change state, then opens the source.",
   inputSchema: {
     ownerClassId: z.number().int().positive().describe("Owning class ID"),
     name: z.string().min(1).max(250).regex(/^[\p{L}_][\p{L}\p{N}_]*$/u).describe("Method card name without a proc/function declaration"),
     visibilityId: z.number().int().positive().optional().describe("Visibility enum ID, default 12450286 (Public)"),
-    signature: z.string().max(4e3).optional().describe("Optional stored method signature, for example (AObj: \u0410\u0431\u0441\u0442\u0440\u0430\u043A\u0442)"),
+    signature: z.string().max(4e3).optional().describe("Legacy compatibility field; the stored signature is derived from the anonymous declaration in code"),
     code: z.string().max(15e5).optional().describe("Complete anonymous proc/procedure/func/function source; defaults to an empty proc() block")
   },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false }
-}, async (input) => bridgeToolResult({
-  action: "create_class_method",
-  draft: {
-    ownerClassId: input.ownerClassId,
-    name: input.name,
-    visibilityId: input.visibilityId ?? 12450286,
-    methodType: 3,
-    methodKind: 0,
-    signature: input.signature ?? "",
-    code: input.code ?? "proc()\r\nbegin\r\n\r\nend;\r\n"
-  }
-}));
+}, async (input) => {
+  const options = await loadActiveDatabaseOptions();
+  return bridgeToolResult({
+    action: "create_class_method",
+    database: options.database,
+    host: options.host,
+    draft: {
+      ownerClassId: input.ownerClassId,
+      name: input.name,
+      visibilityId: input.visibilityId ?? 12450286,
+      methodType: 3,
+      methodKind: 0,
+      signature: input.signature ?? "",
+      code: input.code ?? "proc()\r\nbegin\r\n\r\nend;\r\n"
+    }
+  });
+});
 server.registerTool("create_class_attribute", {
   description: "Create a virtual attribute in an existing East Express class through the VS Code save pipeline. The operation allocates an ID from DeveloperIDs, writes Attributes/Abstract/ObjRefs and audit history atomically, inherits the owner package file, updates ClassVersion, and opens the new attribute card.",
   inputSchema: {
@@ -48411,7 +48421,7 @@ server.registerTool("get_package_sync_changes", {
   limit: limit ?? 100
 }));
 server.registerTool("get_production_tasks", {
-  description: "Load the current employee production task list through the authenticated OENP session held by the VS Code extension. Returns compact task summaries; optionally filter by task ID, number, or title.",
+  description: "Load the current employee production task list through the authenticated OENP session held by the VS Code extension. Returns compact task summaries; optionally filter only that current list.",
   inputSchema: {
     query: z.string().optional().describe("Optional partial task ID, number, or title"),
     limit: z.number().int().min(1).max(250).optional().describe("Maximum tasks, default 100")
@@ -48421,6 +48431,18 @@ server.registerTool("get_production_tasks", {
   action: "get_production_tasks",
   query,
   limit: limit ?? 100
+}));
+server.registerTool("get_production_task", {
+  description: "Find production tasks across WorkDoc by exact stable ID, exact task number, or partial title. Returns every field from the complete task card, including description, people, project, priority, releases, revisions, attachment count, and current state comment.",
+  inputSchema: {
+    query: z.string().trim().min(1).max(500).describe("Stable task ID, task number, or partial task title"),
+    limit: z.number().int().min(1).max(25).optional().describe("Maximum title matches, default 10")
+  },
+  annotations: { readOnlyHint: true }
+}, async ({ query, limit }) => bridgeToolResult({
+  action: "get_production_task",
+  query,
+  limit: limit ?? 10
 }));
 server.registerTool("get_production_tasks_in_progress", {
   description: "Load full production task cards for the current employee and return only tasks whose status is \u0412 \u0440\u0430\u0431\u043E\u0442\u0435.",
@@ -48964,8 +48986,17 @@ async function synchronizeDatabaseSelection() {
     try {
       const selection = await readDatabaseSelection(databaseSelectionPath);
       if (selection.updatedAt !== lastDatabaseSelectionUpdate) {
+        if (!path4.isAbsolute(selection.workspacePath)) {
+          throw new Error(`Active workspace path is not absolute: ${selection.workspacePath}`);
+        }
+        const selectedWorkspacePath = path4.resolve(selection.workspacePath);
+        const workspaceChanged = selectedWorkspacePath.toLowerCase() !== path4.resolve(workspacePath).toLowerCase();
         lastDatabaseSelectionUpdate = selection.updatedAt;
-        if (selection.profile) {
+        workspacePath = selectedWorkspacePath;
+        lastWorkspaceDatabaseProfile = void 0;
+        if (workspaceChanged) {
+          activeDatabaseProfile = selection.profile || void 0;
+        } else if (selection.profile) {
           activeDatabaseProfile = selection.profile;
         }
       }
@@ -48977,7 +49008,7 @@ async function synchronizeDatabaseSelection() {
     }
   }
   try {
-    const settings = await (0, import_promises4.readFile)(path3.join(workspacePath, ".vscode", "settings.json"), "utf8");
+    const settings = await (0, import_promises4.readFile)(path4.join(workspacePath, ".vscode", "settings.json"), "utf8");
     const match = settings.match(/["']vcVeTools\.databaseProfile["']\s*:\s*["']([^"']+)["']/);
     const profile = match?.[1];
     if (profile && profile !== lastWorkspaceDatabaseProfile) {
@@ -49006,6 +49037,8 @@ async function navigationToolResult(action, id, classId) {
 }
 async function bridgeToolResult(body) {
   try {
+    await synchronizeDatabaseSelection();
+    const navigationInfoPath = explicitNavigationInfoPath ?? getNavigationInfoPath(workspacePath);
     const connection = JSON.parse(await (0, import_promises4.readFile)(navigationInfoPath, "utf8"));
     if (typeof connection.url !== "string" || typeof connection.token !== "string") {
       throw new Error("VS Code navigation bridge information is invalid.");

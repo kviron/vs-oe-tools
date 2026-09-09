@@ -50,3 +50,28 @@ export interface PackageSyncSnapshot {
 	items: PackageSyncItem[];
 	issues: PackageSyncIssue[];
 }
+
+export type SvnMergeFileStatus = 'added' | 'deleted' | 'modified' | 'replaced' | 'conflicted' | 'unknown';
+
+export interface SvnMergeFile {
+	path: string;
+	status: SvnMergeFileStatus;
+	conflicted: boolean;
+	treeConflict: boolean;
+}
+
+export interface SvnMergeResult {
+	source: string;
+	revision: number;
+	workingCopy: string;
+	files: SvnMergeFile[];
+	output: string;
+}
+
+export interface SvnConflictContent {
+	filePath: string;
+	local: string;
+	result: string;
+	incoming: string;
+	canResolve: boolean;
+}

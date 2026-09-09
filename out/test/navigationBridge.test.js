@@ -46,10 +46,12 @@ suite('Navigation bridge', () => {
         let updatedDatabase;
         let startedClient;
         let productionTaskQuery;
+        let fullProductionTaskQuery;
         let packagesUpdated = false;
         let binariesUpdated = false;
         let createdAttributeName;
         let createdMethodName;
+        let createdMethodTarget;
         let executedLifecycleMethod;
         const infoPath = (0, node_path_1.join)((0, node_os_1.tmpdir)(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
         const bridge = await (0, navigationBridge_1.startNavigationBridge)({
@@ -61,8 +63,9 @@ suite('Navigation bridge', () => {
                 updatedMethod = { methodId, code };
                 return { methodId, changed: true };
             },
-            createClassMethod: async (draft) => {
+            createClassMethod: async (draft, database, host) => {
                 createdMethodName = draft.name;
+                createdMethodTarget = { database, host };
                 return { methodId: 3200151, ownerClassId: draft.ownerClassId, name: draft.name };
             },
             createClassAttribute: async (draft) => {
@@ -78,6 +81,10 @@ suite('Navigation bridge', () => {
             getProductionTasks: async (query, limit) => {
                 productionTaskQuery = { query, limit };
                 return { count: 1, tasks: [{ id: 902173152, number: '85008' }] };
+            },
+            getProductionTask: async (query, limit) => {
+                fullProductionTaskQuery = { query, limit };
+                return { count: 1, match: { id: 934593105, number: '88440', workDescription: 'Полное описание' } };
             },
             getProductionTasksInProgress: async () => ({ count: 1, tasks: [{ id: 902173152, state: 'В работе' }] }),
             updatePackages: async () => { packagesUpdated = true; return true; },
@@ -112,13 +119,14 @@ suite('Navigation bridge', () => {
             const createMethodResponse = await fetch(connection.url, {
                 method: 'POST',
                 headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
-                body: JSON.stringify({ action: 'create_class_method', draft: {
+                body: JSON.stringify({ action: 'create_class_method', database: 'oetest', host: 'localhost', draft: {
                         ownerClassId: 3200139, name: 'acTestExecute', visibilityId: 12450286,
                         methodType: 3, methodKind: 0, signature: '', code: 'proc()\r\nbegin\r\nend;',
                     } }),
             });
             assert.equal(createMethodResponse.status, 200);
             assert.equal(createdMethodName, 'acTestExecute');
+            assert.deepEqual(createdMethodTarget, { database: 'oetest', host: 'localhost' });
             assert.equal((await createMethodResponse.json()).methodId, 3200151);
             const attributeResponse = await fetch(connection.url, {
                 method: 'POST',
@@ -163,6 +171,16 @@ suite('Navigation bridge', () => {
             assert.equal(tasksResponse.status, 200);
             assert.deepEqual(productionTaskQuery, { query: '85008', limit: 25 });
             assert.deepEqual((await tasksResponse.json()).tasks, [{ id: 902173152, number: '85008' }]);
+            const fullTaskResponse = await fetch(connection.url, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ action: 'get_production_task', query: 'Связанные объекты', limit: 10 }),
+            });
+            assert.equal(fullTaskResponse.status, 200);
+            assert.deepEqual(fullProductionTaskQuery, { query: 'Связанные объекты', limit: 10 });
+            assert.deepEqual((await fullTaskResponse.json()).match, {
+                id: 934593105, number: '88440', workDescription: 'Полное описание',
+            });
             const inProgressResponse = await fetch(connection.url, {
                 method: 'POST',
                 headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

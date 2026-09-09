@@ -4,6 +4,7 @@ exports.isProductionTasksWebviewMessage = isProductionTasksWebviewMessage;
 exports.isProductionTaskDetailsWebviewMessage = isProductionTaskDetailsWebviewMessage;
 exports.isSettingsWebviewMessage = isSettingsWebviewMessage;
 exports.isPackageSyncWebviewMessage = isPackageSyncWebviewMessage;
+exports.isSvnConflictWebviewMessage = isSvnConflictWebviewMessage;
 exports.isCodeHistoryWebviewMessage = isCodeHistoryWebviewMessage;
 exports.isClassDetailsWebviewMessage = isClassDetailsWebviewMessage;
 exports.isAttributeDetailsWebviewMessage = isAttributeDetailsWebviewMessage;
@@ -46,6 +47,7 @@ function isProductionTaskDetailsWebviewMessage(message) {
     }
     return message.command === 'productionTaskDetailsReady'
         || message.command === 'loadProductionTaskAttachments'
+        || message.command === 'loadProductionTaskActions'
         || message.command === 'loadProductionTaskHistory'
         || (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')
         || (message.command === 'tableSelectionDebug' && 'message' in message && typeof message.message === 'string')
@@ -98,7 +100,18 @@ function isPackageSyncWebviewMessage(message) {
     }
     return message.command === 'packageSyncReady'
         || message.command === 'refreshPackageSync'
-        || (message.command === 'openPackageSyncDiff' && 'objectId' in message && typeof message.objectId === 'number');
+        || (message.command === 'openPackageSyncDiff' && 'objectId' in message && typeof message.objectId === 'number')
+        || (message.command === 'openSvnConflict' && 'path' in message && typeof message.path === 'string')
+        || (message.command === 'mergeSvnRevision' && 'branch' in message && typeof message.branch === 'string'
+            && 'revision' in message && typeof message.revision === 'number' && Number.isSafeInteger(message.revision) && message.revision > 0);
+}
+function isSvnConflictWebviewMessage(message) {
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    return message.command === 'svnConflictReady'
+        || (message.command === 'saveSvnConflict' && 'content' in message && typeof message.content === 'string'
+            && 'resolve' in message && typeof message.resolve === 'boolean');
 }
 function isCodeHistoryWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {

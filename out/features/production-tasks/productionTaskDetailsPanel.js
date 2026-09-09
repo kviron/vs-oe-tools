@@ -39,7 +39,7 @@ const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const productionTaskPresentation_1 = require("./productionTaskPresentation");
 const panels = new Map();
-function openProductionTaskDetails(context, task, findObjectById, loadTaskReference, openTaskReference, loadAttachments, loadHistory) {
+function openProductionTaskDetails(context, task, findObjectById, loadTaskReference, openTaskReference, loadActions, loadAttachments, loadHistory) {
     const existing = panels.get(task.id);
     if (existing) {
         existing.reveal(vscode.ViewColumn.Active);
@@ -63,6 +63,20 @@ function openProductionTaskDetails(context, task, findObjectById, loadTaskRefere
         }
         if (message.command === 'copyTableCells') {
             await vscode.env.clipboard.writeText(message.text);
+            return;
+        }
+        if (message.command === 'loadProductionTaskActions') {
+            await panel.webview.postMessage({ command: 'productionTaskActionsLoading' });
+            try {
+                const actions = await loadActions();
+                await panel.webview.postMessage({ command: 'productionTaskActionsLoaded', actions });
+            }
+            catch (error) {
+                await panel.webview.postMessage({
+                    command: 'productionTaskActionsFailed',
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
             return;
         }
         if (message.command === 'tableSelectionDebug') {

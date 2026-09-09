@@ -81,6 +81,7 @@ const attributeRepository_1 = require("../infrastructure/database/attributeRepos
 const packageExplorerRepository_1 = require("../infrastructure/database/packageExplorerRepository");
 const packageContentPanelManager_1 = require("../features/packages/packageContentPanelManager");
 const oeStaticMethodExecutor_1 = require("../features/lifecycle/oeStaticMethodExecutor");
+const methodRepository_1 = require("../infrastructure/database/methodRepository");
 async function activate(context) {
     const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
     await sqlMonitorService_1.sqlMonitorService.initialize(sqlMonitorHistoryPath);
@@ -89,6 +90,15 @@ async function activate(context) {
     let navigationBridge;
     const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const databaseSelectionPath = workspacePath ? (0, databaseSelection_1.getDatabaseSelectionPath)(context.globalStorageUri.fsPath, workspacePath) : undefined;
+    const activeDatabaseSelectionPath = (0, databaseSelection_1.getActiveDatabaseSelectionPath)();
+    const publishActiveDatabaseSelection = async () => {
+        const currentWorkspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!currentWorkspacePath) {
+            return;
+        }
+        const profile = vscode.workspace.getConfiguration('vcVeTools').get(constants_1.databaseProfileSetting, '');
+        await (0, databaseSelection_1.writeDatabaseSelection)(activeDatabaseSelectionPath, currentWorkspacePath, profile);
+    };
     const clientPasswordKey = `vcVeTools.clientPassword:${workspacePath?.toLowerCase() ?? 'default'}`;
     const productionAuthorizationReferenceKey = `vcVeTools.productionAuthorizationReference:${workspacePath?.toLowerCase() ?? 'default'}`;
     const productionPasswordKey = `vcVeTools.productionPassword:${workspacePath?.toLowerCase() ?? 'default'}`;
@@ -105,7 +115,22 @@ async function activate(context) {
     if (workspacePath && databaseSelectionPath) {
         await (0, databaseSelection_1.writeDatabaseSelection)(databaseSelectionPath, workspacePath, vscode.workspace.getConfiguration('vcVeTools').get(constants_1.databaseProfileSetting, ''));
     }
-    const methodEditor = (0, methodEditorProvider_1.registerMethodEditor)(context);
+    await publishActiveDatabaseSelection();
+    const methodEditor = (0, methodEditorProvider_1.registerMethodEditor)(context, async (draft, target) => {
+        let databaseOptions;
+        if (target) {
+            const currentWorkspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!currentWorkspacePath) {
+                throw new Error('Открытая папка проекта не найдена.');
+            }
+            databaseOptions = await (0, projectDatabaseOptions_1.getProjectDatabaseOptionsForDatabase)(currentWorkspacePath, target.database, target.host);
+        }
+        else {
+            databaseOptions = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+        }
+        const created = await (0, methodRepository_1.createClassMethod)(draft, databaseOptions);
+        return { ...created, databaseOptions };
+    });
     const dfmEditor = (0, dfmEditorProvider_1.registerDfmEditor)(context);
     (0, dfmLanguageFeatures_1.registerDfmLanguageFeatures)(context, dfmEditor);
     (0, codeHistoryService_1.registerCodeHistory)(context, methodEditor);
@@ -197,7 +222,7 @@ async function activate(context) {
         error: (message, details) => extensionLogger.error('Production Tasks', message, details),
     };
     const findDatabaseObjectById = async (id) => (await (0, objectSearchRepository_1.searchDatabaseObjects)(String(id), 1))[0];
-    const showProductionTask = (task) => (0, productionTaskDetailsPanel_1.openProductionTaskDetails)(context, task, findDatabaseObjectById, async (reference) => (0, productionTasksRepository_1.loadProductionTaskReference)(await getProductionConnectionOptions(), reference, productionTasksLogger), showProductionTask, async () => (0, productionTasksRepository_1.loadProductionTaskAttachments)(await getProductionConnectionOptions(), task.id, productionTasksLogger), async () => (0, productionTasksRepository_1.loadProductionTaskHistory)(await getProductionConnectionOptions(), task.id, productionTasksLogger));
+    const showProductionTask = (task) => (0, productionTaskDetailsPanel_1.openProductionTaskDetails)(context, task, findDatabaseObjectById, async (reference) => (0, productionTasksRepository_1.loadProductionTaskReference)(await getProductionConnectionOptions(), reference, productionTasksLogger), showProductionTask, async () => (0, productionTasksRepository_1.loadProductionTaskActions)(await getProductionConnectionOptions(), task.id, productionTasksLogger), async () => (0, productionTasksRepository_1.loadProductionTaskAttachments)(await getProductionConnectionOptions(), task.id, productionTasksLogger), async () => (0, productionTasksRepository_1.loadProductionTaskHistory)(await getProductionConnectionOptions(), task.id, productionTasksLogger));
     const productionTasksProvider = new productionTasksViewProvider_1.ProductionTasksPanelManager(context.extensionUri, getProductionConnectionOptions, showProductionTask, async () => {
         const selected = await vscode.window.showOpenDialog({
             canSelectFiles: true, canSelectFolders: false, canSelectMany: true,
@@ -291,8 +316,8 @@ async function activate(context) {
         openMethod: id => methodEditor.open(id),
         revealMethod: (classId, methodId) => (0, classDetailsPanelManager_1.revealClassMethod)(context, methodEditor, classId, methodId),
         updateMethodSource: async (methodId, code) => methodEditor.save(methodId, code),
-        createClassMethod: async (draft) => {
-            const created = await methodEditor.create(draft);
+        createClassMethod: async (draft, database, host) => {
+            const created = await methodEditor.create(draft, { database, host });
             await explorerProvider.revealClass(created.ownerClassId);
             return { methodId: created.id, ownerClassId: created.ownerClassId, name: created.name };
         },
@@ -367,6 +392,18 @@ async function activate(context) {
                 })),
             };
         },
+        getProductionTask: async (query, limit) => {
+            const options = await getProductionConnectionOptions();
+            productionTasksLogger.info('MCP запросил полную production-задачу.', { query, limit });
+            const tasks = await (0, productionTasksRepository_1.loadProductionTasksByQuery)(options, query, limit, productionTasksLogger);
+            return {
+                database: options.database,
+                query,
+                count: tasks.length,
+                match: tasks.length === 1 ? tasks[0] : null,
+                tasks,
+            };
+        },
         getProductionTasksInProgress: async () => {
             const options = await getProductionConnectionOptions();
             productionTasksLogger.info('MCP запросил production-задачи в работе.');
@@ -405,6 +442,7 @@ async function activate(context) {
             void productionTasksProvider.refresh();
         }
         if (event.affectsConfiguration(`vcVeTools.${constants_1.databaseRoleSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.databaseProfileSetting}`)) {
+            await publishActiveDatabaseSelection();
             if (workspacePath && databaseSelectionPath) {
                 await (0, databaseSelection_1.writeDatabaseSelection)(databaseSelectionPath, workspacePath, vscode.workspace.getConfiguration('vcVeTools').get(constants_1.databaseProfileSetting, ''));
             }
@@ -427,6 +465,12 @@ async function activate(context) {
             catch (error) {
                 void vscode.window.showErrorMessage(`Не удалось изменить кодировку проекта: ${String(error)}`);
             }
+        }
+    });
+    const activeWorkspaceListener = vscode.workspace.onDidChangeWorkspaceFolders(() => void publishActiveDatabaseSelection());
+    const activeWindowListener = vscode.window.onDidChangeWindowState((state) => {
+        if (state.focused) {
+            void publishActiveDatabaseSelection();
         }
     });
     if (extensionConfiguration.get(constants_1.projectRootSetting, false) && vscode.workspace.workspaceFolders?.length) {
@@ -501,7 +545,7 @@ async function activate(context) {
         settingsProvider.refresh();
         void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
     });
-    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, productionTasksProvider, productionTasksRegistration, openProductionTasksCommand, clipboardObjectNavigation, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
+    context.subscriptions.push(extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, productionTasksProvider, productionTasksRegistration, openProductionTasksCommand, clipboardObjectNavigation, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, activeWorkspaceListener, activeWindowListener, disposable, testDatabaseConnectionCommand, selectDatabaseRoleCommand, openSqlMonitorCommand, copySelectedExplorerIdCommand, setUserIdCommand);
 }
 async function extractProductionMetadataFromCaptureDirectories(directories) {
     let personId;

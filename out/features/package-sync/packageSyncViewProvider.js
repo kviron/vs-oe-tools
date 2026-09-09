@@ -40,6 +40,8 @@ const path = __importStar(require("node:path"));
 const node_child_process_1 = require("node:child_process");
 const node_util_1 = require("node:util");
 const webviewProtocol_1 = require("../../core/webviewProtocol");
+const svnConflictPanel_1 = require("./svnConflictPanel");
+const svnMergeService_1 = require("./svnMergeService");
 class PackageSyncPanelManager {
     extensionUri;
     loadSnapshot;
@@ -48,10 +50,14 @@ class PackageSyncPanelManager {
     panel;
     items = [];
     issues = [];
+    mergeWorkingCopy;
+    mergeResult;
+    conflictPanel;
     constructor(extensionUri, loadSnapshot, loadDatabaseVersion) {
         this.extensionUri = extensionUri;
         this.loadSnapshot = loadSnapshot;
         this.loadDatabaseVersion = loadDatabaseVersion;
+        this.conflictPanel = new svnConflictPanel_1.SvnConflictPanel(extensionUri, filePath => { void this.markConflictResolved(filePath); });
     }
     show() {
         if (this.panel) {
@@ -71,6 +77,16 @@ class PackageSyncPanelManager {
                 void this.refresh();
                 return;
             }
+            if (message.command === 'mergeSvnRevision') {
+                void this.merge(message.branch, message.revision);
+                return;
+            }
+            if (message.command === 'openSvnConflict') {
+                if (this.mergeWorkingCopy) {
+                    void this.conflictPanel.show(this.mergeWorkingCopy, message.path).catch(error => vscode.window.showErrorMessage(`Не удалось открыть конфликт: ${errorMessage(error)}`));
+                }
+                return;
+            }
             const item = this.items.find(candidate => candidate.objectId === message.objectId);
             if (!item?.localPath) {
                 void vscode.window.showWarningMessage(`Для объекта ${message.objectId} не удалось определить локальный путь.`);
@@ -83,7 +99,43 @@ class PackageSyncPanelManager {
     refreshForDatabaseChange() { if (this.panel) {
         void this.refresh();
     } }
-    dispose() { this.panel?.dispose(); }
+    dispose() { this.panel?.dispose(); this.conflictPanel.dispose(); }
+    async merge(branch, revision) {
+        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspacePath) {
+            await this.post({ command: 'svnMergeFailed', message: 'Сначала откройте папку проекта Восточного Экспресса.' });
+            return;
+        }
+        const answer = await vscode.window.showWarningMessage(`Выполнить merge ревизии r${revision}?`, { modal: true, detail: `Источник: ${branch}\nРабочая копия: ${path.join(workspacePath, 'packages')}\nCommit выполняться не будет.` }, 'Выполнить merge');
+        if (answer !== 'Выполнить merge') {
+            await this.post({ command: 'svnMergeCancelled' });
+            return;
+        }
+        await this.post({ command: 'svnMergeStarted' });
+        try {
+            const result = await (0, svnMergeService_1.mergePackageRevision)(workspacePath, branch, revision);
+            this.mergeWorkingCopy = result.workingCopy;
+            this.mergeResult = result;
+            await this.post({ command: 'svnMergeCompleted', result });
+        }
+        catch (error) {
+            await this.post({ command: 'svnMergeFailed', message: errorMessage(error) });
+        }
+    }
+    async markConflictResolved(filePath) {
+        if (!this.mergeResult) {
+            return;
+        }
+        const normalized = path.normalize(filePath).toLocaleLowerCase('ru');
+        const workingCopy = this.mergeResult.workingCopy;
+        this.mergeResult = {
+            ...this.mergeResult,
+            files: this.mergeResult.files.map(file => path.normalize(path.join(workingCopy, file.path)).toLocaleLowerCase('ru') === normalized
+                ? { ...file, conflicted: false, treeConflict: false, status: file.status === 'conflicted' ? 'modified' : file.status }
+                : file),
+        };
+        await this.post({ command: 'svnMergeCompleted', result: this.mergeResult });
+    }
     async openDiff(item) {
         try {
             const fileName = await resolvePackageFile(item);

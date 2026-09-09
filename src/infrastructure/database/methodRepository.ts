@@ -5,13 +5,8 @@ import { getSessionContext } from '../configuration/sessionContext';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 import { serializeChangeValues } from './changeValuesSerialization';
 import { resolveMethodSignature } from './methodSignature';
-import type { ClassMethodDraft, CreatedClassMethod } from '../../features/classes/models';
-import {
-	encodeMethodCreationAuditValues,
-	methodClassId,
-	normalizeClassMethodDraft,
-	validateClassMethodDraft,
-} from '../../features/methods/methodCreation';
+import { encodeMethodCreationAuditValues, methodClassId, normalizeClassMethodDraft, validateClassMethodDraft } from '../../features/methods/methodCreation';
+import type { ClassMethodDraft, CreatedClassMethod, DatabaseConnectionOptions } from '../../features/classes/models';
 
 export interface MethodSource {
 	id: number;
@@ -36,9 +31,6 @@ interface MethodSourceRow {
 	sysfile?: number | null;
 }
 
-interface MethodOwnerRow { id: number; name: string; sysfile: number | null; }
-interface DeveloperRangeRow { id: number; beginid: number; endid: number; }
-interface IdRow { id: number; }
 
 export interface MethodReference {
 	id: number;
@@ -46,8 +38,11 @@ export interface MethodReference {
 	seniorId: number;
 }
 
-export async function findMethodsByName(name: string): Promise<MethodReference[]> {
-	const options = await getProjectDatabaseOptions();
+interface MethodOwnerRow { id: number; name: string; sysfile: number | null }
+interface DeveloperRangeRow { id: number; beginid: number | string; endid: number | string; developername: string | null }
+
+export async function findMethodsByName(name: string, databaseOptions?: DatabaseConnectionOptions): Promise<MethodReference[]> {
+	const options = databaseOptions ?? await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
 	try {
 		await client.connect();
@@ -67,8 +62,8 @@ export async function findMethodsByName(name: string): Promise<MethodReference[]
 	}
 }
 
-export async function getMethodSource(id: number): Promise<MethodSource> {
-	const options = await getProjectDatabaseOptions();
+export async function getMethodSource(id: number, databaseOptions?: DatabaseConnectionOptions): Promise<MethodSource> {
+	const options = databaseOptions ?? await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
 	try {
 		await client.connect();
@@ -94,11 +89,16 @@ export async function getMethodSource(id: number): Promise<MethodSource> {
 	}
 }
 
-export async function saveMethodSource(method: MethodSource, code: string, log: (message: string) => void = () => undefined): Promise<void> {
+export async function saveMethodSource(
+	method: MethodSource,
+	code: string,
+	log: (message: string) => void = () => undefined,
+	databaseOptions?: DatabaseConnectionOptions,
+): Promise<void> {
 	log(`Старт сохранения ID=${method.id}; codeType=${method.codeType}; ${inspectValue(code)}.`);
 	const encoded = encodeWindows1251(code);
 	log(`Новый код проверен и закодирован в WIN1251: bytes=${encoded.byteLength}.`);
-	const options = await getProjectDatabaseOptions();
+	const options = databaseOptions ?? await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
 	try {
 		await client.connect();
@@ -244,15 +244,8 @@ export async function saveMethodSource(method: MethodSource, code: string, log: 
 			? undefined
 			: Number(oldCodeRow.sysfile);
 		if (sysFileId !== undefined) {
-			const packageResult = await executeMonitoredQuery(client, {
-				text: `UPDATE syspackagebase
-				 SET objectchangestate = 2
-				 WHERE objectid = $1`,
-				values: [sysFileId],
-				source: `Отметка пакетного файла ${sysFileId} изменённым`,
-				database: options.database,
-			});
-			log(`UPDATE SysPackageBase.ObjectChangeState выполнен: objectId=${sysFileId}; rowCount=${packageResult.rowCount}.`);
+			await markPackageFileChanged(client, options.database, sysFileId, sessionContext.userId, lastChange);
+			log(`Пакетный файл ${sysFileId} зарегистрирован как изменённый.`);
 		}
 
 		await client.query('COMMIT');
@@ -268,94 +261,141 @@ export async function saveMethodSource(method: MethodSource, code: string, log: 
 	}
 }
 
-export async function createClassMethod(input: ClassMethodDraft): Promise<CreatedClassMethod> {
+/**
+ * Reproduces the persistence side effects of Функции_Объект.СоздатьМетод for
+ * the interpreted, non-static method variant supported by the extension.
+ */
+export async function createClassMethod(
+	input: ClassMethodDraft,
+	databaseOptions?: DatabaseConnectionOptions,
+): Promise<CreatedClassMethod> {
 	validateClassMethodDraft(input);
 	const draft = normalizeClassMethodDraft(input);
 	const encodedSignature = encodeWindows1251(draft.signature);
 	const encodedCode = encodeWindows1251(draft.code);
-	const options = await getProjectDatabaseOptions();
+	const options = databaseOptions ?? await getProjectDatabaseOptions();
 	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
 	try {
 		await client.connect();
 		await client.query('BEGIN');
 		const session = await getSessionContext(client, options.database);
-		const ownerResult = await executeMonitoredQuery<MethodOwnerRow>(client, {
-			text: `SELECT class.id,class.name,abstract.sysfile FROM classes AS class
-			 JOIN abstract ON abstract.id=class.id WHERE class.id=$1 FOR UPDATE OF class`,
-			values: [draft.ownerClassId], source: `Класс-владелец нового метода ${draft.ownerClassId}`, database: options.database,
+		const ownerResult = await executeMonitoredQuery<MethodOwnerRow, [number]>(client, {
+			text: `SELECT class.id, class.name, abstract.sysfile
+			 FROM classes AS class
+			 JOIN abstract ON abstract.id = class.id
+			 WHERE class.id = $1
+			 FOR UPDATE OF class`,
+			values: [draft.ownerClassId],
+			source: `Класс-владелец нового метода ${draft.ownerClassId}`,
+			database: options.database,
 		});
 		const owner = ownerResult.rows[0];
 		if (!owner) { throw new Error(`Класс ${draft.ownerClassId} не найден.`); }
 
-		const developerRangeResult = await executeMonitoredQuery<DeveloperRangeRow>(client, {
-			text: `SELECT developer_range.id, developer_range.beginid, developer_range.endid
+		const developerRangeResult = await executeMonitoredQuery<DeveloperRangeRow, [number]>(client, {
+			text: `SELECT developer_range.id, developer_range.beginid, developer_range.endid,
+			        developer_range.developername
 			 FROM users AS session_user_row
-			 JOIN users AS developer_user ON developer_user.person = session_user_row.person
-			 JOIN developerids AS developer_range ON developer_range.userid = developer_user.id
+			 JOIN developerids AS developer_range ON
+			      developer_range.userid = session_user_row.id
+			      OR (developer_range.userid IS NULL AND EXISTS (
+			        SELECT 1
+			        FROM developer
+			        WHERE developer.id = developer_range.developerid
+			          AND developer.name <> ''
+			          AND regexp_replace(session_user_row.name, '^(ВЭ_|вэ_)', '') ILIKE developer.name || '%'
+			      ))
 			 WHERE session_user_row.id = $1
-			 ORDER BY CASE WHEN developer_user.id = session_user_row.id THEN 0 ELSE 1 END, developer_range.beginid DESC
+			 ORDER BY CASE WHEN developer_range.userid = session_user_row.id THEN 0 ELSE 1 END,
+			          length(COALESCE(developer_range.developername, '')) DESC,
+			          developer_range.beginid DESC
 			 LIMIT 1`,
-			values: [session.userId], source: 'Диапазон ID нового метода', database: options.database,
+			values: [session.userId],
+			source: 'Диапазон ID нового метода',
+			database: options.database,
 		});
 		const range = developerRangeResult.rows[0];
 		if (!range) { throw new Error(`Для пользователя ${session.userId} не найден диапазон DeveloperIDs.`); }
+
 		await executeMonitoredQuery(client, {
-			text: 'SELECT pg_advisory_xact_lock($1, $2)', values: [methodClassId, range.id],
-			source: 'Блокировка генерации ID метода', database: options.database,
+			text: 'SELECT pg_advisory_xact_lock($1, $2)',
+			values: [methodClassId, range.id],
+			source: 'Блокировка генерации ID метода',
+			database: options.database,
 		});
-		const duplicate = await executeMonitoredQuery<IdRow>(client, {
-			text: 'SELECT id FROM methods WHERE seniorid=$1 AND upper(name)=upper($2) LIMIT 1',
-			values: [draft.ownerClassId, draft.name], source: 'Проверка имени нового метода', database: options.database,
+		const duplicate = await executeMonitoredQuery(client, {
+			text: 'SELECT id FROM methods WHERE seniorid = $1 AND upper(name) = upper($2) LIMIT 1',
+			values: [draft.ownerClassId, draft.name],
+			source: 'Проверка имени нового метода',
+			database: options.database,
 		});
 		if (duplicate.rowCount) { throw new Error(`В классе ${owner.name} уже есть метод ${draft.name}.`); }
-		const visibility = await executeMonitoredQuery<IdRow>(client, {
-			text: 'SELECT id FROM enum WHERE id=$1 AND classid=12450282', values: [draft.visibilityId],
-			source: 'Проверка видимости нового метода', database: options.database,
+
+		const visibility = await executeMonitoredQuery(client, {
+			text: 'SELECT id FROM enum WHERE id = $1 AND classid = 12450282',
+			values: [draft.visibilityId],
+			source: 'Проверка видимости нового метода',
+			database: options.database,
 		});
 		if (visibility.rowCount !== 1) { throw new Error(`Область видимости ${draft.visibilityId} не найдена.`); }
-		const idResult = await executeMonitoredQuery<IdRow>(client, {
+
+		const idResult = await executeMonitoredQuery<{ id: number | string }, [number | string, number | string]>(client, {
 			text: `SELECT afirstfreeid AS id
 			 FROM oe_system_genguid_enum_ranges_v3(2147483647, $1::bigint, $2::bigint - $1::bigint + 1)
 			 WHERE astartid = $1::bigint AND afirstfreeid <= $2::bigint
 			 LIMIT 1`,
-			values: [range.beginid, range.endid], source: 'Генерация ID нового метода', database: options.database,
+			values: [range.beginid, range.endid],
+			source: 'Генерация ID нового метода',
+			database: options.database,
 		});
 		const id = Number(idResult.rows[0]?.id);
-		if (!Number.isSafeInteger(id) || id <= 0) { throw new Error(`В диапазоне DeveloperIDs ${range.beginid}…${range.endid} нет свободного ID.`); }
+		if (!Number.isSafeInteger(id) || id <= 0) {
+			throw new Error(`В диапазоне DeveloperIDs ${range.beginid}…${range.endid} нет свободного ID.`);
+		}
 
 		await executeMonitoredQuery(client, {
 			text: `INSERT INTO logcchangedobject
-			 (objid,objclassid,changetype,newvalues,userid,computername,changedate,oldvalues,transactioncomment,versionobject,rootobjid,rootobjclassid)
-			 VALUES ($1,$2,3,$3,$4,$5,$6,$7,'','1899-12-30 00:00:00',$8,3)`,
-			values: [id, methodClassId, encodeMethodCreationAuditValues(draft), session.userId, session.computerName,
-				session.changeDate, Buffer.alloc(0), draft.ownerClassId],
-			source: `Логирование создания метода ${draft.name}`, database: options.database,
+			 (objid, objclassid, changetype, newvalues, userid, computername, changedate,
+			  oldvalues, transactioncomment, versionobject, rootobjid, rootobjclassid)
+			 VALUES ($1, $2, 3, $3, $4, $5, $6, $7, '', '1899-12-30 00:00:00', $8, 3)`,
+			values: [id, methodClassId, encodeMethodCreationAuditValues(draft), session.userId,
+				session.computerName, session.changeDate, Buffer.alloc(0), draft.ownerClassId],
+			source: `Логирование создания метода ${draft.name}`,
+			database: options.database,
 		});
 		await executeMonitoredQuery(client, {
 			text: `INSERT INTO methods
-			 (lastchange,name,visibility,methtype,methkind,signature,code,id,classid,seniorid)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+			 (lastchange, name, visibility, methtype, methkind, signature, code, id, classid, seniorid)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 			values: [session.changeDate, draft.name, draft.visibilityId, draft.methodType, draft.methodKind,
 				encodedSignature, encodedCode, id, methodClassId, draft.ownerClassId],
-			source: `Создание метода ${draft.name}`, database: options.database,
+			source: `Создание метода ${draft.name}`,
+			database: options.database,
 		});
 		await executeMonitoredQuery(client, {
-			text: 'INSERT INTO abstract (lastchange,name,id,classid,seniorid,sysfile) VALUES ($1,$2,$3,$4,$5,$6)',
+			text: `INSERT INTO abstract (lastchange, name, id, classid, seniorid, sysfile)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
 			values: [session.changeDate, draft.name, id, methodClassId, draft.ownerClassId, owner.sysfile],
-			source: `Создание Abstract метода ${id}`, database: options.database,
+			source: `Создание Abstract метода ${id}`,
+			database: options.database,
 		});
+
 		const version = await executeMonitoredQuery(client, {
-			text: `UPDATE classes SET classversion=CASE WHEN classversion=2147483647 THEN -2147483648
-			 ELSE COALESCE(classversion,0)+1 END WHERE id=$1`,
-			values: [draft.ownerClassId], source: `Обновление версии класса ${draft.ownerClassId}`, database: options.database,
+			text: `UPDATE classes
+			 SET classversion = CASE
+			   WHEN classversion = 2147483647 THEN -2147483648
+			   ELSE COALESCE(classversion, 0) + 1
+			 END
+			 WHERE id = $1`,
+			values: [draft.ownerClassId],
+			source: `Обновление версии класса ${draft.ownerClassId}`,
+			database: options.database,
 		});
 		if (version.rowCount !== 1) { throw new Error(`Класс ${draft.ownerClassId} исчез во время сохранения.`); }
 		if (owner.sysfile !== null) {
-			await executeMonitoredQuery(client, {
-				text: 'UPDATE syspackagebase SET objectchangestate=2 WHERE objectid=$1', values: [owner.sysfile],
-				source: `Отметка пакетного файла ${owner.sysfile} изменённым`, database: options.database,
-			});
+			await markPackageFileChanged(client, options.database, owner.sysfile, session.userId, session.changeDate);
 		}
+
 		await client.query('COMMIT');
 		return { id, ownerClassId: draft.ownerClassId, name: draft.name };
 	} catch (error) {
@@ -363,6 +403,39 @@ export async function createClassMethod(input: ClassMethodDraft): Promise<Create
 		throw error;
 	} finally {
 		await client.end().catch(() => undefined);
+	}
+}
+
+async function markPackageFileChanged(
+	client: Client,
+	database: string,
+	sysFileId: number,
+	userId: number,
+	changeDate: Date,
+): Promise<void> {
+	const result = await executeMonitoredQuery(client, {
+		text: `INSERT INTO syspackagebase
+		 (objectid, objectclassid, objectseniorid, objectname, objectcontentmd5,
+		  objectchangestate, objectchangelastdate, objectchangelastuser,
+		  objectcontentrevision, objectpath, objectpathpackage)
+		 SELECT file.id, file.classid, file_group.id, file.filename, COALESCE(file.contentmd5, ''),
+		        2, $1, COALESCE(NULLIF(changed_user.name, ''), $2),
+		        COALESCE(file.contentrevision, 0),
+		        '\\' || trim(both '\\' from COALESCE(NULLIF(file_group.path, ''), file_group.name))
+		          || '\\' || file.filename,
+		        file_group.package
+		 FROM sysfile AS file
+		 JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+		 LEFT JOIN abstract AS changed_user ON changed_user.id = $3
+		 WHERE file.id = $4 AND file_group.package IS NOT NULL
+		 ON CONFLICT (objectid) DO UPDATE
+		 SET objectchangestate = 2`,
+		values: [changeDate, String(userId), userId, sysFileId],
+		source: `Регистрация изменения пакетного файла ${sysFileId}`,
+		database,
+	});
+	if (result.rowCount !== 1) {
+		throw new Error(`Файл ${sysFileId} не удалось зарегистрировать в списке синхронизации пакетов.`);
 	}
 }
 

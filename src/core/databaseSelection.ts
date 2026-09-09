@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
 export interface DatabaseSelectionState { workspacePath: string; profile: string; updatedAt: string }
@@ -7,6 +8,10 @@ export interface DatabaseSelectionState { workspacePath: string; profile: string
 export function getDatabaseSelectionPath(storagePath: string, workspacePath: string): string {
 	const workspaceId = createHash('sha256').update(path.resolve(workspacePath).toLowerCase()).digest('hex').slice(0, 16);
 	return path.join(storagePath, `database-selection-${workspaceId}.json`);
+}
+
+export function getActiveDatabaseSelectionPath(): string {
+	return path.join(tmpdir(), 'vc-ve-tools', 'active-database-selection.json');
 }
 
 export async function writeDatabaseSelection(selectionPath: string, workspacePath: string, profile: string): Promise<void> {

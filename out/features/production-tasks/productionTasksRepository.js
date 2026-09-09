@@ -38,11 +38,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.productionTaskSql = void 0;
 exports.productionTaskReferenceSql = productionTaskReferenceSql;
+exports.productionTaskSearchSql = productionTaskSearchSql;
 exports.productionTaskAttachmentsSql = productionTaskAttachmentsSql;
 exports.productionTaskHistorySql = productionTaskHistorySql;
+exports.productionTaskActionsSql = productionTaskActionsSql;
+exports.loadProductionTaskActions = loadProductionTaskActions;
 exports.loadProductionTaskAttachments = loadProductionTaskAttachments;
 exports.loadProductionTaskHistory = loadProductionTaskHistory;
 exports.loadProductionTasks = loadProductionTasks;
+exports.loadProductionTasksByQuery = loadProductionTasksByQuery;
 exports.loadProductionTaskReference = loadProductionTaskReference;
 exports.createLoginParameters = createLoginParameters;
 exports.decodeProductionText = decodeProductionText;
@@ -72,6 +76,8 @@ const productionTaskSelectSql = `SELECT T0.ID AS id,
   COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
     CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Executor), '') AS executor,
   COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.RespPerson), '') AS responsibleuser,
+  COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
     CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Controller), '') AS reviewer,
   COALESCE(CAST(T0.Mantis AS VARCHAR(1000)), '') AS appeal,
   COALESCE(CAST(T0.PackageOfWork AS VARCHAR(250)), '') AS packagename,
@@ -95,16 +101,30 @@ const productionTaskSelectSql = `SELECT T0.ID AS id,
 FROM WorkDoc T0
 LEFT JOIN StateLC SO1 ON SO1.ID=T0.LCStateID`;
 exports.productionTaskSql = `${productionTaskSelectSql}
-WHERE T0.LCStateID NOT IN (11822369, 8929693, 8929692, 8929694, 11821629)
-  AND (T0.Initiator = %CurPerson OR T0.LCStateID <> 11821554)
-  AND T0.RespPerson = %CurPerson
-ORDER BY CASE WHEN T0.LCStateID IN (11821106, 820069919) THEN 0 ELSE 1 END, T0.OrdPlan
-LIMIT 250`;
+ORDER BY T0.CreDate DESC, T0.ID DESC`;
 function productionTaskReferenceSql(reference) {
     if (!Number.isSafeInteger(reference) || reference <= 0) {
         throw new Error('Номер или ID задачи должен быть положительным целым числом.');
     }
     return `${productionTaskSelectSql}\nWHERE T0.DNumber = ${reference} OR T0.ID = ${reference}\nLIMIT 1`;
+}
+function productionTaskSearchSql(query, limit = 10) {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) {
+        throw new Error('Укажите ID, номер или часть названия задачи.');
+    }
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 25) {
+        throw new Error('Лимит поиска задач должен быть целым числом от 1 до 25.');
+    }
+    if (/^\d+$/.test(normalizedQuery)) {
+        const reference = Number(normalizedQuery);
+        if (!Number.isSafeInteger(reference) || reference <= 0) {
+            throw new Error('Номер или ID задачи должен быть положительным целым числом.');
+        }
+        return `${productionTaskSelectSql}\nWHERE T0.ID = ${reference} OR T0.DNumber = ${reference}\nORDER BY CASE WHEN T0.ID = ${reference} THEN 0 ELSE 1 END\nLIMIT ${limit}`;
+    }
+    const escapedQuery = normalizedQuery.replace(/'/g, "''");
+    return `${productionTaskSelectSql}\nWHERE T0.Description ILIKE '%${escapedQuery}%'\nORDER BY CASE WHEN T0.Description ILIKE '${escapedQuery}' THEN 0 ELSE 1 END, T0.CreDate DESC, T0.ID DESC\nLIMIT ${limit}`;
 }
 function productionTaskAttachmentsSql(taskId) {
     if (!Number.isSafeInteger(taskId) || taskId <= 0) {
@@ -146,6 +166,78 @@ LEFT JOIN Persons P ON P.ID = H.Person
 WHERE H.SeniorID = ${taskId}
 ORDER BY H.CreDate DESC, H.ID DESC
 LIMIT 250`;
+}
+const actionBeginStatesAttributeId = 12956168;
+function productionTaskActionsSql(taskId) {
+    if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+        throw new Error('ID задачи для загрузки действий должен быть положительным целым числом.');
+    }
+    return `SELECT DISTINCT A.ID AS id,
+  COALESCE(CAST(NULLIF(A.FName, '') AS VARCHAR(1000)), CAST(A.Name AS VARCHAR(1000)), '') AS name,
+  COALESCE(CAST(A.Verb AS VARCHAR(1000)), '') AS verb,
+  COALESCE(CAST(S.FName AS VARCHAR(1000)), '') AS targetstate,
+  COALESCE(CAST(A.GroupName AS VARCHAR(1000)), '') AS actiongroup,
+  COALESCE(A.IsComment, 0) AS requirescomment,
+  COALESCE(A.MandatoryComment, 0) AS mandatorycomment,
+  COALESCE(A.IsCause, 0) AS requirescause,
+  COALESCE(A.IsDate, 0) AS requiresdate,
+  COALESCE(G.Ord, 999999) AS groupord,
+  COALESCE(A.Ord, 0) AS actionord
+FROM WorkDoc T0
+JOIN Refs R ON R.ObjID = T0.LCStateID AND R.AttrID = ${actionBeginStatesAttributeId}
+JOIN ActionLC A ON A.ID = R.SeniorID
+LEFT JOIN StateLC S ON S.ID = A.EndState
+LEFT JOIN ActionsLC_Group G ON G.ID = A.GroupLC
+WHERE T0.ID = ${taskId}
+ORDER BY groupord, actiongroup, actionord, name, id
+LIMIT 100`;
+}
+async function loadProductionTaskActions(options, taskId, logger) {
+    const connection = new OenpConnection(options.host, options.port);
+    const startedAt = Date.now();
+    let stage = 'подключение для загрузки действий';
+    logger?.info('Начата загрузка действий задачи.', { taskId });
+    try {
+        await connection.connect();
+        stage = 'регистрация клиентской сессии для действий';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createInitialPacket)(options.clientSessionKey), stage, logger);
+        stage = 'проверка версии клиента для действий';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createClientVersionPacket)(2), stage, logger);
+        stage = 'инициализация протокола для действий';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createProtocolInitPacket)(3), stage, logger);
+        stage = 'выбор базы для действий';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createDatabaseProbePacket)(4), stage, logger);
+        stage = 'готовность клиента для действий';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createClientReadyPacket)(5), stage, logger);
+        stage = 'получение challenge для действий';
+        const challenge = (0, oenpProtocol_1.parseChallenge)(await exchangeLogged(connection, (0, oenpProtocol_1.createChallengePacket)(6), stage, logger, false));
+        const authCompatibility = inspectAuthorizationCompatibility(options);
+        stage = 'авторизация для действий';
+        await exchangeLogged(connection, (0, oenpProtocol_1.createLoginPacket)(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
+        stage = 'запрос действий задачи';
+        const response = await exchangeLogged(connection, (0, oenpProtocol_1.createReadonlyQueryPacket)(8, productionTaskActionsSql(taskId), options.personId), stage, logger);
+        stage = 'разбор ответа с действиями задачи';
+        const actions = (0, oenpProtocol_1.parseMemoryDataPacket)(response).map(row => ({
+            id: Number(row.id) >>> 0,
+            name: text(row.name),
+            verb: text(row.verb),
+            targetState: text(row.targetstate),
+            group: text(row.actiongroup),
+            requiresComment: Number(row.requirescomment) !== 0,
+            mandatoryComment: Number(row.mandatorycomment) !== 0,
+            requiresCause: Number(row.requirescause) !== 0,
+            requiresDate: Number(row.requiresdate) !== 0,
+        }));
+        logger?.info('Действия задачи успешно загружены.', { taskId, count: actions.length, elapsedMs: Date.now() - startedAt });
+        return actions;
+    }
+    catch (error) {
+        logger?.error(`Ошибка на этапе «${stage}».`, { taskId, ...errorDetails(error), elapsedMs: Date.now() - startedAt });
+        throw error;
+    }
+    finally {
+        connection.dispose();
+    }
 }
 async function loadProductionTaskAttachments(options, taskId, logger) {
     const connection = new OenpConnection(options.host, options.port);
@@ -240,13 +332,20 @@ async function loadProductionTaskHistory(options, taskId, logger) {
     }
 }
 async function loadProductionTasks(options, logger) {
+    return loadProductionTasksWithSql(options, exports.productionTaskSql, 'списка задач', logger);
+}
+async function loadProductionTasksByQuery(options, query, limit = 10, logger) {
+    return loadProductionTasksWithSql(options, productionTaskSearchSql(query, limit), 'поиска задач', logger, { query, limit });
+}
+async function loadProductionTasksWithSql(options, sql, requestLabel, logger, details) {
     const connection = new OenpConnection(options.host, options.port);
     const startedAt = Date.now();
     let stage = 'подключение';
-    logger?.info('Начата загрузка задач.', {
+    logger?.info(`Начата загрузка ${requestLabel}.`, {
         host: options.host, port: options.port, database: options.database, personId: options.personId,
         hasUsername: options.username.length > 0, hasPassword: options.password.length > 0,
         hasClientSessionKey: options.clientSessionKey.length > 0,
+        ...details,
     });
     const authCompatibility = inspectAuthorizationCompatibility(options);
     if (authCompatibility) {
@@ -270,12 +369,12 @@ async function loadProductionTasks(options, logger) {
         logger?.info('Challenge авторизации получен.', { length: challenge.length });
         stage = 'авторизация';
         await exchangeLogged(connection, (0, oenpProtocol_1.createLoginPacket)(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
-        stage = 'запрос списка задач';
-        const response = await exchangeLogged(connection, (0, oenpProtocol_1.createReadonlyQueryPacket)(8, exports.productionTaskSql, options.personId), stage, logger);
-        stage = 'разбор ответа со списком задач';
+        stage = `запрос ${requestLabel}`;
+        const response = await exchangeLogged(connection, (0, oenpProtocol_1.createReadonlyQueryPacket)(8, sql, options.personId), stage, logger);
+        stage = `разбор ответа ${requestLabel}`;
         const rows = (0, oenpProtocol_1.parseMemoryDataPacket)(response);
         const tasks = rows.map(mapProductionTask);
-        logger?.info('Задачи успешно загружены.', { count: tasks.length, elapsedMs: Date.now() - startedAt });
+        logger?.info(`Загрузка ${requestLabel} завершена.`, { count: tasks.length, elapsedMs: Date.now() - startedAt, ...details });
         return tasks;
     }
     catch (error) {
@@ -420,7 +519,7 @@ function mapProductionTask(row) {
         id: Number(row.id) >>> 0, number: text(row.number), state: text(row.state), title: text(row.title),
         createdAt: normalizeProductionDate(text(row.created)), deadline: normalizeProductionDate(text(row.deadline)),
         activityKind: text(row.activitykind), workType: text(row.worktype), project: decodeProductionText(row.project),
-        author: text(row.author), manager: text(row.manager), analyst: text(row.analyst), executor: text(row.executor), reviewer: text(row.reviewer),
+        author: text(row.author), manager: text(row.manager), analyst: text(row.analyst), executor: text(row.executor), responsibleUser: text(row.responsibleuser), reviewer: text(row.reviewer),
         appeal: text(row.appeal), packageName: text(row.packagename), newsSection: text(row.newssection), priority: text(row.priority), effort: text(row.effort),
         releasePlan: text(row.releaseplan), releaseActual: text(row.releaseactual), revisionTrunk: text(row.revisiontrunk), revisionBranch: text(row.revisionbranch),
         attachmentCount: Math.max(0, Number(row.attachmentcount) || 0),

@@ -1,5 +1,6 @@
 import * as iconv from 'iconv-lite';
 import type { ClassMethodDraft } from '../classes/models';
+import { extractMethodSignature } from '../../infrastructure/database/methodSignature';
 import { serializeChangeValues } from '../../infrastructure/database/changeValuesSerialization';
 
 export const methodClassId = 5;
@@ -9,11 +10,12 @@ export const defaultMethodKind = 0 as const;
 export const defaultMethodCode = 'proc()\r\nbegin\r\n\r\nend;\r\n';
 
 export function normalizeClassMethodDraft(draft: ClassMethodDraft): ClassMethodDraft {
+	const code = draft.code.replace(/\r?\n/g, '\r\n');
 	return {
 		...draft,
 		name: draft.name.trim(),
-		signature: draft.signature.trim(),
-		code: draft.code.replace(/\r?\n/g, '\r\n'),
+		signature: extractMethodSignature(code) ?? draft.signature.trim(),
+		code,
 	};
 }
 
@@ -27,6 +29,7 @@ export function validateClassMethodDraft(input: ClassMethodDraft): void {
 	if (draft.methodKind !== defaultMethodKind) { throw new Error('Пока поддерживается только обычный вид метода (MethKind=0).'); }
 	if (!Number.isSafeInteger(draft.visibilityId) || draft.visibilityId <= 0) { throw new Error('Область видимости должна иметь положительный ID.'); }
 	if (!draft.code.trim()) { throw new Error('Код метода не должен быть пустым.'); }
+	if (!extractMethodSignature(draft.code)) { throw new Error('Код метода должен начинаться с анонимного proc, procedure, func или function.'); }
 	assertWindows1251(draft.name, 'Имя');
 	assertWindows1251(draft.signature, 'Сигнатура');
 	assertWindows1251(draft.code, 'Код');
@@ -43,8 +46,8 @@ export function serializeMethodCreationAuditValues(input: ClassMethodDraft): str
 	].join(',');
 }
 
-export function encodeMethodCreationAuditValues(draft: ClassMethodDraft): Buffer {
-	return iconv.encode(serializeMethodCreationAuditValues(draft), 'win1251');
+export function encodeMethodCreationAuditValues(input: ClassMethodDraft): Buffer {
+	return iconv.encode(serializeMethodCreationAuditValues(input), 'win1251');
 }
 
 function auditPair(attributeId: number, value: string | number): string {

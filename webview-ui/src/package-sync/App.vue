@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { PackageSyncHostMessage } from '../../../src/core/webviewProtocol';
-import type { PackageSyncIssue, PackageSyncItem } from '../../../src/features/package-sync/models';
+import type { PackageSyncIssue, PackageSyncItem, SvnMergeFile, SvnMergeResult } from '../../../src/features/package-sync/models';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 
@@ -12,7 +14,12 @@ const loading = ref(true);
 const error = ref('');
 const query = ref('');
 const selected = ref<number>();
-const activeTab = ref<'changes' | 'errors'>('changes');
+const activeTab = ref<'changes' | 'errors' | 'merge'>('changes');
+const mergeBranch = ref('trunk');
+const mergeRevision = ref<number>();
+const mergeRunning = ref(false);
+const mergeError = ref('');
+const mergeResult = ref<SvnMergeResult>();
 
 const visible = computed(() => {
   const value = query.value.trim().toLocaleLowerCase('ru');
@@ -63,6 +70,30 @@ function openDiff(item: PackageSyncItem): void {
   vscode.postMessage({ command: 'openPackageSyncDiff', objectId: item.objectId });
 }
 
+function runMerge(): void {
+  if (!mergeBranch.value.trim() || !Number.isSafeInteger(mergeRevision.value) || (mergeRevision.value ?? 0) <= 0) return;
+  const revision = mergeRevision.value!;
+  mergeRunning.value = true;
+  mergeError.value = '';
+  vscode.postMessage({ command: 'mergeSvnRevision', branch: mergeBranch.value.trim(), revision });
+}
+
+function openConflict(file: SvnMergeFile): void {
+  if (file.conflicted && !file.treeConflict) vscode.postMessage({ command: 'openSvnConflict', path: file.path });
+}
+
+function mergeStatus(file: SvnMergeFile): string {
+  if (file.treeConflict) return 'Конфликт дерева';
+  if (file.conflicted) return 'Конфликт';
+  switch (file.status) {
+    case 'added': return 'Добавлен';
+    case 'deleted': return 'Удалён';
+    case 'modified': return 'Изменён';
+    case 'replaced': return 'Заменён';
+    default: return 'Затронут';
+  }
+}
+
 function displayPath(item: PackageSyncItem): string {
   return item.localPath || [item.packagePath, item.objectPath].filter(Boolean).join('\\');
 }
@@ -85,6 +116,17 @@ window.addEventListener('message', (event: MessageEvent<PackageSyncHostMessage>)
   } else if (message.command === 'packageSyncFailed') {
     loading.value = false;
     error.value = message.message;
+  } else if (message.command === 'svnMergeStarted') {
+    mergeRunning.value = true;
+    mergeError.value = '';
+  } else if (message.command === 'svnMergeCancelled') {
+    mergeRunning.value = false;
+  } else if (message.command === 'svnMergeCompleted') {
+    mergeRunning.value = false;
+    mergeResult.value = message.result;
+  } else if (message.command === 'svnMergeFailed') {
+    mergeRunning.value = false;
+    mergeError.value = message.message;
   }
 });
 
@@ -106,6 +148,9 @@ vscode.postMessage({ command: 'packageSyncReady' });
       </button>
       <button type="button" :class="cn('border border-b-0 px-3 py-1.5', activeTab === 'errors' ? 'bg-muted font-medium' : 'bg-background text-muted-foreground')" @click="activeTab = 'errors'">
         Ошибки · <span :class="cn(issues.length && 'font-semibold text-destructive')">{{ issues.length }}</span>
+      </button>
+      <button type="button" :class="cn('border border-b-0 px-3 py-1.5', activeTab === 'merge' ? 'bg-muted font-medium' : 'bg-background text-muted-foreground')" @click="activeTab = 'merge'">
+        Merge SVN<span v-if="mergeResult"> · {{ mergeResult.files.length }}</span>
       </button>
     </div>
 
@@ -150,7 +195,7 @@ vscode.postMessage({ command: 'packageSyncReady' });
         </tbody>
       </table>
     </div>
-    <div v-else class="min-h-0 flex-1 overflow-auto">
+    <div v-else-if="activeTab === 'errors'" class="min-h-0 flex-1 overflow-auto">
       <table class="w-max min-w-full border-collapse text-xs">
         <thead class="sticky top-0 z-10 bg-background">
           <tr class="border-b text-left">
@@ -174,10 +219,36 @@ vscode.postMessage({ command: 'packageSyncReady' });
         </tbody>
       </table>
     </div>
+    <div v-else class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <form class="grid shrink-0 grid-cols-[minmax(14rem,1fr)_10rem_auto] items-end gap-2 border-b p-3" @submit.prevent="runMerge">
+        <label class="grid gap-1 text-xs"><span class="font-medium">Ветка или SVN URL</span><Input v-model="mergeBranch" placeholder="trunk, r-3.7 или ^/branches/r-3.7" /></label>
+        <label class="grid gap-1 text-xs"><span class="font-medium">Ревизия</span><Input v-model.number="mergeRevision" type="number" min="1" step="1" placeholder="145401" /></label>
+        <Button type="submit" :disabled="mergeRunning || !mergeBranch.trim() || !mergeRevision">{{ mergeRunning ? 'Выполняется…' : 'Выполнить merge' }}</Button>
+        <p class="col-span-full text-xs text-muted-foreground">Будет выполнен merge одной ревизии в локальную папку packages. Commit расширение не выполняет.</p>
+      </form>
+      <div v-if="mergeError" class="m-2 border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">{{ mergeError }}</div>
+      <div v-else-if="!mergeResult && !mergeRunning" class="p-6 text-center text-muted-foreground">Укажите исходную ветку и ревизию. Короткое имя, например <span class="font-mono">r-3.7</span>, означает ветку в каталоге <span class="font-mono">branches</span>.</div>
+      <div v-else-if="mergeRunning" class="p-6 text-center text-muted-foreground">SVN применяет ревизию…</div>
+      <template v-else-if="mergeResult">
+        <div class="shrink-0 border-b px-3 py-2 text-xs"><span class="font-medium">r{{ mergeResult.revision }}</span> из <span class="font-mono">{{ mergeResult.source }}</span><span class="ml-3 text-muted-foreground">{{ mergeResult.files.length }} файлов, конфликтов: {{ mergeResult.files.filter(file => file.conflicted).length }}</span></div>
+        <div class="min-h-0 flex-1 overflow-auto">
+          <table class="w-full border-collapse text-xs">
+            <thead class="sticky top-0 bg-background"><tr class="border-b text-left"><th class="w-36 px-2 py-1">Статус</th><th class="px-2 py-1">Файл</th><th class="w-28 px-2 py-1">Действие</th></tr></thead>
+            <tbody><tr v-for="file in mergeResult.files" :key="file.path" :class="cn('border-b border-border/50', file.conflicted && 'bg-destructive/5')" @dblclick="openConflict(file)">
+              <td class="px-2 py-1"><Badge :variant="file.conflicted ? 'destructive' : 'secondary'">{{ mergeStatus(file) }}</Badge></td>
+              <td class="px-2 py-1 font-mono" :title="file.path">{{ file.path }}</td>
+              <td class="px-2 py-1"><Button v-if="file.conflicted && !file.treeConflict" variant="outline" class="h-7" @click="openConflict(file)">Разрешить</Button><span v-else-if="file.treeConflict" class="text-muted-foreground">Через SVN</span></td>
+            </tr></tbody>
+          </table>
+        </div>
+        <details v-if="mergeResult.output" class="max-h-40 shrink-0 overflow-auto border-t px-3 py-2 text-xs"><summary class="cursor-pointer text-muted-foreground">Вывод SVN</summary><pre class="mt-2 whitespace-pre-wrap font-mono">{{ mergeResult.output }}</pre></details>
+      </template>
+    </div>
     <div class="shrink-0 border-t px-2 py-1 text-xs text-muted-foreground">
       <template v-if="loading">Получение данных…</template>
       <template v-else-if="activeTab === 'changes'">{{ visible.length }} из {{ items.length }} · двойной щелчок сравнивает с временной версией оригинального клиента</template>
-      <template v-else>{{ visibleIssues.length }} из {{ issues.length }} · проверяются #package$ и зависимости пакетов для изменённых ссылок</template>
+      <template v-else-if="activeTab === 'errors'">{{ visibleIssues.length }} из {{ issues.length }} · проверяются #package$ и зависимости пакетов для изменённых ссылок</template>
+      <template v-else>SVN merge изменяет только рабочую копию · перед commit проверьте список и разрешите конфликты</template>
     </div>
   </div>
 </template>

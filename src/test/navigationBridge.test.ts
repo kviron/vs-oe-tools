@@ -12,10 +12,12 @@ suite('Navigation bridge', () => {
 		let updatedDatabase: 'main' | 'test' | undefined;
 		let startedClient: 'main' | 'test' | undefined;
 		let productionTaskQuery: { query?: string; limit: number } | undefined;
+		let fullProductionTaskQuery: { query: string; limit: number } | undefined;
 		let packagesUpdated = false;
 		let binariesUpdated = false;
 		let createdAttributeName: string | undefined;
 		let createdMethodName: string | undefined;
+		let createdMethodTarget: { database: string; host: string } | undefined;
 		let executedLifecycleMethod: { methodId: number; methodParameter: string; database: string; host: string } | undefined;
 		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
 		const bridge = await startNavigationBridge({
@@ -27,8 +29,9 @@ suite('Navigation bridge', () => {
 				updatedMethod = { methodId, code };
 				return { methodId, changed: true };
 			},
-			createClassMethod: async draft => {
+			createClassMethod: async (draft, database, host) => {
 				createdMethodName = draft.name;
+				createdMethodTarget = { database, host };
 				return { methodId: 3200151, ownerClassId: draft.ownerClassId, name: draft.name };
 			},
 			createClassAttribute: async draft => {
@@ -44,6 +47,10 @@ suite('Navigation bridge', () => {
 			getProductionTasks: async (query, limit) => {
 				productionTaskQuery = { query, limit };
 				return { count: 1, tasks: [{ id: 902173152, number: '85008' }] };
+			},
+			getProductionTask: async (query, limit) => {
+				fullProductionTaskQuery = { query, limit };
+				return { count: 1, match: { id: 934593105, number: '88440', workDescription: 'Полное описание' } };
 			},
 			getProductionTasksInProgress: async () => ({ count: 1, tasks: [{ id: 902173152, state: 'В работе' }] }),
 			updatePackages: async () => { packagesUpdated = true; return true; },
@@ -78,13 +85,14 @@ suite('Navigation bridge', () => {
 			const createMethodResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
-				body: JSON.stringify({ action: 'create_class_method', draft: {
+				body: JSON.stringify({ action: 'create_class_method', database: 'oetest', host: 'localhost', draft: {
 					ownerClassId: 3200139, name: 'acTestExecute', visibilityId: 12450286,
 					methodType: 3, methodKind: 0, signature: '', code: 'proc()\r\nbegin\r\nend;',
 				} }),
 			});
 			assert.equal(createMethodResponse.status, 200);
 			assert.equal(createdMethodName, 'acTestExecute');
+			assert.deepEqual(createdMethodTarget, { database: 'oetest', host: 'localhost' });
 			assert.equal((await createMethodResponse.json() as { methodId: number }).methodId, 3200151);
 			const attributeResponse = await fetch(connection.url, {
 				method: 'POST',
@@ -129,6 +137,16 @@ suite('Navigation bridge', () => {
 			assert.equal(tasksResponse.status, 200);
 			assert.deepEqual(productionTaskQuery, { query: '85008', limit: 25 });
 			assert.deepEqual((await tasksResponse.json() as { tasks: unknown[] }).tasks, [{ id: 902173152, number: '85008' }]);
+			const fullTaskResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'get_production_task', query: 'Связанные объекты', limit: 10 }),
+			});
+			assert.equal(fullTaskResponse.status, 200);
+			assert.deepEqual(fullProductionTaskQuery, { query: 'Связанные объекты', limit: 10 });
+			assert.deepEqual((await fullTaskResponse.json() as { match: unknown }).match, {
+				id: 934593105, number: '88440', workDescription: 'Полное описание',
+			});
 			const inProgressResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

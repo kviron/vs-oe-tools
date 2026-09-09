@@ -19,12 +19,13 @@ export interface NavigationActions {
 	openMethod(methodId: number): Promise<void>;
 	revealMethod(classId: number, methodId: number): Promise<void>;
 	updateMethodSource(methodId: number, code: string): Promise<Record<string, unknown>>;
-	createClassMethod(draft: ClassMethodDraft): Promise<Record<string, unknown>>;
+	createClassMethod(draft: ClassMethodDraft, database: string, host: string): Promise<Record<string, unknown>>;
 	createClassAttribute(draft: ClassAttributeDraft): Promise<Record<string, unknown>>;
 	executeLifecycleMethod(methodId: number, methodParameter: string, database: string, host: string): Promise<Record<string, unknown>>;
 	getSvnFileHistory(filePath: string, limit: number): Promise<Record<string, unknown>>;
 	getPackageSyncChanges(query: string | undefined, offset: number, limit: number): Promise<Record<string, unknown>>;
 	getProductionTasks(query: string | undefined, limit: number): Promise<Record<string, unknown>>;
+	getProductionTask(query: string, limit: number): Promise<Record<string, unknown>>;
 	getProductionTasksInProgress(): Promise<Record<string, unknown>>;
 	updatePackages(): Promise<boolean>;
 	updateBinaries(): Promise<boolean>;

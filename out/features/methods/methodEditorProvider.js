@@ -40,16 +40,21 @@ const iconv = __importStar(require("iconv-lite"));
 const methodRepository_1 = require("../../infrastructure/database/methodRepository");
 exports.methodDocumentScheme = 'vc-ve-method';
 class MethodEditorProvider {
+    createMethod;
     changed = new vscode.EventEmitter();
     methods = new Map();
+    methodDatabases = new Map();
     sessionRevision = Date.now();
     output = vscode.window.createOutputChannel('Восточный Экспресс: Методы');
     onDidChangeFile = this.changed.event;
-    async open(id) {
+    constructor(createMethod) {
+        this.createMethod = createMethod;
+    }
+    async open(id, databaseOptions) {
         this.log(`Открытие метода ID=${id}.`);
-        const method = await (0, methodRepository_1.getMethodSource)(id);
+        const method = await (0, methodRepository_1.getMethodSource)(id, databaseOptions);
         this.log(`Код получен из БД: type=${method.codeType}; ${inspectText(method.code)}.`);
-        const uri = await this.getUri(method);
+        const uri = await this.getUri(method, databaseOptions);
         const extension = method.methodType === 3 ? 'pkf' : 'pas';
         const languageId = extension === 'pkf' ? 've-pkf' : 've-pascal';
         await ensureWindows1251(languageId);
@@ -65,16 +70,19 @@ class MethodEditorProvider {
         await this.persistMethod(method, code);
         return { id: method.id, name: method.name, changed };
     }
-    async create(draft) {
-        const created = await (0, methodRepository_1.createClassMethod)(draft);
-        await this.open(created.id);
+    async create(draft, target) {
+        const created = await this.createMethod(draft, target);
+        await this.open(created.id, created.databaseOptions);
         return created;
     }
-    async getUri(methodOrId) {
-        const method = typeof methodOrId === 'number' ? await (0, methodRepository_1.getMethodSource)(methodOrId) : methodOrId;
+    async getUri(methodOrId, databaseOptions) {
+        const method = typeof methodOrId === 'number' ? await (0, methodRepository_1.getMethodSource)(methodOrId, databaseOptions) : methodOrId;
         const extension = method.methodType === 3 ? 'pkf' : 'pas';
         const uri = vscode.Uri.from({ scheme: exports.methodDocumentScheme, path: `/${safeName(method.name)}-${method.id}.${extension}`, query: `id=${method.id}&revision=${this.sessionRevision}` });
         this.methods.set(uri.toString(), method);
+        if (databaseOptions) {
+            this.methodDatabases.set(uri.toString(), databaseOptions);
+        }
         return uri;
     }
     watch() { return new vscode.Disposable(() => undefined); }
@@ -94,14 +102,14 @@ class MethodEditorProvider {
         const method = await this.ensureMethod(uri);
         const code = iconv.decode(Buffer.from(content), 'win1251');
         this.log(`writeFile вызван ID=${method.id}: bytes=${content.byteLength}; decoded ${inspectText(code)}.`);
-        await this.persistMethod(method, code, uri);
+        await this.persistMethod(method, code, uri, this.methodDatabases.get(uri.toString()));
     }
     delete() { throw vscode.FileSystemError.NoPermissions('Удаление метода из редактора запрещено.'); }
     rename() { throw vscode.FileSystemError.NoPermissions('Переименование метода из редактора запрещено.'); }
-    dispose() { this.changed.dispose(); this.methods.clear(); this.output.dispose(); }
-    async persistMethod(method, code, sourceUri) {
+    dispose() { this.changed.dispose(); this.methods.clear(); this.methodDatabases.clear(); this.output.dispose(); }
+    async persistMethod(method, code, sourceUri, databaseOptions) {
         try {
-            await (0, methodRepository_1.saveMethodSource)(method, code, message => this.log(`[repository] ${message}`));
+            await (0, methodRepository_1.saveMethodSource)(method, code, message => this.log(`[repository] ${message}`), databaseOptions);
         }
         catch (error) {
             this.log(`writeFile завершился ошибкой: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
@@ -133,14 +141,14 @@ class MethodEditorProvider {
         if (!Number.isSafeInteger(id)) {
             throw vscode.FileSystemError.FileNotFound(uri);
         }
-        const method = await (0, methodRepository_1.getMethodSource)(id);
+        const method = await (0, methodRepository_1.getMethodSource)(id, this.methodDatabases.get(uri.toString()));
         this.methods.set(uri.toString(), method);
         return method;
     }
 }
 exports.MethodEditorProvider = MethodEditorProvider;
-function registerMethodEditor(context) {
-    const provider = new MethodEditorProvider();
+function registerMethodEditor(context, createMethod) {
+    const provider = new MethodEditorProvider(createMethod);
     context.subscriptions.push(provider, vscode.workspace.registerFileSystemProvider(exports.methodDocumentScheme, provider, { isCaseSensitive: true }));
     return provider;
 }
