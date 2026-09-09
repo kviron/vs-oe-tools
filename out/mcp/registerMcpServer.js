@@ -58,7 +58,7 @@ function registerDatabaseMcpServer(context, logsPath, navigation, databaseSelect
                 '--logs', logsPath,
                 ...(sqlMonitorHistoryPath ? ['--sql-monitor-history', sqlMonitorHistoryPath] : []),
                 '--navigation-info', navigation.infoPath,
-            ], {}, '0.21.0');
+            ], {}, '0.22.0');
             server.cwd = workspaceFolder.uri;
             return [server];
         },

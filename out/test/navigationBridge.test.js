@@ -50,6 +50,7 @@ suite('Navigation bridge', () => {
         let binariesUpdated = false;
         let createdAttributeName;
         let createdMethodName;
+        let executedLifecycleMethod;
         const infoPath = (0, node_path_1.join)((0, node_os_1.tmpdir)(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
         const bridge = await (0, navigationBridge_1.startNavigationBridge)({
             revealClass: async () => undefined,
@@ -67,6 +68,10 @@ suite('Navigation bridge', () => {
             createClassAttribute: async (draft) => {
                 createdAttributeName = draft.name;
                 return { attributeId: 3200144, ownerClassId: draft.ownerClassId, name: draft.name };
+            },
+            executeLifecycleMethod: async (methodId, methodParameter, database, host) => {
+                executedLifecycleMethod = { methodId, methodParameter, database, host };
+                return { methodId, database, output: 'ok' };
             },
             getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
             getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
@@ -127,6 +132,15 @@ suite('Navigation bridge', () => {
             assert.equal(attributeResponse.status, 200);
             assert.equal(createdAttributeName, 'аТест');
             assert.equal((await attributeResponse.json()).attributeId, 3200144);
+            const methodResponse = await fetch(connection.url, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ action: 'execute_lifecycle_method', id: 3143815,
+                    methodParameter: 'paramName=A,paramKind=8927425', database: 'oetest', host: 'localhost' }),
+            });
+            assert.equal(methodResponse.status, 200);
+            assert.deepEqual(executedLifecycleMethod, { methodId: 3143815, methodParameter: 'paramName=A,paramKind=8927425', database: 'oetest', host: 'localhost' });
+            assert.equal((await methodResponse.json()).output, 'ok');
             const historyResponse = await fetch(connection.url, {
                 method: 'POST',
                 headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

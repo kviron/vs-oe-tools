@@ -6,11 +6,12 @@ import type { AddressInfo } from 'node:net';
 import type { Disposable } from 'vscode';
 import type { NavigationActions } from './navigationTools';
 import type { ClassAttributeDraft, ClassMethodDraft } from '../classes/models';
+import { createLifecycleParameterMethodId } from '../lifecycle/lifecycleMethodExecution';
 
 type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source'
 	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client'
 	| 'open_client_entity' | 'get_production_tasks' | 'get_production_tasks_in_progress'
-	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'create_class_method';
+	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'create_class_method' | 'execute_lifecycle_method';
 
 interface NavigationRequest {
 	action: NavigationAction;
@@ -24,6 +25,9 @@ interface NavigationRequest {
 	role?: 'main' | 'test';
 	entityType?: string;
 	draft?: ClassAttributeDraft | ClassMethodDraft;
+	methodParameter?: string;
+	database?: string;
+	host?: string;
 }
 
 export interface NavigationBridge extends Disposable {
@@ -105,6 +109,10 @@ async function handleRequest(
 			const result = await actions.createClassMethod(input.draft as ClassMethodDraft);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
+		} else if (input.action === 'execute_lifecycle_method') {
+			const result = await actions.executeLifecycleMethod(input.id as number, input.methodParameter as string, input.database as string, input.host as string);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
 		} else if (input.action === 'get_svn_file_history') {
 			const result = await actions.getSvnFileHistory(input.filePath as string, input.limit as number);
 			respond(response, 200, { ok: true, action: input.action, ...result });
@@ -178,7 +186,8 @@ function validateRequest(value: unknown): NavigationRequest {
 		&& action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
 		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
 		&& action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
-		&& action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method') {
+		&& action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method'
+		&& action !== 'execute_lifecycle_method') {
 		throw new Error('Unknown navigation action.');
 	}
 	if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
@@ -202,6 +211,21 @@ function validateRequest(value: unknown): NavigationRequest {
 	}
 	if (action === 'create_class_method' && (!draft || typeof draft !== 'object')) {
 		throw new Error('draft is required for create_class_method.');
+	}
+	const methodParameter = (value as Partial<NavigationRequest>).methodParameter;
+	const database = (value as Partial<NavigationRequest>).database;
+	const host = (value as Partial<NavigationRequest>).host;
+	if (action === 'execute_lifecycle_method' && (typeof methodParameter !== 'string' || !methodParameter.trim())) {
+		throw new Error('methodParameter is required for execute_lifecycle_method.');
+	}
+	if (action === 'execute_lifecycle_method' && id !== createLifecycleParameterMethodId) {
+		throw new Error(`Method ${id} is not allowlisted for execute_lifecycle_method.`);
+	}
+	if (action === 'execute_lifecycle_method' && (typeof database !== 'string' || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
+		throw new Error('database is invalid for execute_lifecycle_method.');
+	}
+	if (action === 'execute_lifecycle_method' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
+		throw new Error('host is invalid for execute_lifecycle_method.');
 	}
 	const filePath = (value as Partial<NavigationRequest>).filePath;
 	const limit = (value as Partial<NavigationRequest>).limit;
@@ -236,7 +260,7 @@ function validateRequest(value: unknown): NavigationRequest {
 	if (action === 'open_client_entity' && (typeof entityType !== 'string' || !entityType.trim())) {
 		throw new Error('entityType is required for open_client_entity.');
 	}
-	return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft };
+	return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host };
 }
 
 function respond(response: ServerResponse, statusCode: number, body: Record<string, unknown>): void {

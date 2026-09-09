@@ -13,6 +13,7 @@ import { selectVisibleProperties, type McpClassProperty } from './classPropertie
 import { loadRdboadmDatabases, rdboadmDatabaseOptions, type RdboadmDatabase } from '../infrastructure/configuration/rdboadmIni';
 import { readDatabaseSelection } from '../core/databaseSelection';
 import { classifySqlQuery } from '../features/sql-monitor/queryCategory';
+import { buildLifecycleMethodParameter, createLifecycleParameterMethodId, lifecycleFunctionsClassId } from '../features/lifecycle/lifecycleMethodExecution';
 
 // The SDK currently publishes declarations that require DOM and NodeNext types.
 // Runtime imports keep this standalone entrypoint compatible with the extension's Node16 tsconfig.
@@ -30,7 +31,7 @@ const sqlMonitorHistoryPath = readOptionalArgument('--sql-monitor-history');
 const databaseSelectionPath = readOptionalArgument('--database-selection');
 const navigationInfoPath = readOptionalArgument('--navigation-info') ?? getNavigationInfoPath(workspacePath);
 const server = new McpServer(
-	{ name: 'vc-ve-tools-database', version: '0.21.0' },
+	{ name: 'vc-ve-tools-database', version: '0.22.0' },
 	{
 		instructions: [
 			'East Express method names are stored separately in method cards and must never be inserted into method source. Preserve the complete anonymous proc/procedure/func/function wrapper returned by get_method_source.',
@@ -41,6 +42,7 @@ const server = new McpServer(
 			'Before update_method_source, read the complete current source with get_method_source. Send the complete replacement including its anonymous declaration wrapper, but never add the method card name.',
 			'Use create_class_attribute only for virtual attributes. It runs through the VS Code extension, allocates a developer ID, writes audit history, links the package file, updates the owning class version, and opens the created attribute card.',
 			'Use create_class_method to create an interpreted method. It allocates a developer ID, writes native-style audit history, links the owner package, updates the owning class version, and opens the new source in the editor.',
+			'Use execute_lifecycle_method to run the allowlisted static Функции_ЖЦ.СоздатьПараметрИПраво method immediately through OEExecTask. Verify the active database first. This creates lifecycle metadata directly and does not create an SPU.',
 			'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
 			'Use get_production_tasks for the current employee task list and get_production_tasks_in_progress for complete cards of tasks currently in status В работе. These calls use the production OENP session held by the VS Code extension.',
 			'Use get_recent_sql_queries to inspect the last 500 filtered queries captured by the SQL monitor without generating additional database traffic.',
@@ -51,7 +53,7 @@ const server = new McpServer(
 );
 
 server.registerTool('list_databases', {
-	description: 'List database profiles from trunk/bin/rdboadm.ini, including section IDs, display names, safe connection details, and which profile is active in this MCP process.',
+	description: 'List database profiles from bin/rdboadm.ini in the opened project root, including section IDs, display names, safe connection details, and which profile is active in this MCP process.',
 	inputSchema: {},
 	annotations: { readOnlyHint: true },
 }, async () => databaseToolResult(async () => {
@@ -643,6 +645,63 @@ server.registerTool('create_class_attribute', {
 		refIntegrityCheck: input.refIntegrityCheck ?? false,
 	},
 }));
+
+server.registerTool('get_lifecycle_function_catalog', {
+	description: 'Inspect the methods of Функции_ЖЦ (12956150), their current signatures, and which method is exposed for controlled lifecycle metadata creation.',
+	inputSchema: {},
+	annotations: { readOnlyHint: true },
+}, async () => databaseToolResult(async () => {
+	const methods = await queryDatabaseRaw<{ id: number | string; name: string; signature: unknown; methtype: number; methkind: number }>(
+		'SELECT id, name, signature, methtype, methkind FROM methods WHERE seniorid = $1 ORDER BY name, id',
+		[lifecycleFunctionsClassId],
+	);
+	return {
+		classId: String(lifecycleFunctionsClassId),
+		className: 'Функции_ЖЦ',
+		creationMethodId: '3143815',
+		executionTool: 'execute_lifecycle_method',
+		methods: methods.map(method => ({
+			...method,
+			id: String(method.id),
+			signature: decodeSourceValue(method.signature),
+			capability: Number(method.id) === 3143815 ? 'creates ParameterLC and RightLC records' : 'runtime calculation/query helper; read-only MCP inspection only',
+		})),
+	};
+}));
+
+server.registerTool('execute_lifecycle_method', {
+	description: 'Immediately execute the allowlisted static method Функции_ЖЦ.СоздатьПараметрИПраво (3143815) through the native OEExecTask runtime. It creates ParameterLC records and optional RightLC records without creating or running an SPU. Call get_active_database first and verify the target. Other Функции_ЖЦ methods require runtime object parameters and are not exposed.',
+	inputSchema: {
+		methodId: z.literal(createLifecycleParameterMethodId).describe('Allowlisted static method ID 3143815'),
+		parameters: z.object({
+			name: z.string().min(1).max(250),
+			displayName: z.string().min(1).max(500),
+			kindId: z.number().int().positive().describe('ParameterLC kind, for example 8927425 view or 8927426 edit'),
+			ownerClassId: z.number().int().positive().describe('Lifecycle owner class used when lifecycleIds is omitted'),
+			attributeId: z.number().int().positive().optional(),
+			lifecycleIds: z.array(z.number().int().positive()).max(500).optional(),
+			excludedLifecycleIds: z.array(z.number().int().positive()).max(500).optional(),
+			roleIds: z.array(z.number().int().positive()).max(500).optional(),
+			copyRightsFromParameter: z.string().max(250).optional(),
+			includeDescendants: z.boolean().optional(),
+			packagedOnly: z.boolean().optional(),
+			excludedStateTypeIds: z.array(z.number().int().positive()).max(100).optional(),
+			additionalAttributePath: z.string().max(1000).optional(),
+			negateAdditionalCondition: z.boolean().optional(),
+			additionalConditionValue: z.string().max(1000).optional(),
+		}),
+	},
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+}, async (input: { methodId: typeof createLifecycleParameterMethodId; parameters: Parameters<typeof buildLifecycleMethodParameter>[0] }) => {
+	const options = await loadActiveDatabaseOptions();
+	return bridgeToolResult({
+		action: 'execute_lifecycle_method',
+		id: input.methodId,
+		methodParameter: buildLifecycleMethodParameter(input.parameters),
+		database: options.database,
+		host: options.host,
+	});
+});
 
 server.registerTool('update_database', {
 	description: 'Update the main or test East Express database using the command from DBUpdate_main.bat or DBUpdate_test.bat in the open workspace. VS Code asks the user for confirmation, then runs the command in a visible terminal.',

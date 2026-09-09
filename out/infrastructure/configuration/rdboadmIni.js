@@ -95,9 +95,7 @@ function updateRdboadmSection(content, sectionId, fields) {
     return lines.join('');
 }
 function resolveRdboadmPath(workspacePath) {
-    return path.basename(workspacePath).toLowerCase() === 'trunk'
-        ? path.join(workspacePath, 'bin', 'rdboadm.ini')
-        : path.join(workspacePath, 'trunk', 'bin', 'rdboadm.ini');
+    return path.join(workspacePath, 'bin', 'rdboadm.ini');
 }
 async function loadRdboadmDatabases(workspacePath) {
     const iniPath = resolveRdboadmPath(workspacePath);

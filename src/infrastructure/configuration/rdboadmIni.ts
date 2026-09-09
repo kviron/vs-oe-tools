@@ -49,9 +49,7 @@ export function updateRdboadmSection(content: string, sectionId: string, fields:
 }
 
 export function resolveRdboadmPath(workspacePath: string): string {
-	return path.basename(workspacePath).toLowerCase() === 'trunk'
-		? path.join(workspacePath, 'bin', 'rdboadm.ini')
-		: path.join(workspacePath, 'trunk', 'bin', 'rdboadm.ini');
+	return path.join(workspacePath, 'bin', 'rdboadm.ini');
 }
 
 export async function loadRdboadmDatabases(workspacePath: string): Promise<{ path: string; databases: RdboadmDatabase[] }> {

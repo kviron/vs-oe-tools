@@ -80,6 +80,7 @@ const spuEditorPanel_1 = require("../features/spu/spuEditorPanel");
 const attributeRepository_1 = require("../infrastructure/database/attributeRepository");
 const packageExplorerRepository_1 = require("../infrastructure/database/packageExplorerRepository");
 const packageContentPanelManager_1 = require("../features/packages/packageContentPanelManager");
+const oeStaticMethodExecutor_1 = require("../features/lifecycle/oeStaticMethodExecutor");
 async function activate(context) {
     const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
     await sqlMonitorService_1.sqlMonitorService.initialize(sqlMonitorHistoryPath);
@@ -300,6 +301,14 @@ async function activate(context) {
             await explorerProvider.revealClass(created.ownerClassId);
             await (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, created.id);
             return { attributeId: created.id, ownerClassId: created.ownerClassId, name: created.name };
+        },
+        executeLifecycleMethod: async (methodId, methodParameter, database, host) => {
+            if (!workspacePath) {
+                throw new Error('Открытая папка проекта не найдена.');
+            }
+            const result = await (0, oeStaticMethodExecutor_1.executeOeStaticMethod)(workspacePath, methodId, methodParameter, database, host, await getClientCredentials());
+            extensionLogger.info('MCP method', `Выполнен статический метод ${methodId}.`, { database });
+            return { ...result };
         },
         getSvnFileHistory: async (filePath, limit) => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];

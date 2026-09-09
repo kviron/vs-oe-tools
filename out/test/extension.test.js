@@ -71,6 +71,9 @@ suite('Extension Test Suite', () => {
         assert.strictEqual(databases[0].name, 'Основная база');
         assert.deepStrictEqual((0, rdboadmIni_1.rdboadmDatabaseOptions)(databases[0]), { host: 'localhost', port: 5433, database: 'oetrunk', user: 'postgres', password: 'root' });
     });
+    test('rdboadm.ini is resolved from the opened project root regardless of its folder name', () => {
+        assert.strictEqual((0, rdboadmIni_1.resolveRdboadmPath)('C:\\OE\\release-3.7'), 'C:\\OE\\release-3.7\\bin\\rdboadm.ini');
+    });
     test('rdboadm.ini update preserves comments and formatting', () => {
         const content = '; comment\r\n[oetrunk]\r\nDispName = Old name\r\nTCPport = 3060\r\n';
         const updated = (0, rdboadmIni_1.updateRdboadmSection)(content, 'oetrunk', [{ key: 'DispName', value: 'Новое имя' }, { key: 'TCPport', value: '4000' }]);

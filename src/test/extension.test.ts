@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { formatSqlResult } from '../features/sql-executor/sqlResultExport';
 import { adaptCompositeDateTimeFields } from '../features/sql-executor/sqlDialectAdapter';
 import { parseVarsFile } from '../infrastructure/configuration/projectDatabaseOptions';
-import { parseRdboadmIni, rdboadmDatabaseOptions, updateRdboadmSection } from '../infrastructure/configuration/rdboadmIni';
+import { parseRdboadmIni, rdboadmDatabaseOptions, resolveRdboadmPath, updateRdboadmSection } from '../infrastructure/configuration/rdboadmIni';
 import { applyClientCredentials, applyClientOpenUri, createBatchFileCommand, extractBatchCommand } from '../features/project/projectCommandService';
 // import * as myExtension from '../../extension';
 
@@ -42,6 +42,10 @@ suite('Extension Test Suite', () => {
 		const databases = parseRdboadmIni('[oetrunk]\r\nDispName = Основная база\r\ndbpath = localhost:5433/oetrunk\r\ndbusername = postgres\r\ndbpassword = root\r\n');
 		assert.strictEqual(databases[0].name, 'Основная база');
 		assert.deepStrictEqual(rdboadmDatabaseOptions(databases[0]), { host: 'localhost', port: 5433, database: 'oetrunk', user: 'postgres', password: 'root' });
+	});
+
+	test('rdboadm.ini is resolved from the opened project root regardless of its folder name', () => {
+		assert.strictEqual(resolveRdboadmPath('C:\\OE\\release-3.7'), 'C:\\OE\\release-3.7\\bin\\rdboadm.ini');
 	});
 
 	test('rdboadm.ini update preserves comments and formatting', () => {

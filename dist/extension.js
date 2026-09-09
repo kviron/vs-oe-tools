@@ -3458,7 +3458,7 @@ var require_split2 = __commonJS({
 var require_helper = __commonJS({
   "node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
-    var path13 = require("path");
+    var path14 = require("path");
     var Stream = require("stream").Stream;
     var split = require_split2();
     var util = require("util");
@@ -3497,7 +3497,7 @@ var require_helper = __commonJS({
     };
     module2.exports.getFileName = function(rawEnv) {
       var env12 = rawEnv || process.env;
-      var file = env12.PGPASSFILE || (isWin ? path13.join(env12.APPDATA || "./", "postgresql", "pgpass.conf") : path13.join(env12.HOME || "./", ".pgpass"));
+      var file = env12.PGPASSFILE || (isWin ? path14.join(env12.APPDATA || "./", "postgresql", "pgpass.conf") : path14.join(env12.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -3629,13 +3629,13 @@ var require_helper = __commonJS({
 var require_lib = __commonJS({
   "node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
-    var path13 = require("path");
+    var path14 = require("path");
     var fs = require("fs");
     var helper = require_helper();
     module2.exports = function(connInfo, cb) {
       var file = helper.getFileName();
-      fs.stat(file, function(err, stat2) {
-        if (err || !helper.usePgPass(stat2, file)) {
+      fs.stat(file, function(err, stat3) {
+        if (err || !helper.usePgPass(stat3, file)) {
           return cb(void 0);
         }
         var st = fs.createReadStream(file);
@@ -5457,7 +5457,7 @@ var require_internal = __commonJS({
       // Codec.
       _internal: InternalCodec
     };
-    function InternalCodec(codecOptions, iconv22) {
+    function InternalCodec(codecOptions, iconv23) {
       this.enc = codecOptions.encodingName;
       this.bomAware = codecOptions.bomAware;
       if (this.enc === "base64") {
@@ -5469,7 +5469,7 @@ var require_internal = __commonJS({
         this.encoder = InternalEncoderCesu8;
         if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
-          this.defaultCharUnicode = iconv22.defaultCharUnicode;
+          this.defaultCharUnicode = iconv23.defaultCharUnicode;
         }
       }
     }
@@ -5626,8 +5626,8 @@ var require_utf32 = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._utf32 = Utf32Codec;
-    function Utf32Codec(codecOptions, iconv22) {
-      this.iconv = iconv22;
+    function Utf32Codec(codecOptions, iconv23) {
+      this.iconv = iconv23;
       this.bomAware = true;
       this.isLE = codecOptions.isLE;
     }
@@ -5755,8 +5755,8 @@ var require_utf32 = __commonJS({
     };
     exports2.utf32 = Utf32AutoCodec;
     exports2.ucs4 = "utf32";
-    function Utf32AutoCodec(options, iconv22) {
-      this.iconv = iconv22;
+    function Utf32AutoCodec(options, iconv23) {
+      this.iconv = iconv23;
     }
     Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder;
     Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder;
@@ -5906,8 +5906,8 @@ var require_utf16 = __commonJS({
       this.overflowByte = -1;
     };
     exports2.utf16 = Utf16Codec;
-    function Utf16Codec(codecOptions, iconv22) {
-      this.iconv = iconv22;
+    function Utf16Codec(codecOptions, iconv23) {
+      this.iconv = iconv23;
     }
     Utf16Codec.prototype.encoder = Utf16Encoder;
     Utf16Codec.prototype.decoder = Utf16Decoder;
@@ -6005,8 +6005,8 @@ var require_utf7 = __commonJS({
     var Buffer2 = require_safer().Buffer;
     exports2.utf7 = Utf7Codec;
     exports2.unicode11utf7 = "utf7";
-    function Utf7Codec(codecOptions, iconv22) {
-      this.iconv = iconv22;
+    function Utf7Codec(codecOptions, iconv23) {
+      this.iconv = iconv23;
     }
     Utf7Codec.prototype.encoder = Utf7Encoder;
     Utf7Codec.prototype.decoder = Utf7Decoder;
@@ -6088,8 +6088,8 @@ var require_utf7 = __commonJS({
       return res;
     };
     exports2.utf7imap = Utf7IMAPCodec;
-    function Utf7IMAPCodec(codecOptions, iconv22) {
-      this.iconv = iconv22;
+    function Utf7IMAPCodec(codecOptions, iconv23) {
+      this.iconv = iconv23;
     }
     Utf7IMAPCodec.prototype.encoder = Utf7IMAPEncoder;
     Utf7IMAPCodec.prototype.decoder = Utf7IMAPDecoder;
@@ -6222,7 +6222,7 @@ var require_sbcs_codec = __commonJS({
     "use strict";
     var Buffer2 = require_safer().Buffer;
     exports2._sbcs = SBCSCodec;
-    function SBCSCodec(codecOptions, iconv22) {
+    function SBCSCodec(codecOptions, iconv23) {
       if (!codecOptions) {
         throw new Error("SBCS codec is called without the data.");
       }
@@ -6237,7 +6237,7 @@ var require_sbcs_codec = __commonJS({
         codecOptions.chars = asciiString + codecOptions.chars;
       }
       this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv22.defaultCharSingleByte.charCodeAt(0));
+      var encodeBuf = Buffer2.alloc(65536, iconv23.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -6904,7 +6904,7 @@ var require_dbcs_codec = __commonJS({
       UNASSIGNED_NODE[i] = UNASSIGNED;
     }
     var i;
-    function DBCSCodec(codecOptions, iconv22) {
+    function DBCSCodec(codecOptions, iconv23) {
       this.encodingName = codecOptions.encodingName;
       if (!codecOptions) {
         throw new Error("DBCS codec is called without the data.");
@@ -6953,7 +6953,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defaultCharUnicode = iconv22.defaultCharUnicode;
+      this.defaultCharUnicode = iconv23.defaultCharUnicode;
       this.encodeTable = [];
       this.encodeTableSeq = [];
       var skipEncodeChars = {};
@@ -6977,7 +6977,7 @@ var require_dbcs_codec = __commonJS({
           }
         }
       }
-      this.defCharSB = this.encodeTable[0][iconv22.defaultCharSingleByte.charCodeAt(0)];
+      this.defCharSB = this.encodeTable[0][iconv23.defaultCharSingleByte.charCodeAt(0)];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]["?"];
       if (this.defCharSB === UNASSIGNED) this.defCharSB = "?".charCodeAt(0);
     }
@@ -8982,7 +8982,7 @@ var require_lib3 = __commonJS({
       var trail = encoder.end();
       return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
     };
-    module2.exports.decode = function decode20(buf, encoding, options) {
+    module2.exports.decode = function decode21(buf, encoding, options) {
       if (typeof buf === "string") {
         if (!module2.exports.skipDecodeWarning) {
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
@@ -9107,7 +9107,7 @@ module.exports = __toCommonJS(extension_exports);
 
 // src/application/activate.ts
 var vscode34 = __toESM(require("vscode"));
-var path12 = __toESM(require("node:path"));
+var path13 = __toESM(require("node:path"));
 
 // src/core/constants.ts
 var projectRootSetting = "useFolderAsProjectRoot";
@@ -9198,7 +9198,7 @@ function updateRdboadmSection(content, sectionId, fields) {
   return lines.join("");
 }
 function resolveRdboadmPath(workspacePath) {
-  return path.basename(workspacePath).toLowerCase() === "trunk" ? path.join(workspacePath, "bin", "rdboadm.ini") : path.join(workspacePath, "trunk", "bin", "rdboadm.ini");
+  return path.join(workspacePath, "bin", "rdboadm.ini");
 }
 async function loadRdboadmDatabases(workspacePath) {
   const iniPath = resolveRdboadmPath(workspacePath);
@@ -16205,7 +16205,7 @@ function registerDatabaseMcpServer(context, logsPath, navigation, databaseSelect
           navigation.infoPath
         ],
         {},
-        "0.21.0"
+        "0.22.0"
       );
       server.cwd = workspaceFolder.uri;
       return [server];
@@ -16406,6 +16406,11 @@ var import_node_crypto2 = require("node:crypto");
 var import_promises10 = require("node:fs/promises");
 var import_node_path = require("node:path");
 var import_node_http = require("node:http");
+
+// src/features/lifecycle/lifecycleMethodExecution.ts
+var createLifecycleParameterMethodId = 3143815;
+
+// src/features/ai/navigationBridge.ts
 async function startNavigationBridge(actions, infoPath) {
   const token = (0, import_node_crypto2.randomBytes)(32).toString("hex");
   const server = (0, import_node_http.createServer)((request, response) => void handleRequest(request, response, token, actions));
@@ -16469,6 +16474,10 @@ async function handleRequest(request, response, token, actions) {
       return;
     } else if (input.action === "create_class_method") {
       const result = await actions.createClassMethod(input.draft);
+      respond(response, 200, { ok: true, action: input.action, ...result });
+      return;
+    } else if (input.action === "execute_lifecycle_method") {
+      const result = await actions.executeLifecycleMethod(input.id, input.methodParameter, input.database, input.host);
       respond(response, 200, { ok: true, action: input.action, ...result });
       return;
     } else if (input.action === "get_svn_file_history") {
@@ -16537,7 +16546,7 @@ function validateRequest(value) {
     throw new Error("Invalid navigation request.");
   }
   const { action, id } = value;
-  if (action !== "reveal_class" && action !== "open_class" && action !== "open_method" && action !== "reveal_method" && action !== "update_method_source" && action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && action !== "open_client_entity" && action !== "get_production_tasks" && action !== "get_production_tasks_in_progress" && action !== "update_packages" && action !== "update_binaries" && action !== "create_class_attribute" && action !== "create_class_method") {
+  if (action !== "reveal_class" && action !== "open_class" && action !== "open_method" && action !== "reveal_method" && action !== "update_method_source" && action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && action !== "open_client_entity" && action !== "get_production_tasks" && action !== "get_production_tasks_in_progress" && action !== "update_packages" && action !== "update_binaries" && action !== "create_class_attribute" && action !== "create_class_method" && action !== "execute_lifecycle_method") {
     throw new Error("Unknown navigation action.");
   }
   if (action !== "get_svn_file_history" && action !== "get_package_sync_changes" && action !== "update_database" && action !== "start_client" && action !== "get_production_tasks" && action !== "get_production_tasks_in_progress" && action !== "update_packages" && action !== "update_binaries" && action !== "create_class_attribute" && action !== "create_class_method" && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
@@ -16557,6 +16566,21 @@ function validateRequest(value) {
   }
   if (action === "create_class_method" && (!draft || typeof draft !== "object")) {
     throw new Error("draft is required for create_class_method.");
+  }
+  const methodParameter = value.methodParameter;
+  const database = value.database;
+  const host = value.host;
+  if (action === "execute_lifecycle_method" && (typeof methodParameter !== "string" || !methodParameter.trim())) {
+    throw new Error("methodParameter is required for execute_lifecycle_method.");
+  }
+  if (action === "execute_lifecycle_method" && id !== createLifecycleParameterMethodId) {
+    throw new Error(`Method ${id} is not allowlisted for execute_lifecycle_method.`);
+  }
+  if (action === "execute_lifecycle_method" && (typeof database !== "string" || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
+    throw new Error("database is invalid for execute_lifecycle_method.");
+  }
+  if (action === "execute_lifecycle_method" && (typeof host !== "string" || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
+    throw new Error("host is invalid for execute_lifecycle_method.");
   }
   const filePath = value.filePath;
   const limit = value.limit;
@@ -16591,7 +16615,7 @@ function validateRequest(value) {
   if (action === "open_client_entity" && (typeof entityType !== "string" || !entityType.trim())) {
     throw new Error("entityType is required for open_client_entity.");
   }
-  return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft };
+  return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host };
 }
 function respond(response, statusCode, body) {
   response.writeHead(statusCode, { "content-type": "application/json; charset=utf-8" });
@@ -18347,8 +18371,8 @@ async function resolveAttachmentUri(attachment) {
   const isWindowsPath = /^[a-z]:[\\/]/i.test(value) || /^\\\\/.test(value);
   const uri = isWindowsPath || !/^[a-z][a-z\d+.-]*:/i.test(value) ? vscode32.Uri.file(value) : vscode32.Uri.parse(value);
   try {
-    const stat2 = await vscode32.workspace.fs.stat(uri);
-    return stat2.type === vscode32.FileType.File ? uri : void 0;
+    const stat3 = await vscode32.workspace.fs.stat(uri);
+    return stat3.type === vscode32.FileType.File ? uri : void 0;
   } catch {
     return void 0;
   }
@@ -18375,15 +18399,15 @@ function buildPackageTree(packageId, packageName, groups, files) {
   const groupPaths = /* @__PURE__ */ new Map();
   for (const group of groups) {
     const id = Number(group.id);
-    const path13 = normalizePath2(group.path ?? group.groupname);
-    groupPaths.set(path13.toLocaleLowerCase("ru"), id);
+    const path14 = normalizePath2(group.path ?? group.groupname);
+    groupPaths.set(path14.toLocaleLowerCase("ru"), id);
     groupNodes.set(id, { key: `group:${id}`, id, name: group.groupname, kind: "group", hasChildren: false, children: [] });
   }
   const roots = [];
   for (const group of groups) {
     const node = groupNodes.get(Number(group.id));
-    const path13 = normalizePath2(group.path ?? group.groupname);
-    const parentPath = path13.includes("\\") ? path13.slice(0, path13.lastIndexOf("\\")).toLocaleLowerCase("ru") : "";
+    const path14 = normalizePath2(group.path ?? group.groupname);
+    const parentPath = path14.includes("\\") ? path14.slice(0, path14.lastIndexOf("\\")).toLocaleLowerCase("ru") : "";
     const parent = parentPath ? groupNodes.get(groupPaths.get(parentPath) ?? Number.NaN) : void 0;
     (parent?.children ?? roots).push(node);
   }
@@ -18630,6 +18654,89 @@ function shell8(webview, assetsRoot) {
   return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>\u0421\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u0444\u0430\u0439\u043B\u0430 \u043F\u0430\u043A\u0435\u0442\u0430</title></head><body><div id="app">\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
 
+// src/features/lifecycle/oeStaticMethodExecutor.ts
+var import_node_child_process4 = require("node:child_process");
+var import_promises12 = require("node:fs/promises");
+var path12 = __toESM(require("node:path"));
+var iconv22 = __toESM(require_lib3());
+var outputLimit = 1024 * 1024;
+function buildOeExecTaskArguments(methodId, methodParameter, database, host, credentials) {
+  if (methodId !== createLifecycleParameterMethodId) {
+    throw new Error(`\u041C\u0435\u0442\u043E\u0434 ${methodId} \u043D\u0435 \u0440\u0430\u0437\u0440\u0435\u0448\u0451\u043D \u0434\u043B\u044F \u043F\u0440\u044F\u043C\u043E\u0433\u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F \u0447\u0435\u0440\u0435\u0437 MCP.`);
+  }
+  for (const [label, value] of [["database", database], ["host", host], ["username", credentials.username], ["password", credentials.password]]) {
+    if (value && /[,"\r\n]/u.test(value)) {
+      throw new Error(`${label} \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0441\u0438\u043C\u0432\u043E\u043B, \u043D\u0435\u0434\u043E\u043F\u0443\u0441\u0442\u0438\u043C\u044B\u0439 \u0432 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0430\u0445 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F OEExecTask.`);
+    }
+  }
+  if (!database.trim()) {
+    throw new Error("\u041D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u0430 \u0431\u0430\u0437\u0430 \u0434\u043B\u044F \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F \u043C\u0435\u0442\u043E\u0434\u0430.");
+  }
+  if (!credentials.username?.trim() || !credentials.password) {
+    throw new Error("\u0414\u043B\u044F \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F \u043C\u0435\u0442\u043E\u0434\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0435 \u043B\u043E\u0433\u0438\u043D \u0438 \u043F\u0430\u0440\u043E\u043B\u044C \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F.");
+  }
+  if (!methodParameter.trim() || /[;\r\n]/u.test(methodParameter)) {
+    throw new Error("\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440 \u043C\u0435\u0442\u043E\u0434\u0430 \u043D\u0435 \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C, \u043C\u043D\u043E\u0433\u043E\u0441\u0442\u0440\u043E\u0447\u043D\u044B\u043C \u0438\u043B\u0438 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C \u0442\u043E\u0447\u043A\u0443 \u0441 \u0437\u0430\u043F\u044F\u0442\u043E\u0439.");
+  }
+  const login = [
+    host.trim() && `host=${host.trim()}`,
+    `db=${database.trim()}`,
+    credentials.username?.trim() && `Username=${credentials.username.trim()}`,
+    credentials.password && `password=${credentials.password}`
+  ].filter(Boolean).join(",");
+  return ["-l", login, `-MethodID=${methodId}`, `-MethodParam=${methodParameter}`, "-ForceOutputOEM"];
+}
+async function executeOeStaticMethod(workspacePath, methodId, methodParameter, database, host, credentials) {
+  const executable = path12.join(workspacePath, "bin", "OEExecTask.exe");
+  if (!(await (0, import_promises12.stat)(executable).catch(() => void 0))?.isFile()) {
+    throw new Error(`\u041D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D ${executable}.`);
+  }
+  const args = buildOeExecTaskArguments(methodId, methodParameter, database, host, credentials);
+  const output2 = await run(executable, args, path12.dirname(executable));
+  return { methodId, database, output: output2 };
+}
+async function run(executable, args, cwd) {
+  return new Promise((resolve6, reject) => {
+    const child = (0, import_node_child_process4.spawn)(executable, args, { cwd, windowsHide: true, shell: false });
+    const chunks = [];
+    let size = 0;
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      child.kill();
+      reject(new Error("\u0412\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u0435 \u043C\u0435\u0442\u043E\u0434\u0430 \u0412\u043E\u0441\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u042D\u043A\u0441\u043F\u0440\u0435\u0441\u0441\u0430 \u043F\u0440\u0435\u0432\u044B\u0441\u0438\u043B\u043E 120 \u0441\u0435\u043A\u0443\u043D\u0434."));
+    }, 12e4);
+    const collect = (chunk) => {
+      size += chunk.length;
+      if (size <= outputLimit) {
+        chunks.push(chunk);
+      }
+    };
+    child.stdout.on("data", collect);
+    child.stderr.on("data", collect);
+    child.once("error", (error) => finish(() => reject(error)));
+    child.once("close", (code) => finish(() => {
+      const output2 = iconv22.decode(Buffer.concat(chunks), "cp866").trim();
+      if (code !== 0) {
+        reject(new Error(output2 || `OEExecTask \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u043B\u0441\u044F \u0441 \u043A\u043E\u0434\u043E\u043C ${code}.`));
+      } else {
+        resolve6(output2);
+      }
+    }));
+    function finish(action) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      action();
+    }
+  });
+}
+
 // src/application/activate.ts
 async function activate(context) {
   const sqlMonitorHistoryPath = vscode34.Uri.joinPath(context.globalStorageUri, "sql-monitor", "recent-queries.json").fsPath;
@@ -18797,7 +18904,7 @@ async function activate(context) {
         return false;
       }
       const captures = new Map(selected.map((uri) => [uri.fsPath.toLowerCase(), uri]));
-      const captureDirectories = new Set(selected.map((uri) => path12.dirname(uri.fsPath)));
+      const captureDirectories = new Set(selected.map((uri) => path13.dirname(uri.fsPath)));
       if (workspacePath) {
         captureDirectories.add(workspacePath);
       }
@@ -18805,7 +18912,7 @@ async function activate(context) {
         try {
           for (const [name, fileType] of await vscode34.workspace.fs.readDirectory(vscode34.Uri.file(directory))) {
             if (fileType === vscode34.FileType.File && name.toLowerCase().endsWith(".pcapng")) {
-              const uri = vscode34.Uri.file(path12.join(directory, name));
+              const uri = vscode34.Uri.file(path13.join(directory, name));
               captures.set(uri.fsPath.toLowerCase(), uri);
             }
           }
@@ -18893,15 +19000,23 @@ async function activate(context) {
       await openAttributeDetails(context, created.id);
       return { attributeId: created.id, ownerClassId: created.ownerClassId, name: created.name };
     },
+    executeLifecycleMethod: async (methodId, methodParameter, database, host) => {
+      if (!workspacePath) {
+        throw new Error("\u041E\u0442\u043A\u0440\u044B\u0442\u0430\u044F \u043F\u0430\u043F\u043A\u0430 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.");
+      }
+      const result = await executeOeStaticMethod(workspacePath, methodId, methodParameter, database, host, await getClientCredentials());
+      extensionLogger.info("MCP method", `\u0412\u044B\u043F\u043E\u043B\u043D\u0435\u043D \u0441\u0442\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043C\u0435\u0442\u043E\u0434 ${methodId}.`, { database });
+      return { ...result };
+    },
     getSvnFileHistory: async (filePath, limit) => {
       const workspaceFolder = vscode34.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) {
         throw new Error("\u041E\u0442\u043A\u0440\u044B\u0442\u0430\u044F \u043F\u0430\u043F\u043A\u0430 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.");
       }
-      const workspaceRoot = path12.resolve(workspaceFolder.uri.fsPath);
-      const resolvedPath = path12.resolve(workspaceRoot, filePath);
-      const relativePath = path12.relative(workspaceRoot, resolvedPath);
-      if (relativePath.startsWith("..") || path12.isAbsolute(relativePath)) {
+      const workspaceRoot = path13.resolve(workspaceFolder.uri.fsPath);
+      const resolvedPath = path13.resolve(workspaceRoot, filePath);
+      const relativePath = path13.relative(workspaceRoot, resolvedPath);
+      if (relativePath.startsWith("..") || path13.isAbsolute(relativePath)) {
         throw new Error("SVN-\u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u043E\u0436\u043D\u043E \u0447\u0438\u0442\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u0444\u0430\u0439\u043B\u043E\u0432 \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0433\u043E \u043F\u0440\u043E\u0435\u043A\u0442\u0430.");
       }
       const entries = await svnLog(resolvedPath, limit);
@@ -19135,7 +19250,7 @@ async function activate(context) {
 async function extractProductionMetadataFromCaptureDirectories(directories) {
   let personId;
   let authorization;
-  for (const directoryPath of new Set(directories.map((directory) => path12.resolve(directory)))) {
+  for (const directoryPath of new Set(directories.map((directory) => path13.resolve(directory)))) {
     try {
       const directory = vscode34.Uri.file(directoryPath);
       for (const [name, fileType] of await vscode34.workspace.fs.readDirectory(directory)) {

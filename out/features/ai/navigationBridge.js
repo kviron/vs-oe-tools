@@ -5,6 +5,7 @@ const node_crypto_1 = require("node:crypto");
 const promises_1 = require("node:fs/promises");
 const node_path_1 = require("node:path");
 const node_http_1 = require("node:http");
+const lifecycleMethodExecution_1 = require("../lifecycle/lifecycleMethodExecution");
 async function startNavigationBridge(actions, infoPath) {
     const token = (0, node_crypto_1.randomBytes)(32).toString('hex');
     const server = (0, node_http_1.createServer)((request, response) => void handleRequest(request, response, token, actions));
@@ -76,6 +77,11 @@ async function handleRequest(request, response, token, actions) {
         }
         else if (input.action === 'create_class_method') {
             const result = await actions.createClassMethod(input.draft);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else if (input.action === 'execute_lifecycle_method') {
+            const result = await actions.executeLifecycleMethod(input.id, input.methodParameter, input.database, input.host);
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
@@ -158,7 +164,8 @@ function validateRequest(value) {
         && action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
         && action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
         && action !== 'get_production_tasks' && action !== 'get_production_tasks_in_progress'
-        && action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method') {
+        && action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method'
+        && action !== 'execute_lifecycle_method') {
         throw new Error('Unknown navigation action.');
     }
     if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
@@ -182,6 +189,21 @@ function validateRequest(value) {
     }
     if (action === 'create_class_method' && (!draft || typeof draft !== 'object')) {
         throw new Error('draft is required for create_class_method.');
+    }
+    const methodParameter = value.methodParameter;
+    const database = value.database;
+    const host = value.host;
+    if (action === 'execute_lifecycle_method' && (typeof methodParameter !== 'string' || !methodParameter.trim())) {
+        throw new Error('methodParameter is required for execute_lifecycle_method.');
+    }
+    if (action === 'execute_lifecycle_method' && id !== lifecycleMethodExecution_1.createLifecycleParameterMethodId) {
+        throw new Error(`Method ${id} is not allowlisted for execute_lifecycle_method.`);
+    }
+    if (action === 'execute_lifecycle_method' && (typeof database !== 'string' || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
+        throw new Error('database is invalid for execute_lifecycle_method.');
+    }
+    if (action === 'execute_lifecycle_method' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
+        throw new Error('host is invalid for execute_lifecycle_method.');
     }
     const filePath = value.filePath;
     const limit = value.limit;
@@ -216,7 +238,7 @@ function validateRequest(value) {
     if (action === 'open_client_entity' && (typeof entityType !== 'string' || !entityType.trim())) {
         throw new Error('entityType is required for open_client_entity.');
     }
-    return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft };
+    return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host };
 }
 function respond(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });

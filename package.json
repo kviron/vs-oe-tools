@@ -92,7 +92,7 @@
           "type": "string",
           "default": "",
           "scope": "window",
-          "description": "Секция базы данных из trunk\\bin\\rdboadm.ini. Пустое значение выбирает первую секцию."
+          "description": "Секция базы данных из bin\\rdboadm.ini в корне открытого проекта. Пустое значение выбирает первую секцию."
         },
         "vcVeTools.userId": {
           "type": "number",
@@ -104,7 +104,7 @@
           "type": "string",
           "default": "",
           "scope": "window",
-          "description": "Полный путь к совместимому OESQLMonCon.exe или каталогу с ним. Если не задан, используется trunk\\bin с автоматическим резервом на соседний R306\\bin при несовместимости протокола."
+          "description": "Полный путь к совместимому OESQLMonCon.exe или каталогу с ним. Если не задан, используется bin в корне открытого проекта с автоматическим резервом на соседний R306\\bin при несовместимости протокола."
         },
         "vcVeTools.clientUsername": {
           "type": "string",

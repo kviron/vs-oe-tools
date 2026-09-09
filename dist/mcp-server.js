@@ -47272,7 +47272,7 @@ function parseRdboadmIni(content) {
   return databases;
 }
 function resolveRdboadmPath(workspacePath2) {
-  return path.basename(workspacePath2).toLowerCase() === "trunk" ? path.join(workspacePath2, "bin", "rdboadm.ini") : path.join(workspacePath2, "trunk", "bin", "rdboadm.ini");
+  return path.join(workspacePath2, "bin", "rdboadm.ini");
 }
 async function loadRdboadmDatabases(workspacePath2) {
   const iniPath = resolveRdboadmPath(workspacePath2);
@@ -47634,6 +47634,67 @@ function classifySqlQuery(record) {
   return "application";
 }
 
+// src/features/lifecycle/lifecycleMethodExecution.ts
+var lifecycleFunctionsClassId = 12956150;
+var createLifecycleParameterMethodId = 3143815;
+function buildLifecycleMethodParameter(parameter) {
+  const values = [
+    ["paramName", requiredText(parameter.name, "\u0418\u043C\u044F \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0430")],
+    ["paramFName", requiredText(parameter.displayName, "\u041D\u0430\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u043D\u0438\u0435 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0430")],
+    ["paramKind", positiveId(parameter.kindId, "kindId")],
+    ["paramAttrId", optionalPositiveId(parameter.attributeId, "attributeId")],
+    ["paramLCSenior", positiveId(parameter.ownerClassId, "ownerClassId")],
+    ["paramLCIds", idList(parameter.lifecycleIds, "lifecycleIds")],
+    ["paramExceptLCIds", idList(parameter.excludedLifecycleIds, "excludedLifecycleIds")],
+    ["paramRole", idList(parameter.roleIds, "roleIds")],
+    ["paramRoleLikeParam", optionalText(parameter.copyRightsFromParameter, "copyRightsFromParameter")],
+    ["paramWithChilds", parameter.includeDescendants],
+    ["paramInSysFile", parameter.packagedOnly],
+    ["paramExceptTypOfStateLC", idList(parameter.excludedStateTypeIds, "excludedStateTypeIds")],
+    ["paramAddAtrPath", optionalText(parameter.additionalAttributePath, "additionalAttributePath")],
+    ["paramNotAddAtrPath", parameter.negateAdditionalCondition],
+    ["paramValueOfAddAtrPath", optionalText(parameter.additionalConditionValue, "additionalConditionValue")]
+  ];
+  return values.filter((entry) => entry[1] !== void 0 && entry[1] !== "").map(([name, value]) => formatPair(name, value)).join(",");
+}
+function formatPair(name, value) {
+  const serialized = typeof value === "boolean" ? value ? "1" : "0" : String(value);
+  const pair = `${name}=${serialized}`;
+  return serialized.includes(",") ? `"${pair}"` : pair;
+}
+function requiredText(value, label) {
+  const normalized = optionalText(value, label);
+  if (!normalized) {
+    throw new Error(`${label} \u043D\u0435 \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C.`);
+  }
+  return normalized;
+}
+function optionalText(value, label) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return void 0;
+  }
+  if (/[;\r\n"]/u.test(normalized)) {
+    throw new Error(`${label} \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u043D\u0435\u0434\u043E\u043F\u0443\u0441\u0442\u0438\u043C\u044B\u0439 \u0441\u0438\u043C\u0432\u043E\u043B.`);
+  }
+  return normalized;
+}
+function positiveId(value, label) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${label} \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u043C \u0446\u0435\u043B\u044B\u043C \u0447\u0438\u0441\u043B\u043E\u043C.`);
+  }
+  return value;
+}
+function optionalPositiveId(value, label) {
+  return value === void 0 ? void 0 : positiveId(value, label);
+}
+function idList(values, label) {
+  if (!values?.length) {
+    return void 0;
+  }
+  return [...new Set(values.map((value) => positiveId(value, label)))].join(",");
+}
+
 // src/mcp/server.ts
 var { McpServer } = require_mcp();
 var { StdioServerTransport } = require_stdio2();
@@ -47648,7 +47709,7 @@ var sqlMonitorHistoryPath = readOptionalArgument("--sql-monitor-history");
 var databaseSelectionPath = readOptionalArgument("--database-selection");
 var navigationInfoPath = readOptionalArgument("--navigation-info") ?? getNavigationInfoPath(workspacePath);
 var server = new McpServer(
-  { name: "vc-ve-tools-database", version: "0.21.0" },
+  { name: "vc-ve-tools-database", version: "0.22.0" },
   {
     instructions: [
       "East Express method names are stored separately in method cards and must never be inserted into method source. Preserve the complete anonymous proc/procedure/func/function wrapper returned by get_method_source.",
@@ -47659,6 +47720,7 @@ var server = new McpServer(
       "Before update_method_source, read the complete current source with get_method_source. Send the complete replacement including its anonymous declaration wrapper, but never add the method card name.",
       "Use create_class_attribute only for virtual attributes. It runs through the VS Code extension, allocates a developer ID, writes audit history, links the package file, updates the owning class version, and opens the created attribute card.",
       "Use create_class_method to create an interpreted method. It allocates a developer ID, writes native-style audit history, links the owner package, updates the owning class version, and opens the new source in the editor.",
+      "Use execute_lifecycle_method to run the allowlisted static \u0424\u0443\u043D\u043A\u0446\u0438\u0438_\u0416\u0426.\u0421\u043E\u0437\u0434\u0430\u0442\u044C\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0418\u041F\u0440\u0430\u0432\u043E method immediately through OEExecTask. Verify the active database first. This creates lifecycle metadata directly and does not create an SPU.",
       "Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.",
       "Use get_production_tasks for the current employee task list and get_production_tasks_in_progress for complete cards of tasks currently in status \u0412 \u0440\u0430\u0431\u043E\u0442\u0435. These calls use the production OENP session held by the VS Code extension.",
       "Use get_recent_sql_queries to inspect the last 500 filtered queries captured by the SQL monitor without generating additional database traffic.",
@@ -47668,7 +47730,7 @@ var server = new McpServer(
   }
 );
 server.registerTool("list_databases", {
-  description: "List database profiles from trunk/bin/rdboadm.ini, including section IDs, display names, safe connection details, and which profile is active in this MCP process.",
+  description: "List database profiles from bin/rdboadm.ini in the opened project root, including section IDs, display names, safe connection details, and which profile is active in this MCP process.",
   inputSchema: {},
   annotations: { readOnlyHint: true }
 }, async () => databaseToolResult(async () => {
@@ -48238,6 +48300,61 @@ server.registerTool("create_class_attribute", {
     refIntegrityCheck: input.refIntegrityCheck ?? false
   }
 }));
+server.registerTool("get_lifecycle_function_catalog", {
+  description: "Inspect the methods of \u0424\u0443\u043D\u043A\u0446\u0438\u0438_\u0416\u0426 (12956150), their current signatures, and which method is exposed for controlled lifecycle metadata creation.",
+  inputSchema: {},
+  annotations: { readOnlyHint: true }
+}, async () => databaseToolResult(async () => {
+  const methods = await queryDatabaseRaw(
+    "SELECT id, name, signature, methtype, methkind FROM methods WHERE seniorid = $1 ORDER BY name, id",
+    [lifecycleFunctionsClassId]
+  );
+  return {
+    classId: String(lifecycleFunctionsClassId),
+    className: "\u0424\u0443\u043D\u043A\u0446\u0438\u0438_\u0416\u0426",
+    creationMethodId: "3143815",
+    executionTool: "execute_lifecycle_method",
+    methods: methods.map((method) => ({
+      ...method,
+      id: String(method.id),
+      signature: decodeSourceValue(method.signature),
+      capability: Number(method.id) === 3143815 ? "creates ParameterLC and RightLC records" : "runtime calculation/query helper; read-only MCP inspection only"
+    }))
+  };
+}));
+server.registerTool("execute_lifecycle_method", {
+  description: "Immediately execute the allowlisted static method \u0424\u0443\u043D\u043A\u0446\u0438\u0438_\u0416\u0426.\u0421\u043E\u0437\u0434\u0430\u0442\u044C\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0418\u041F\u0440\u0430\u0432\u043E (3143815) through the native OEExecTask runtime. It creates ParameterLC records and optional RightLC records without creating or running an SPU. Call get_active_database first and verify the target. Other \u0424\u0443\u043D\u043A\u0446\u0438\u0438_\u0416\u0426 methods require runtime object parameters and are not exposed.",
+  inputSchema: {
+    methodId: z.literal(createLifecycleParameterMethodId).describe("Allowlisted static method ID 3143815"),
+    parameters: z.object({
+      name: z.string().min(1).max(250),
+      displayName: z.string().min(1).max(500),
+      kindId: z.number().int().positive().describe("ParameterLC kind, for example 8927425 view or 8927426 edit"),
+      ownerClassId: z.number().int().positive().describe("Lifecycle owner class used when lifecycleIds is omitted"),
+      attributeId: z.number().int().positive().optional(),
+      lifecycleIds: z.array(z.number().int().positive()).max(500).optional(),
+      excludedLifecycleIds: z.array(z.number().int().positive()).max(500).optional(),
+      roleIds: z.array(z.number().int().positive()).max(500).optional(),
+      copyRightsFromParameter: z.string().max(250).optional(),
+      includeDescendants: z.boolean().optional(),
+      packagedOnly: z.boolean().optional(),
+      excludedStateTypeIds: z.array(z.number().int().positive()).max(100).optional(),
+      additionalAttributePath: z.string().max(1e3).optional(),
+      negateAdditionalCondition: z.boolean().optional(),
+      additionalConditionValue: z.string().max(1e3).optional()
+    })
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false }
+}, async (input) => {
+  const options = await loadActiveDatabaseOptions();
+  return bridgeToolResult({
+    action: "execute_lifecycle_method",
+    id: input.methodId,
+    methodParameter: buildLifecycleMethodParameter(input.parameters),
+    database: options.database,
+    host: options.host
+  });
+});
 server.registerTool("update_database", {
   description: "Update the main or test East Express database using the command from DBUpdate_main.bat or DBUpdate_test.bat in the open workspace. VS Code asks the user for confirmation, then runs the command in a visible terminal.",
   inputSchema: {
