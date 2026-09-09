@@ -1,4 +1,6 @@
-# vc-ve-tools README
+# Восточный Экспресс — инструменты разработчика
+
+Расширение VS Code для разработки и сопровождения проектов Восточного Экспресса.
 
 ## Architecture
 
@@ -15,72 +17,37 @@ New large areas should be added as independent folders under `src/features`. A f
 
 Add UI primitives with `npx shadcn-vue@latest add <component>`; do not hand-build substitutes for components available in the registry. Webview code communicates with the extension host through the typed contracts in `src/core/webviewProtocol.ts`.
 
-This is the README for your extension "vc-ve-tools". After writing up a brief description, we recommend including the following sections.
+## Возможности
 
-## Features
+- Проводник пакетов, классов и объектов метаданных.
+- Карточки классов, методов, атрибутов, свойств и объектов.
+- Редактирование кода методов и SPU с поддержкой Windows-1251.
+- Просмотр и редактирование DFM.
+- Выполнение SQL и SQL-монитор.
+- Синхронизация пакетов и просмотр SVN-изменений.
+- Просмотр производственных задач.
+- MCP-инструменты для безопасной работы ИИ-агентов с метаданными проекта.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## Требования
 
-For example if there is an image subfolder under your extension project workspace:
+- VS Code 1.134.0 или новее.
+- Открытый проект Восточного Экспресса с доступными `Vars.bat` и `bin\\rdboadm.ini`.
+- Доступ к PostgreSQL проекта для функций, работающих с метаданными.
 
-\!\[feature X\]\(images/feature-x.png\)
+## Настройки
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- `vcVeTools.useFolderAsProjectRoot` — использовать открытую папку как корень проекта.
+- `vcVeTools.databaseRole` — основная или тестовая база данных.
+- `vcVeTools.databaseProfile` — профиль из `rdboadm.ini`.
+- `vcVeTools.userId` — ID пользователя для журнала изменений.
+- `vcVeTools.sqlMonitorCollectorPath` — путь к совместимому `OESQLMonCon.exe`.
+- `vcVeTools.mcp.enabled` — включить локальный MCP-сервер расширения.
 
-## Requirements
+## Известные ограничения
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Часть функций зависит от конфигурации и доступности сервисов конкретного проекта Восточного Экспресса.
+- SQL-монитор требует совместимую с версией клиента сборку `OESQLMonCon.exe`.
 
-## Extension Settings
+## Версия 0.1.0
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Первая собранная версия расширения.
