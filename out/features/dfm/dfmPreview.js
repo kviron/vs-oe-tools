@@ -44,8 +44,9 @@ async function openDfmPreview(context, classId) {
         panel = vscode.window.createWebviewPanel('vc-ve-tools.dfmPreview', 'Просмотр DFM', vscode.ViewColumn.Active, { enableScripts: false });
         panel.onDidDispose(() => { panel = undefined; }, undefined, context.subscriptions);
     }
-    else
+    else {
         panel.reveal(vscode.ViewColumn.Active, true);
+    }
     panel.title = `Диалог: ${source.className}`;
     const roots = sources.map(item => parseDfm(item.text)).filter((item) => Boolean(item));
     panel.webview.html = render(roots.reduce((merged, current) => mergeControls(merged, current)), source.className);
@@ -54,10 +55,12 @@ function mergeControls(base, override) {
     const children = base.children.map(child => ({ ...child, props: { ...child.props }, children: [...child.children] }));
     for (const child of override.children) {
         const index = children.findIndex(candidate => candidate.name.toLocaleLowerCase('ru') === child.name.toLocaleLowerCase('ru'));
-        if (index >= 0)
+        if (index >= 0) {
             children[index] = mergeControls(children[index], child);
-        else
+        }
+        else {
             children.push(child);
+        }
     }
     return { name: override.name || base.name, type: override.type || base.type, props: { ...base.props, ...override.props }, children };
 }
@@ -74,23 +77,28 @@ function parseDfm(text) {
         const start = line.match(/^(object|inherited|inline)\s+([^:]+)(?::\s*(\S+))?/i);
         if (start) {
             const node = { name: start[2].trim(), type: start[3] ?? (start[1].toLowerCase() === 'object' ? 'TForm' : ''), props: {}, children: [] };
-            if (stack.length)
+            if (stack.length) {
                 stack.at(-1).children.push(node);
-            else
+            }
+            else {
                 root = node;
+            }
             stack.push(node);
             continue;
         }
         if (/^end\s*$/i.test(line)) {
-            if (collectionItemDepth > 0)
+            if (collectionItemDepth > 0) {
                 collectionItemDepth--;
-            else
+            }
+            else {
                 stack.pop();
+            }
             continue;
         }
         const prop = line.match(/^([\w.]+)\s*=\s*(.*)$/);
-        if (prop && stack.length)
+        if (prop && stack.length) {
             stack.at(-1).props[prop[1]] = prop[2];
+        }
     }
     return root;
 }
@@ -105,36 +113,45 @@ function render(root, title) {
 function controlHtml(node, isRoot = false) {
     const type = node.type.toLowerCase();
     const caption = clean(node.props.Caption ?? node.props.Text ?? '');
-    if (!isRoot && (!isVisible(node) || isNonVisual(type)))
+    if (!isRoot && (!isVisible(node) || isNonVisual(type))) {
         return '';
+    }
     const defaultWidth = /label|statictext/.test(type) ? Math.max(20, caption.length * 7) : 100;
     const defaultHeight = /label|statictext/.test(type) ? 16 : /checkbox|radiobutton/.test(type) ? 17 : 24;
     const width = numberProp(node, 'ClientWidth', numberProp(node, 'Width', isRoot ? 500 : defaultWidth));
     const height = numberProp(node, 'ClientHeight', numberProp(node, 'Height', isRoot ? 350 : defaultHeight));
-    if (isRoot)
+    if (isRoot) {
         return `<section class="form" style="width:${width}px;height:${height + 28}px"><header class="caption">${esc(caption || node.name)}</header><div class="client" style="width:${width}px;height:${height}px">${node.children.map(child => controlHtml(child)).join('')}</div></section>`;
+    }
     const left = numberProp(node, 'Left', 0);
     const top = numberProp(node, 'Top', 0);
     let kind = 'unknown';
     let tag = 'div';
-    if (/label|statictext/.test(type))
+    if (/label|statictext/.test(type)) {
         kind = 'label';
-    else if (/button/.test(type))
+    }
+    else if (/button/.test(type)) {
         kind = 'button';
+    }
     else if (/groupbox/.test(type)) {
         kind = 'group';
         tag = 'fieldset';
     }
-    else if (/panel/.test(type))
+    else if (/panel/.test(type)) {
         kind = 'panel';
-    else if (/memo/.test(type))
+    }
+    else if (/memo/.test(type)) {
         kind = 'memo';
-    else if (/combobox|lookupcombo/.test(type))
+    }
+    else if (/combobox|lookupcombo/.test(type)) {
         kind = 'combo';
-    else if (/checkbox|radiobutton/.test(type))
+    }
+    else if (/checkbox|radiobutton/.test(type)) {
         kind = 'checkbox';
-    else if (/edit|datetime|spin/.test(type))
+    }
+    else if (/edit|datetime|spin/.test(type)) {
         kind = 'input';
+    }
     const children = node.children.map(child => controlHtml(child)).join('');
     const hint = kind === 'unknown' && caption ? `<span class="hint">${esc(node.type)}</span>` : '';
     const content = kind === 'checkbox' ? `<span class="checkmark"></span><span>${esc(caption)}</span>` : kind === 'combo' ? `<span>${esc(caption)}</span><span>⌄</span>` : tag === 'fieldset' ? `<legend>${esc(caption)}</legend>` : esc(caption);

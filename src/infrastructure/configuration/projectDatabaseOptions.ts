@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import * as vscode from 'vscode';
 import * as iconv from 'iconv-lite';
 import { databaseProfileSetting, databaseRoleSetting } from '../../core/constants';
-import type { DatabaseConnectionOptions, DatabaseRole } from '../../features/classes/models';
+import type { DatabaseConnectionOptions, DatabaseRole } from '../../core/database';
 import { loadRdboadmDatabases, rdboadmDatabaseOptions } from './rdboadmIni';
 
 export function parseVarsFile(content: string): Map<string, string> {

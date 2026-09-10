@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as iconv from 'iconv-lite';
 import { getMethodSource, saveMethodSource, type MethodSource } from '../../infrastructure/database/methodRepository';
-import type { ClassMethodDraft, CreatedClassMethod, DatabaseConnectionOptions } from '../classes/models';
+import type { ClassMethodDraft, CreatedClassMethod } from '../classes/models';
+import type { DatabaseConnectionOptions } from '../../core/database';
 
 export const methodDocumentScheme = 'vc-ve-method';
 

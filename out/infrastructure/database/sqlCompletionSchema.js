@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSqlCompletionSchema = getSqlCompletionSchema;
-const pg_1 = require("pg");
 const sqlCompletionSchema_1 = require("../../features/sql-executor/sqlCompletionSchema");
 const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 const cacheDurationMs = 5 * 60_000;
 const cache = new Map();
 async function getSqlCompletionSchema() {
@@ -24,9 +24,7 @@ async function getSqlCompletionSchema() {
     }
 }
 async function loadSqlCompletionSchema(options) {
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools-sql-completion', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client }) => {
         const result = await client.query(`
 			SELECT table_schema, table_name, column_name
 			FROM information_schema.columns
@@ -34,9 +32,6 @@ async function loadSqlCompletionSchema(options) {
 			ORDER BY table_schema, table_name, ordinal_position
 		`);
         return (0, sqlCompletionSchema_1.buildSqlCompletionSchema)(result.rows);
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    }, options, 'vc-ve-tools-sql-completion');
 }
 //# sourceMappingURL=sqlCompletionSchema.js.map

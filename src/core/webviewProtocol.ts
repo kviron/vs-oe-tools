@@ -1,12 +1,17 @@
 import type { AttributeDetails, AttributeEditorOptions, ClassAttribute, ClassAttributeDraft, ClassDetails, ClassMethod, ClassObjectColumnSettings, ClassObjectsResult, ClassProperty, ClassTreeRow, ObjectViewResult, PropertyDetails } from '../features/classes/models';
-import type { SqlQueryRecord } from '../features/sql-monitor/models';
-import type { SerializedQueryResult } from '../infrastructure/database/databaseQueryExecutor';
 import type { PackageSyncIssue, PackageSyncItem, SvnConflictContent, SvnMergeResult } from '../features/package-sync/models';
 import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSearch';
 import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../features/production-tasks/models';
 import type { CreatedSpu, SpuDraft, SpuEditorOptions } from '../features/spu/models';
 import type { SqlCompletionSchema } from '../features/sql-executor/sqlCompletionSchema';
 import type { PackageExplorerNode, PackageFileContent, PackageSummary } from '../features/packages/models';
+import { isCopyEntityIdMessage, isCopyTableCellsMessage, isOpenClientEntityMessage, isTableSelectionDebugMessage, type CopyEntityIdMessage, type CopyTableCellsMessage, type OpenClientEntityMessage, type TableSelectionDebugMessage } from './webview/commonMessages';
+import { type SqlExecutorWebviewMessage, type SqlMonitorWebviewMessage } from './webview/sqlMessages';
+
+export type { CopyEntityIdMessage, CopyTableCellsMessage, OpenClientEntityMessage, TableSelectionDebugMessage } from './webview/commonMessages';
+export { isCopyEntityIdMessage, isOpenClientEntityMessage } from './webview/commonMessages';
+export type { SqlExecutorHostMessage, SqlExecutorWebviewMessage, SqlHistoryEntry, SqlMonitorHostMessage, SqlMonitorWebviewMessage } from './webview/sqlMessages';
+export { isSqlExecutorWebviewMessage, isSqlMonitorWebviewMessage } from './webview/sqlMessages';
 
 export type ProductionTasksWebviewMessage =
 	| { command: 'productionTasksReady' }
@@ -112,24 +117,6 @@ export type ClassDetailsWebviewMessage =
 	| OpenClientEntityMessage
 	| TableSelectionDebugMessage;
 
-export interface CopyEntityIdMessage {
-	command: 'copyEntityId';
-	id: number | string;
-}
-export interface OpenClientEntityMessage {
-	command: 'openClientEntity';
-	role: 'main' | 'test';
-	entityType: string;
-	id: number;
-}
-export interface TableSelectionDebugMessage {
-	command: 'tableSelectionDebug';
-	message: string;
-}
-export interface CopyTableCellsMessage {
-	command: 'copyTableCells';
-	text: string;
-}
 export type ClassDetailsHostMessage =
 	| { command: 'classDetailsLoaded'; details: ClassDetails; activeTab?: string }
 	| { command: 'revealClassMethod'; methodId: number }
@@ -198,38 +185,6 @@ export type PackageContentHostMessage =
 	| { command: 'packageContentLoaded'; result: PackageFileContent; selectedObjectId?: number }
 	| { command: 'revealPackageContentObject'; objectId: number }
 	| { command: 'packageContentLoadFailed'; message: string };
-export type SqlMonitorWebviewMessage =
-	| { command: 'sqlMonitorReady' }
-	| { command: 'clearSqlMonitor' }
-	| { command: 'setSqlMonitorPaused'; paused: boolean }
-	| TableSelectionDebugMessage
-	| CopyTableCellsMessage;
-export type SqlMonitorHostMessage =
-	| { command: 'sqlMonitorSnapshot'; records: SqlQueryRecord[]; paused: boolean }
-	| { command: 'sqlQueryChanged'; record: SqlQueryRecord }
-	| { command: 'sqlMonitorPaused'; paused: boolean }
-	| { command: 'sqlMonitorCleared' };
-export interface SqlHistoryEntry {
-	id: number;
-	startedAt: string;
-	source: string;
-	operation: SqlQueryRecord['operation'];
-	text: string;
-}
-export type SqlExecutorWebviewMessage =
-	| { command: 'sqlExecutorReady' }
-	| { command: 'executeSql'; text: string }
-	| { command: 'copySqlResult'; format: 'markdown' | 'json' }
-	| { command: 'copySqlError'; text: string }
-	| { command: 'exportSqlResult' }
-	| TableSelectionDebugMessage
-	| CopyTableCellsMessage;
-export type SqlExecutorHostMessage =
-	| { command: 'sqlExecutorInitialized'; history: SqlHistoryEntry[] }
-	| { command: 'sqlCompletionSchemaLoaded'; completion: SqlCompletionSchema }
-	| { command: 'sqlExecutorHistoryChanged'; entry: SqlHistoryEntry }
-	| { command: 'sqlExecutionSucceeded'; result: SerializedQueryResult; durationMs: number; database: string }
-	| { command: 'sqlExecutionFailed'; message: string; details: string };
 export type PackageSyncWebviewMessage =
 	| { command: 'packageSyncReady' }
 	| { command: 'refreshPackageSync' }
@@ -265,6 +220,14 @@ export interface SettingsState {
 	mcpEnabled: boolean;
 	mcpStatus: 'ready' | 'disabled' | 'unavailable';
 	mcpStatusText: string;
+	clientMcpUrl: string;
+	clientMcpStatus: 'online' | 'offline';
+	clientMcpStatusText: string;
+	clientMcpDatabase?: string;
+	clientMcpDatabaseMatchesSelection?: boolean;
+	postmanApiUrl: string;
+	postmanApiStatus: 'online' | 'offline';
+	postmanApiStatusText: string;
 	mcpConnectionCode: string;
 	lastExtensionError?: { timestamp: string; source: string; message: string };
 }
@@ -279,13 +242,21 @@ export type SettingsWebviewMessage =
 	| { command: 'setUserId'; userId: number }
 	| { command: 'setClientCredentials'; username: string; password?: string }
 	| { command: 'setMcpEnabled'; enabled: boolean }
+	| { command: 'refreshClientMcpStatus' }
+	| { command: 'startClientMcpServer' }
+	| { command: 'stopClientMcpServer' }
+	| { command: 'setPostmanApiServerRunning'; enabled: boolean }
 	| { command: 'testSettingsDatabaseConnection' }
 	| { command: 'copyMcpConnectionCode'; text: string }
 	| { command: 'clearExtensionLogs' };
 export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
 	| { command: 'databaseConnectionTestStarted' }
-	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string };
+	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string }
+	| { command: 'clientMcpActionStarted'; action: 'start' | 'stop' }
+	| { command: 'clientMcpActionFinished'; action: 'start' | 'stop'; success: boolean; message: string }
+	| { command: 'postmanApiActionStarted'; action: 'start' | 'stop' }
+	| { command: 'postmanApiActionFinished'; action: 'start' | 'stop'; success: boolean; message: string };
 export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SvnConflictWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
 
 export function isProductionTasksWebviewMessage(message: unknown): message is ProductionTasksWebviewMessage {
@@ -324,10 +295,10 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
 		return false;
 	}
-	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'clearExtensionLogs') {
+	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
 		return true;
 	}
-	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
+	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled' || message.command === 'setPostmanApiServerRunning') {
 		return 'enabled' in message && typeof message.enabled === 'boolean';
 	}
 	if (message.command === 'setDatabaseRole') {
@@ -574,74 +545,4 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	}
 	return message.command === 'openClass' && 'id' in message && 'pinned' in message
 		&& typeof message.id === 'number' && typeof message.pinned === 'boolean';
-}
-
-export function isCopyEntityIdMessage(message: unknown): message is CopyEntityIdMessage {
-	return typeof message === 'object'
-		&& message !== null
-		&& 'command' in message
-		&& message.command === 'copyEntityId'
-		&& 'id' in message
-		&& (typeof message.id === 'number' || typeof message.id === 'string');
-}
-
-export function isOpenClientEntityMessage(message: unknown): message is OpenClientEntityMessage {
-	return typeof message === 'object'
-		&& message !== null
-		&& 'command' in message
-		&& message.command === 'openClientEntity'
-		&& 'role' in message
-		&& (message.role === 'main' || message.role === 'test')
-		&& 'entityType' in message
-		&& typeof message.entityType === 'string'
-		&& message.entityType.trim().length > 0
-		&& 'id' in message
-		&& typeof message.id === 'number'
-		&& Number.isSafeInteger(message.id);
-}
-
-export function isSqlMonitorWebviewMessage(message: unknown): message is SqlMonitorWebviewMessage {
-	return typeof message === 'object'
-		&& message !== null
-		&& 'command' in message
-		&& (message.command === 'sqlMonitorReady'
-			|| message.command === 'clearSqlMonitor'
-			|| (message.command === 'setSqlMonitorPaused' && 'paused' in message && typeof message.paused === 'boolean')
-			|| isTableSelectionDebugMessage(message)
-			|| isCopyTableCellsMessage(message));
-}
-
-export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExecutorWebviewMessage {
-	if (typeof message !== 'object' || message === null || !('command' in message)) {
-		return false;
-	}
-	if (message.command === 'sqlExecutorReady') {
-		return true;
-	}
-	if (isTableSelectionDebugMessage(message)) {
-		return true;
-	}
-	if (isCopyTableCellsMessage(message)) {
-		return true;
-	}
-	if (message.command === 'executeSql') {
-		return 'text' in message && typeof message.text === 'string';
-	}
-	if (message.command === 'copySqlResult') {
-		return 'format' in message && (message.format === 'markdown' || message.format === 'json');
-	}
-	if (message.command === 'copySqlError') {
-		return 'text' in message && typeof message.text === 'string';
-	}
-	return message.command === 'exportSqlResult';
-}
-
-function isCopyTableCellsMessage(message: object): message is CopyTableCellsMessage {
-	return 'command' in message && message.command === 'copyTableCells'
-		&& 'text' in message && typeof message.text === 'string';
-}
-
-function isTableSelectionDebugMessage(message: object): message is TableSelectionDebugMessage {
-	return 'command' in message && message.command === 'tableSelectionDebug'
-		&& 'message' in message && typeof message.message === 'string';
 }

@@ -71,11 +71,13 @@ class DfmEditorProvider {
     dispose() { this.changed.dispose(); this.sources.clear(); }
     async ensure(uri) {
         const cached = this.sources.get(uri.toString());
-        if (cached)
+        if (cached) {
             return cached;
+        }
         const id = Number(new URLSearchParams(uri.query).get('classId'));
-        if (!Number.isSafeInteger(id))
+        if (!Number.isSafeInteger(id)) {
             throw vscode.FileSystemError.FileNotFound(uri);
+        }
         const source = await (0, dfmRepository_1.getDfmSource)(id);
         this.sources.set(uri.toString(), source);
         return source;

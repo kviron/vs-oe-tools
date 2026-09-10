@@ -1,8 +1,7 @@
-import { Client } from 'pg';
 import * as iconv from 'iconv-lite';
-import { getProjectDatabaseOptions } from '../../infrastructure/configuration/projectDatabaseOptions';
 import { getSessionContext } from '../../infrastructure/configuration/sessionContext';
 import { executeMonitoredQuery } from '../../infrastructure/database/databaseQueryExecutor';
+import { withProjectDatabaseSession } from '../../infrastructure/database/projectDatabaseSession';
 
 export interface DfmSource {
 	classId: number;
@@ -44,25 +43,19 @@ LEFT JOIN dfltvalues value ON value.seniorid = class.id AND value.attrid = attri
 WHERE class.id = $1`;
 
 export async function getDfmSource(classId: number): Promise<DfmSource> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<DfmRow, [number]>(client, {
 			text: dfmQuery, values: [classId], source: `DFM класса ${classId}`, database: options.database,
 		});
 		const row = result.rows[0];
-		if (!row) throw new Error(`У класса ${classId} не найден атрибут DFM.`);
-		if (row.valueid === null) throw new Error(`У класса ${row.classname} нет собственного значения DFM.`);
+		if (!row) {throw new Error(`У класса ${classId} не найден атрибут DFM.`);}
+		if (row.valueid === null) {throw new Error(`У класса ${row.classname} нет собственного значения DFM.`);}
 		return toSource(row);
-	} finally { await client.end().catch(() => undefined); }
+	});
 }
 
 export async function getDfmInheritance(classId: number): Promise<DfmSource[]> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<DfmRow & { depth: number }, [number]>(client, {
 			text: `WITH RECURSIVE class_chain AS (
 			  SELECT id, name, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
@@ -84,22 +77,20 @@ export async function getDfmInheritance(classId: number): Promise<DfmSource[]> {
 			ORDER BY chain.depth DESC`,
 			values: [classId], source: `Цепочка DFM класса ${classId}`, database: options.database,
 		});
-		if (!result.rows.length) throw new Error(`В иерархии класса ${classId} не найден DFM.`);
+		if (!result.rows.length) {throw new Error(`В иерархии класса ${classId} не найден DFM.`);}
 		return result.rows.map(toSource);
-	} finally { await client.end().catch(() => undefined); }
+	});
 }
 
 export async function saveDfmSource(source: DfmSource, text: string): Promise<DfmSource> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	return withProjectDatabaseSession(async ({ client, options }) => {
 	try {
-		await client.connect();
 		await client.query('BEGIN');
 		const current = await executeMonitoredQuery<DfmRow, [number]>(client, {
 			text: dfmQuery, values: [source.classId], source: `Проверка DFM класса ${source.classId}`, database: options.database,
 		});
 		const row = current.rows[0];
-		if (!row || row.valueid !== source.valueId || row.attrid !== source.attributeId) throw new Error('Запись DFM изменилась или была удалена. Откройте её заново.');
+		if (!row || row.valueid !== source.valueId || row.attrid !== source.attributeId) {throw new Error('Запись DFM изменилась или была удалена. Откройте её заново.');}
 		if (decodeValue(row.defvalue) === text) { await client.query('ROLLBACK'); return toSource(row); }
 		const session = await getSessionContext(client, options.database);
 		const value = isBinaryType(row.valuetype) ? encode(text) : text;
@@ -108,36 +99,36 @@ export async function saveDfmSource(source: DfmSource, text: string): Promise<Df
 			values: [session.changeDate, source.classId, source.attributeId, value, source.valueName, source.valueId],
 			source: `Сохранение DFM класса ${source.className}`, database: options.database,
 		});
-		if (updated.rowCount !== 1) throw new Error('Запись DFM не найдена при сохранении.');
+		if (updated.rowCount !== 1) {throw new Error('Запись DFM не найдена при сохранении.');}
 		const abstractUpdated = await executeMonitoredQuery(client, {
 			text: `UPDATE abstract SET lastchange = $1, seniorid = $2, name = $3 WHERE id = $4`,
 			values: [session.changeDate, source.classId, source.valueName, source.valueId],
 			source: `Сохранение abstract DFM ${source.valueId}`, database: options.database,
 		});
-		if (abstractUpdated.rowCount !== 1) throw new Error('Запись abstract для DFM не найдена.');
+		if (abstractUpdated.rowCount !== 1) {throw new Error('Запись abstract для DFM не найдена.');}
 		const reread = await executeMonitoredQuery<DfmRow, [number]>(client, {
 			text: dfmQuery, values: [source.classId], source: `Повторное чтение DFM класса ${source.classId}`, database: options.database,
 		});
 		const saved = reread.rows[0];
-		if (!saved || decodeValue(saved.defvalue) !== text) throw new Error('Проверка сохранённого DFM не пройдена.');
+		if (!saved || decodeValue(saved.defvalue) !== text) {throw new Error('Проверка сохранённого DFM не пройдена.');}
 		await client.query('COMMIT');
 		return toSource(saved);
 	} catch (error) { await client.query('ROLLBACK').catch(() => undefined); throw error; }
-	finally { await client.end().catch(() => undefined); }
+	});
 }
 
 function toSource(row: DfmRow): DfmSource {
 	return { classId: row.classid, className: row.classname, attributeId: row.attrid, valueId: row.valueid!, valueName: row.valuename ?? 'DFM', text: decodeValue(row.defvalue), valueType: row.valuetype };
 }
 function decodeValue(value: unknown): string {
-	if (Buffer.isBuffer(value)) return iconv.decode(value, 'win1251');
-	const text = value == null ? '' : String(value);
+	if (Buffer.isBuffer(value)) {return iconv.decode(value, 'win1251');}
+	const text = value === null || value === undefined ? '' : String(value);
 	const bytea = text.match(/^\\x([\da-f]+)$/i);
 	return bytea ? iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251') : text;
 }
 function encode(value: string): Buffer {
 	const result = iconv.encode(value, 'win1251');
-	if (iconv.decode(result, 'win1251') !== value) throw new Error('DFM содержит символы вне Windows-1251.');
+	if (iconv.decode(result, 'win1251') !== value) {throw new Error('DFM содержит символы вне Windows-1251.');}
 	return result;
 }
 function isBinaryType(value: string): boolean { return value.toLowerCase() === 'bytea' || value.toLowerCase() === 'bin'; }

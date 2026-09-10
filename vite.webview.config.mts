@@ -3,9 +3,32 @@ import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
-export default defineConfig(({ mode }) => {
-  const entryName = mode === 'class-details' || mode === 'class-objects' || mode === 'object-view' || mode === 'package-content' || mode === 'attribute-details' || mode === 'property-details' || mode === 'entity-properties' || mode === 'sql-monitor' || mode === 'sql-executor' || mode === 'code-history' || mode === 'package-sync' || mode === 'svn-conflict' || mode === 'settings' || mode === 'production-tasks' || mode === 'production-task-details' || mode === 'spu-editor' ? mode : 'explorer';
-  return {
+const entryNames = [
+  'explorer',
+  'production-tasks',
+  'production-task-details',
+  'package-sync',
+  'svn-conflict',
+  'class-details',
+  'class-objects',
+  'object-view',
+  'package-content',
+  'attribute-details',
+  'property-details',
+  'entity-properties',
+  'sql-monitor',
+  'sql-executor',
+  'code-history',
+  'settings',
+  'spu-editor',
+] as const;
+
+const entries = Object.fromEntries(entryNames.map(name => [
+  name,
+  fileURLToPath(new URL(`./webview-ui/src/${name}/main.ts`, import.meta.url)),
+]));
+
+export default defineConfig({
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
@@ -16,53 +39,17 @@ export default defineConfig(({ mode }) => {
     },
   },
   build: {
-    // Every webview is built separately into the same directory. A focused build
-    // must not remove bundles that are already used by open editor panels.
-    emptyOutDir: false,
+    emptyOutDir: true,
     outDir: 'dist/webview',
-    lib: {
-      entry: fileURLToPath(new URL(`./webview-ui/src/${entryName}/main.ts`, import.meta.url)),
-      formats: ['iife'],
-      name: entryName === 'class-details'
-        ? 'VcVeToolsClassDetails'
-        : entryName === 'class-objects'
-          ? 'VcVeToolsClassObjects'
-        : entryName === 'object-view'
-          ? 'VcVeToolsObjectView'
-        : entryName === 'package-content'
-          ? 'VcVeToolsPackageContent'
-        : entryName === 'attribute-details'
-          ? 'VcVeToolsAttributeDetails'
-        : entryName === 'property-details'
-          ? 'VcVeToolsPropertyDetails'
-        : entryName === 'entity-properties'
-          ? 'VcVeToolsEntityProperties'
-        : entryName === 'sql-monitor'
-          ? 'VcVeToolsSqlMonitor'
-          : entryName === 'sql-executor'
-            ? 'VcVeToolsSqlExecutor'
-            : entryName === 'code-history'
-              ? 'VcVeToolsCodeHistory'
-            : entryName === 'package-sync'
-              ? 'VcVeToolsPackageSync'
-            : entryName === 'svn-conflict'
-              ? 'VcVeToolsSvnConflict'
-            : entryName === 'settings'
-              ? 'VcVeToolsSettings'
-            : entryName === 'production-tasks'
-              ? 'VcVeToolsProductionTasks'
-            : entryName === 'production-task-details'
-              ? 'VcVeToolsProductionTaskDetails'
-            : entryName === 'spu-editor'
-              ? 'VcVeToolsSpuEditor'
-            : 'VcVeToolsExplorer',
-    },
+    cssCodeSplit: false,
     rollupOptions: {
+      input: entries,
       output: {
-        entryFileNames: `${entryName}.js`,
-        assetFileNames: `${entryName}.[ext]`,
+        format: 'es',
+        entryFileNames: '[name].js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
+        assetFileNames: asset => asset.name?.endsWith('.css') ? 'webview.css' : 'assets/[name]-[hash][extname]',
       },
     },
   },
-  };
 });

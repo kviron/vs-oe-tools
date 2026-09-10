@@ -115,13 +115,13 @@ function registerPanelMessages(entry: AttributeDetailsPanel): void {
 
 function getAttributeDetailsShell(webview: vscode.Webview, assetsRoot: vscode.Uri): string {
 	const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'attribute-details.js'));
-	const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'attribute-details.css'));
+	const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
 	const nonce = createNonce();
 	return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';">
 <link rel="stylesheet" href="${styleUri}"><title>Атрибут</title></head>
-<body><div id="app">Загрузка атрибута…</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+<body><div id="app">Загрузка атрибута…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
 
 function createNonce(): string {

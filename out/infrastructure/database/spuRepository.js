@@ -37,17 +37,13 @@ exports.getSpuEditorOptions = getSpuEditorOptions;
 exports.createSpu = createSpu;
 exports.updateSpu = updateSpu;
 const node_os_1 = require("node:os");
-const pg_1 = require("pg");
 const iconv = __importStar(require("iconv-lite"));
 const spuCreation_1 = require("../../features/spu/spuCreation");
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const sessionContext_1 = require("../configuration/sessionContext");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 async function getSpuEditorOptions(preferredPackageName, spuId) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const packagesResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT package.id, package.packagename AS name, spu_group.id AS groupid, COALESCE(package.version, 0) AS version
 			 FROM syspackages AS package
@@ -69,137 +65,130 @@ async function getSpuEditorOptions(preferredPackageName, spuId) {
             : undefined;
         const existing = spuId === undefined ? undefined : await loadSpuRecord(client, options.database, spuId);
         return { packages, types, preferredPackageId, executionOrder: toLocalDateTime(new Date()), existing };
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function createSpu(draft, log = () => undefined) {
     (0, spuCreation_1.validateSpuDraft)(draft);
     const sqlScript = encodeWindows1251(draft.sqlScript, 'SQL-скрипт');
     const comment = encodeWindows1251(draft.comment, 'Комментарий');
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
-        await client.query('BEGIN');
-        const session = await (0, sessionContext_1.getSessionContext)(client, options.database);
-        const localComputerName = (0, node_os_1.hostname)();
-        const tuneResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT id FROM packagestune
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
+        try {
+            await client.query('BEGIN');
+            const session = await (0, sessionContext_1.getSessionContext)(client, options.database);
+            const localComputerName = (0, node_os_1.hostname)();
+            const tuneResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `SELECT id FROM packagestune
 			 WHERE upper(computername) = upper($1) OR upper(computername) LIKE upper($1) || '.%'
 			 ORDER BY CASE WHEN upper(computername) = upper($1) THEN 0 ELSE 1 END LIMIT 1`,
-            values: [localComputerName], source: 'Диапазон ID рабочей станции для SPU', database: options.database,
-        });
-        const automaticRangeStart = (0, spuCreation_1.getAutomaticIdRangeStart)(Number(tuneResult.rows[0]?.id));
-        const developerRangeResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT developer_range.id, developer_range.beginid, developer_range.endid
+                values: [localComputerName], source: 'Диапазон ID рабочей станции для SPU', database: options.database,
+            });
+            const automaticRangeStart = (0, spuCreation_1.getAutomaticIdRangeStart)(Number(tuneResult.rows[0]?.id));
+            const developerRangeResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `SELECT developer_range.id, developer_range.beginid, developer_range.endid
 			 FROM users AS current_user
 			 JOIN users AS developer_user ON developer_user.person = current_user.person
 			 JOIN developerids AS developer_range ON developer_range.userid = developer_user.id
 			 WHERE current_user.id = $1
 			 ORDER BY CASE WHEN developer_user.id = current_user.id THEN 0 ELSE 1 END, developer_range.beginid DESC
 			 LIMIT 1`,
-            values: [session.userId], source: 'Диапазон ID разработчика для SPU', database: options.database,
-        });
-        const developerRange = developerRangeResult.rows[0];
-        if (!developerRange) {
-            throw new Error(`Для пользователя ${session.userId} не найден диапазон DeveloperIDs.`);
-        }
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'SELECT pg_advisory_xact_lock($1, $2)', values: [spuCreation_1.spuClassId, developerRange.id],
-            source: 'Блокировка генерации ID SPU', database: options.database,
-        });
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'SELECT pg_advisory_xact_lock($1, $2)', values: [spuCreation_1.sysFileClassId, automaticRangeStart],
-            source: 'Блокировка генерации ID файла SPU', database: options.database,
-        });
-        const packageResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT package.id, package.packagename AS name, spu_group.id AS groupid, COALESCE(package.version, 0) AS version
+                values: [session.userId], source: 'Диапазон ID разработчика для SPU', database: options.database,
+            });
+            const developerRange = developerRangeResult.rows[0];
+            if (!developerRange) {
+                throw new Error(`Для пользователя ${session.userId} не найден диапазон DeveloperIDs.`);
+            }
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'SELECT pg_advisory_xact_lock($1, $2)', values: [spuCreation_1.spuClassId, developerRange.id],
+                source: 'Блокировка генерации ID SPU', database: options.database,
+            });
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'SELECT pg_advisory_xact_lock($1, $2)', values: [spuCreation_1.sysFileClassId, automaticRangeStart],
+                source: 'Блокировка генерации ID файла SPU', database: options.database,
+            });
+            const packageResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `SELECT package.id, package.packagename AS name, spu_group.id AS groupid, COALESCE(package.version, 0) AS version
 			 FROM syspackages AS package JOIN sysgroups AS spu_group ON spu_group.package = package.id
 			 WHERE package.id = $1 AND (lower(spu_group.name) = 'spu' OR lower(spu_group.path) = 'spu')
 			 ORDER BY spu_group.id LIMIT 1`,
-            values: [draft.packageId], source: `Пакет нового SPU`, database: options.database,
-        });
-        const packageRow = packageResult.rows[0];
-        if (!packageRow) {
-            throw new Error('В выбранном пакете отсутствует группа SPU.');
-        }
-        const fileName = (0, spuCreation_1.buildSpuFileName)(draft.name);
-        const duplicateResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'SELECT id FROM sysfile WHERE sysgroup = $1 AND lower(filename) = lower($2) LIMIT 1',
-            values: [packageRow.groupid, fileName], source: 'Проверка имени пакетного файла SPU', database: options.database,
-        });
-        if (duplicateResult.rowCount) {
-            throw new Error(`В пакете уже существует файл «${fileName}».`);
-        }
-        const id = await allocateDeveloperId(client, options.database, developerRange, 'SPU');
-        const beginVersion = draft.versionControl ? draft.beginVersion : 0;
-        const executionOrder = draft.executionOrder.replace('T', ' ');
-        const shortName = draft.name.trim().slice(0, 32);
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `INSERT INTO syspackageupdate
+                values: [draft.packageId], source: `Пакет нового SPU`, database: options.database,
+            });
+            const packageRow = packageResult.rows[0];
+            if (!packageRow) {
+                throw new Error('В выбранном пакете отсутствует группа SPU.');
+            }
+            const fileName = (0, spuCreation_1.buildSpuFileName)(draft.name);
+            const duplicateResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'SELECT id FROM sysfile WHERE sysgroup = $1 AND lower(filename) = lower($2) LIMIT 1',
+                values: [packageRow.groupid, fileName], source: 'Проверка имени пакетного файла SPU', database: options.database,
+            });
+            if (duplicateResult.rowCount) {
+                throw new Error(`В пакете уже существует файл «${fileName}».`);
+            }
+            const id = await allocateDeveloperId(client, options.database, developerRange, 'SPU');
+            const beginVersion = draft.versionControl ? draft.beginVersion : 0;
+            const executionOrder = draft.executionOrder.replace('T', ' ');
+            const shortName = draft.name.trim().slice(0, 32);
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `INSERT INTO syspackageupdate
 			 (id, classid, seniorid, name, ord, lastchange, executionorder, type, beginversion, isafterupdate, comment, sqlscript, executealways)
 			 VALUES ($1, $2, NULL, $3, NULL, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            values: [id, spuCreation_1.spuClassId, draft.name.trim(), session.changeDate, executionOrder, draft.typeId, beginVersion,
-                draft.isAfterUpdate ? -1 : null, comment, sqlScript, draft.executeAlways ? -1 : null],
-            source: `Создание SPU ${draft.name.trim()}`, database: options.database,
-        });
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'INSERT INTO abstract (lastchange, id, classid, name) VALUES ($1, $2, $3, $4)',
-            values: [session.changeDate, id, spuCreation_1.spuClassId, shortName], source: `Создание Abstract SPU ${id}`, database: options.database,
-        });
-        const fileId = await allocateAutomaticId(client, options.database, automaticRangeStart, 'пакетного файла SPU');
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `INSERT INTO sysfile
+                values: [id, spuCreation_1.spuClassId, draft.name.trim(), session.changeDate, executionOrder, draft.typeId, beginVersion,
+                    draft.isAfterUpdate ? -1 : null, comment, sqlScript, draft.executeAlways ? -1 : null],
+                source: `Создание SPU ${draft.name.trim()}`, database: options.database,
+            });
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'INSERT INTO abstract (lastchange, id, classid, name) VALUES ($1, $2, $3, $4)',
+                values: [session.changeDate, id, spuCreation_1.spuClassId, shortName], source: `Создание Abstract SPU ${id}`, database: options.database,
+            });
+            const fileId = await allocateAutomaticId(client, options.database, automaticRangeStart, 'пакетного файла SPU');
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `INSERT INTO sysfile
 			 (lastchange, id, classid, filename, isautogroup, autogroup, version, comment, sysgroup, flags, author, attendauthor, crc, noupdate, name)
 			 VALUES ($1, $2, $3, $4, -1, 'sysPackageUpdate', '', NULL, $5, NULL, '', '', NULL, 0, $6)`,
-            values: [session.changeDate, fileId, spuCreation_1.sysFileClassId, fileName, packageRow.groupid, fileName.slice(0, 32)],
-            source: `Создание файла ${fileName}`, database: options.database,
-        });
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'INSERT INTO abstract (lastchange, id, classid, name) VALUES ($1, $2, $3, $4)',
-            values: [session.changeDate, fileId, spuCreation_1.sysFileClassId, fileName.slice(0, 32)],
-            source: `Создание Abstract файла SPU ${fileId}`, database: options.database,
-        });
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'UPDATE abstract SET sysfile = $1 WHERE id = $2', values: [fileId, id],
-            source: `Привязка SPU ${id} к файлу ${fileId}`, database: options.database,
-        });
-        const userResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'SELECT name FROM abstract WHERE id = $1', values: [session.userId],
-            source: 'Имя автора нового SPU', database: options.database,
-        });
-        const userName = userResult.rows[0]?.name?.trim() || String(session.userId);
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `INSERT INTO syspackagebase
+                values: [session.changeDate, fileId, spuCreation_1.sysFileClassId, fileName, packageRow.groupid, fileName.slice(0, 32)],
+                source: `Создание файла ${fileName}`, database: options.database,
+            });
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'INSERT INTO abstract (lastchange, id, classid, name) VALUES ($1, $2, $3, $4)',
+                values: [session.changeDate, fileId, spuCreation_1.sysFileClassId, fileName.slice(0, 32)],
+                source: `Создание Abstract файла SPU ${fileId}`, database: options.database,
+            });
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'UPDATE abstract SET sysfile = $1 WHERE id = $2', values: [fileId, id],
+                source: `Привязка SPU ${id} к файлу ${fileId}`, database: options.database,
+            });
+            const userResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'SELECT name FROM abstract WHERE id = $1', values: [session.userId],
+                source: 'Имя автора нового SPU', database: options.database,
+            });
+            const userName = userResult.rows[0]?.name?.trim() || String(session.userId);
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `INSERT INTO syspackagebase
 			 (objectid, objectclassid, objectseniorid, objectname, objectpath, objectpathpackage,
 			  objectcontentmd5, objectcontentrevision, objectchangestate, objectchangelastdate, objectchangelastuser)
 			 VALUES ($1, $2, $3, $4, $5, $6, '', 0, 2, $7, $8)`,
-            values: [fileId, spuCreation_1.sysFileClassId, packageRow.groupid, fileName, `\\SPU\\${fileName}`, draft.packageId, session.changeDate, userName],
-            source: `Регистрация файла SPU ${fileId} в пакете`, database: options.database,
-        });
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `INSERT INTO logcchangedobject
+                values: [fileId, spuCreation_1.sysFileClassId, packageRow.groupid, fileName, `\\SPU\\${fileName}`, draft.packageId, session.changeDate, userName],
+                source: `Регистрация файла SPU ${fileId} в пакете`, database: options.database,
+            });
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `INSERT INTO logcchangedobject
 			 (objid, objclassid, changetype, newvalues, userid, computername, changedate, oldvalues,
 			  transactioncomment, versionobject, rootobjid, rootobjclassid)
 				 VALUES ($1, $2, 3, $3, $4, $5, $6, $7, $8, date_trunc('day', $6::timestamp), $1, $2)`,
-            values: [id, spuCreation_1.spuClassId, encodeWindows1251((0, spuCreation_1.serializeSpuAuditValues)(draft, beginVersion), 'Значения журнала'), session.userId, session.computerName,
-                session.changeDate, Buffer.alloc(0), 'Сохранение объекта класса "sysPackageUpdate'],
-            source: `Логирование создания SPU ${id}`, database: options.database,
-        });
-        await client.query('COMMIT');
-        log(`SPU ${id} и пакетный файл ${fileId} созданы.`);
-        return { id, fileId, name: draft.name.trim(), packageId: draft.packageId };
-    }
-    catch (error) {
-        await client.query('ROLLBACK').catch(() => undefined);
-        log(`Создание SPU отменено: ${error instanceof Error ? error.message : String(error)}`);
-        throw error;
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+                values: [id, spuCreation_1.spuClassId, encodeWindows1251((0, spuCreation_1.serializeSpuAuditValues)(draft, beginVersion), 'Значения журнала'), session.userId, session.computerName,
+                    session.changeDate, Buffer.alloc(0), 'Сохранение объекта класса "sysPackageUpdate'],
+                source: `Логирование создания SPU ${id}`, database: options.database,
+            });
+            await client.query('COMMIT');
+            log(`SPU ${id} и пакетный файл ${fileId} созданы.`);
+            return { id, fileId, name: draft.name.trim(), packageId: draft.packageId };
+        }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            log(`Создание SPU отменено: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
+    });
 }
 async function updateSpu(id, draft, log = () => undefined) {
     if (!Number.isSafeInteger(id) || id <= 0) {
@@ -208,102 +197,98 @@ async function updateSpu(id, draft, log = () => undefined) {
     (0, spuCreation_1.validateSpuDraft)(draft);
     const sqlScript = encodeWindows1251(draft.sqlScript, 'SQL-скрипт');
     const comment = encodeWindows1251(draft.comment, 'Комментарий');
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
-        await client.query('BEGIN');
-        const current = await loadSpuRecord(client, options.database, id, true);
-        const session = await (0, sessionContext_1.getSessionContext)(client, options.database);
-        const packageResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT package.id, package.packagename AS name, spu_group.id AS groupid, COALESCE(package.version, 0) AS version
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
+        try {
+            await client.query('BEGIN');
+            const current = await loadSpuRecord(client, options.database, id, true);
+            const session = await (0, sessionContext_1.getSessionContext)(client, options.database);
+            const packageResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `SELECT package.id, package.packagename AS name, spu_group.id AS groupid, COALESCE(package.version, 0) AS version
 			 FROM syspackages AS package JOIN sysgroups AS spu_group ON spu_group.package = package.id
 			 WHERE package.id = $1 AND (lower(spu_group.name) = 'spu' OR lower(spu_group.path) = 'spu')
 			 ORDER BY spu_group.id LIMIT 1`,
-            values: [draft.packageId], source: `Пакет редактируемого SPU ${id}`, database: options.database,
-        });
-        const packageRow = packageResult.rows[0];
-        if (!packageRow) {
-            throw new Error('В выбранном пакете отсутствует группа SPU.');
-        }
-        const fileName = (0, spuCreation_1.buildSpuFileName)(draft.name);
-        const duplicateResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'SELECT id FROM sysfile WHERE sysgroup = $1 AND lower(filename) = lower($2) AND id <> $3 LIMIT 1',
-            values: [packageRow.groupid, fileName, current.fileId], source: 'Проверка имени файла редактируемого SPU', database: options.database,
-        });
-        if (duplicateResult.rowCount) {
-            throw new Error(`В пакете уже существует файл «${fileName}».`);
-        }
-        const beginVersion = draft.versionControl ? draft.beginVersion : 0;
-        const previousBeginVersion = current.draft.versionControl ? current.draft.beginVersion : 0;
-        const audit = (0, spuCreation_1.serializeSpuAuditChanges)(current.draft, draft, previousBeginVersion, beginVersion);
-        const packageFileChanged = current.name !== draft.name.trim() || current.packageId !== draft.packageId;
-        if (!audit.newValues && !packageFileChanged) {
-            await client.query('ROLLBACK');
-            log(`SPU ${id} не изменён.`);
-            return { id, fileId: current.fileId, name: current.name, packageId: current.packageId };
-        }
-        const executionOrder = draft.executionOrder.replace('T', ' ');
-        const shortName = draft.name.trim().slice(0, 32);
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `UPDATE syspackageupdate SET name = $1, lastchange = $2, executionorder = $3, type = $4,
+                values: [draft.packageId], source: `Пакет редактируемого SPU ${id}`, database: options.database,
+            });
+            const packageRow = packageResult.rows[0];
+            if (!packageRow) {
+                throw new Error('В выбранном пакете отсутствует группа SPU.');
+            }
+            const fileName = (0, spuCreation_1.buildSpuFileName)(draft.name);
+            const duplicateResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'SELECT id FROM sysfile WHERE sysgroup = $1 AND lower(filename) = lower($2) AND id <> $3 LIMIT 1',
+                values: [packageRow.groupid, fileName, current.fileId], source: 'Проверка имени файла редактируемого SPU', database: options.database,
+            });
+            if (duplicateResult.rowCount) {
+                throw new Error(`В пакете уже существует файл «${fileName}».`);
+            }
+            const beginVersion = draft.versionControl ? draft.beginVersion : 0;
+            const previousBeginVersion = current.draft.versionControl ? current.draft.beginVersion : 0;
+            const audit = (0, spuCreation_1.serializeSpuAuditChanges)(current.draft, draft, previousBeginVersion, beginVersion);
+            const packageFileChanged = current.name !== draft.name.trim() || current.packageId !== draft.packageId;
+            if (!audit.newValues && !packageFileChanged) {
+                await client.query('ROLLBACK');
+                log(`SPU ${id} не изменён.`);
+                return { id, fileId: current.fileId, name: current.name, packageId: current.packageId };
+            }
+            const executionOrder = draft.executionOrder.replace('T', ' ');
+            const shortName = draft.name.trim().slice(0, 32);
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `UPDATE syspackageupdate SET name = $1, lastchange = $2, executionorder = $3, type = $4,
 			 beginversion = $5, isafterupdate = $6, comment = $7, sqlscript = $8, executealways = $9 WHERE id = $10`,
-            values: [draft.name.trim(), session.changeDate, executionOrder, draft.typeId, beginVersion,
-                draft.isAfterUpdate ? -1 : null, comment, sqlScript, draft.executeAlways ? -1 : null, id],
-            source: `Сохранение SPU ${id}`, database: options.database,
-        });
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'UPDATE abstract SET lastchange = $1, name = $2 WHERE id = $3',
-            values: [session.changeDate, shortName, id], source: `Сохранение Abstract SPU ${id}`, database: options.database,
-        });
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `UPDATE sysfile SET lastchange = $1, filename = $2, sysgroup = $3, name = $4 WHERE id = $5`,
-            values: [session.changeDate, fileName, packageRow.groupid, fileName.slice(0, 32), current.fileId],
-            source: `Сохранение файла SPU ${current.fileId}`, database: options.database,
-        });
-        await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'UPDATE abstract SET lastchange = $1, name = $2 WHERE id = $3',
-            values: [session.changeDate, fileName.slice(0, 32), current.fileId], source: `Сохранение Abstract файла SPU ${current.fileId}`, database: options.database,
-        });
-        const userResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: 'SELECT name FROM abstract WHERE id = $1', values: [session.userId],
-            source: 'Имя автора изменения SPU', database: options.database,
-        });
-        const userName = userResult.rows[0]?.name?.trim() || String(session.userId);
-        const packageBaseResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `UPDATE syspackagebase SET objectseniorid = $1, objectname = $2, objectpath = $3,
+                values: [draft.name.trim(), session.changeDate, executionOrder, draft.typeId, beginVersion,
+                    draft.isAfterUpdate ? -1 : null, comment, sqlScript, draft.executeAlways ? -1 : null, id],
+                source: `Сохранение SPU ${id}`, database: options.database,
+            });
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'UPDATE abstract SET lastchange = $1, name = $2 WHERE id = $3',
+                values: [session.changeDate, shortName, id], source: `Сохранение Abstract SPU ${id}`, database: options.database,
+            });
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `UPDATE sysfile SET lastchange = $1, filename = $2, sysgroup = $3, name = $4 WHERE id = $5`,
+                values: [session.changeDate, fileName, packageRow.groupid, fileName.slice(0, 32), current.fileId],
+                source: `Сохранение файла SPU ${current.fileId}`, database: options.database,
+            });
+            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'UPDATE abstract SET lastchange = $1, name = $2 WHERE id = $3',
+                values: [session.changeDate, fileName.slice(0, 32), current.fileId], source: `Сохранение Abstract файла SPU ${current.fileId}`, database: options.database,
+            });
+            const userResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: 'SELECT name FROM abstract WHERE id = $1', values: [session.userId],
+                source: 'Имя автора изменения SPU', database: options.database,
+            });
+            const userName = userResult.rows[0]?.name?.trim() || String(session.userId);
+            const packageBaseResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                text: `UPDATE syspackagebase SET objectseniorid = $1, objectname = $2, objectpath = $3,
 			 objectpathpackage = $4, objectchangestate = 1, objectchangelastdate = $5, objectchangelastuser = $6
 			 WHERE objectid = $7`,
-            values: [packageRow.groupid, fileName, `\\SPU\\${fileName}`, draft.packageId, session.changeDate, userName, current.fileId],
-            source: `Регистрация изменения файла SPU ${current.fileId}`, database: options.database,
-        });
-        if (packageBaseResult.rowCount !== 1) {
-            throw new Error(`Пакетный файл SPU ${current.fileId} не зарегистрирован в SysPackageBase.`);
-        }
-        if (audit.newValues) {
-            await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-                text: `INSERT INTO logcchangedobject
+                values: [packageRow.groupid, fileName, `\\SPU\\${fileName}`, draft.packageId, session.changeDate, userName, current.fileId],
+                source: `Регистрация изменения файла SPU ${current.fileId}`, database: options.database,
+            });
+            if (packageBaseResult.rowCount !== 1) {
+                throw new Error(`Пакетный файл SPU ${current.fileId} не зарегистрирован в SysPackageBase.`);
+            }
+            if (audit.newValues) {
+                await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+                    text: `INSERT INTO logcchangedobject
 				 (objid, objclassid, changetype, newvalues, userid, computername, changedate, oldvalues,
 				  transactioncomment, versionobject, rootobjid, rootobjclassid)
 				 VALUES ($1, $2, 2, $3, $4, $5, $6, $7, $8, date_trunc('day', $6::timestamp), $1, $2)`,
-                values: [id, spuCreation_1.spuClassId, encodeWindows1251(audit.newValues, 'Новые значения журнала'), session.userId,
-                    session.computerName, session.changeDate, encodeWindows1251(audit.oldValues, 'Старые значения журнала'),
-                    'Сохранение объекта класса "sysPackageUpdate'],
-                source: `Логирование изменения SPU ${id}`, database: options.database,
-            });
+                    values: [id, spuCreation_1.spuClassId, encodeWindows1251(audit.newValues, 'Новые значения журнала'), session.userId,
+                        session.computerName, session.changeDate, encodeWindows1251(audit.oldValues, 'Старые значения журнала'),
+                        'Сохранение объекта класса "sysPackageUpdate'],
+                    source: `Логирование изменения SPU ${id}`, database: options.database,
+                });
+            }
+            await client.query('COMMIT');
+            log(`SPU ${id} и пакетный файл ${current.fileId} сохранены.`);
+            return { id, fileId: current.fileId, name: draft.name.trim(), packageId: draft.packageId };
         }
-        await client.query('COMMIT');
-        log(`SPU ${id} и пакетный файл ${current.fileId} сохранены.`);
-        return { id, fileId: current.fileId, name: draft.name.trim(), packageId: draft.packageId };
-    }
-    catch (error) {
-        await client.query('ROLLBACK').catch(() => undefined);
-        log(`Сохранение SPU ${id} отменено: ${error instanceof Error ? error.message : String(error)}`);
-        throw error;
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            log(`Сохранение SPU ${id} отменено: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
+    });
 }
 async function loadSpuRecord(client, database, id, forUpdate = false) {
     const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {

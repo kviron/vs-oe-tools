@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { SqlExecutorHostMessage, SqlHistoryEntry } from '../../core/webviewProtocol';
 import { isSqlExecutorWebviewMessage } from '../../core/webviewProtocol';
-import type { SerializedQueryResult } from '../../infrastructure/database/databaseQueryExecutor';
+import type { SerializedQueryResult } from '../../core/queryResult';
 import type { SqlQueryRecord } from '../sql-monitor/models';
 import { sqlMonitorService } from '../sql-monitor/sqlMonitorService';
 import { executeSql } from './executeSql';
@@ -136,13 +136,13 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 
 	private getHtml(webview: vscode.Webview, assetsRoot: vscode.Uri): string {
 		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'sql-executor.js'));
-		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'sql-executor.css'));
+		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
 		const nonce = createNonce();
 		return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csp-nonce" content="${nonce}">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src ${webview.cspSource} 'nonce-${nonce}';">
 <link rel="stylesheet" href="${styleUri}"><title>Исполнитель SQL</title></head>
-<body><div id="app">Загрузка исполнителя SQL…</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+<body><div id="app">Загрузка исполнителя SQL…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 	}
 }
 

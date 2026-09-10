@@ -55,6 +55,22 @@ suite('Lifecycle method execution', () => {
             '-MethodParam=paramName=A,paramKind=8927425', '-ForceOutputOEM',
         ]);
     });
+    test('builds aiMCP.http_Start arguments without an empty method parameter', () => {
+        assert.deepEqual((0, oeStaticMethodExecutor_1.buildClientMcpStartArguments)('oetrunk', 'localhost', { username: 'dev', password: 'secret' }), [
+            '-l', 'host=localhost,db=oetrunk,Username=dev,password=secret',
+            '-MethodID=12464780',
+            '-MethodParam=1',
+            '-ForceOutputOEM',
+        ]);
+    });
+    test('builds Postman API wrapper arguments for the selected database', () => {
+        assert.deepEqual((0, oeStaticMethodExecutor_1.buildPostmanApiStartArguments)('oetest', 'localhost', { username: 'dev', password: 'secret' }), [
+            '-l', 'host=localhost,db=oetest,Username=dev,password=secret',
+            '-MethodID=41654685',
+            '-MethodParam=1',
+            '-ForceOutputOEM',
+        ]);
+    });
     test('rejects command delimiters in user text', () => {
         assert.throws(() => (0, lifecycleMethodExecution_1.buildLifecycleMethodParameter)({
             name: 'A; commit work', displayName: 'A', kindId: 8927425, ownerClassId: 12857713,

@@ -36,11 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadPackages = loadPackages;
 exports.loadPackageTree = loadPackageTree;
 exports.loadPackageFileContent = loadPackageFileContent;
-const pg_1 = require("pg");
 const iconv = __importStar(require("iconv-lite"));
 const packageTree_1 = require("../../features/packages/packageTree");
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 async function loadPackages() {
     return withDatabase(async (client, database) => {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
@@ -157,14 +156,6 @@ function decodeText(value) {
     return bytea && bytea[1].length % 2 === 0 ? iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251') : value;
 }
 async function withDatabase(action) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
-        return await action(client, options.database);
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(({ client, options }) => action(client, options.database));
 }
 //# sourceMappingURL=packageExplorerRepository.js.map

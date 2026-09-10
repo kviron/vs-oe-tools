@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import type { PoolClient } from 'pg';
 import type { AttributeEditorOptions, ClassAttributeDraft, CreatedClassAttribute } from '../../features/classes/models';
 import {
 	attributeClassId,
@@ -12,19 +12,16 @@ import {
 	validateClassAttributeDraft,
 	valueClassesReferenceAttributeId,
 } from '../../features/classes/attributeCreation';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { getSessionContext } from '../configuration/sessionContext';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 interface OwnerRow { id: number; name: string; sysfile: number | null; }
 interface DeveloperRangeRow { id: number; beginid: number; endid: number; }
 interface IdRow { id: number; }
 
 export async function getAttributeEditorOptions(ownerClassId: number): Promise<AttributeEditorOptions> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const owner = await loadOwner(client, options.database, ownerClassId);
 		const [types, visibilities, distributionModes] = await Promise.all([
 			executeMonitoredQuery<{ id: number; name: string }>(client, { text: 'SELECT id, name FROM attrtypes ORDER BY id', source: 'Типы нового атрибута', database: options.database }),
@@ -39,18 +36,14 @@ export async function getAttributeEditorOptions(ownerClassId: number): Promise<A
 			distributionModes: distributionModes.rows,
 			defaults: { visibilityId: defaultAttributeVisibilityId, distributionModeId: defaultAttributeDistributionModeId, isNotNull: false, virtual: true, refIntegrityCheck: false },
 		};
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }
 
 export async function createClassAttribute(input: ClassAttributeDraft): Promise<CreatedClassAttribute> {
 	validateClassAttributeDraft(input);
 	const draft = normalizeClassAttributeDraft(input);
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	return withProjectDatabaseSession(async ({ client, options }) => {
 	try {
-		await client.connect();
 		await client.query('BEGIN');
 		const session = await getSessionContext(client, options.database);
 		const owner = await loadOwner(client, options.database, draft.ownerClassId, true);
@@ -146,12 +139,11 @@ export async function createClassAttribute(input: ClassAttributeDraft): Promise<
 	} catch (error) {
 		await client.query('ROLLBACK').catch(() => undefined);
 		throw error;
-	} finally {
-		await client.end().catch(() => undefined);
 	}
+	});
 }
 
-async function loadOwner(client: Client, database: string, ownerClassId: number, forUpdate = false): Promise<OwnerRow> {
+async function loadOwner(client: PoolClient, database: string, ownerClassId: number, forUpdate = false): Promise<OwnerRow> {
 	const result = await executeMonitoredQuery<OwnerRow>(client, {
 		text: `SELECT class.id,class.name,abstract.sysfile FROM classes AS class
 		 JOIN abstract ON abstract.id=class.id WHERE class.id=$1${forUpdate ? ' FOR UPDATE OF class' : ''}`,

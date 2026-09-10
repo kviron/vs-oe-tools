@@ -1,8 +1,8 @@
-import { Client } from 'pg';
+import type { PoolClient } from 'pg';
 import * as iconv from 'iconv-lite';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 import { extractCodeFromChangeValues } from './methodHistoryParsing';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 export interface MethodHistoryEntry {
 	revision: string;
@@ -28,10 +28,7 @@ interface UserTableInfo {
 }
 
 export async function getMethodHistory(methodId: number): Promise<MethodHistoryEntry[]> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const userTable = await findUserTable(client, options.database).catch(() => undefined);
 		const userJoin = userTable ? buildUserJoin(userTable) : '';
 		const userColumns = userTable ? ', to_jsonb(users) AS userdata' : '';
@@ -48,9 +45,7 @@ export async function getMethodHistory(methodId: number): Promise<MethodHistoryE
 		return result.rows
 			.map((row, index) => toHistoryEntry(row.data, index, row.userdata))
 			.filter((entry): entry is MethodHistoryEntry => entry !== undefined);
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }
 
 function toHistoryEntry(data: Record<string, unknown>, index: number, userData?: Record<string, unknown> | null): MethodHistoryEntry | undefined {
@@ -74,7 +69,7 @@ function toHistoryEntry(data: Record<string, unknown>, index: number, userData?:
 	};
 }
 
-async function findUserTable(client: Client, database: string): Promise<UserTableInfo | undefined> {
+async function findUserTable(client: PoolClient, database: string): Promise<UserTableInfo | undefined> {
 	const result = await executeMonitoredQuery<UserTableInfo>(client, {
 		text: `SELECT table_schema, table_name,
 		        min(column_name) FILTER (WHERE lower(column_name) = 'id') AS id_column

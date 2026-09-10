@@ -1,7 +1,6 @@
-import { Client } from 'pg';
 import { hostname } from 'node:os';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 export interface MethodWorkingCopyInfo {
 	fileName: string;
@@ -17,10 +16,7 @@ interface WorkingCopyRow {
 
 /** Resolves the physical package file which owns a database method. */
 export async function getMethodWorkingCopyInfo(methodId: number): Promise<MethodWorkingCopyInfo> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<WorkingCopyRow, [number]>(client, {
 			text: `SELECT file.filename, groups.path AS group_path, package.packagename AS package_name
 			 FROM abstract AS object
@@ -48,7 +44,5 @@ export async function getMethodWorkingCopyInfo(methodId: number): Promise<Method
 			database: options.database,
 		}).catch(() => undefined);
 		return { fileName: row.filename, relativePath, packagesRoot: tune?.rows[0]?.pathtopackages };
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }

@@ -1,16 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMethodWorkingCopyInfo = getMethodWorkingCopyInfo;
-const pg_1 = require("pg");
 const node_os_1 = require("node:os");
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 /** Resolves the physical package file which owns a database method. */
 async function getMethodWorkingCopyInfo(methodId) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT file.filename, groups.path AS group_path, package.packagename AS package_name
 			 FROM abstract AS object
@@ -38,9 +34,6 @@ async function getMethodWorkingCopyInfo(methodId) {
             database: options.database,
         }).catch(() => undefined);
         return { fileName: row.filename, relativePath, packagesRoot: tune?.rows[0]?.pathtopackages };
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 //# sourceMappingURL=methodWorkingCopyRepository.js.map

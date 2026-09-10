@@ -178,9 +178,9 @@ class PackageSyncPanelManager {
     async post(message) { await this.panel?.webview.postMessage(message); }
     html(webview, assetsRoot) {
         const script = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'package-sync.js'));
-        const style = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'package-sync.css'));
+        const style = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
         const nonce = Math.random().toString(36).slice(2);
-        return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${style}"><title>Синхронизация пакетов</title></head><body><div id="app"></div><script nonce="${nonce}" src="${script}"></script></body></html>`;
+        return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${style}"><title>Синхронизация пакетов</title></head><body><div id="app"></div><script type="module" nonce="${nonce}" src="${script}"></script></body></html>`;
     }
 }
 exports.PackageSyncPanelManager = PackageSyncPanelManager;

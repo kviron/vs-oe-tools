@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as iconv from 'iconv-lite';
-import { Client } from 'pg';
+import type { PoolClient } from 'pg';
 import type { PackageSyncItem } from '../../features/package-sync/models';
 import {
 	appendPkfObjects,
@@ -11,8 +11,8 @@ import {
 	type PkfDatabaseObject,
 } from '../../features/package-sync/pkfDatabaseReconstruction';
 import { serializePkfMetaFile, type MetaVisibility, type PkfMetaMember } from '../../features/package-sync/pkfMetaReconstruction';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 const BLOB_ATTRIBUTE_TYPE = 320;
 const BOOLEAN_ATTRIBUTE_TYPE = 310;
@@ -35,10 +35,7 @@ export interface PackageDatabaseVersion {
 
 export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName: string): Promise<PackageDatabaseVersion> {
 	if (path.extname(fileName).toLocaleLowerCase('en-US') !== '.pkf') {throw new Error('Реконструкция из БД пока поддерживается только для PKF.');}
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools-package-diff', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const fileResult = await executeMonitoredQuery<SysFileRow>(client, {
 			text: 'SELECT ContentMD5 AS contentmd5, IsAutoGroup AS isautogroup, AutoGroup AS autogroup FROM SysFile WHERE ID = $1', values: [item.objectId],
 			source: 'Синхронизация пакетов: проверка базовой версии PKF', database: options.database,
@@ -79,12 +76,10 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 		const objects = await buildDatabaseObjects(client, options.database, abstractResult.rows);
 		const databaseSource = createEmptyPkf(Number(fileRow.isautogroup) !== 0 ? fileRow.autogroup : undefined);
 		return { content: appendPkfObjects(databaseSource, objects), addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	}, undefined, 'vc-ve-tools-package-diff');
 }
 
-async function loadMetaPkf(client: Client, database: string, fileId: number): Promise<string> {
+async function loadMetaPkf(client: PoolClient, database: string, fileId: number): Promise<string> {
 	const classResult = await executeMonitoredQuery<MetaClassRow>(client, {
 			text: `SELECT C.ID AS id, C.Name AS name, C.Aliases AS aliases, Parent.Name AS parentname,
 			 C.Virtual AS virtual, C.CacheObjClass AS cacheobjclass, C.RefIntegrityCheck AS refintegritycheck
@@ -138,7 +133,7 @@ async function loadMetaPkf(client: Client, database: string, fileId: number): Pr
 }
 
 async function buildDatabaseObjects(
-	client: Client,
+	client: PoolClient,
 	database: string,
 	rows: readonly AbstractRow[],
 ): Promise<PkfDatabaseObject[]> {
@@ -155,7 +150,7 @@ async function buildDatabaseObjects(
 	return objects.sort((left, right) => left.id - right.id);
 }
 
-async function loadStoredDatabaseObjects(client: Client, database: string, classId: number, objects: readonly AbstractRow[]): Promise<PkfDatabaseObject[]> {
+async function loadStoredDatabaseObjects(client: PoolClient, database: string, classId: number, objects: readonly AbstractRow[]): Promise<PkfDatabaseObject[]> {
 	const classResult = await executeMonitoredQuery<ClassStorageRow>(client, {
 		text: 'SELECT Name AS name, DBTableName AS dbtablename FROM Classes WHERE ID = $1', values: [classId],
 		source: `Синхронизация пакетов: хранилище класса ${classId}`, database,

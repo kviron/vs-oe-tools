@@ -1,8 +1,7 @@
-import { Client } from 'pg';
 import * as iconv from 'iconv-lite';
 import type { ObjectFieldRow, ObjectViewResult } from '../../features/classes/models';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 interface ObjectIdentityRow {
 	id: string;
@@ -35,10 +34,7 @@ interface PropertyRow {
 }
 
 export async function getObjectView(objectId: number): Promise<ObjectViewResult> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const identityResult = await executeMonitoredQuery<ObjectIdentityRow, [number]>(client, {
 			text: `SELECT object.id::text, object.name, object.classid::text,
 			             class.name AS classname, class.dbtablename,
@@ -169,9 +165,7 @@ export async function getObjectView(objectId: number): Promise<ObjectViewResult>
 			fields.push({ kind: 'property', attributeId: null, attributeName: key, value: serializable(value), tableField: key, distribution: '' });
 		}
 		return { id: identity.id, name: identity.name ?? '', classId: identity.classid, className: identity.classname ?? '', fields };
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }
 
 function quote(value: string): string { return `"${value.replace(/"/g, '""')}"`; }

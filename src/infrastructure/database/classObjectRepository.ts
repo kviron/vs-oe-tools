@@ -1,7 +1,6 @@
-import { Client } from 'pg';
 import type { ClassObjectColumn, ClassObjectsResult } from '../../features/classes/models';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 interface ClassStorageRow {
 	id: number;
@@ -33,10 +32,7 @@ export async function getClassObjects(classId: number, offset = 0, limit = class
 	if (!Number.isInteger(limit) || limit < 1 || limit > classObjectPageSize) {
 		throw new Error(`Размер страницы справочника должен быть от 1 до ${classObjectPageSize}.`);
 	}
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const classResult = await executeMonitoredQuery<ClassStorageRow, [number]>(client, {
 			text: 'SELECT id, name, dbtablename, virtual FROM classes WHERE id = $1',
 			values: [classId],
@@ -167,9 +163,7 @@ export async function getClassObjects(classId: number, offset = 0, limit = class
 			limit,
 			hasMore: effectiveOffset + normalizedRows.length < totalCount,
 		};
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }
 
 function normalizeRow(row: Record<string, unknown>, columns: ClassObjectColumn[]): Record<string, unknown> {

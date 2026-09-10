@@ -1,13 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { clientUsernameSetting, databaseProfileSetting, databaseRoleSetting, projectRootSetting } from '../core/constants';
-import { loadClasses, testDatabaseConnection } from '../infrastructure/database/classRepository';
-import { getDatabaseRole, getProjectDatabaseOptions, getProjectDatabaseOptionsForDatabase } from '../infrastructure/configuration/projectDatabaseOptions';
+import { loadClasses } from '../infrastructure/database/classRepository';
+import { getProjectDatabaseOptions, getProjectDatabaseOptionsForDatabase } from '../infrastructure/configuration/projectDatabaseOptions';
 import { applyProjectEncoding } from '../features/project/projectEncodingService';
 import { SettingsViewProvider } from '../features/settings/settingsViewProvider';
 import { closeClassDetailPanels, openClassDetails, restoreClassDetailPanels, revealClassMethod } from '../features/classes/views/classDetailsPanelManager';
 import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider';
-import { openSqlMonitor } from '../features/sql-monitor/views/sqlMonitorPanelManager';
 import { sqlMonitorService } from '../features/sql-monitor/sqlMonitorService';
 import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorViewProvider';
 import { registerMethodEditor } from '../features/methods/methodEditorProvider';
@@ -32,7 +31,6 @@ import { closeClassObjectPanels, openClassObjects } from '../features/classes/vi
 import { closeObjectViewPanels, openObjectView } from '../features/classes/views/objectViewPanelManager';
 import { getNavigationInfoPath } from '../core/navigationInfo';
 import { svnLog } from '../features/code-history/svnClient';
-import { loadRdboadmDatabases } from '../infrastructure/configuration/rdboadmIni';
 import { getActiveDatabaseSelectionPath, getDatabaseSelectionPath, writeDatabaseSelection } from '../core/databaseSelection';
 import { openProjectClientEntity, startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../features/project/projectCommandService';
 import { registerClipboardObjectNavigation } from '../features/explorer/clipboardObjectNavigation';
@@ -47,11 +45,15 @@ import { loadPackageFileContent, loadPackages, loadPackageTree } from '../infras
 import { closePackageContentPanels, openPackageContent } from '../features/packages/packageContentPanelManager';
 import { executeOeStaticMethod } from '../features/lifecycle/oeStaticMethodExecutor';
 import { createClassMethod } from '../infrastructure/database/methodRepository';
+import { disposeProjectDatabaseSessions } from '../infrastructure/database/projectDatabaseSession';
+import { registerDatabaseCommands } from './registerDatabaseCommands';
+import { configureDatabaseQueryMonitor } from '../infrastructure/database/databaseQueryExecutor';
 
 export async function activate(context: vscode.ExtensionContext) {
 	const sqlMonitorHistoryPath = vscode.Uri.joinPath(context.globalStorageUri, 'sql-monitor', 'recent-queries.json').fsPath;
 	await sqlMonitorService.initialize(sqlMonitorHistoryPath);
-	const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath);
+	configureDatabaseQueryMonitor(sqlMonitorService);
+	const extensionLogger = new ExtensionLogService(context.globalStorageUri, context.extensionUri.fsPath, sqlMonitorService);
 	await extensionLogger.initialize();
 	let navigationBridge: NavigationBridge | undefined;
 	const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -462,99 +464,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		await applyProjectEncoding(context, true);
 	}
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "vc-ve-tools" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('vc-ve-tools.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Восточный Экспресс расширение!');
+	const databaseCommands = registerDatabaseCommands({
+		context,
+		copySelectedExplorerId: () => explorerProvider.copySelectedEntityId(),
+		refreshSettings: () => settingsProvider.refresh(),
 	});
-	const testDatabaseConnectionCommand = vscode.commands.registerCommand(
-		'vc-ve-tools.testDatabaseConnection',
-		async () => {
-			try {
-				const result = await vscode.window.withProgress(
-					{
-						location: vscode.ProgressLocation.Notification,
-						title: 'Проверка подключения к базе',
-					},
-					testDatabaseConnection,
-				);
-				void vscode.window.showInformationMessage(
-					`Подключение установлено: ${result.database}, пользователь ${result.user}.`,
-				);
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				void vscode.window.showErrorMessage(`Не удалось подключиться к базе: ${message}`);
-			}
-		},
-	);
-	const selectDatabaseRoleCommand = vscode.commands.registerCommand(
-		'vc-ve-tools.selectDatabaseRole',
-		async () => {
-			if (!vscode.workspace.workspaceFolders?.length) {
-				void vscode.window.showWarningMessage('Сначала откройте папку проекта.');
-				return;
-			}
-
-			try {
-				const { databases } = await loadRdboadmDatabases(vscode.workspace.workspaceFolders[0].uri.fsPath);
-				const selected = await vscode.window.showQuickPick(databases.map(database => ({ label: database.name, description: `[${database.id}]`, profile: database.id })), { placeHolder: 'Выберите базу данных из rdboadm.ini' });
-				if (selected) { await vscode.workspace.getConfiguration('vcVeTools').update(databaseProfileSetting, selected.profile, vscode.ConfigurationTarget.Workspace); }
-			} catch {
-				const selected = await vscode.window.showQuickPick([{ label: 'Основная', role: 'main' as const }, { label: 'Тестовая', role: 'test' as const }], { placeHolder: 'Выберите базу данных' });
-				if (selected && selected.role !== getDatabaseRole()) { await vscode.workspace.getConfiguration('vcVeTools').update(databaseRoleSetting, selected.role, vscode.ConfigurationTarget.Workspace); }
-			}
-		},
-	);
-	const openSqlMonitorCommand = vscode.commands.registerCommand(
-		'vc-ve-tools.openSqlMonitor',
-		() => openSqlMonitor(context),
-	);
-	const copySelectedExplorerIdCommand = vscode.commands.registerCommand(
-		'vc-ve-tools.copySelectedExplorerId',
-		() => explorerProvider.copySelectedEntityId(),
-	);
-	const setUserIdCommand = vscode.commands.registerCommand(
-		'vc-ve-tools.setUserId',
-		async () => {
-			const input = await vscode.window.showInputBox({
-				placeHolder: '3130673',
-				prompt: 'Введите ID пользователя из таблицы Users для логирования изменений методов',
-				value: vscode.workspace.getConfiguration('vcVeTools').get<number>('userId', 0).toString(),
-				validateInput: (value) => {
-					if (!value.trim()) {
-						return 'ID не может быть пустым';
-					}
-					const parsed = Number.parseInt(value, 10);
-					if (!Number.isInteger(parsed) || parsed <= 0) {
-						return 'ID должен быть положительным числом';
-					}
-					return '';
-				},
-			});
-
-			if (input === undefined) {
-				return;
-			}
-
-			const userId = Number.parseInt(input, 10);
-			await vscode.workspace.getConfiguration('vcVeTools').update(
-				'userId',
-				userId,
-				vscode.ConfigurationTarget.Workspace,
-			);
-			settingsProvider.refresh();
-			void vscode.window.showInformationMessage(`ID пользователя установлен: ${userId}`);
-		},
-	);
 
 	context.subscriptions.push(
+		{ dispose: disposeProjectDatabaseSessions },
 		extensionLogger,
 		navigationBridge,
 		databaseMcpServerRegistration,
@@ -578,12 +495,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		configurationListener,
 		activeWorkspaceListener,
 		activeWindowListener,
-		disposable,
-		testDatabaseConnectionCommand,
-		selectDatabaseRoleCommand,
-		openSqlMonitorCommand,
-		copySelectedExplorerIdCommand,
-		setUserIdCommand,
+		databaseCommands,
 	);
 }
 

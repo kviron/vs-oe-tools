@@ -266,7 +266,7 @@ class ExplorerViewProvider {
     }
     getHtml(webview, assetsRoot) {
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'explorer.js'));
-        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'explorer.css'));
+        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
         const nonce = this.createNonce();
         return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -284,6 +284,7 @@ window.addEventListener('error', (event) => showFailure(event.message || 'оши
 window.addEventListener('unhandledrejection', (event) => showFailure(String(event.reason || 'ошибка Promise')));
 const applicationScript = document.createElement('script');
 applicationScript.src = '${scriptUri}';
+applicationScript.type = 'module';
 applicationScript.nonce = '${nonce}';
 applicationScript.onerror = () => showFailure('не загружен файл explorer.js');
 applicationScript.onload = () => window.setTimeout(() => {

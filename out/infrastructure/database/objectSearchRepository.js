@@ -1,15 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.searchDatabaseObjects = searchDatabaseObjects;
-const pg_1 = require("pg");
 const objectSearch_1 = require("../../core/objectSearch");
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 async function searchDatabaseObjects(query, limit = 100) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const trimmed = query.trim();
         const numericId = /^\d+$/.test(trimmed) ? Number(trimmed) : null;
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
@@ -24,9 +20,6 @@ async function searchDatabaseObjects(query, limit = 100) {
             database: options.database,
         });
         return result.rows.map(objectSearch_1.mapDatabaseObject);
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 //# sourceMappingURL=objectSearchRepository.js.map

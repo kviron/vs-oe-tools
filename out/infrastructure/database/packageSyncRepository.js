@@ -41,10 +41,9 @@ const node_os_1 = require("node:os");
 const promises_1 = require("node:fs/promises");
 const vscode = __importStar(require("vscode"));
 const iconv = __importStar(require("iconv-lite"));
-const pg_1 = require("pg");
 const packageSyncIssues_1 = require("../../features/package-sync/packageSyncIssues");
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 async function loadPackageSyncSnapshot() {
     const boundaryIssuesPromise = loadPackageBoundaryIssues();
     const items = await loadPackageSyncItems();
@@ -78,10 +77,7 @@ async function resolvePlaceholderFile(localPath) {
     return undefined;
 }
 async function loadPackageBoundaryIssues() {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `WITH RECURSIVE package_edges AS (
 			 SELECT P.PackageName AS SourcePackage, trim(Dependency) AS TargetPackage
@@ -149,16 +145,10 @@ async function loadPackageBoundaryIssues() {
             message: `ID ${Number(row.objectid)} нарушает границу пакетов`,
             type: 'package-boundary',
         }));
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function loadPackageSyncItems() {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const [itemsResult, tuneResult] = await Promise.all([
             (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
                 text: `SELECT
@@ -210,10 +200,7 @@ async function loadPackageSyncItems() {
                 localPath: packagesRoot ? resolveLocalPath(packagesRoot, packagePath, objectPath, row.physicalfilename ?? row.objectname ?? '') : undefined,
             };
         });
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 function resolveLocalPath(root, packagePath, objectPath, name) {
     if (/^[a-z]:[\\/]/i.test(objectPath) || /^\\\\/.test(objectPath)) {

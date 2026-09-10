@@ -3,11 +3,10 @@ import { hostname } from 'node:os';
 import { readFile } from 'node:fs/promises';
 import * as vscode from 'vscode';
 import * as iconv from 'iconv-lite';
-import { Client } from 'pg';
 import type { PackageBoundaryIssue, PackageSyncItem, PackageSyncSnapshot } from '../../features/package-sync/models';
 import { createPackagePlaceholderIssues, isPackagePlaceholderItem, parsePackagePlaceholderObjects } from '../../features/package-sync/packageSyncIssues';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 interface PackageSyncRow {
 	objectid: number;
@@ -71,10 +70,7 @@ async function resolvePlaceholderFile(localPath: string | undefined): Promise<st
 }
 
 export async function loadPackageBoundaryIssues(): Promise<PackageBoundaryIssue[]> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<PackageBoundaryRow>(client, {
 			text: `WITH RECURSIVE package_edges AS (
 			 SELECT P.PackageName AS SourcePackage, trim(Dependency) AS TargetPackage
@@ -142,16 +138,11 @@ export async function loadPackageBoundaryIssues(): Promise<PackageBoundaryIssue[
 			message: `ID ${Number(row.objectid)} нарушает границу пакетов`,
 			type: 'package-boundary',
 		}));
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }
 
 export async function loadPackageSyncItems(): Promise<PackageSyncItem[]> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const [itemsResult, tuneResult] = await Promise.all([
 			executeMonitoredQuery<PackageSyncRow>(client, {
 				text: `SELECT
@@ -203,9 +194,7 @@ export async function loadPackageSyncItems(): Promise<PackageSyncItem[]> {
 				localPath: packagesRoot ? resolveLocalPath(packagesRoot, packagePath, objectPath, row.physicalfilename ?? row.objectname ?? '') : undefined,
 			};
 		});
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }
 
 function resolveLocalPath(root: string, packagePath: string, objectPath: string, name: string): string {

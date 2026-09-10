@@ -35,7 +35,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExtensionLogService = void 0;
 const vscode = __importStar(require("vscode"));
-const sqlMonitorService_1 = require("../../features/sql-monitor/sqlMonitorService");
 const recordLimit = 300;
 class ExtensionLogService {
     output = vscode.window.createOutputChannel('Восточный Экспресс');
@@ -46,10 +45,10 @@ class ExtensionLogService {
     extensionRoot;
     logUri;
     onDidChange = this.changeEmitter.event;
-    constructor(storageUri, extensionRoot) {
+    constructor(storageUri, extensionRoot, queryMonitor) {
         this.logUri = vscode.Uri.joinPath(storageUri, 'extension-log.jsonl');
         this.extensionRoot = normalizePath(extensionRoot);
-        this.subscriptions.push(sqlMonitorService_1.sqlMonitorService.subscribe(record => this.captureSqlError(record)));
+        this.subscriptions.push(queryMonitor.subscribe(record => this.captureSqlError(record)));
         process.on('unhandledRejection', this.onUnhandledRejection);
         process.on('uncaughtExceptionMonitor', this.onUncaughtException);
     }

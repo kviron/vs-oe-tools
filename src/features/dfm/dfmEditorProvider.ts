@@ -35,8 +35,8 @@ export class DfmEditorProvider implements vscode.FileSystemProvider, vscode.Disp
 	rename(): void { throw vscode.FileSystemError.NoPermissions(); }
 	dispose(): void { this.changed.dispose(); this.sources.clear(); }
 	private async ensure(uri: vscode.Uri): Promise<DfmSource> {
-		const cached = this.sources.get(uri.toString()); if (cached) return cached;
-		const id = Number(new URLSearchParams(uri.query).get('classId')); if (!Number.isSafeInteger(id)) throw vscode.FileSystemError.FileNotFound(uri);
+		const cached = this.sources.get(uri.toString()); if (cached) {return cached;}
+		const id = Number(new URLSearchParams(uri.query).get('classId')); if (!Number.isSafeInteger(id)) {throw vscode.FileSystemError.FileNotFound(uri);}
 		const source = await getDfmSource(id); this.sources.set(uri.toString(), source); return source;
 	}
 }

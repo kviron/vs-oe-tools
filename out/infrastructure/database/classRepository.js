@@ -41,19 +41,11 @@ exports.getClassAttributeDetails = getClassAttributeDetails;
 exports.getClassProperties = getClassProperties;
 exports.getClassPropertyDetails = getClassPropertyDetails;
 exports.getClassMethods = getClassMethods;
-const pg_1 = require("pg");
 const iconv = __importStar(require("iconv-lite"));
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 async function testDatabaseConnection() {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({
-        ...options,
-        application_name: 'vc-ve-tools',
-        connectionTimeoutMillis: 5000,
-    });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: 'SELECT current_database() AS database, current_user AS user',
             source: 'Проверка подключения',
@@ -64,20 +56,10 @@ async function testDatabaseConnection() {
             throw new Error('База не вернула результат проверки.');
         }
         return row;
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function loadClasses() {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({
-        ...options,
-        application_name: 'vc-ve-tools',
-        connectionTimeoutMillis: 5000,
-    });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const classesResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT class.id, class.name, class.seniorid, class.ord, class.virtual, class.dbtablename,
 			 EXISTS (
@@ -119,17 +101,11 @@ async function loadClasses() {
             comments: commentsBySeniorId.get(classRow.id) ?? [],
             objectMetaDataCount: metaDataCountBySeniorId.get(classRow.id) ?? 0,
         }));
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function getClassDetails(id) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    let classDetails;
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
+        let classDetails;
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT class.*, child.name AS childclassname, parent.name AS parentclassname
 			 FROM classes AS class
@@ -141,14 +117,11 @@ async function getClassDetails(id) {
             database: options.database,
         });
         classDetails = result.rows[0];
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
-    if (!classDetails) {
-        throw new Error('Класс не найден в базе.');
-    }
-    return classDetails;
+        if (!classDetails) {
+            throw new Error('Класс не найден в базе.');
+        }
+        return classDetails;
+    });
 }
 function quoteIdentifier(value) {
     return `"${value.replace(/"/g, '""')}"`;
@@ -157,8 +130,9 @@ function readValue(row, ...names) {
     const values = new Map(Object.entries(row).map(([key, value]) => [key.toLowerCase(), value]));
     for (const name of names) {
         const value = values.get(name);
-        if (value !== undefined && value !== null)
+        if (value !== undefined && value !== null) {
             return String(value);
+        }
     }
     return '';
 }
@@ -180,10 +154,7 @@ function cachedLookup(cache, key, lookup) {
     return pending;
 }
 async function getClassAttributes(classId, className, includeInherited) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const cacheKey = databaseCacheKey(options);
         const table = await cachedLookup(attributeTableCache, cacheKey, async () => {
             const tables = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
@@ -272,16 +243,10 @@ async function getClassAttributes(classId, className, includeInherited) {
             }
         }
         return [...visibleAttributes.values()].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function getClassAttributeDetails(attributeId) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const cacheKey = databaseCacheKey(options);
         const table = await cachedLookup(attributeTableCache, cacheKey, async () => {
             const tables = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
@@ -335,16 +300,10 @@ async function getClassAttributeDetails(attributeId) {
             createdBy: creators.get(String(attributeId))?.name ?? '',
             data: decodeAttributeData(row.data),
         };
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function getClassProperties(classId, includeInherited) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `WITH RECURSIVE class_chain AS (
 			         SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
@@ -394,16 +353,10 @@ async function getClassProperties(classId, includeInherited) {
             }
         }
         return [...visible.values()];
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function getClassPropertyDetails(propertyId) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT property.id::text, property.name, property.aliases,
 			              owner.id::text AS ownerclassid, owner.name AS ownerclassname,
@@ -430,16 +383,10 @@ async function getClassPropertyDetails(propertyId) {
             readMemberId: row.readmemberid ?? '', readMemberName: row.readmembername ?? '',
             writeMemberId: row.writememberid ?? '', writeMemberName: row.writemembername ?? '',
         };
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function getClassMethods(classId, className, includeInherited) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const text = includeInherited
             ? `WITH RECURSIVE class_chain AS (
 			     SELECT class.id, class.seniorid, 0 AS depth, ARRAY[class.id] AS path
@@ -502,10 +449,7 @@ async function getClassMethods(classId, className, includeInherited) {
             }
         }
         return [...visibleMethods.values()].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 async function getObjectCreators(client, database, cacheKey, objectIds, objectClassId) {
     const ids = objectIds.map(Number).filter(Number.isSafeInteger);

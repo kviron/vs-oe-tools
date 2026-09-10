@@ -4,5 +4,6 @@ export const databaseProfileSetting = 'databaseProfile';
 export const sqlMonitorCollectorPathSetting = 'sqlMonitorCollectorPath';
 export const clientUsernameSetting = 'clientUsername';
 export const mcpEnabledSetting = 'mcp.enabled';
+export const clientMcpUrlSetting = 'mcp.clientUrl';
 export const sourceLanguageIds = ['ve-pkf', 've-pascal', 'bat'] as const;
 export const previousEncodingsKey = 'vcVeTools.previousWorkspaceLanguageEncodings';

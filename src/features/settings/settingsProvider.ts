@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { DatabaseRole } from '../classes/models';
+import type { DatabaseRole } from '../../core/database';
 
 class SettingsItem extends vscode.TreeItem {
 	constructor(enabled: boolean) {

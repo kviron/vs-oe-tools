@@ -38,11 +38,10 @@ const node_crypto_1 = require("node:crypto");
 const promises_1 = require("node:fs/promises");
 const path = __importStar(require("node:path"));
 const iconv = __importStar(require("iconv-lite"));
-const pg_1 = require("pg");
 const pkfDatabaseReconstruction_1 = require("../../features/package-sync/pkfDatabaseReconstruction");
 const pkfMetaReconstruction_1 = require("../../features/package-sync/pkfMetaReconstruction");
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 const BLOB_ATTRIBUTE_TYPE = 320;
 const BOOLEAN_ATTRIBUTE_TYPE = 310;
 const META_CLASS_IDS = new Set([3, 4, 5, 10200019]);
@@ -50,10 +49,7 @@ async function loadPackageDatabaseVersion(item, fileName) {
     if (path.extname(fileName).toLocaleLowerCase('en-US') !== '.pkf') {
         throw new Error('Реконструкция из БД пока поддерживается только для PKF.');
     }
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools-package-diff', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const fileResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: 'SELECT ContentMD5 AS contentmd5, IsAutoGroup AS isautogroup, AutoGroup AS autogroup FROM SysFile WHERE ID = $1', values: [item.objectId],
             source: 'Синхронизация пакетов: проверка базовой версии PKF', database: options.database,
@@ -102,10 +98,7 @@ async function loadPackageDatabaseVersion(item, fileName) {
         const objects = await buildDatabaseObjects(client, options.database, abstractResult.rows);
         const databaseSource = (0, pkfDatabaseReconstruction_1.createEmptyPkf)(Number(fileRow.isautogroup) !== 0 ? fileRow.autogroup : undefined);
         return { content: (0, pkfDatabaseReconstruction_1.appendPkfObjects)(databaseSource, objects), addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    }, undefined, 'vc-ve-tools-package-diff');
 }
 async function loadMetaPkf(client, database, fileId) {
     const classResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {

@@ -1,8 +1,9 @@
 {
   "name": "vc-ve-tools",
   "displayName": "Восточный Экспресс расширение",
-  "description": "",
+  "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
   "version": "0.1.0",
+  "publisher": "Kviron",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -155,6 +156,12 @@
           "default": true,
           "scope": "window",
           "description": "Включить MCP-сервер для AI-агентов. Прямые SQL-запросы доступны только для чтения; код методов можно изменять через контролируемый инструмент сохранения."
+        },
+        "vcVeTools.mcp.clientUrl": {
+          "type": "string",
+          "default": "http://localhost:8080/mcp",
+          "scope": "window",
+          "description": "Адрес HTTP MCP-сервера, запущенного внутри клиента Восточного Экспресса."
         }
       }
     },
@@ -214,10 +221,6 @@
       ]
     },
     "commands": [
-      {
-        "command": "vc-ve-tools.helloWorld",
-        "title": "Hello World"
-      },
       {
         "command": "vc-ve-tools.testDatabaseConnection",
         "title": "Восточный Экспресс: Проверить подключение к базе"
@@ -509,18 +512,19 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
-    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts --mode explorer && vite build --config vite.webview.config.mts --mode production-tasks && vite build --config vite.webview.config.mts --mode production-task-details && vite build --config vite.webview.config.mts --mode package-sync && vite build --config vite.webview.config.mts --mode svn-conflict && vite build --config vite.webview.config.mts --mode class-details && vite build --config vite.webview.config.mts --mode class-objects && vite build --config vite.webview.config.mts --mode object-view && vite build --config vite.webview.config.mts --mode package-content && vite build --config vite.webview.config.mts --mode attribute-details && vite build --config vite.webview.config.mts --mode property-details && vite build --config vite.webview.config.mts --mode entity-properties && vite build --config vite.webview.config.mts --mode sql-monitor && vite build --config vite.webview.config.mts --mode sql-executor && vite build --config vite.webview.config.mts --mode code-history && vite build --config vite.webview.config.mts --mode settings && vite build --config vite.webview.config.mts --mode spu-editor",
+    "compile": "npm run check:generated && npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
+    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check-types && npm run lint && npm run build:webview && node esbuild.js --production",
+    "package": "npm run check:generated && npm run check-types && npm run lint && npm run build:webview && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src",
+    "check:generated": "node scripts/check-generated-source.mjs",
+    "lint": "eslint src --max-warnings 0",
     "test": "vscode-test"
   },
   "devDependencies": {

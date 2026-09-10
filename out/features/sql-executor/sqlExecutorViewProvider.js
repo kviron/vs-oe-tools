@@ -170,13 +170,13 @@ class SqlExecutorViewProvider {
     }
     getHtml(webview, assetsRoot) {
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'sql-executor.js'));
-        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'sql-executor.css'));
+        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
         const nonce = createNonce();
         return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csp-nonce" content="${nonce}">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src ${webview.cspSource} 'nonce-${nonce}';">
 <link rel="stylesheet" href="${styleUri}"><title>Исполнитель SQL</title></head>
-<body><div id="app">Загрузка исполнителя SQL…</div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+<body><div id="app">Загрузка исполнителя SQL…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
     }
 }
 exports.SqlExecutorViewProvider = SqlExecutorViewProvider;

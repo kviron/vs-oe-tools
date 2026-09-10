@@ -1,13 +1,9 @@
-import { Client } from 'pg';
 import { databaseObjectSearchSelect, mapDatabaseObject, type DatabaseObjectSearchResult, type DatabaseObjectSearchRow } from '../../core/objectSearch';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 export async function searchDatabaseObjects(query: string, limit = 100): Promise<DatabaseObjectSearchResult[]> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const trimmed = query.trim();
 		const numericId = /^\d+$/.test(trimmed) ? Number(trimmed) : null;
 		const result = await executeMonitoredQuery<DatabaseObjectSearchRow, [number | null, string, number]>(client, {
@@ -22,7 +18,5 @@ export async function searchDatabaseObjects(query: string, limit = 100): Promise
 			database: options.database,
 		});
 		return result.rows.map(mapDatabaseObject);
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }

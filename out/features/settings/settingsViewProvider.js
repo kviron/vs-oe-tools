@@ -39,6 +39,9 @@ const constants_1 = require("../../core/constants");
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const projectDatabaseOptions_1 = require("../../infrastructure/configuration/projectDatabaseOptions");
 const classRepository_1 = require("../../infrastructure/database/classRepository");
+const clientMcpHttp_1 = require("../../mcp/clientMcpHttp");
+const oeStaticMethodExecutor_1 = require("../lifecycle/oeStaticMethodExecutor");
+const postmanApiHttp_1 = require("../postman/postmanApiHttp");
 const rdboadmIni_1 = require("../../infrastructure/configuration/rdboadmIni");
 const projectCommandService_1 = require("../project/projectCommandService");
 class SettingsViewProvider {
@@ -50,6 +53,8 @@ class SettingsViewProvider {
     getClientCredentials;
     setClientCredentials;
     panel;
+    clientMcpStatusTimer;
+    clientMcpDatabaseSync;
     disposables = [];
     constructor(extensionUri, setProjectRootEnabled, logger, getNavigationConnection, databaseSelectionPath, getClientCredentials = async () => ({}), setClientCredentials = async () => undefined) {
         this.extensionUri = extensionUri;
@@ -62,6 +67,10 @@ class SettingsViewProvider {
         this.disposables.push(this.logger.onDidChange(() => void this.postState()), vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration('vcVeTools')) {
                 void this.postState();
+            }
+            if (event.affectsConfiguration(`vcVeTools.${constants_1.databaseProfileSetting}`)
+                || event.affectsConfiguration(`vcVeTools.${constants_1.databaseRoleSetting}`)) {
+                this.scheduleClientMcpDatabaseSync();
             }
         }), vscode.workspace.onDidChangeWorkspaceFolders(() => void this.postState()));
     }
@@ -80,14 +89,63 @@ class SettingsViewProvider {
         this.panel = panel;
         panel.webview.html = this.getHtml(panel.webview, assetsRoot);
         panel.webview.onDidReceiveMessage(message => void this.handleMessage(message));
-        panel.onDidDispose(() => { this.panel = undefined; });
+        panel.onDidChangeViewState(event => {
+            if (event.webviewPanel.visible) {
+                void this.postState();
+            }
+        });
+        this.clientMcpStatusTimer = setInterval(() => {
+            if (this.panel?.visible) {
+                void this.postState();
+            }
+        }, 10_000);
+        panel.onDidDispose(() => {
+            this.panel = undefined;
+            if (this.clientMcpStatusTimer) {
+                clearInterval(this.clientMcpStatusTimer);
+            }
+            this.clientMcpStatusTimer = undefined;
+        });
     }
     refresh() {
         void this.postState();
     }
     dispose() {
+        if (this.clientMcpStatusTimer) {
+            clearInterval(this.clientMcpStatusTimer);
+        }
         this.panel?.dispose();
         this.disposables.forEach(disposable => disposable.dispose());
+    }
+    scheduleClientMcpDatabaseSync() {
+        if (this.clientMcpDatabaseSync) {
+            return;
+        }
+        this.clientMcpDatabaseSync = this.syncHttpServiceDatabases()
+            .catch(error => this.logger.error('Настройки', 'Не удалось переключить базу клиентского MCP', error))
+            .finally(() => { this.clientMcpDatabaseSync = undefined; });
+    }
+    async syncHttpServiceDatabases() {
+        const clientMcpUrl = getConfiguredClientMcpUrl(vscode.workspace.getConfiguration('vcVeTools'));
+        const selectedDatabase = (await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)()).database;
+        const services = [
+            { requester: 'mcp', health: () => (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl) },
+            { requester: 'postman', health: () => (0, postmanApiHttp_1.getPostmanApiHealth)(postmanApiHttp_1.defaultPostmanApiUrl) },
+        ];
+        for (const service of services) {
+            try {
+                const health = await service.health();
+                if (health.status.toLocaleLowerCase('en') !== 'ok'
+                    || health.database?.toLocaleLowerCase('en') === selectedDatabase.toLocaleLowerCase('en')) {
+                    continue;
+                }
+                await this.setClientMcpServerRunning('stop', service.requester);
+                await this.setClientMcpServerRunning('start', service.requester);
+            }
+            catch {
+                // An offline optional service does not need database synchronization.
+            }
+        }
     }
     async handleMessage(message) {
         if (!(0, webviewProtocol_1.isSettingsWebviewMessage)(message)) {
@@ -149,6 +207,18 @@ class SettingsViewProvider {
         else if (message.command === 'setMcpEnabled') {
             await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.mcpEnabledSetting, message.enabled, vscode.ConfigurationTarget.Workspace);
         }
+        else if (message.command === 'refreshClientMcpStatus') {
+            await this.postState();
+        }
+        else if (message.command === 'startClientMcpServer') {
+            await this.setClientMcpServerRunning('start');
+        }
+        else if (message.command === 'stopClientMcpServer') {
+            await this.setClientMcpServerRunning('stop');
+        }
+        else if (message.command === 'setPostmanApiServerRunning') {
+            await this.setClientMcpServerRunning(message.enabled ? 'start' : 'stop', 'postman');
+        }
         else if (message.command === 'testSettingsDatabaseConnection') {
             await this.testConnection();
         }
@@ -160,6 +230,89 @@ class SettingsViewProvider {
             await vscode.env.clipboard.writeText(message.text);
             vscode.window.setStatusBarMessage('Код подключения MCP скопирован', 2500);
         }
+    }
+    async setClientMcpServerRunning(action, requester = 'mcp') {
+        const configuration = vscode.workspace.getConfiguration('vcVeTools');
+        const clientMcpUrl = getConfiguredClientMcpUrl(configuration);
+        let currentlyOnline = false;
+        try {
+            const health = requester === 'mcp'
+                ? await (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl)
+                : await (0, postmanApiHttp_1.getPostmanApiHealth)(postmanApiHttp_1.defaultPostmanApiUrl);
+            currentlyOnline = health.status.toLocaleLowerCase('en') === 'ok';
+        }
+        catch {
+            currentlyOnline = false;
+        }
+        if ((action === 'start' && currentlyOnline) || (action === 'stop' && !currentlyOnline)) {
+            await this.postState();
+            return;
+        }
+        this.post(requester === 'mcp'
+            ? { command: 'clientMcpActionStarted', action }
+            : { command: 'postmanApiActionStarted', action });
+        try {
+            let database = '';
+            if (action === 'start') {
+                const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                if (!workspacePath) {
+                    throw new Error('Сначала откройте папку проекта Восточного Экспресса.');
+                }
+                const databaseOptions = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+                database = databaseOptions.database;
+                const startProcess = requester === 'postman' ? oeStaticMethodExecutor_1.startPostmanApiProcess : oeStaticMethodExecutor_1.startClientMcpProcess;
+                await startProcess(workspacePath, databaseOptions.database, databaseOptions.host, await this.getClientCredentials());
+            }
+            else {
+                if (requester === 'mcp') {
+                    await (0, clientMcpHttp_1.stopClientMcpServer)(clientMcpUrl);
+                }
+                else {
+                    await (0, postmanApiHttp_1.stopPostmanApiServer)(postmanApiHttp_1.defaultPostmanApiUrl);
+                }
+            }
+            let targetStateReached = false;
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+                try {
+                    const health = requester === 'mcp'
+                        ? await (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl)
+                        : await (0, postmanApiHttp_1.getPostmanApiHealth)(postmanApiHttp_1.defaultPostmanApiUrl);
+                    targetStateReached = action === 'start' && health.status.toLocaleLowerCase('en') === 'ok';
+                }
+                catch {
+                    targetStateReached = action === 'stop';
+                }
+                if (targetStateReached) {
+                    break;
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            if (!targetStateReached) {
+                const statusUrl = requester === 'mcp' ? `${clientMcpUrl}/health` : `${postmanApiHttp_1.defaultPostmanApiUrl}/health`;
+                throw new Error(action === 'start'
+                    ? `Метод выполнен, но ${statusUrl} не ответил со статусом ok.`
+                    : `Метод выполнен, но ${statusUrl} продолжает отвечать.`);
+            }
+            const methodName = action === 'start' && requester === 'postman'
+                ? 'Метод.HttpPostmanTesting'
+                : action === 'start' ? 'aiMCP.http_Start' : 'aiMCP.http_Stop';
+            const methodId = action === 'start' && requester === 'postman' ? oeStaticMethodExecutor_1.postmanApiMethodId : oeStaticMethodExecutor_1.clientMcpMethodIds[action];
+            const actionText = action === 'start' ? 'запущен' : 'остановлен';
+            const serviceName = requester === 'mcp' ? 'Клиентский MCP' : 'API для Postman';
+            const message = `${serviceName} ${actionText} через ${methodName} (ID ${methodId})${database ? ` в базе ${database}` : ''}.`;
+            this.post(requester === 'mcp'
+                ? { command: 'clientMcpActionFinished', action, success: true, message }
+                : { command: 'postmanApiActionFinished', action, success: true, message });
+            void vscode.window.showInformationMessage(message);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.post(requester === 'mcp'
+                ? { command: 'clientMcpActionFinished', action, success: false, message }
+                : { command: 'postmanApiActionFinished', action, success: false, message });
+            void vscode.window.showErrorMessage(`Не удалось ${action === 'start' ? 'запустить' : 'остановить'} ${requester === 'mcp' ? 'клиентский MCP' : 'API для Postman'}: ${message}`);
+        }
+        await this.postState();
     }
     async testConnection() {
         this.post({ command: 'databaseConnectionTestStarted' });
@@ -182,6 +335,7 @@ class SettingsViewProvider {
         const configuration = vscode.workspace.getConfiguration('vcVeTools');
         const workspace = vscode.workspace.workspaceFolders?.[0];
         const enabled = configuration.get(constants_1.mcpEnabledSetting, true);
+        const clientMcpUrl = getConfiguredClientMcpUrl(configuration);
         const role = (0, projectDatabaseOptions_1.getDatabaseRole)();
         const clientCredentials = await this.getClientCredentials();
         let databaseProfiles = [];
@@ -200,6 +354,45 @@ class SettingsViewProvider {
         const configuredProfile = configuration.get(constants_1.databaseProfileSetting, '');
         const databaseProfile = databaseProfiles.some(item => item.id === configuredProfile) ? configuredProfile : (databaseProfiles[0]?.id ?? '');
         const lastError = this.logger.getLastError();
+        let clientMcpStatus = 'offline';
+        let clientMcpStatusText = 'Нет связи';
+        let clientMcpDatabase;
+        let postmanApiStatus = 'offline';
+        let postmanApiStatusText = 'Нет связи';
+        let selectedDatabase;
+        try {
+            selectedDatabase = (await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)()).database;
+        }
+        catch {
+            selectedDatabase = undefined;
+        }
+        try {
+            const health = await (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl);
+            clientMcpDatabase = health.database?.trim() || undefined;
+            if (health.status.toLocaleLowerCase('en') === 'ok') {
+                clientMcpStatus = 'online';
+                clientMcpStatusText = clientMcpDatabase ? `Работает · ${clientMcpDatabase}` : 'Работает';
+            }
+            else {
+                clientMcpStatusText = `Статус: ${health.status}`;
+            }
+        }
+        catch {
+            // The offline state is expected when the original client is not running.
+        }
+        try {
+            const health = await (0, postmanApiHttp_1.getPostmanApiHealth)(postmanApiHttp_1.defaultPostmanApiUrl);
+            if (health.status.toLocaleLowerCase('en') === 'ok') {
+                postmanApiStatus = 'online';
+                postmanApiStatusText = health.database?.trim() ? `Работает · ${health.database.trim()}` : 'Работает';
+            }
+            else {
+                postmanApiStatusText = `Статус: ${health.status}`;
+            }
+        }
+        catch {
+            // The unified local HTTP server is optional.
+        }
         let status = enabled ? 'ready' : 'disabled';
         let statusText = enabled ? 'Готов к запуску агентом' : 'MCP-сервер выключен';
         if (enabled && !workspace) {
@@ -231,11 +424,21 @@ class SettingsViewProvider {
             mcpEnabled: enabled,
             mcpStatus: status,
             mcpStatusText: statusText,
-            mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role, databaseProfile),
+            clientMcpUrl,
+            clientMcpStatus,
+            clientMcpStatusText,
+            clientMcpDatabase,
+            clientMcpDatabaseMatchesSelection: clientMcpDatabase && selectedDatabase
+                ? clientMcpDatabase.toLocaleLowerCase('en') === selectedDatabase.toLocaleLowerCase('en')
+                : undefined,
+            postmanApiUrl: postmanApiHttp_1.defaultPostmanApiUrl,
+            postmanApiStatus,
+            postmanApiStatusText,
+            mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role, databaseProfile, clientMcpUrl),
             lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
         };
     }
-    connectionCode(workspacePath, role, profile) {
+    connectionCode(workspacePath, role, profile, clientMcpUrl) {
         const navigation = this.getNavigationConnection();
         return JSON.stringify({
             mcpServers: {
@@ -247,6 +450,7 @@ class SettingsViewProvider {
                         '--database-role', role,
                         ...(profile ? ['--database-profile', profile] : []),
                         ...(this.databaseSelectionPath ? ['--database-selection', this.databaseSelectionPath] : []),
+                        '--client-mcp-url', clientMcpUrl,
                         '--logs', this.logger.logUri.fsPath,
                         ...(navigation ? ['--navigation-info', navigation.infoPath] : []),
                     ],
@@ -259,12 +463,19 @@ class SettingsViewProvider {
     }
     getHtml(webview, assetsRoot) {
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'settings.js'));
-        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'settings.css'));
+        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
         const nonce = createNonce();
-        return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Настройки</title></head><body><div id="app"></div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+        return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Настройки</title></head><body><div id="app"></div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
     }
 }
 exports.SettingsViewProvider = SettingsViewProvider;
+function getConfiguredClientMcpUrl(configuration) {
+    const configured = configuration.get(constants_1.clientMcpUrlSetting, 'http://localhost:8080/mcp').trim();
+    if (/^http:\/\/(?:localhost|127\.0\.0\.1):8080\/?$/iu.test(configured)) {
+        return `${configured.replace(/\/$/, '')}/mcp`;
+    }
+    return configured;
+}
 function createNonce() {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join('');

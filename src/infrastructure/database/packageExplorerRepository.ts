@@ -1,10 +1,10 @@
-import { Client } from 'pg';
+import type { PoolClient } from 'pg';
 import * as iconv from 'iconv-lite';
 import type { DatabaseObjectKind } from '../../core/objectSearch';
 import type { PackageContentNode, PackageExplorerNode, PackageFileContent, PackageSummary } from '../../features/packages/models';
 import { buildPackageTree, type PackageFileRow, type PackageGroupRow } from '../../features/packages/packageTree';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 interface PackageRow { id: string; packagename: string }
 interface FileIdentityRow { id: string; filename: string; grouppath: string | null; packagename: string }
@@ -121,9 +121,6 @@ function decodeText(value: string): string {
 	const bytea = value.match(/^\\x([\da-f]+)$/i);
 	return bytea && bytea[1].length % 2 === 0 ? iconv.decode(Buffer.from(bytea[1], 'hex'), 'win1251') : value;
 }
-async function withDatabase<T>(action: (client: Client, database: string) => Promise<T>): Promise<T> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try { await client.connect(); return await action(client, options.database); }
-	finally { await client.end().catch(() => undefined); }
+async function withDatabase<T>(action: (client: PoolClient, database: string) => Promise<T>): Promise<T> {
+	return withProjectDatabaseSession(({ client, options }) => action(client, options.database));
 }

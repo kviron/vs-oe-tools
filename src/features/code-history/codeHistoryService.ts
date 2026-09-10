@@ -287,9 +287,9 @@ class CodeHistoryService implements vscode.TextDocumentContentProvider, vscode.W
 
 function webviewHtml(webview: vscode.Webview, assetsRoot: vscode.Uri): string {
 	const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'code-history.js'));
-	const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'code-history.css'));
+	const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
 	const nonce = Math.random().toString(36).slice(2);
-	return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>История кода</title></head><body><div id="app"></div><script nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+	return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>История кода</title></head><body><div id="app"></div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
 
 function formatDate(value: Date): string { return Number.isNaN(value.getTime()) ? 'дата неизвестна' : value.toLocaleString('ru-RU'); }

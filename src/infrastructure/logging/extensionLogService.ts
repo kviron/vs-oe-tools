@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import type { SqlQueryRecord } from '../../features/sql-monitor/models';
-import { sqlMonitorService } from '../../features/sql-monitor/sqlMonitorService';
+import type { QueryMonitorSource, SqlQueryRecord } from '../../core/sqlQuery';
 
 export type ExtensionLogLevel = 'info' | 'warning' | 'error';
 export interface ExtensionLogRecord {
@@ -23,10 +22,10 @@ export class ExtensionLogService implements vscode.Disposable {
 	readonly logUri: vscode.Uri;
 	readonly onDidChange = this.changeEmitter.event;
 
-	constructor(storageUri: vscode.Uri, extensionRoot: string) {
+	constructor(storageUri: vscode.Uri, extensionRoot: string, queryMonitor: QueryMonitorSource) {
 		this.logUri = vscode.Uri.joinPath(storageUri, 'extension-log.jsonl');
 		this.extensionRoot = normalizePath(extensionRoot);
-		this.subscriptions.push(sqlMonitorService.subscribe(record => this.captureSqlError(record)));
+		this.subscriptions.push(queryMonitor.subscribe(record => this.captureSqlError(record)));
 		process.on('unhandledRejection', this.onUnhandledRejection);
 		process.on('uncaughtExceptionMonitor', this.onUncaughtException);
 	}

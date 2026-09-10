@@ -15,15 +15,10 @@ suite('Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
 
 	test('development extension activates', async () => {
-		const extension = vscode.extensions.getExtension('undefined_publisher.vc-ve-tools');
-		assert.ok(extension, 'Расширение undefined_publisher.vc-ve-tools не найдено');
+		const extension = vscode.extensions.getExtension('Kviron.vc-ve-tools');
+		assert.ok(extension, 'Расширение Kviron.vc-ve-tools не найдено');
 		await extension.activate();
 		assert.equal(extension.isActive, true);
-	});
-
-	test('Sample test', () => {
-		assert.strictEqual(-1, [1, 2, 3].indexOf(5));
-		assert.strictEqual(-1, [1, 2, 3].indexOf(0));
 	});
 
 	test('Vars.bat parser supports quoted and role-specific variables', () => {

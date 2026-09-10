@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as iconv from 'iconv-lite';
-import type { DatabaseConnectionOptions } from '../../features/classes/models';
+import type { DatabaseConnectionOptions } from '../../core/database';
 
 export interface RdboadmField { key: string; value: string }
 export interface RdboadmDatabase { id: string; name: string; fields: RdboadmField[] }

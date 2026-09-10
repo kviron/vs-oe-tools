@@ -1,12 +1,13 @@
-import { Client } from 'pg';
+import type { PoolClient } from 'pg';
 import * as iconv from 'iconv-lite';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { getSessionContext } from '../configuration/sessionContext';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 import { serializeChangeValues } from './changeValuesSerialization';
 import { resolveMethodSignature } from './methodSignature';
 import { encodeMethodCreationAuditValues, methodClassId, normalizeClassMethodDraft, validateClassMethodDraft } from '../../features/methods/methodCreation';
-import type { ClassMethodDraft, CreatedClassMethod, DatabaseConnectionOptions } from '../../features/classes/models';
+import type { ClassMethodDraft, CreatedClassMethod } from '../../features/classes/models';
+import type { DatabaseConnectionOptions } from '../../core/database';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 export interface MethodSource {
 	id: number;
@@ -42,10 +43,7 @@ interface MethodOwnerRow { id: number; name: string; sysfile: number | null }
 interface DeveloperRangeRow { id: number; beginid: number | string; endid: number | string; developername: string | null }
 
 export async function findMethodsByName(name: string, databaseOptions?: DatabaseConnectionOptions): Promise<MethodReference[]> {
-	const options = databaseOptions ?? await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<{ id: number; name: string; seniorid: number }, [string]>(client, {
 			text: `SELECT method.id, method.name, method.seniorid
 			 FROM methods AS method
@@ -57,16 +55,11 @@ export async function findMethodsByName(name: string, databaseOptions?: Database
 			database: options.database,
 		});
 		return result.rows.map(row => ({ id: row.id, name: row.name, seniorId: row.seniorid }));
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	}, databaseOptions);
 }
 
 export async function getMethodSource(id: number, databaseOptions?: DatabaseConnectionOptions): Promise<MethodSource> {
-	const options = databaseOptions ?? await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<MethodSourceRow, [number]>(client, {
 			text: `SELECT method.id, method.name, method.seniorid, method.methtype,
 			        method.signature, pg_typeof(method.signature)::text AS signaturetype,
@@ -84,9 +77,7 @@ export async function getMethodSource(id: number, databaseOptions?: DatabaseConn
 			signature: decodeCode(row.signature), signatureType: row.signaturetype,
 			code: decodeCode(row.code), codeType: row.codetype,
 		};
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	}, databaseOptions);
 }
 
 export async function saveMethodSource(
@@ -98,10 +89,8 @@ export async function saveMethodSource(
 	log(`Старт сохранения ID=${method.id}; codeType=${method.codeType}; ${inspectValue(code)}.`);
 	const encoded = encodeWindows1251(code);
 	log(`Новый код проверен и закодирован в WIN1251: bytes=${encoded.byteLength}.`);
-	const options = databaseOptions ?? await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	return withProjectDatabaseSession(async ({ client, options }) => {
 	try {
-		await client.connect();
 		log(`Подключение к БД ${options.database} установлено.`);
 		await client.query('BEGIN');
 		log('Транзакция BEGIN.');
@@ -256,9 +245,8 @@ export async function saveMethodSource(
 		await client.query('ROLLBACK').catch(() => undefined);
 		log('Транзакция ROLLBACK.');
 		throw error;
-	} finally {
-		await client.end().catch(() => undefined);
 	}
+	}, databaseOptions);
 }
 
 /**
@@ -273,10 +261,8 @@ export async function createClassMethod(
 	const draft = normalizeClassMethodDraft(input);
 	const encodedSignature = encodeWindows1251(draft.signature);
 	const encodedCode = encodeWindows1251(draft.code);
-	const options = databaseOptions ?? await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	return withProjectDatabaseSession(async ({ client, options }) => {
 	try {
-		await client.connect();
 		await client.query('BEGIN');
 		const session = await getSessionContext(client, options.database);
 		const ownerResult = await executeMonitoredQuery<MethodOwnerRow, [number]>(client, {
@@ -401,13 +387,12 @@ export async function createClassMethod(
 	} catch (error) {
 		await client.query('ROLLBACK').catch(() => undefined);
 		throw error;
-	} finally {
-		await client.end().catch(() => undefined);
 	}
+	}, databaseOptions);
 }
 
 async function markPackageFileChanged(
-	client: Client,
+	client: PoolClient,
 	database: string,
 	sysFileId: number,
 	userId: number,

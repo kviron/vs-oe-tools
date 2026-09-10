@@ -34,16 +34,12 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMethodHistory = getMethodHistory;
-const pg_1 = require("pg");
 const iconv = __importStar(require("iconv-lite"));
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
 const methodHistoryParsing_1 = require("./methodHistoryParsing");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 async function getMethodHistory(methodId) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const userTable = await findUserTable(client, options.database).catch(() => undefined);
         const userJoin = userTable ? buildUserJoin(userTable) : '';
         const userColumns = userTable ? ', to_jsonb(users) AS userdata' : '';
@@ -60,10 +56,7 @@ async function getMethodHistory(methodId) {
         return result.rows
             .map((row, index) => toHistoryEntry(row.data, index, row.userdata))
             .filter((entry) => entry !== undefined);
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 function toHistoryEntry(data, index, userData) {
     const oldValues = decodeText(readValue(data, 'oldvalues'));

@@ -2,9 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.classObjectPageSize = void 0;
 exports.getClassObjects = getClassObjects;
-const pg_1 = require("pg");
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 exports.classObjectPageSize = 100;
 async function getClassObjects(classId, offset = 0, limit = exports.classObjectPageSize, targetObjectId) {
     if (!Number.isInteger(offset) || offset < 0) {
@@ -13,10 +12,7 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
     if (!Number.isInteger(limit) || limit < 1 || limit > exports.classObjectPageSize) {
         throw new Error(`Размер страницы справочника должен быть от 1 до ${exports.classObjectPageSize}.`);
     }
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const classResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: 'SELECT id, name, dbtablename, virtual FROM classes WHERE id = $1',
             values: [classId],
@@ -143,10 +139,7 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
             limit,
             hasMore: effectiveOffset + normalizedRows.length < totalCount,
         };
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 function normalizeRow(row, columns) {
     const values = new Map(Object.entries(row).map(([key, value]) => [key.toLowerCase(), serializableValue(value)]));

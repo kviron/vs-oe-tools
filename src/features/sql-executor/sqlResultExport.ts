@@ -1,4 +1,4 @@
-import type { SerializedQueryResult } from '../../infrastructure/database/databaseQueryExecutor';
+import type { SerializedQueryResult } from '../../core/queryResult';
 import type { SqlMonitorValue } from '../sql-monitor/models';
 
 export type SqlResultFormat = 'markdown' | 'json' | 'csv';

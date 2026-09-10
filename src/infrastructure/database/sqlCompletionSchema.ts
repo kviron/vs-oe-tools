@@ -1,6 +1,6 @@
-import { Client } from 'pg';
 import { buildSqlCompletionSchema, type SqlCompletionColumnRow, type SqlCompletionSchema } from '../../features/sql-executor/sqlCompletionSchema';
 import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 const cacheDurationMs = 5 * 60_000;
 const cache = new Map<string, { expiresAt: number; value: Promise<SqlCompletionSchema> }>();
@@ -22,9 +22,7 @@ export async function getSqlCompletionSchema(): Promise<SqlCompletionSchema> {
 }
 
 async function loadSqlCompletionSchema(options: Awaited<ReturnType<typeof getProjectDatabaseOptions>>): Promise<SqlCompletionSchema> {
-	const client = new Client({ ...options, application_name: 'vc-ve-tools-sql-completion', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client }) => {
 		const result = await client.query<SqlCompletionColumnRow>(`
 			SELECT table_schema, table_name, column_name
 			FROM information_schema.columns
@@ -32,7 +30,5 @@ async function loadSqlCompletionSchema(options: Awaited<ReturnType<typeof getPro
 			ORDER BY table_schema, table_name, ordinal_position
 		`);
 		return buildSqlCompletionSchema(result.rows);
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	}, options, 'vc-ve-tools-sql-completion');
 }

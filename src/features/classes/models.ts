@@ -4,15 +4,7 @@ export interface PreviousEncoding {
 	value?: string;
 }
 
-export type DatabaseRole = 'main' | 'test';
-
-export interface DatabaseConnectionOptions {
-	host: string;
-	port: number;
-	database: string;
-	user: string;
-	password: string;
-}
+export type { DatabaseConnectionOptions, DatabaseRole } from '../../core/database';
 
 export interface ClassRow {
 	id: number;

@@ -1,11 +1,11 @@
 import { hostname } from 'node:os';
-import { Client } from 'pg';
+import type { PoolClient } from 'pg';
 import * as iconv from 'iconv-lite';
 import type { CreatedSpu, SpuDraft, SpuEditorOptions, SpuEditorRecord, SpuPackageOption, SpuTypeOption } from '../../features/spu/models';
 import { buildSpuFileName, getAutomaticIdRangeStart, serializeSpuAuditChanges, serializeSpuAuditValues, spuClassId, sysFileClassId, validateSpuDraft } from '../../features/spu/spuCreation';
-import { getProjectDatabaseOptions } from '../configuration/projectDatabaseOptions';
 import { getSessionContext } from '../configuration/sessionContext';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
+import { withProjectDatabaseSession } from './projectDatabaseSession';
 
 interface PackageRow {
 	id: number;
@@ -31,10 +31,7 @@ interface SpuRow {
 }
 
 export async function getSpuEditorOptions(preferredPackageName?: string, spuId?: number): Promise<SpuEditorOptions> {
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-	try {
-		await client.connect();
+	return withProjectDatabaseSession(async ({ client, options }) => {
 		const packagesResult = await executeMonitoredQuery<PackageRow>(client, {
 			text: `SELECT package.id, package.packagename AS name, spu_group.id AS groupid, COALESCE(package.version, 0) AS version
 			 FROM syspackages AS package
@@ -56,19 +53,15 @@ export async function getSpuEditorOptions(preferredPackageName?: string, spuId?:
 			: undefined;
 		const existing = spuId === undefined ? undefined : await loadSpuRecord(client, options.database, spuId);
 		return { packages, types, preferredPackageId, executionOrder: toLocalDateTime(new Date()), existing };
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	});
 }
 
 export async function createSpu(draft: SpuDraft, log: (message: string) => void = () => undefined): Promise<CreatedSpu> {
 	validateSpuDraft(draft);
 	const sqlScript = encodeWindows1251(draft.sqlScript, 'SQL-скрипт');
 	const comment = encodeWindows1251(draft.comment, 'Комментарий');
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	return withProjectDatabaseSession(async ({ client, options }) => {
 	try {
-		await client.connect();
 		await client.query('BEGIN');
 		const session = await getSessionContext(client, options.database);
 		const localComputerName = hostname();
@@ -183,9 +176,8 @@ export async function createSpu(draft: SpuDraft, log: (message: string) => void 
 		await client.query('ROLLBACK').catch(() => undefined);
 		log(`Создание SPU отменено: ${error instanceof Error ? error.message : String(error)}`);
 		throw error;
-	} finally {
-		await client.end().catch(() => undefined);
 	}
+	});
 }
 
 export async function updateSpu(id: number, draft: SpuDraft, log: (message: string) => void = () => undefined): Promise<CreatedSpu> {
@@ -193,10 +185,8 @@ export async function updateSpu(id: number, draft: SpuDraft, log: (message: stri
 	validateSpuDraft(draft);
 	const sqlScript = encodeWindows1251(draft.sqlScript, 'SQL-скрипт');
 	const comment = encodeWindows1251(draft.comment, 'Комментарий');
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
+	return withProjectDatabaseSession(async ({ client, options }) => {
 	try {
-		await client.connect();
 		await client.query('BEGIN');
 		const current = await loadSpuRecord(client, options.database, id, true);
 		const session = await getSessionContext(client, options.database);
@@ -283,12 +273,11 @@ export async function updateSpu(id: number, draft: SpuDraft, log: (message: stri
 		await client.query('ROLLBACK').catch(() => undefined);
 		log(`Сохранение SPU ${id} отменено: ${error instanceof Error ? error.message : String(error)}`);
 		throw error;
-	} finally {
-		await client.end().catch(() => undefined);
 	}
+	});
 }
 
-async function loadSpuRecord(client: Client, database: string, id: number, forUpdate = false): Promise<SpuEditorRecord> {
+async function loadSpuRecord(client: PoolClient, database: string, id: number, forUpdate = false): Promise<SpuEditorRecord> {
 	const result = await executeMonitoredQuery<SpuRow>(client, {
 		text: `SELECT spu.id, spu.name, to_char(spu.executionorder, 'YYYY-MM-DD"T"HH24:MI:SS') AS executionorder,
 		        spu.type, COALESCE(spu.beginversion, 0) AS beginversion, spu.isafterupdate, spu.executealways,
@@ -314,7 +303,7 @@ async function loadSpuRecord(client: Client, database: string, id: number, forUp
 	};
 }
 
-async function allocateAutomaticId(client: Client, database: string, rangeStart: number, purpose: string): Promise<number> {
+async function allocateAutomaticId(client: PoolClient, database: string, rangeStart: number, purpose: string): Promise<number> {
 	const result = await executeMonitoredQuery<IdRow>(client, {
 		text: `SELECT afirstfreeid AS id
 		 FROM OE_SYSTEM_GENGUID_ENUM_RANGES_V3(2147483647, 20000001, 1000000)
@@ -326,7 +315,7 @@ async function allocateAutomaticId(client: Client, database: string, rangeStart:
 	return id;
 }
 
-async function allocateDeveloperId(client: Client, database: string, range: DeveloperRangeRow, purpose: string): Promise<number> {
+async function allocateDeveloperId(client: PoolClient, database: string, range: DeveloperRangeRow, purpose: string): Promise<number> {
 	const result = await executeMonitoredQuery<IdRow>(client, {
 		text: `SELECT candidate AS id
 		 FROM generate_series($1::integer, $2::integer) AS candidate

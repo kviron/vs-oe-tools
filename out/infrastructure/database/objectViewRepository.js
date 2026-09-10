@@ -34,15 +34,11 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getObjectView = getObjectView;
-const pg_1 = require("pg");
 const iconv = __importStar(require("iconv-lite"));
-const projectDatabaseOptions_1 = require("../configuration/projectDatabaseOptions");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
+const projectDatabaseSession_1 = require("./projectDatabaseSession");
 async function getObjectView(objectId) {
-    const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-    const client = new pg_1.Client({ ...options, application_name: 'vc-ve-tools', connectionTimeoutMillis: 5000 });
-    try {
-        await client.connect();
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const identityResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT object.id::text, object.name, object.classid::text,
 			             class.name AS classname, class.dbtablename,
@@ -171,10 +167,7 @@ async function getObjectView(objectId) {
             fields.push({ kind: 'property', attributeId: null, attributeName: key, value: serializable(value), tableField: key, distribution: '' });
         }
         return { id: identity.id, name: identity.name ?? '', classId: identity.classid, className: identity.classname ?? '', fields };
-    }
-    finally {
-        await client.end().catch(() => undefined);
-    }
+    });
 }
 function quote(value) { return `"${value.replace(/"/g, '""')}"`; }
 function display(value) { return value === null || value === undefined ? '' : typeof value === 'string' ? value : JSON.stringify(value); }

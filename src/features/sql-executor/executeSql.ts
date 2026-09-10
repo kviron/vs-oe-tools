@@ -1,7 +1,6 @@
-import { Client } from 'pg';
-import type { SerializedQueryResult } from '../../infrastructure/database/databaseQueryExecutor';
+import type { SerializedQueryResult } from '../../core/queryResult';
 import { executeMonitoredQuery, serializeQueryResult } from '../../infrastructure/database/databaseQueryExecutor';
-import { getProjectDatabaseOptions } from '../../infrastructure/configuration/projectDatabaseOptions';
+import { withProjectDatabaseSession } from '../../infrastructure/database/projectDatabaseSession';
 import { adaptVeSqlToPostgres } from './sqlDialectAdapter';
 
 export interface ManualSqlExecutionResult {
@@ -16,28 +15,24 @@ export async function executeSql(text: string): Promise<ManualSqlExecutionResult
 		throw new Error('Введите SQL-запрос.');
 	}
 
-	const options = await getProjectDatabaseOptions();
-	const client = new Client({
-		...options,
-		application_name: 'vc-ve-tools-sql-executor',
-		connectionTimeoutMillis: 5000,
-	});
 	const started = performance.now();
-	try {
-		await client.connect();
-		const postgresText = await adaptVeSqlToPostgres(client, queryText);
-		const result = await executeMonitoredQuery<Record<string, unknown>>(client, {
-			text: postgresText,
-			displayText: queryText,
-			source: 'Исполнитель SQL',
-			database: options.database,
-		});
-		return {
-			result: serializeQueryResult(result),
-			durationMs: performance.now() - started,
-			database: options.database,
-		};
-	} finally {
-		await client.end().catch(() => undefined);
-	}
+	return withProjectDatabaseSession(async ({ client, options }) => {
+		try {
+			const postgresText = await adaptVeSqlToPostgres(client, queryText);
+			const result = await executeMonitoredQuery<Record<string, unknown>>(client, {
+				text: postgresText,
+				displayText: queryText,
+				source: 'Исполнитель SQL',
+				database: options.database,
+			});
+			return {
+				result: serializeQueryResult(result),
+				durationMs: performance.now() - started,
+				database: options.database,
+			};
+		} finally {
+			// A manual BEGIN must not leave a pooled connection in a transaction.
+			await client.query('ROLLBACK').catch(() => undefined);
+		}
+	}, undefined, 'vc-ve-tools-sql-executor');
 }

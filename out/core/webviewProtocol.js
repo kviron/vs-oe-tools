@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isSqlMonitorWebviewMessage = exports.isSqlExecutorWebviewMessage = exports.isOpenClientEntityMessage = exports.isCopyEntityIdMessage = void 0;
 exports.isProductionTasksWebviewMessage = isProductionTasksWebviewMessage;
 exports.isProductionTaskDetailsWebviewMessage = isProductionTaskDetailsWebviewMessage;
 exports.isSettingsWebviewMessage = isSettingsWebviewMessage;
@@ -14,10 +15,13 @@ exports.isSpuEditorWebviewMessage = isSpuEditorWebviewMessage;
 exports.isObjectViewWebviewMessage = isObjectViewWebviewMessage;
 exports.isPackageContentWebviewMessage = isPackageContentWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
-exports.isCopyEntityIdMessage = isCopyEntityIdMessage;
-exports.isOpenClientEntityMessage = isOpenClientEntityMessage;
-exports.isSqlMonitorWebviewMessage = isSqlMonitorWebviewMessage;
-exports.isSqlExecutorWebviewMessage = isSqlExecutorWebviewMessage;
+const commonMessages_1 = require("./webview/commonMessages");
+var commonMessages_2 = require("./webview/commonMessages");
+Object.defineProperty(exports, "isCopyEntityIdMessage", { enumerable: true, get: function () { return commonMessages_2.isCopyEntityIdMessage; } });
+Object.defineProperty(exports, "isOpenClientEntityMessage", { enumerable: true, get: function () { return commonMessages_2.isOpenClientEntityMessage; } });
+var sqlMessages_1 = require("./webview/sqlMessages");
+Object.defineProperty(exports, "isSqlExecutorWebviewMessage", { enumerable: true, get: function () { return sqlMessages_1.isSqlExecutorWebviewMessage; } });
+Object.defineProperty(exports, "isSqlMonitorWebviewMessage", { enumerable: true, get: function () { return sqlMessages_1.isSqlMonitorWebviewMessage; } });
 function isProductionTasksWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
@@ -58,10 +62,10 @@ function isSettingsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
     }
-    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'clearExtensionLogs') {
+    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
         return true;
     }
-    if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
+    if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled' || message.command === 'setPostmanApiServerRunning') {
         return 'enabled' in message && typeof message.enabled === 'boolean';
     }
     if (message.command === 'setDatabaseRole') {
@@ -130,7 +134,7 @@ function isClassDetailsWebviewMessage(message) {
     if (message.command === 'classDetailsStateChanged') {
         return 'activeTab' in message && typeof message.activeTab === 'string';
     }
-    if (isTableSelectionDebugMessage(message)) {
+    if ((0, commonMessages_1.isTableSelectionDebugMessage)(message)) {
         return true;
     }
     if (message.command === 'loadClassAttributes') {
@@ -155,10 +159,10 @@ function isClassDetailsWebviewMessage(message) {
         return 'id' in message && typeof message.id === 'number' && 'action' in message
             && (message.action === 'localDiff' || message.action === 'history' || message.action === 'blame');
     }
-    if (isCopyEntityIdMessage(message)) {
+    if ((0, commonMessages_1.isCopyEntityIdMessage)(message)) {
         return true;
     }
-    if (isOpenClientEntityMessage(message)) {
+    if ((0, commonMessages_1.isOpenClientEntityMessage)(message)) {
         return true;
     }
     return (message.command === 'loadClassMethods' || message.command === 'loadClassProperties')
@@ -200,7 +204,7 @@ function isClassObjectsWebviewMessage(message) {
             && 'compact' in settings && typeof settings.compact === 'boolean';
     }
     return message.command === 'classObjectsReady' || message.command === 'refreshClassObjects'
-        || isCopyTableCellsMessage(message) || isCopyEntityIdMessage(message) || isOpenClientEntityMessage(message);
+        || (0, commonMessages_1.isCopyTableCellsMessage)(message) || (0, commonMessages_1.isCopyEntityIdMessage)(message) || (0, commonMessages_1.isOpenClientEntityMessage)(message);
 }
 function isSpuEditorWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -231,8 +235,8 @@ function isObjectViewWebviewMessage(message) {
     return message.command === 'objectViewReady'
         || message.command === 'refreshObjectView'
         || message.command === 'copyObjectJson'
-        || isCopyTableCellsMessage(message)
-        || isTableSelectionDebugMessage(message);
+        || (0, commonMessages_1.isCopyTableCellsMessage)(message)
+        || (0, commonMessages_1.isTableSelectionDebugMessage)(message);
 }
 function isPackageContentWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -240,8 +244,8 @@ function isPackageContentWebviewMessage(message) {
     }
     return message.command === 'packageContentReady'
         || message.command === 'refreshPackageContent'
-        || isCopyTableCellsMessage(message)
-        || isTableSelectionDebugMessage(message)
+        || (0, commonMessages_1.isCopyTableCellsMessage)(message)
+        || (0, commonMessages_1.isTableSelectionDebugMessage)(message)
         || (message.command === 'openPackageContentObject' && 'id' in message && typeof message.id === 'number'
             && 'kind' in message && ['class', 'method', 'attribute', 'lifecycle', 'journal', 'list', 'object'].includes(String(message.kind)));
 }
@@ -287,10 +291,10 @@ function isExplorerWebviewMessage(message) {
     if (message.command === 'setExplorerCopyContext') {
         return 'active' in message && typeof message.active === 'boolean';
     }
-    if (isCopyEntityIdMessage(message)) {
+    if ((0, commonMessages_1.isCopyEntityIdMessage)(message)) {
         return true;
     }
-    if (isOpenClientEntityMessage(message)) {
+    if ((0, commonMessages_1.isOpenClientEntityMessage)(message)) {
         return true;
     }
     if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
@@ -304,69 +308,5 @@ function isExplorerWebviewMessage(message) {
     }
     return message.command === 'openClass' && 'id' in message && 'pinned' in message
         && typeof message.id === 'number' && typeof message.pinned === 'boolean';
-}
-function isCopyEntityIdMessage(message) {
-    return typeof message === 'object'
-        && message !== null
-        && 'command' in message
-        && message.command === 'copyEntityId'
-        && 'id' in message
-        && (typeof message.id === 'number' || typeof message.id === 'string');
-}
-function isOpenClientEntityMessage(message) {
-    return typeof message === 'object'
-        && message !== null
-        && 'command' in message
-        && message.command === 'openClientEntity'
-        && 'role' in message
-        && (message.role === 'main' || message.role === 'test')
-        && 'entityType' in message
-        && typeof message.entityType === 'string'
-        && message.entityType.trim().length > 0
-        && 'id' in message
-        && typeof message.id === 'number'
-        && Number.isSafeInteger(message.id);
-}
-function isSqlMonitorWebviewMessage(message) {
-    return typeof message === 'object'
-        && message !== null
-        && 'command' in message
-        && (message.command === 'sqlMonitorReady'
-            || message.command === 'clearSqlMonitor'
-            || (message.command === 'setSqlMonitorPaused' && 'paused' in message && typeof message.paused === 'boolean')
-            || isTableSelectionDebugMessage(message)
-            || isCopyTableCellsMessage(message));
-}
-function isSqlExecutorWebviewMessage(message) {
-    if (typeof message !== 'object' || message === null || !('command' in message)) {
-        return false;
-    }
-    if (message.command === 'sqlExecutorReady') {
-        return true;
-    }
-    if (isTableSelectionDebugMessage(message)) {
-        return true;
-    }
-    if (isCopyTableCellsMessage(message)) {
-        return true;
-    }
-    if (message.command === 'executeSql') {
-        return 'text' in message && typeof message.text === 'string';
-    }
-    if (message.command === 'copySqlResult') {
-        return 'format' in message && (message.format === 'markdown' || message.format === 'json');
-    }
-    if (message.command === 'copySqlError') {
-        return 'text' in message && typeof message.text === 'string';
-    }
-    return message.command === 'exportSqlResult';
-}
-function isCopyTableCellsMessage(message) {
-    return 'command' in message && message.command === 'copyTableCells'
-        && 'text' in message && typeof message.text === 'string';
-}
-function isTableSelectionDebugMessage(message) {
-    return 'command' in message && message.command === 'tableSelectionDebug'
-        && 'message' in message && typeof message.message === 'string';
 }
 //# sourceMappingURL=webviewProtocol.js.map

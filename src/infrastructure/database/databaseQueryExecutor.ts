@@ -1,15 +1,15 @@
 import type { Client, QueryConfigValues, QueryResult, QueryResultRow } from 'pg';
-import type { SqlMonitorValue, SqlOperation } from '../../features/sql-monitor/models';
-import { sqlMonitorService } from '../../features/sql-monitor/sqlMonitorService';
+import type { SerializedQueryResult } from '../../core/queryResult';
+import type { QueryMonitor, SqlMonitorValue, SqlOperation } from '../../core/sqlQuery';
+
+export type { SerializedQueryResult } from '../../core/queryResult';
 
 const resultRowLimit = 500;
 const valueLengthLimit = 10_000;
+let queryMonitor: QueryMonitor | undefined;
 
-export interface SerializedQueryResult {
-	rowCount: number;
-	columns: string[];
-	rows: Record<string, SqlMonitorValue>[];
-	resultTruncated: boolean;
+export function configureDatabaseQueryMonitor(monitor: QueryMonitor): void {
+	queryMonitor = monitor;
 }
 
 export interface MonitoredQuery<I extends unknown[]> {
@@ -25,7 +25,7 @@ export async function executeMonitoredQuery<
 	I extends unknown[] = unknown[],
 >(client: Client, query: MonitoredQuery<I>): Promise<QueryResult<Row>> {
 	const started = performance.now();
-	const record = sqlMonitorService.start({
+	const record = queryMonitor?.start({
 		startedAt: new Date().toISOString(),
 		source: query.source,
 		database: query.database,
@@ -41,18 +41,18 @@ export async function executeMonitoredQuery<
 	try {
 		const result = await client.query<Row, I>(query.text, query.values);
 		const serialized = serializeQueryResult(result);
-		sqlMonitorService.update(record.id, {
+		if (record) { queryMonitor?.update(record.id, {
 			status: 'success',
 			durationMs: performance.now() - started,
 			...serialized,
-		});
+		}); }
 		return result;
 	} catch (error) {
-		sqlMonitorService.update(record.id, {
+		if (record) { queryMonitor?.update(record.id, {
 			status: 'error',
 			durationMs: performance.now() - started,
 			error: error instanceof Error ? error.message : String(error),
-		});
+		}); }
 		throw error;
 	}
 }

@@ -1,13 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.configureDatabaseQueryMonitor = configureDatabaseQueryMonitor;
 exports.executeMonitoredQuery = executeMonitoredQuery;
 exports.serializeQueryResult = serializeQueryResult;
-const sqlMonitorService_1 = require("../../features/sql-monitor/sqlMonitorService");
 const resultRowLimit = 500;
 const valueLengthLimit = 10_000;
+let queryMonitor;
+function configureDatabaseQueryMonitor(monitor) {
+    queryMonitor = monitor;
+}
 async function executeMonitoredQuery(client, query) {
     const started = performance.now();
-    const record = sqlMonitorService_1.sqlMonitorService.start({
+    const record = queryMonitor?.start({
         startedAt: new Date().toISOString(),
         source: query.source,
         database: query.database,
@@ -22,19 +26,23 @@ async function executeMonitoredQuery(client, query) {
     try {
         const result = await client.query(query.text, query.values);
         const serialized = serializeQueryResult(result);
-        sqlMonitorService_1.sqlMonitorService.update(record.id, {
-            status: 'success',
-            durationMs: performance.now() - started,
-            ...serialized,
-        });
+        if (record) {
+            queryMonitor?.update(record.id, {
+                status: 'success',
+                durationMs: performance.now() - started,
+                ...serialized,
+            });
+        }
         return result;
     }
     catch (error) {
-        sqlMonitorService_1.sqlMonitorService.update(record.id, {
-            status: 'error',
-            durationMs: performance.now() - started,
-            error: error instanceof Error ? error.message : String(error),
-        });
+        if (record) {
+            queryMonitor?.update(record.id, {
+                status: 'error',
+                durationMs: performance.now() - started,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
         throw error;
     }
 }

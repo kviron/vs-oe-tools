@@ -1,3 +1,6 @@
 node_modules
 .vscode-test
 /dist/
+/out/
+src/**/*.js
+src/**/*.js.map
