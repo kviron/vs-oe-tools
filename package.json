@@ -2,7 +2,7 @@
   "name": "vc-ve-tools",
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
@@ -159,7 +159,7 @@
         },
         "vcVeTools.mcp.clientUrl": {
           "type": "string",
-          "default": "http://localhost:8080/mcp",
+          "default": "http://localhost:8080",
           "scope": "window",
           "description": "Адрес HTTP MCP-сервера, запущенного внутри клиента Восточного Экспресса."
         }

@@ -63,14 +63,6 @@ suite('Lifecycle method execution', () => {
             '-ForceOutputOEM',
         ]);
     });
-    test('builds Postman API wrapper arguments for the selected database', () => {
-        assert.deepEqual((0, oeStaticMethodExecutor_1.buildPostmanApiStartArguments)('oetest', 'localhost', { username: 'dev', password: 'secret' }), [
-            '-l', 'host=localhost,db=oetest,Username=dev,password=secret',
-            '-MethodID=41654685',
-            '-MethodParam=1',
-            '-ForceOutputOEM',
-        ]);
-    });
     test('rejects command delimiters in user text', () => {
         assert.throws(() => (0, lifecycleMethodExecution_1.buildLifecycleMethodParameter)({
             name: 'A; commit work', displayName: 'A', kindId: 8927425, ownerClassId: 12857713,

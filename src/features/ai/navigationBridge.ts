@@ -11,7 +11,7 @@ import { createLifecycleParameterMethodId } from '../lifecycle/lifecycleMethodEx
 type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source'
 	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client'
 	| 'open_client_entity' | 'get_production_tasks' | 'get_production_task' | 'get_production_tasks_in_progress'
-	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'create_class_method' | 'execute_lifecycle_method';
+	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'create_class_method' | 'execute_lifecycle_method' | 'start_client_mcp';
 
 interface NavigationRequest {
 	action: NavigationAction;
@@ -113,6 +113,10 @@ async function handleRequest(
 			const result = await actions.executeLifecycleMethod(input.id as number, input.methodParameter as string, input.database as string, input.host as string);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
+		} else if (input.action === 'start_client_mcp') {
+			const result = await actions.startClientMcp(input.database as string, input.host as string);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
 		} else if (input.action === 'get_svn_file_history') {
 			const result = await actions.getSvnFileHistory(input.filePath as string, input.limit as number);
 			respond(response, 200, { ok: true, action: input.action, ...result });
@@ -191,13 +195,13 @@ function validateRequest(value: unknown): NavigationRequest {
 		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
 		&& action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
 		&& action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method'
-		&& action !== 'execute_lifecycle_method') {
+		&& action !== 'execute_lifecycle_method' && action !== 'start_client_mcp') {
 		throw new Error('Unknown navigation action.');
 	}
 	if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
 		&& action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
 		&& action !== 'update_packages' && action !== 'update_binaries'
-		&& action !== 'create_class_attribute' && action !== 'create_class_method'
+		&& action !== 'create_class_attribute' && action !== 'create_class_method' && action !== 'start_client_mcp'
 		&& (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
 		throw new Error('Navigation ID must be a positive integer.');
 	}
@@ -236,6 +240,12 @@ function validateRequest(value: unknown): NavigationRequest {
 	}
 	if (action === 'execute_lifecycle_method' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
 		throw new Error('host is invalid for execute_lifecycle_method.');
+	}
+	if (action === 'start_client_mcp' && (typeof database !== 'string' || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
+		throw new Error('database is invalid for start_client_mcp.');
+	}
+	if (action === 'start_client_mcp' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
+		throw new Error('host is invalid for start_client_mcp.');
 	}
 	const filePath = (value as Partial<NavigationRequest>).filePath;
 	const limit = (value as Partial<NavigationRequest>).limit;

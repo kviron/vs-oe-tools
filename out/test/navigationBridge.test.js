@@ -53,6 +53,7 @@ suite('Navigation bridge', () => {
         let createdMethodName;
         let createdMethodTarget;
         let executedLifecycleMethod;
+        let startedClientMcp;
         const infoPath = (0, node_path_1.join)((0, node_os_1.tmpdir)(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
         const bridge = await (0, navigationBridge_1.startNavigationBridge)({
             revealClass: async () => undefined,
@@ -75,6 +76,10 @@ suite('Navigation bridge', () => {
             executeLifecycleMethod: async (methodId, methodParameter, database, host) => {
                 executedLifecycleMethod = { methodId, methodParameter, database, host };
                 return { methodId, database, output: 'ok' };
+            },
+            startClientMcp: async (database, host) => {
+                startedClientMcp = { database, host };
+                return { methodId: 12464780, database };
             },
             getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
             getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
@@ -149,6 +154,13 @@ suite('Navigation bridge', () => {
             assert.equal(methodResponse.status, 200);
             assert.deepEqual(executedLifecycleMethod, { methodId: 3143815, methodParameter: 'paramName=A,paramKind=8927425', database: 'oetest', host: 'localhost' });
             assert.equal((await methodResponse.json()).output, 'ok');
+            const startMcpResponse = await fetch(connection.url, {
+                method: 'POST',
+                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+                body: JSON.stringify({ action: 'start_client_mcp', database: 'oetest', host: 'localhost' }),
+            });
+            assert.equal(startMcpResponse.status, 200);
+            assert.deepEqual(startedClientMcp, { database: 'oetest', host: 'localhost' });
             const historyResponse = await fetch(connection.url, {
                 method: 'POST',
                 headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

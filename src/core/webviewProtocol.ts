@@ -225,9 +225,6 @@ export interface SettingsState {
 	clientMcpStatusText: string;
 	clientMcpDatabase?: string;
 	clientMcpDatabaseMatchesSelection?: boolean;
-	postmanApiUrl: string;
-	postmanApiStatus: 'online' | 'offline';
-	postmanApiStatusText: string;
 	mcpConnectionCode: string;
 	lastExtensionError?: { timestamp: string; source: string; message: string };
 }
@@ -245,7 +242,6 @@ export type SettingsWebviewMessage =
 	| { command: 'refreshClientMcpStatus' }
 	| { command: 'startClientMcpServer' }
 	| { command: 'stopClientMcpServer' }
-	| { command: 'setPostmanApiServerRunning'; enabled: boolean }
 	| { command: 'testSettingsDatabaseConnection' }
 	| { command: 'copyMcpConnectionCode'; text: string }
 	| { command: 'clearExtensionLogs' };
@@ -254,9 +250,7 @@ export type SettingsHostMessage =
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string }
 	| { command: 'clientMcpActionStarted'; action: 'start' | 'stop' }
-	| { command: 'clientMcpActionFinished'; action: 'start' | 'stop'; success: boolean; message: string }
-	| { command: 'postmanApiActionStarted'; action: 'start' | 'stop' }
-	| { command: 'postmanApiActionFinished'; action: 'start' | 'stop'; success: boolean; message: string };
+	| { command: 'clientMcpActionFinished'; action: 'start' | 'stop'; success: boolean; message: string };
 export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SvnConflictWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
 
 export function isProductionTasksWebviewMessage(message: unknown): message is ProductionTasksWebviewMessage {
@@ -298,7 +292,7 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
 		return true;
 	}
-	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled' || message.command === 'setPostmanApiServerRunning') {
+	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
 		return 'enabled' in message && typeof message.enabled === 'boolean';
 	}
 	if (message.command === 'setDatabaseRole') {

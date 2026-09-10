@@ -85,6 +85,11 @@ async function handleRequest(request, response, token, actions) {
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
+        else if (input.action === 'start_client_mcp') {
+            const result = await actions.startClientMcp(input.database, input.host);
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
         else if (input.action === 'get_svn_file_history') {
             const result = await actions.getSvnFileHistory(input.filePath, input.limit);
             respond(response, 200, { ok: true, action: input.action, ...result });
@@ -170,13 +175,13 @@ function validateRequest(value) {
         && action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
         && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
         && action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method'
-        && action !== 'execute_lifecycle_method') {
+        && action !== 'execute_lifecycle_method' && action !== 'start_client_mcp') {
         throw new Error('Unknown navigation action.');
     }
     if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
         && action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
         && action !== 'update_packages' && action !== 'update_binaries'
-        && action !== 'create_class_attribute' && action !== 'create_class_method'
+        && action !== 'create_class_attribute' && action !== 'create_class_method' && action !== 'start_client_mcp'
         && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
         throw new Error('Navigation ID must be a positive integer.');
     }
@@ -215,6 +220,12 @@ function validateRequest(value) {
     }
     if (action === 'execute_lifecycle_method' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
         throw new Error('host is invalid for execute_lifecycle_method.');
+    }
+    if (action === 'start_client_mcp' && (typeof database !== 'string' || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
+        throw new Error('database is invalid for start_client_mcp.');
+    }
+    if (action === 'start_client_mcp' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
+        throw new Error('host is invalid for start_client_mcp.');
     }
     const filePath = value.filePath;
     const limit = value.limit;

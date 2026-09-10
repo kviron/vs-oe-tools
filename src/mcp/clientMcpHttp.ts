@@ -23,7 +23,7 @@ export interface ClientMcpHealth {
 	database?: string;
 }
 
-const defaultClientMcpUrl = 'http://localhost:8080/mcp';
+const defaultClientMcpUrl = 'http://localhost:8080';
 const requestTimeoutMs = 30_000;
 const maximumResponseLength = 10 * 1024 * 1024;
 const maximumRequestUrlLength = 16_000;
@@ -91,6 +91,11 @@ function normalizeBaseUrl(value: string): string {
 	}
 	if (url.protocol !== 'http:' && url.protocol !== 'https:') {
 		throw new Error('Адрес клиентского MCP должен использовать HTTP или HTTPS.');
+	}
+	if (/^\/mcp\/?$/iu.test(url.pathname)
+		&& /^(?:localhost|127\.0\.0\.1)$/iu.test(url.hostname)
+		&& url.port === '8080') {
+		url.pathname = '/';
 	}
 	url.pathname = url.pathname.replace(/\/$/, '');
 	url.search = '';

@@ -337,6 +337,14 @@ async function activate(context) {
             extensionLogger.info('MCP method', `Выполнен статический метод ${methodId}.`, { database });
             return { ...result };
         },
+        startClientMcp: async (database, host) => {
+            if (!workspacePath) {
+                throw new Error('Открытая папка проекта не найдена.');
+            }
+            const result = await (0, oeStaticMethodExecutor_1.startClientMcpProcess)(workspacePath, database, host, await getClientCredentials());
+            extensionLogger.info('MCP client', 'Клиентский MCP автоматически запущен по запросу агента.', { database });
+            return result;
+        },
         getSvnFileHistory: async (filePath, limit) => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {

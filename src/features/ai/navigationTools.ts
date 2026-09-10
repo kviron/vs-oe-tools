@@ -22,6 +22,7 @@ export interface NavigationActions {
 	createClassMethod(draft: ClassMethodDraft, database: string, host: string): Promise<Record<string, unknown>>;
 	createClassAttribute(draft: ClassAttributeDraft): Promise<Record<string, unknown>>;
 	executeLifecycleMethod(methodId: number, methodParameter: string, database: string, host: string): Promise<Record<string, unknown>>;
+	startClientMcp(database: string, host: string): Promise<Record<string, unknown>>;
 	getSvnFileHistory(filePath: string, limit: number): Promise<Record<string, unknown>>;
 	getPackageSyncChanges(query: string | undefined, offset: number, limit: number): Promise<Record<string, unknown>>;
 	getProductionTasks(query: string | undefined, limit: number): Promise<Record<string, unknown>>;

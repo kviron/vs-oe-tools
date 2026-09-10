@@ -7,8 +7,7 @@ import { testDatabaseConnection } from '../../infrastructure/database/classRepos
 import type { ExtensionLogService } from '../../infrastructure/logging/extensionLogService';
 import type { McpNavigationConnection } from '../../mcp/registerMcpServer';
 import { getClientMcpHealth, stopClientMcpServer } from '../../mcp/clientMcpHttp';
-import { clientMcpMethodIds, postmanApiMethodId, startClientMcpProcess, startPostmanApiProcess } from '../lifecycle/oeStaticMethodExecutor';
-import { defaultPostmanApiUrl, getPostmanApiHealth, stopPostmanApiServer } from '../postman/postmanApiHttp';
+import { clientMcpMethodIds, startClientMcpProcess } from '../lifecycle/oeStaticMethodExecutor';
 import { loadRdboadmDatabases, saveRdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
 import { startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../project/projectCommandService';
 import type { ClientCredentials } from '../project/projectCommandService';
@@ -83,28 +82,23 @@ export class SettingsViewProvider implements vscode.Disposable {
 
 	private scheduleClientMcpDatabaseSync(): void {
 		if (this.clientMcpDatabaseSync) { return; }
-		this.clientMcpDatabaseSync = this.syncHttpServiceDatabases()
+		this.clientMcpDatabaseSync = this.syncClientMcpDatabase()
 			.catch(error => this.logger.error('Настройки', 'Не удалось переключить базу клиентского MCP', error))
 			.finally(() => { this.clientMcpDatabaseSync = undefined; });
 	}
 
-	private async syncHttpServiceDatabases(): Promise<void> {
+	private async syncClientMcpDatabase(): Promise<void> {
 		const clientMcpUrl = getConfiguredClientMcpUrl(vscode.workspace.getConfiguration('vcVeTools'));
 		const selectedDatabase = (await getProjectDatabaseOptions()).database;
-		const services: Array<{ requester: 'mcp' | 'postman'; health: () => Promise<{ status: string; database?: string }> }> = [
-			{ requester: 'mcp', health: () => getClientMcpHealth(clientMcpUrl) },
-			{ requester: 'postman', health: () => getPostmanApiHealth(defaultPostmanApiUrl) },
-		];
-		for (const service of services) {
-			try {
-				const health = await service.health();
-				if (health.status.toLocaleLowerCase('en') !== 'ok'
-					|| health.database?.toLocaleLowerCase('en') === selectedDatabase.toLocaleLowerCase('en')) { continue; }
-				await this.setClientMcpServerRunning('stop', service.requester);
-				await this.setClientMcpServerRunning('start', service.requester);
-			} catch {
-				// An offline optional service does not need database synchronization.
+		try {
+			const health = await getClientMcpHealth(clientMcpUrl);
+			if (health.status.toLocaleLowerCase('en') === 'ok'
+				&& health.database?.toLocaleLowerCase('en') !== selectedDatabase.toLocaleLowerCase('en')) {
+				await this.setClientMcpServerRunning('stop');
+				await this.setClientMcpServerRunning('start');
 			}
+		} catch {
+			// An offline client MCP does not need database synchronization.
 		}
 	}
 
@@ -158,8 +152,6 @@ export class SettingsViewProvider implements vscode.Disposable {
 			await this.setClientMcpServerRunning('start');
 		} else if (message.command === 'stopClientMcpServer') {
 			await this.setClientMcpServerRunning('stop');
-		} else if (message.command === 'setPostmanApiServerRunning') {
-			await this.setClientMcpServerRunning(message.enabled ? 'start' : 'stop', 'postman');
 		} else if (message.command === 'testSettingsDatabaseConnection') {
 			await this.testConnection();
 		} else if (message.command === 'clearExtensionLogs') {
@@ -171,14 +163,12 @@ export class SettingsViewProvider implements vscode.Disposable {
 		}
 	}
 
-	private async setClientMcpServerRunning(action: 'start' | 'stop', requester: 'mcp' | 'postman' = 'mcp'): Promise<void> {
+	private async setClientMcpServerRunning(action: 'start' | 'stop'): Promise<void> {
 		const configuration = vscode.workspace.getConfiguration('vcVeTools');
 		const clientMcpUrl = getConfiguredClientMcpUrl(configuration);
 		let currentlyOnline = false;
 		try {
-			const health = requester === 'mcp'
-				? await getClientMcpHealth(clientMcpUrl)
-				: await getPostmanApiHealth(defaultPostmanApiUrl);
+			const health = await getClientMcpHealth(clientMcpUrl);
 			currentlyOnline = health.status.toLocaleLowerCase('en') === 'ok';
 		} catch {
 			currentlyOnline = false;
@@ -187,9 +177,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 			await this.postState();
 			return;
 		}
-		this.post(requester === 'mcp'
-			? { command: 'clientMcpActionStarted', action }
-			: { command: 'postmanApiActionStarted', action });
+		this.post({ command: 'clientMcpActionStarted', action });
 		try {
 			let database = '';
 			if (action === 'start') {
@@ -197,23 +185,19 @@ export class SettingsViewProvider implements vscode.Disposable {
 				if (!workspacePath) { throw new Error('Сначала откройте папку проекта Восточного Экспресса.'); }
 				const databaseOptions = await getProjectDatabaseOptions();
 				database = databaseOptions.database;
-				const startProcess = requester === 'postman' ? startPostmanApiProcess : startClientMcpProcess;
-				await startProcess(
+				await startClientMcpProcess(
 					workspacePath,
 					databaseOptions.database,
 					databaseOptions.host,
 					await this.getClientCredentials(),
 				);
 			} else {
-				if (requester === 'mcp') { await stopClientMcpServer(clientMcpUrl); }
-				else { await stopPostmanApiServer(defaultPostmanApiUrl); }
+				await stopClientMcpServer(clientMcpUrl);
 			}
 			let targetStateReached = false;
 			for (let attempt = 0; attempt < 10; attempt += 1) {
 				try {
-					const health = requester === 'mcp'
-						? await getClientMcpHealth(clientMcpUrl)
-						: await getPostmanApiHealth(defaultPostmanApiUrl);
+					const health = await getClientMcpHealth(clientMcpUrl);
 					targetStateReached = action === 'start' && health.status.toLocaleLowerCase('en') === 'ok';
 				} catch {
 					targetStateReached = action === 'stop';
@@ -222,28 +206,21 @@ export class SettingsViewProvider implements vscode.Disposable {
 				await new Promise(resolve => setTimeout(resolve, 500));
 			}
 			if (!targetStateReached) {
-				const statusUrl = requester === 'mcp' ? `${clientMcpUrl}/health` : `${defaultPostmanApiUrl}/health`;
+				const statusUrl = `${clientMcpUrl}/health`;
 				throw new Error(action === 'start'
 					? `Метод выполнен, но ${statusUrl} не ответил со статусом ok.`
 					: `Метод выполнен, но ${statusUrl} продолжает отвечать.`);
 			}
-			const methodName = action === 'start' && requester === 'postman'
-				? 'Метод.HttpPostmanTesting'
-				: action === 'start' ? 'aiMCP.http_Start' : 'aiMCP.http_Stop';
-			const methodId = action === 'start' && requester === 'postman' ? postmanApiMethodId : clientMcpMethodIds[action];
+			const methodName = action === 'start' ? 'aiMCP.http_Start' : 'aiMCP.http_Stop';
+			const methodId = clientMcpMethodIds[action];
 			const actionText = action === 'start' ? 'запущен' : 'остановлен';
-			const serviceName = requester === 'mcp' ? 'Клиентский MCP' : 'API для Postman';
-			const message = `${serviceName} ${actionText} через ${methodName} (ID ${methodId})${database ? ` в базе ${database}` : ''}.`;
-			this.post(requester === 'mcp'
-				? { command: 'clientMcpActionFinished', action, success: true, message }
-				: { command: 'postmanApiActionFinished', action, success: true, message });
+			const message = `Клиентский MCP ${actionText} через ${methodName} (ID ${methodId})${database ? ' в базе ' + database : ''}.`;
+			this.post({ command: 'clientMcpActionFinished', action, success: true, message });
 			void vscode.window.showInformationMessage(message);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.post(requester === 'mcp'
-				? { command: 'clientMcpActionFinished', action, success: false, message }
-				: { command: 'postmanApiActionFinished', action, success: false, message });
-			void vscode.window.showErrorMessage(`Не удалось ${action === 'start' ? 'запустить' : 'остановить'} ${requester === 'mcp' ? 'клиентский MCP' : 'API для Postman'}: ${message}`);
+			this.post({ command: 'clientMcpActionFinished', action, success: false, message });
+			void vscode.window.showErrorMessage(`Не удалось ${action === 'start' ? 'запустить' : 'остановить'} клиентский MCP: ${message}`);
 		}
 		await this.postState();
 	}
@@ -291,8 +268,6 @@ export class SettingsViewProvider implements vscode.Disposable {
 		let clientMcpStatus: SettingsState['clientMcpStatus'] = 'offline';
 		let clientMcpStatusText = 'Нет связи';
 		let clientMcpDatabase: string | undefined;
-		let postmanApiStatus: SettingsState['postmanApiStatus'] = 'offline';
-		let postmanApiStatusText = 'Нет связи';
 		let selectedDatabase: string | undefined;
 		try {
 			selectedDatabase = (await getProjectDatabaseOptions()).database;
@@ -310,17 +285,6 @@ export class SettingsViewProvider implements vscode.Disposable {
 			}
 		} catch {
 			// The offline state is expected when the original client is not running.
-		}
-		try {
-			const health = await getPostmanApiHealth(defaultPostmanApiUrl);
-			if (health.status.toLocaleLowerCase('en') === 'ok') {
-				postmanApiStatus = 'online';
-				postmanApiStatusText = health.database?.trim() ? `Работает · ${health.database.trim()}` : 'Работает';
-			} else {
-				postmanApiStatusText = `Статус: ${health.status}`;
-			}
-		} catch {
-			// The unified local HTTP server is optional.
 		}
 		let status: SettingsState['mcpStatus'] = enabled ? 'ready' : 'disabled';
 		let statusText = enabled ? 'Готов к запуску агентом' : 'MCP-сервер выключен';
@@ -356,9 +320,6 @@ export class SettingsViewProvider implements vscode.Disposable {
 			clientMcpDatabaseMatchesSelection: clientMcpDatabase && selectedDatabase
 				? clientMcpDatabase.toLocaleLowerCase('en') === selectedDatabase.toLocaleLowerCase('en')
 				: undefined,
-			postmanApiUrl: defaultPostmanApiUrl,
-			postmanApiStatus,
-			postmanApiStatusText,
 			mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role, databaseProfile, clientMcpUrl),
 			lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
 		};
@@ -398,9 +359,9 @@ export class SettingsViewProvider implements vscode.Disposable {
 }
 
 function getConfiguredClientMcpUrl(configuration: vscode.WorkspaceConfiguration): string {
-	const configured = configuration.get<string>(clientMcpUrlSetting, 'http://localhost:8080/mcp').trim();
-	if (/^http:\/\/(?:localhost|127\.0\.0\.1):8080\/?$/iu.test(configured)) {
-		return `${configured.replace(/\/$/, '')}/mcp`;
+	const configured = configuration.get<string>(clientMcpUrlSetting, 'http://localhost:8080').trim();
+	if (/^http:\/\/(?:localhost|127\.0\.0\.1):8080\/mcp\/?$/iu.test(configured)) {
+		return configured.replace(/\/mcp\/?$/iu, '');
 	}
 	return configured;
 }

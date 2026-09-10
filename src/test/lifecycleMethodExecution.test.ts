@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { buildLifecycleMethodParameter } from '../features/lifecycle/lifecycleMethodExecution';
-import { buildClientMcpStartArguments, buildOeExecTaskArguments, buildPostmanApiStartArguments } from '../features/lifecycle/oeStaticMethodExecutor';
+import { buildClientMcpStartArguments, buildOeExecTaskArguments } from '../features/lifecycle/oeStaticMethodExecutor';
 
 suite('Lifecycle method execution', () => {
 	test('builds the native MethodParam value', () => {
@@ -28,15 +28,6 @@ suite('Lifecycle method execution', () => {
 		assert.deepEqual(buildClientMcpStartArguments('oetrunk', 'localhost', { username: 'dev', password: 'secret' }), [
 			'-l', 'host=localhost,db=oetrunk,Username=dev,password=secret',
 			'-MethodID=12464780',
-			'-MethodParam=1',
-			'-ForceOutputOEM',
-		]);
-	});
-
-	test('builds Postman API wrapper arguments for the selected database', () => {
-		assert.deepEqual(buildPostmanApiStartArguments('oetest', 'localhost', { username: 'dev', password: 'secret' }), [
-			'-l', 'host=localhost,db=oetest,Username=dev,password=secret',
-			'-MethodID=41654685',
 			'-MethodParam=1',
 			'-ForceOutputOEM',
 		]);

@@ -33,13 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.postmanApiMethodId = exports.clientMcpMethodIds = void 0;
+exports.clientMcpMethodIds = void 0;
 exports.buildOeExecTaskArguments = buildOeExecTaskArguments;
 exports.executeOeStaticMethod = executeOeStaticMethod;
 exports.startClientMcpProcess = startClientMcpProcess;
-exports.startPostmanApiProcess = startPostmanApiProcess;
 exports.buildClientMcpStartArguments = buildClientMcpStartArguments;
-exports.buildPostmanApiStartArguments = buildPostmanApiStartArguments;
 const node_child_process_1 = require("node:child_process");
 const promises_1 = require("node:fs/promises");
 const path = __importStar(require("node:path"));
@@ -50,7 +48,6 @@ exports.clientMcpMethodIds = {
     start: 12464780,
     stop: 12464782,
 };
-exports.postmanApiMethodId = 41654685;
 function buildOeExecTaskArguments(methodId, methodParameter, database, host, credentials) {
     if (methodId !== lifecycleMethodExecution_1.createLifecycleParameterMethodId) {
         throw new Error(`Метод ${methodId} не разрешён для прямого выполнения через MCP.`);
@@ -74,9 +71,6 @@ async function executeOeStaticMethod(workspacePath, methodId, methodParameter, d
 async function startClientMcpProcess(workspacePath, database, host, credentials) {
     return startDetachedMethodProcess(workspacePath, exports.clientMcpMethodIds.start, buildClientMcpStartArguments(database, host, credentials), database);
 }
-async function startPostmanApiProcess(workspacePath, database, host, credentials) {
-    return startDetachedMethodProcess(workspacePath, exports.postmanApiMethodId, buildPostmanApiStartArguments(database, host, credentials), database);
-}
 async function startDetachedMethodProcess(workspacePath, methodId, args, database) {
     const executable = path.join(workspacePath, 'bin', 'OEExecTask.exe');
     if (!(await (0, promises_1.stat)(executable).catch(() => undefined))?.isFile()) {
@@ -98,11 +92,6 @@ async function startDetachedMethodProcess(workspacePath, methodId, args, databas
 }
 function buildClientMcpStartArguments(database, host, credentials) {
     const args = buildConnectionArguments(exports.clientMcpMethodIds.start, database, host, credentials);
-    args.splice(-1, 0, '-MethodParam=1');
-    return args;
-}
-function buildPostmanApiStartArguments(database, host, credentials) {
-    const args = buildConnectionArguments(exports.postmanApiMethodId, database, host, credentials);
     args.splice(-1, 0, '-MethodParam=1');
     return args;
 }

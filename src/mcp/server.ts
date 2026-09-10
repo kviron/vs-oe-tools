@@ -10,6 +10,8 @@ const server = new McpServer(
 	{ name: 'vc-ve-tools-database', version: '0.22.0' },
 	{
 		instructions: [
+			'For every user-facing database operation summary, use a consistent compact format: Database, Action, Result, Object when applicable, and Link when the tool returns an East Express entity URL. Preserve useful additional details after these fields. Do not claim success when the tool reports an error; if verification shows a partial side effect, state both the error and the verified state.',
+			'Render returned East Express entity refs as clickable Markdown links. When the user asks to open, show, or navigate to an entity in the native East Express client, call open_client_entity with its exact type, stable ID, and the role matching the active database. Do not open the native client unless the user requests it.',
 			'East Express method names are stored separately in method cards and must never be inserted into method source. Preserve the complete anonymous proc/procedure/func/function wrapper returned by get_method_source.',
 			'Use focused read-only tools before query_readonly. Resolve unknown calls with method resolution and object search tools, then follow returned stable IDs.',
 			'Before database work, use get_active_database when the intended database matters. Use list_databases and switch_database to select another rdboadm.ini profile without restarting this MCP server.',

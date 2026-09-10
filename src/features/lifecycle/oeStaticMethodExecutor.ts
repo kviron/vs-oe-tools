@@ -12,7 +12,6 @@ export const clientMcpMethodIds = {
 	start: 12464780,
 	stop: 12464782,
 };
-export const postmanApiMethodId = 41654685;
 
 export function buildOeExecTaskArguments(
 	methodId: number,
@@ -57,20 +56,6 @@ export async function startClientMcpProcess(
 	);
 }
 
-export async function startPostmanApiProcess(
-	workspacePath: string,
-	database: string,
-	host: string,
-	credentials: OeMethodCredentials,
-): Promise<{ methodId: number; database: string; processId?: number }> {
-	return startDetachedMethodProcess(
-		workspacePath,
-		postmanApiMethodId,
-		buildPostmanApiStartArguments(database, host, credentials),
-		database,
-	);
-}
-
 async function startDetachedMethodProcess(
 	workspacePath: string,
 	methodId: number,
@@ -100,16 +85,6 @@ export function buildClientMcpStartArguments(
 	credentials: OeMethodCredentials,
 ): string[] {
 	const args = buildConnectionArguments(clientMcpMethodIds.start, database, host, credentials);
-	args.splice(-1, 0, '-MethodParam=1');
-	return args;
-}
-
-export function buildPostmanApiStartArguments(
-	database: string,
-	host: string,
-	credentials: OeMethodCredentials,
-): string[] {
-	const args = buildConnectionArguments(postmanApiMethodId, database, host, credentials);
 	args.splice(-1, 0, '-MethodParam=1');
 	return args;
 }

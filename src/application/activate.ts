@@ -43,7 +43,7 @@ import { closeSpuEditorPanels } from '../features/spu/spuEditorPanel';
 import { createClassAttribute } from '../infrastructure/database/attributeRepository';
 import { loadPackageFileContent, loadPackages, loadPackageTree } from '../infrastructure/database/packageExplorerRepository';
 import { closePackageContentPanels, openPackageContent } from '../features/packages/packageContentPanelManager';
-import { executeOeStaticMethod } from '../features/lifecycle/oeStaticMethodExecutor';
+import { executeOeStaticMethod, startClientMcpProcess } from '../features/lifecycle/oeStaticMethodExecutor';
 import { createClassMethod } from '../infrastructure/database/methodRepository';
 import { disposeProjectDatabaseSessions } from '../infrastructure/database/projectDatabaseSession';
 import { registerDatabaseCommands } from './registerDatabaseCommands';
@@ -312,6 +312,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			const result = await executeOeStaticMethod(workspacePath, methodId, methodParameter, database, host, await getClientCredentials());
 			extensionLogger.info('MCP method', `Выполнен статический метод ${methodId}.`, { database });
 			return { ...result };
+		},
+		startClientMcp: async (database, host) => {
+			if (!workspacePath) { throw new Error('Открытая папка проекта не найдена.'); }
+			const result = await startClientMcpProcess(workspacePath, database, host, await getClientCredentials());
+			extensionLogger.info('MCP client', 'Клиентский MCP автоматически запущен по запросу агента.', { database });
+			return result;
 		},
 		getSvnFileHistory: async (filePath, limit) => {
 			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];

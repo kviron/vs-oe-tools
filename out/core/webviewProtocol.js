@@ -65,7 +65,7 @@ function isSettingsWebviewMessage(message) {
     if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
         return true;
     }
-    if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled' || message.command === 'setPostmanApiServerRunning') {
+    if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
         return 'enabled' in message && typeof message.enabled === 'boolean';
     }
     if (message.command === 'setDatabaseRole') {

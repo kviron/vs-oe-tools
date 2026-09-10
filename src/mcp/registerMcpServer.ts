@@ -30,7 +30,7 @@ export function registerDatabaseMcpServer(context: vscode.ExtensionContext, logs
 					'--logs', logsPath,
 					...(sqlMonitorHistoryPath ? ['--sql-monitor-history', sqlMonitorHistoryPath] : []),
 					'--navigation-info', navigation.infoPath,
-					'--client-mcp-url', vscode.workspace.getConfiguration('vcVeTools').get<string>(clientMcpUrlSetting, 'http://localhost:8080/mcp'),
+					'--client-mcp-url', vscode.workspace.getConfiguration('vcVeTools').get<string>(clientMcpUrlSetting, 'http://localhost:8080'),
 				],
 				{},
 				'0.22.0',

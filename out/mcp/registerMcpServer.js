@@ -58,7 +58,7 @@ function registerDatabaseMcpServer(context, logsPath, navigation, databaseSelect
                 '--logs', logsPath,
                 ...(sqlMonitorHistoryPath ? ['--sql-monitor-history', sqlMonitorHistoryPath] : []),
                 '--navigation-info', navigation.infoPath,
-                '--client-mcp-url', vscode.workspace.getConfiguration('vcVeTools').get(constants_1.clientMcpUrlSetting, 'http://localhost:8080/mcp'),
+                '--client-mcp-url', vscode.workspace.getConfiguration('vcVeTools').get(constants_1.clientMcpUrlSetting, 'http://localhost:8080'),
             ], {}, '0.22.0');
             server.cwd = workspaceFolder.uri;
             return [server];

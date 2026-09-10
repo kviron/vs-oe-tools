@@ -41,7 +41,6 @@ const projectDatabaseOptions_1 = require("../../infrastructure/configuration/pro
 const classRepository_1 = require("../../infrastructure/database/classRepository");
 const clientMcpHttp_1 = require("../../mcp/clientMcpHttp");
 const oeStaticMethodExecutor_1 = require("../lifecycle/oeStaticMethodExecutor");
-const postmanApiHttp_1 = require("../postman/postmanApiHttp");
 const rdboadmIni_1 = require("../../infrastructure/configuration/rdboadmIni");
 const projectCommandService_1 = require("../project/projectCommandService");
 class SettingsViewProvider {
@@ -121,30 +120,23 @@ class SettingsViewProvider {
         if (this.clientMcpDatabaseSync) {
             return;
         }
-        this.clientMcpDatabaseSync = this.syncHttpServiceDatabases()
+        this.clientMcpDatabaseSync = this.syncClientMcpDatabase()
             .catch(error => this.logger.error('Настройки', 'Не удалось переключить базу клиентского MCP', error))
             .finally(() => { this.clientMcpDatabaseSync = undefined; });
     }
-    async syncHttpServiceDatabases() {
+    async syncClientMcpDatabase() {
         const clientMcpUrl = getConfiguredClientMcpUrl(vscode.workspace.getConfiguration('vcVeTools'));
         const selectedDatabase = (await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)()).database;
-        const services = [
-            { requester: 'mcp', health: () => (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl) },
-            { requester: 'postman', health: () => (0, postmanApiHttp_1.getPostmanApiHealth)(postmanApiHttp_1.defaultPostmanApiUrl) },
-        ];
-        for (const service of services) {
-            try {
-                const health = await service.health();
-                if (health.status.toLocaleLowerCase('en') !== 'ok'
-                    || health.database?.toLocaleLowerCase('en') === selectedDatabase.toLocaleLowerCase('en')) {
-                    continue;
-                }
-                await this.setClientMcpServerRunning('stop', service.requester);
-                await this.setClientMcpServerRunning('start', service.requester);
+        try {
+            const health = await (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl);
+            if (health.status.toLocaleLowerCase('en') === 'ok'
+                && health.database?.toLocaleLowerCase('en') !== selectedDatabase.toLocaleLowerCase('en')) {
+                await this.setClientMcpServerRunning('stop');
+                await this.setClientMcpServerRunning('start');
             }
-            catch {
-                // An offline optional service does not need database synchronization.
-            }
+        }
+        catch {
+            // An offline client MCP does not need database synchronization.
         }
     }
     async handleMessage(message) {
@@ -216,9 +208,6 @@ class SettingsViewProvider {
         else if (message.command === 'stopClientMcpServer') {
             await this.setClientMcpServerRunning('stop');
         }
-        else if (message.command === 'setPostmanApiServerRunning') {
-            await this.setClientMcpServerRunning(message.enabled ? 'start' : 'stop', 'postman');
-        }
         else if (message.command === 'testSettingsDatabaseConnection') {
             await this.testConnection();
         }
@@ -231,14 +220,12 @@ class SettingsViewProvider {
             vscode.window.setStatusBarMessage('Код подключения MCP скопирован', 2500);
         }
     }
-    async setClientMcpServerRunning(action, requester = 'mcp') {
+    async setClientMcpServerRunning(action) {
         const configuration = vscode.workspace.getConfiguration('vcVeTools');
         const clientMcpUrl = getConfiguredClientMcpUrl(configuration);
         let currentlyOnline = false;
         try {
-            const health = requester === 'mcp'
-                ? await (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl)
-                : await (0, postmanApiHttp_1.getPostmanApiHealth)(postmanApiHttp_1.defaultPostmanApiUrl);
+            const health = await (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl);
             currentlyOnline = health.status.toLocaleLowerCase('en') === 'ok';
         }
         catch {
@@ -248,9 +235,7 @@ class SettingsViewProvider {
             await this.postState();
             return;
         }
-        this.post(requester === 'mcp'
-            ? { command: 'clientMcpActionStarted', action }
-            : { command: 'postmanApiActionStarted', action });
+        this.post({ command: 'clientMcpActionStarted', action });
         try {
             let database = '';
             if (action === 'start') {
@@ -260,23 +245,15 @@ class SettingsViewProvider {
                 }
                 const databaseOptions = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
                 database = databaseOptions.database;
-                const startProcess = requester === 'postman' ? oeStaticMethodExecutor_1.startPostmanApiProcess : oeStaticMethodExecutor_1.startClientMcpProcess;
-                await startProcess(workspacePath, databaseOptions.database, databaseOptions.host, await this.getClientCredentials());
+                await (0, oeStaticMethodExecutor_1.startClientMcpProcess)(workspacePath, databaseOptions.database, databaseOptions.host, await this.getClientCredentials());
             }
             else {
-                if (requester === 'mcp') {
-                    await (0, clientMcpHttp_1.stopClientMcpServer)(clientMcpUrl);
-                }
-                else {
-                    await (0, postmanApiHttp_1.stopPostmanApiServer)(postmanApiHttp_1.defaultPostmanApiUrl);
-                }
+                await (0, clientMcpHttp_1.stopClientMcpServer)(clientMcpUrl);
             }
             let targetStateReached = false;
             for (let attempt = 0; attempt < 10; attempt += 1) {
                 try {
-                    const health = requester === 'mcp'
-                        ? await (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl)
-                        : await (0, postmanApiHttp_1.getPostmanApiHealth)(postmanApiHttp_1.defaultPostmanApiUrl);
+                    const health = await (0, clientMcpHttp_1.getClientMcpHealth)(clientMcpUrl);
                     targetStateReached = action === 'start' && health.status.toLocaleLowerCase('en') === 'ok';
                 }
                 catch {
@@ -288,29 +265,22 @@ class SettingsViewProvider {
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
             if (!targetStateReached) {
-                const statusUrl = requester === 'mcp' ? `${clientMcpUrl}/health` : `${postmanApiHttp_1.defaultPostmanApiUrl}/health`;
+                const statusUrl = `${clientMcpUrl}/health`;
                 throw new Error(action === 'start'
                     ? `Метод выполнен, но ${statusUrl} не ответил со статусом ok.`
                     : `Метод выполнен, но ${statusUrl} продолжает отвечать.`);
             }
-            const methodName = action === 'start' && requester === 'postman'
-                ? 'Метод.HttpPostmanTesting'
-                : action === 'start' ? 'aiMCP.http_Start' : 'aiMCP.http_Stop';
-            const methodId = action === 'start' && requester === 'postman' ? oeStaticMethodExecutor_1.postmanApiMethodId : oeStaticMethodExecutor_1.clientMcpMethodIds[action];
+            const methodName = action === 'start' ? 'aiMCP.http_Start' : 'aiMCP.http_Stop';
+            const methodId = oeStaticMethodExecutor_1.clientMcpMethodIds[action];
             const actionText = action === 'start' ? 'запущен' : 'остановлен';
-            const serviceName = requester === 'mcp' ? 'Клиентский MCP' : 'API для Postman';
-            const message = `${serviceName} ${actionText} через ${methodName} (ID ${methodId})${database ? ` в базе ${database}` : ''}.`;
-            this.post(requester === 'mcp'
-                ? { command: 'clientMcpActionFinished', action, success: true, message }
-                : { command: 'postmanApiActionFinished', action, success: true, message });
+            const message = `Клиентский MCP ${actionText} через ${methodName} (ID ${methodId})${database ? ' в базе ' + database : ''}.`;
+            this.post({ command: 'clientMcpActionFinished', action, success: true, message });
             void vscode.window.showInformationMessage(message);
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            this.post(requester === 'mcp'
-                ? { command: 'clientMcpActionFinished', action, success: false, message }
-                : { command: 'postmanApiActionFinished', action, success: false, message });
-            void vscode.window.showErrorMessage(`Не удалось ${action === 'start' ? 'запустить' : 'остановить'} ${requester === 'mcp' ? 'клиентский MCP' : 'API для Postman'}: ${message}`);
+            this.post({ command: 'clientMcpActionFinished', action, success: false, message });
+            void vscode.window.showErrorMessage(`Не удалось ${action === 'start' ? 'запустить' : 'остановить'} клиентский MCP: ${message}`);
         }
         await this.postState();
     }
@@ -357,8 +327,6 @@ class SettingsViewProvider {
         let clientMcpStatus = 'offline';
         let clientMcpStatusText = 'Нет связи';
         let clientMcpDatabase;
-        let postmanApiStatus = 'offline';
-        let postmanApiStatusText = 'Нет связи';
         let selectedDatabase;
         try {
             selectedDatabase = (await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)()).database;
@@ -379,19 +347,6 @@ class SettingsViewProvider {
         }
         catch {
             // The offline state is expected when the original client is not running.
-        }
-        try {
-            const health = await (0, postmanApiHttp_1.getPostmanApiHealth)(postmanApiHttp_1.defaultPostmanApiUrl);
-            if (health.status.toLocaleLowerCase('en') === 'ok') {
-                postmanApiStatus = 'online';
-                postmanApiStatusText = health.database?.trim() ? `Работает · ${health.database.trim()}` : 'Работает';
-            }
-            else {
-                postmanApiStatusText = `Статус: ${health.status}`;
-            }
-        }
-        catch {
-            // The unified local HTTP server is optional.
         }
         let status = enabled ? 'ready' : 'disabled';
         let statusText = enabled ? 'Готов к запуску агентом' : 'MCP-сервер выключен';
@@ -431,9 +386,6 @@ class SettingsViewProvider {
             clientMcpDatabaseMatchesSelection: clientMcpDatabase && selectedDatabase
                 ? clientMcpDatabase.toLocaleLowerCase('en') === selectedDatabase.toLocaleLowerCase('en')
                 : undefined,
-            postmanApiUrl: postmanApiHttp_1.defaultPostmanApiUrl,
-            postmanApiStatus,
-            postmanApiStatusText,
             mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role, databaseProfile, clientMcpUrl),
             lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
         };
@@ -470,9 +422,9 @@ class SettingsViewProvider {
 }
 exports.SettingsViewProvider = SettingsViewProvider;
 function getConfiguredClientMcpUrl(configuration) {
-    const configured = configuration.get(constants_1.clientMcpUrlSetting, 'http://localhost:8080/mcp').trim();
-    if (/^http:\/\/(?:localhost|127\.0\.0\.1):8080\/?$/iu.test(configured)) {
-        return `${configured.replace(/\/$/, '')}/mcp`;
+    const configured = configuration.get(constants_1.clientMcpUrlSetting, 'http://localhost:8080').trim();
+    if (/^http:\/\/(?:localhost|127\.0\.0\.1):8080\/mcp\/?$/iu.test(configured)) {
+        return configured.replace(/\/mcp\/?$/iu, '');
     }
     return configured;
 }
