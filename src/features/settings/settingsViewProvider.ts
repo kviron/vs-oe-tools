@@ -6,16 +6,22 @@ import { getDatabaseRole, getProjectDatabaseOptions } from '../../infrastructure
 import { testDatabaseConnection } from '../../infrastructure/database/classRepository';
 import type { ExtensionLogService } from '../../infrastructure/logging/extensionLogService';
 import type { McpNavigationConnection } from '../../mcp/registerMcpServer';
-import { getClientMcpHealth, stopClientMcpServer } from '../../mcp/clientMcpHttp';
+import { getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/clientMcpHttp';
 import { clientMcpMethodIds, startClientMcpProcess } from '../lifecycle/oeStaticMethodExecutor';
 import { loadRdboadmDatabases, saveRdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
 import { startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../project/projectCommandService';
 import type { ClientCredentials } from '../project/projectCommandService';
+import { getRegisteredToolCatalog } from '../../mcp/tools';
 
 export class SettingsViewProvider implements vscode.Disposable {
+	private static readonly clientMcpToolsCacheKey = 'vcVeTools.clientMcpTools.v1';
 	private panel?: vscode.WebviewPanel;
 	private clientMcpStatusTimer?: ReturnType<typeof setInterval>;
 	private clientMcpDatabaseSync?: Promise<void>;
+	private clientMcpTools?: SettingsState['clientMcpTools'];
+	private clientMcpToolsDatabase?: string;
+	private clientMcpToolsUpdatedAt?: string;
+	private clientMcpToolsError?: string;
 	private readonly disposables: vscode.Disposable[] = [];
 
 	public constructor(
@@ -26,7 +32,18 @@ export class SettingsViewProvider implements vscode.Disposable {
 		private readonly databaseSelectionPath?: string,
 		private readonly getClientCredentials: () => Promise<ClientCredentials> = async () => ({}),
 		private readonly setClientCredentials: (credentials: ClientCredentials) => Promise<void> = async () => undefined,
+		private readonly workspaceState?: vscode.Memento,
 	) {
+		const cachedTools = this.workspaceState?.get<{
+			database: string;
+			updatedAt: string;
+			tools: NonNullable<SettingsState['clientMcpTools']>;
+		}>(SettingsViewProvider.clientMcpToolsCacheKey);
+		if (cachedTools) {
+			this.clientMcpTools = cachedTools.tools;
+			this.clientMcpToolsDatabase = cachedTools.database;
+			this.clientMcpToolsUpdatedAt = cachedTools.updatedAt;
+		}
 		this.disposables.push(
 			this.logger.onDidChange(() => void this.postState()),
 			vscode.workspace.onDidChangeConfiguration(event => {
@@ -40,6 +57,14 @@ export class SettingsViewProvider implements vscode.Disposable {
 			}),
 			vscode.workspace.onDidChangeWorkspaceFolders(() => void this.postState()),
 		);
+	}
+
+	public refreshClientMcpToolsOnActivation(): void {
+		void this.refreshClientMcpTools(true).catch(error => {
+			this.clientMcpToolsError = error instanceof Error ? error.message : String(error);
+			this.logger.warning('MCP client', 'Не удалось обновить каталог инструментов при активации расширения.', error);
+			void this.postState();
+		});
 	}
 
 	public show(): void {
@@ -83,6 +108,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 	private scheduleClientMcpDatabaseSync(): void {
 		if (this.clientMcpDatabaseSync) { return; }
 		this.clientMcpDatabaseSync = this.syncClientMcpDatabase()
+			.then(() => this.refreshClientMcpTools(true))
 			.catch(error => this.logger.error('Настройки', 'Не удалось переключить базу клиентского MCP', error))
 			.finally(() => { this.clientMcpDatabaseSync = undefined; });
 	}
@@ -148,6 +174,8 @@ export class SettingsViewProvider implements vscode.Disposable {
 			await vscode.workspace.getConfiguration('vcVeTools').update(mcpEnabledSetting, message.enabled, vscode.ConfigurationTarget.Workspace);
 		} else if (message.command === 'refreshClientMcpStatus') {
 			await this.postState();
+		} else if (message.command === 'checkClientMcpTools') {
+			await this.checkClientMcpTools();
 		} else if (message.command === 'startClientMcpServer') {
 			await this.setClientMcpServerRunning('start');
 		} else if (message.command === 'stopClientMcpServer') {
@@ -211,10 +239,22 @@ export class SettingsViewProvider implements vscode.Disposable {
 					? `Метод выполнен, но ${statusUrl} не ответил со статусом ok.`
 					: `Метод выполнен, но ${statusUrl} продолжает отвечать.`);
 			}
+			if (action === 'start') {
+				try {
+					await this.loadClientMcpTools(clientMcpUrl, database);
+				} catch (error) {
+					this.clientMcpTools = undefined;
+					this.clientMcpToolsError = error instanceof Error ? error.message : String(error);
+				}
+			} else {
+				this.clientMcpTools = undefined;
+				this.clientMcpToolsError = undefined;
+			}
 			const methodName = action === 'start' ? 'aiMCP.http_Start' : 'aiMCP.http_Stop';
 			const methodId = clientMcpMethodIds[action];
 			const actionText = action === 'start' ? 'запущен' : 'остановлен';
-			const message = `Клиентский MCP ${actionText} через ${methodName} (ID ${methodId})${database ? ' в базе ' + database : ''}.`;
+			const toolsText = action === 'start' && this.clientMcpToolsError ? ' Проверка списка инструментов завершилась ошибкой.' : '';
+			const message = `Клиентский MCP ${actionText} через ${methodName} (ID ${methodId})${database ? ' в базе ' + database : ''}.${toolsText}`;
 			this.post({ command: 'clientMcpActionFinished', action, success: true, message });
 			void vscode.window.showInformationMessage(message);
 		} catch (error) {
@@ -223,6 +263,75 @@ export class SettingsViewProvider implements vscode.Disposable {
 			void vscode.window.showErrorMessage(`Не удалось ${action === 'start' ? 'запустить' : 'остановить'} клиентский MCP: ${message}`);
 		}
 		await this.postState();
+	}
+
+	private async checkClientMcpTools(): Promise<void> {
+		this.post({ command: 'clientMcpToolsCheckStarted' });
+		try {
+			await this.refreshClientMcpTools(true);
+			this.post({ command: 'clientMcpToolsCheckFinished', success: true });
+		} catch (error) {
+			this.clientMcpTools = undefined;
+			this.clientMcpToolsError = error instanceof Error ? error.message : String(error);
+			this.post({ command: 'clientMcpToolsCheckFinished', success: false });
+		}
+		await this.postState();
+	}
+
+	private async refreshClientMcpTools(stopAfterTemporaryStart: boolean): Promise<void> {
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+		if (!workspacePath) { throw new Error('Сначала откройте папку проекта Восточного Экспресса.'); }
+		const clientMcpUrl = getConfiguredClientMcpUrl(vscode.workspace.getConfiguration('vcVeTools'));
+		const databaseOptions = await getProjectDatabaseOptions();
+		let startedTemporarily = false;
+		let health: Awaited<ReturnType<typeof getClientMcpHealth>> | undefined;
+		try {
+			try { health = await getClientMcpHealth(clientMcpUrl); } catch { health = undefined; }
+			const wasOnline = health?.status.toLocaleLowerCase('en') === 'ok';
+			const onlineForSelectedDatabase = wasOnline
+				&& health?.database?.toLocaleLowerCase('en') === databaseOptions.database.toLocaleLowerCase('en');
+			if (!onlineForSelectedDatabase) {
+				if (health?.status.toLocaleLowerCase('en') === 'ok') { await stopClientMcpServer(clientMcpUrl); }
+				startedTemporarily = stopAfterTemporaryStart && !wasOnline;
+				await startClientMcpProcess(workspacePath, databaseOptions.database, databaseOptions.host, await this.getClientCredentials());
+				await this.waitForClientMcp(clientMcpUrl, databaseOptions.database);
+			}
+			await this.loadClientMcpTools(clientMcpUrl, databaseOptions.database);
+		} finally {
+			if (startedTemporarily) {
+				try { await stopClientMcpServer(clientMcpUrl); }
+				catch (error) { this.logger.warning('MCP client', 'Не удалось остановить временно запущенный MCP после чтения каталога.', error); }
+			}
+		}
+	}
+
+	private async waitForClientMcp(clientMcpUrl: string, database: string): Promise<void> {
+		for (let attempt = 0; attempt < 10; attempt += 1) {
+			try {
+				const health = await getClientMcpHealth(clientMcpUrl);
+				if (health.status.toLocaleLowerCase('en') === 'ok'
+					&& health.database?.toLocaleLowerCase('en') === database.toLocaleLowerCase('en')) { return; }
+			} catch { /* The client can still be starting. */ }
+			await new Promise(resolve => setTimeout(resolve, 500));
+		}
+		throw new Error(`Клиентский MCP для базы ${database} не запустился.`);
+	}
+
+	private async loadClientMcpTools(clientMcpUrl: string, database?: string): Promise<void> {
+		const tools = await listClientMcpTools(clientMcpUrl);
+		this.clientMcpTools = tools
+			.map(tool => ({ name: tool.name, description: tool.description.trim() }))
+			.sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+		this.clientMcpToolsDatabase = database;
+		this.clientMcpToolsUpdatedAt = new Date().toISOString();
+		this.clientMcpToolsError = undefined;
+		if (database && this.workspaceState) {
+			await this.workspaceState.update(SettingsViewProvider.clientMcpToolsCacheKey, {
+				database,
+				updatedAt: this.clientMcpToolsUpdatedAt,
+				tools: this.clientMcpTools,
+			});
+		}
 	}
 
 	private async testConnection(): Promise<void> {
@@ -320,6 +429,11 @@ export class SettingsViewProvider implements vscode.Disposable {
 			clientMcpDatabaseMatchesSelection: clientMcpDatabase && selectedDatabase
 				? clientMcpDatabase.toLocaleLowerCase('en') === selectedDatabase.toLocaleLowerCase('en')
 				: undefined,
+			extensionMcpTools: getRegisteredToolCatalog(),
+			clientMcpTools: this.clientMcpTools,
+			clientMcpToolsDatabase: this.clientMcpToolsDatabase,
+			clientMcpToolsUpdatedAt: this.clientMcpToolsUpdatedAt,
+			clientMcpToolsError: this.clientMcpToolsError,
 			mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role, databaseProfile, clientMcpUrl),
 			lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
 		};

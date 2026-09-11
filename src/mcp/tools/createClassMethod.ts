@@ -5,7 +5,7 @@ import type { McpToolServer } from '../toolTypes';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('create_class_method', {
-		description: 'Create an interpreted East Express method in an existing class through the controlled VS Code database transaction. It allocates an ID from DeveloperIDs, rejects duplicate names, derives Signature from Code, writes Methods/Abstract and ChangeType=3 audit data atomically, inherits the owner SysFile, updates ClassVersion and package change state, then opens the source.',
+		description: 'DEPRECATED: this data-changing tool will be removed soon. Create an interpreted East Express method in an existing class through the controlled VS Code database transaction. It allocates an ID from DeveloperIDs, rejects duplicate names, derives Signature from Code, writes Methods/Abstract and ChangeType=3 audit data atomically, inherits the owner SysFile, updates ClassVersion and package change state, then opens the source.',
 		inputSchema: {
 			ownerClassId: z.number().int().positive().describe('Owning class ID'),
 			name: z.string().min(1).max(250).regex(/^[\p{L}_][\p{L}\p{N}_]*$/u).describe('Method card name without a proc/function declaration'),

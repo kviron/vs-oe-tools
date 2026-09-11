@@ -6,7 +6,7 @@ import type { McpToolServer } from '../toolTypes';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('execute_lifecycle_method', {
-		description: 'Immediately execute the allowlisted static method Функции_ЖЦ.СоздатьПараметрИПраво (3143815) through the native OEExecTask runtime. It creates ParameterLC records and optional RightLC records without creating or running an SPU. Call get_active_database first and verify the target. Other Функции_ЖЦ methods require runtime object parameters and are not exposed.',
+		description: 'DEPRECATED: this data-changing tool will be removed soon. Immediately execute the allowlisted static method Функции_ЖЦ.СоздатьПараметрИПраво (3143815) through the native OEExecTask runtime. It creates ParameterLC records and optional RightLC records without creating or running an SPU. Call get_active_database first and verify the target. Other Функции_ЖЦ methods require runtime object parameters and are not exposed.',
 		inputSchema: {
 			methodId: z.literal(createLifecycleParameterMethodId).describe('Allowlisted static method ID 3143815'),
 			parameters: z.object({

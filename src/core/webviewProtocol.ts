@@ -13,6 +13,21 @@ export { isCopyEntityIdMessage, isOpenClientEntityMessage } from './webview/comm
 export type { SqlExecutorHostMessage, SqlExecutorWebviewMessage, SqlHistoryEntry, SqlMonitorHostMessage, SqlMonitorWebviewMessage } from './webview/sqlMessages';
 export { isSqlExecutorWebviewMessage, isSqlMonitorWebviewMessage } from './webview/sqlMessages';
 
+export interface NativeLogListEntry {
+	name: string;
+	size: number;
+	modifiedAt: string;
+}
+export type NativeLogsWebviewMessage =
+	| { command: 'nativeLogsReady' }
+	| { command: 'refreshNativeLogs' }
+	| { command: 'openNativeLog'; fileName: string }
+	| { command: 'copyNativeLog'; text: string };
+export type NativeLogsHostMessage =
+	| { command: 'nativeLogsLoading' }
+	| { command: 'nativeLogsLoaded'; directory: string; files: NativeLogListEntry[]; selectedFile?: string; content?: string; contentTruncated?: boolean }
+	| { command: 'nativeLogsFailed'; message: string };
+
 export type ProductionTasksWebviewMessage =
 	| { command: 'productionTasksReady' }
 	| { command: 'refreshProductionTasks' }
@@ -225,6 +240,11 @@ export interface SettingsState {
 	clientMcpStatusText: string;
 	clientMcpDatabase?: string;
 	clientMcpDatabaseMatchesSelection?: boolean;
+	extensionMcpTools: Array<{ name: string; description: string; deprecated: boolean }>;
+	clientMcpTools?: Array<{ name: string; description: string }>;
+	clientMcpToolsDatabase?: string;
+	clientMcpToolsUpdatedAt?: string;
+	clientMcpToolsError?: string;
 	mcpConnectionCode: string;
 	lastExtensionError?: { timestamp: string; source: string; message: string };
 }
@@ -240,6 +260,7 @@ export type SettingsWebviewMessage =
 	| { command: 'setClientCredentials'; username: string; password?: string }
 	| { command: 'setMcpEnabled'; enabled: boolean }
 	| { command: 'refreshClientMcpStatus' }
+	| { command: 'checkClientMcpTools' }
 	| { command: 'startClientMcpServer' }
 	| { command: 'stopClientMcpServer' }
 	| { command: 'testSettingsDatabaseConnection' }
@@ -250,8 +271,17 @@ export type SettingsHostMessage =
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string }
 	| { command: 'clientMcpActionStarted'; action: 'start' | 'stop' }
-	| { command: 'clientMcpActionFinished'; action: 'start' | 'stop'; success: boolean; message: string };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SvnConflictWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
+	| { command: 'clientMcpActionFinished'; action: 'start' | 'stop'; success: boolean; message: string }
+	| { command: 'clientMcpToolsCheckStarted' }
+	| { command: 'clientMcpToolsCheckFinished'; success: boolean };
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | NativeLogsWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SvnConflictWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
+
+export function isNativeLogsWebviewMessage(message: unknown): message is NativeLogsWebviewMessage {
+	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
+	if (message.command === 'nativeLogsReady' || message.command === 'refreshNativeLogs') { return true; }
+	if (message.command === 'openNativeLog') { return 'fileName' in message && typeof message.fileName === 'string'; }
+	return message.command === 'copyNativeLog' && 'text' in message && typeof message.text === 'string';
+}
 
 export function isProductionTasksWebviewMessage(message: unknown): message is ProductionTasksWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
@@ -289,7 +319,7 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
 		return false;
 	}
-	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
+	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'checkClientMcpTools' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
 		return true;
 	}
 	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {

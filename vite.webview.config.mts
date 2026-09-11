@@ -18,6 +18,7 @@ const entryNames = [
   'entity-properties',
   'sql-monitor',
   'sql-executor',
+  'native-logs',
   'code-history',
   'settings',
   'spu-editor',

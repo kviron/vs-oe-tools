@@ -9,6 +9,7 @@ import { closeClassDetailPanels, openClassDetails, restoreClassDetailPanels, rev
 import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider';
 import { sqlMonitorService } from '../features/sql-monitor/sqlMonitorService';
 import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorViewProvider';
+import { NativeLogsViewProvider } from '../features/native-logs/nativeLogsViewProvider';
 import { registerMethodEditor } from '../features/methods/methodEditorProvider';
 import { registerMethodLanguageFeatures } from '../features/methods/methodLanguageFeatures';
 import { registerCodeHistory } from '../features/code-history/codeHistoryService';
@@ -123,7 +124,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			isUpdatingSetting = false;
 		}
 	};
-	const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials);
+	const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials, context.workspaceState);
+	settingsProvider.refreshClientMcpToolsOnActivation();
 	const openSettingsCommand = vscode.commands.registerCommand('vc-ve-tools.openSettings', () => settingsProvider.show());
 	const updateMainDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateMainDatabase', () => updateProjectDatabase('main'));
 	const updateTestDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateTestDatabase', () => updateProjectDatabase('test'));
@@ -428,6 +430,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		sqlExecutorProvider,
 		{ webviewOptions: { retainContextWhenHidden: true } },
 	);
+	const nativeLogsProvider = new NativeLogsViewProvider(context.extensionUri);
+	const nativeLogsRegistration = vscode.window.registerWebviewViewProvider(
+		NativeLogsViewProvider.viewType,
+		nativeLogsProvider,
+		{ webviewOptions: { retainContextWhenHidden: true } },
+	);
 	const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
 		if (event.affectsConfiguration('vcVeTools.productionHost') || event.affectsConfiguration('vcVeTools.productionPort')
 			|| event.affectsConfiguration('vcVeTools.productionDatabase') || event.affectsConfiguration('vcVeTools.productionClientSessionKey')
@@ -498,6 +506,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		packageSyncProvider,
 		openPackageSyncCommand,
 		sqlExecutorRegistration,
+		nativeLogsRegistration,
 		configurationListener,
 		activeWorkspaceListener,
 		activeWindowListener,

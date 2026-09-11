@@ -45,6 +45,7 @@ const classDetailsPanelManager_1 = require("../features/classes/views/classDetai
 const explorerViewProvider_1 = require("../features/explorer/explorerViewProvider");
 const sqlMonitorService_1 = require("../features/sql-monitor/sqlMonitorService");
 const sqlExecutorViewProvider_1 = require("../features/sql-executor/sqlExecutorViewProvider");
+const nativeLogsViewProvider_1 = require("../features/native-logs/nativeLogsViewProvider");
 const methodEditorProvider_1 = require("../features/methods/methodEditorProvider");
 const methodLanguageFeatures_1 = require("../features/methods/methodLanguageFeatures");
 const codeHistoryService_1 = require("../features/code-history/codeHistoryService");
@@ -158,7 +159,8 @@ async function activate(context) {
             isUpdatingSetting = false;
         }
     };
-    const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials);
+    const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials, context.workspaceState);
+    settingsProvider.refreshClientMcpToolsOnActivation();
     const openSettingsCommand = vscode.commands.registerCommand('vc-ve-tools.openSettings', () => settingsProvider.show());
     const updateMainDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateMainDatabase', () => (0, projectCommandService_1.updateProjectDatabase)('main'));
     const updateTestDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateTestDatabase', () => (0, projectCommandService_1.updateProjectDatabase)('test'));
@@ -444,6 +446,8 @@ async function activate(context) {
     });
     const sqlExecutorProvider = new sqlExecutorViewProvider_1.SqlExecutorViewProvider(context.extensionUri);
     const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(sqlExecutorViewProvider_1.SqlExecutorViewProvider.viewType, sqlExecutorProvider, { webviewOptions: { retainContextWhenHidden: true } });
+    const nativeLogsProvider = new nativeLogsViewProvider_1.NativeLogsViewProvider(context.extensionUri);
+    const nativeLogsRegistration = vscode.window.registerWebviewViewProvider(nativeLogsViewProvider_1.NativeLogsViewProvider.viewType, nativeLogsProvider, { webviewOptions: { retainContextWhenHidden: true } });
     const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
         if (event.affectsConfiguration('vcVeTools.productionHost') || event.affectsConfiguration('vcVeTools.productionPort')
             || event.affectsConfiguration('vcVeTools.productionDatabase') || event.affectsConfiguration('vcVeTools.productionClientSessionKey')
@@ -491,7 +495,7 @@ async function activate(context) {
         copySelectedExplorerId: () => explorerProvider.copySelectedEntityId(),
         refreshSettings: () => settingsProvider.refresh(),
     });
-    context.subscriptions.push({ dispose: projectDatabaseSession_1.disposeProjectDatabaseSessions }, extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, productionTasksProvider, productionTasksRegistration, openProductionTasksCommand, clipboardObjectNavigation, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, configurationListener, activeWorkspaceListener, activeWindowListener, databaseCommands);
+    context.subscriptions.push({ dispose: projectDatabaseSession_1.disposeProjectDatabaseSessions }, extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, productionTasksProvider, productionTasksRegistration, openProductionTasksCommand, clipboardObjectNavigation, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, nativeLogsRegistration, configurationListener, activeWorkspaceListener, activeWindowListener, databaseCommands);
 }
 async function extractProductionMetadataFromCaptureDirectories(directories) {
     let personId;

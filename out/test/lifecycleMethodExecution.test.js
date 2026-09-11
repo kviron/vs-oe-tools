@@ -55,9 +55,9 @@ suite('Lifecycle method execution', () => {
             '-MethodParam=paramName=A,paramKind=8927425', '-ForceOutputOEM',
         ]);
     });
-    test('builds aiMCP.http_Start arguments without an empty method parameter', () => {
+    test('builds aiMCP.http_Start arguments in configuration mode without an empty method parameter', () => {
         assert.deepEqual((0, oeStaticMethodExecutor_1.buildClientMcpStartArguments)('oetrunk', 'localhost', { username: 'dev', password: 'secret' }), [
-            '-l', 'host=localhost,db=oetrunk,Username=dev,password=secret',
+            '-l', 'host=localhost,db=oetrunk,Username=dev,password=secret,Shell=Настройка',
             '-MethodID=12464780',
             '-MethodParam=1',
             '-ForceOutputOEM',

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isSqlMonitorWebviewMessage = exports.isSqlExecutorWebviewMessage = exports.isOpenClientEntityMessage = exports.isCopyEntityIdMessage = void 0;
+exports.isNativeLogsWebviewMessage = isNativeLogsWebviewMessage;
 exports.isProductionTasksWebviewMessage = isProductionTasksWebviewMessage;
 exports.isProductionTaskDetailsWebviewMessage = isProductionTaskDetailsWebviewMessage;
 exports.isSettingsWebviewMessage = isSettingsWebviewMessage;
@@ -22,6 +23,18 @@ Object.defineProperty(exports, "isOpenClientEntityMessage", { enumerable: true, 
 var sqlMessages_1 = require("./webview/sqlMessages");
 Object.defineProperty(exports, "isSqlExecutorWebviewMessage", { enumerable: true, get: function () { return sqlMessages_1.isSqlExecutorWebviewMessage; } });
 Object.defineProperty(exports, "isSqlMonitorWebviewMessage", { enumerable: true, get: function () { return sqlMessages_1.isSqlMonitorWebviewMessage; } });
+function isNativeLogsWebviewMessage(message) {
+    if (typeof message !== 'object' || message === null || !('command' in message)) {
+        return false;
+    }
+    if (message.command === 'nativeLogsReady' || message.command === 'refreshNativeLogs') {
+        return true;
+    }
+    if (message.command === 'openNativeLog') {
+        return 'fileName' in message && typeof message.fileName === 'string';
+    }
+    return message.command === 'copyNativeLog' && 'text' in message && typeof message.text === 'string';
+}
 function isProductionTasksWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
@@ -62,7 +75,7 @@ function isSettingsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
     }
-    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
+    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'checkClientMcpTools' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
         return true;
     }
     if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {

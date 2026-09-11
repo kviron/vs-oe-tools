@@ -4,7 +4,7 @@ import type { McpToolServer } from '../toolTypes';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('create_class_attribute', {
-		description: 'Create a virtual attribute in an existing East Express class through the VS Code save pipeline. The operation allocates an ID from DeveloperIDs, writes Attributes/Abstract/ObjRefs and audit history atomically, inherits the owner package file, updates ClassVersion, and opens the new attribute card.',
+		description: 'DEPRECATED: this data-changing tool will be removed soon. Create a virtual attribute in an existing East Express class through the VS Code save pipeline. The operation allocates an ID from DeveloperIDs, writes Attributes/Abstract/ObjRefs and audit history atomically, inherits the owner package file, updates ClassVersion, and opens the new attribute card.',
 		inputSchema: {
 			ownerClassId: z.number().int().positive().describe('Owning class ID'),
 			name: z.string().min(1).max(250).describe('Logical attribute name, Windows-1251'),

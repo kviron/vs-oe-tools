@@ -1,10 +1,14 @@
 import { registerTools } from './tools';
+import { readArgument, readRoleArgument } from './arguments';
 
 // Runtime SDK imports keep this entrypoint compatible with the extension's Node16 tsconfig.
 
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
+
+readArgument('--workspace');
+readRoleArgument();
 
 const server = new McpServer(
 	{ name: 'vc-ve-tools-database', version: '0.22.0' },
@@ -22,6 +26,7 @@ const server = new McpServer(
 			'Use create_class_method to create an interpreted method through the controlled VS Code database transaction. It mirrors the persistence side effects of Функции_Объект.СоздатьМетод (11148540), then opens the new source in the editor.',
 			'Use execute_lifecycle_method to run the allowlisted static Функции_ЖЦ.СоздатьПараметрИПраво method immediately through OEExecTask. Verify the active database first. This creates lifecycle metadata directly and does not create an SPU.',
 			'Use get_package_sync_changes to inspect the same changed-object list shown by package synchronization; it returns metadata and paths, never file contents.',
+			'Immediately after a user creates or saves an East Express metadata object, call check_object_package_binding with its stable ID and the source object ID when it was cloned. Treat Abstract.SysFile = NULL, placement in #package$, a missing SysPackageBase state, or a file mismatch as an error: warn the user with concrete object and file IDs before continuing.',
 			'Use get_production_task to find a task across production by its ID, task number, or title and return the complete card. Use get_production_tasks only for the current employee compact task list and get_production_tasks_in_progress for complete cards currently in status В работе. These calls use the production OENP session held by the VS Code extension.',
 			'Use get_recent_sql_queries to inspect the last 500 filtered queries captured by the SQL monitor without generating additional database traffic.',
 			'Use list_client_mcp_tools to discover the live tool catalog exposed by the running East Express client on localhost. Use call_client_mcp_tool with the exact returned name and schema. Some client tools mutate data; invoke those only when the user explicitly requests the action.',

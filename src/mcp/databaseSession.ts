@@ -8,9 +8,9 @@ import { loadMcpDatabaseOptions } from './databaseConfig';
 import * as path from 'node:path';
 import { readFile } from 'node:fs/promises';
 
-export let workspacePath = readArgument('--workspace');
+export let workspacePath = readOptionalArgument('--workspace') ?? '';
 
-const databaseRole = readRoleArgument();
+const databaseRole = readOptionalArgument('--database-role') === 'test' ? 'test' : 'main';
 
 export let activeDatabaseProfile = readOptionalArgument('--database-profile');
 

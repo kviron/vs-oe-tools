@@ -4,6 +4,20 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.101] - 2026-09-11
+
+### Added
+
+- Added a unified MCP tool catalog in the extension settings for built-in and client tools, including automatic discovery, caching, manual refresh, Russian descriptions, and compact source-colored tags.
+- Added a native client log viewer and MCP tools for listing and reading East Express logs.
+- Added an MCP tool for checking whether an object belongs to the expected package.
+
+### Changed
+
+- Client MCP startup through `OEExecTask.exe` now uses `Shell=Настройка`, allowing metadata-changing tools to run in configuration mode.
+- Built-in tools that mutate database or project data are marked as deprecated ahead of their removal.
+- Lifecycle method execution now passes the selected database profile through to the native client.
+
 ## [0.1.1] - 2026-09-10
 
 ### Added

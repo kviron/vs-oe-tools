@@ -85,6 +85,7 @@ export function buildClientMcpStartArguments(
 	credentials: OeMethodCredentials,
 ): string[] {
 	const args = buildConnectionArguments(clientMcpMethodIds.start, database, host, credentials);
+	args[1] += ',Shell=Настройка';
 	args.splice(-1, 0, '-MethodParam=1');
 	return args;
 }

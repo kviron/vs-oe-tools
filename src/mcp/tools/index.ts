@@ -3,6 +3,7 @@ import { registerTool as listDatabases } from './listDatabases';
 import { registerTool as getActiveDatabase } from './getActiveDatabase';
 import { registerTool as switchDatabase } from './switchDatabase';
 import { registerTool as lookupObjectById } from './lookupObjectById';
+import { registerTool as checkObjectPackageBinding } from './checkObjectPackageBinding';
 import { registerTool as searchDatabaseObjects } from './searchDatabaseObjects';
 import { registerTool as searchClasses } from './searchClasses';
 import { registerTool as getClassDetails } from './getClassDetails';
@@ -44,6 +45,9 @@ import { registerTool as getExtensionLogs } from './getExtensionLogs';
 import { registerTool as getRecentSqlQueries } from './getRecentSqlQueries';
 import { registerTool as listClientMcpTools } from './listClientMcpTools';
 import { registerTool as callClientMcpTool } from './callClientMcpTool';
+import { registerTool as listNativeClientLogs } from './listNativeClientLogs';
+import { registerTool as readNativeClientLog } from './readNativeClientLog';
+import { deprecatedMcpToolNames, russianMcpToolDescriptions } from './toolPresentation';
 
 /** Register the public MCP tools in a stable order. */
 export function registerTools(server: McpToolServer): void {
@@ -51,6 +55,7 @@ export function registerTools(server: McpToolServer): void {
 	getActiveDatabase(server);
 	switchDatabase(server);
 	lookupObjectById(server);
+	checkObjectPackageBinding(server);
 	searchDatabaseObjects(server);
 	searchClasses(server);
 	getClassDetails(server);
@@ -92,4 +97,32 @@ export function registerTools(server: McpToolServer): void {
 	getRecentSqlQueries(server);
 	listClientMcpTools(server);
 	callClientMcpTool(server);
+	listNativeClientLogs(server);
+	readNativeClientLog(server);
+}
+
+export interface RegisteredMcpToolCatalogItem {
+	name: string;
+	description: string;
+	deprecated: boolean;
+}
+
+let registeredToolCatalog: RegisteredMcpToolCatalogItem[] | undefined;
+
+/** Build the public tool catalog from the same registrations used by the MCP server. */
+export function getRegisteredToolCatalog(): RegisteredMcpToolCatalogItem[] {
+	if (registeredToolCatalog) { return registeredToolCatalog; }
+	const tools: RegisteredMcpToolCatalogItem[] = [];
+	const catalogServer: McpToolServer = {
+		registerTool: (name, config) => {
+			tools.push({
+				name,
+				description: russianMcpToolDescriptions[name] ?? config.description.trim(),
+				deprecated: deprecatedMcpToolNames.has(name),
+			});
+		},
+	};
+	registerTools(catalogServer);
+	registeredToolCatalog = tools;
+	return registeredToolCatalog;
 }
