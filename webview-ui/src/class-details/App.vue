@@ -4,7 +4,10 @@ import type { ClassAttribute, ClassDetails, ClassMethod, ClassProperty } from '.
 import { computed, nextTick, ref, shallowRef } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Add01Icon } from '@hugeicons/core-free-icons';
+import { Add01Icon, Layers01Icon } from '@hugeicons/core-free-icons';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import MemberToolbar from './MemberToolbar.vue';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
@@ -12,12 +15,10 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableFooter, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { vscode } from '@/vscode';
 import { formatId } from '@/lib/formatId';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
 import SortableTableHead from '@/components/SortableTableHead.vue';
-import DatePicker from '@/components/DatePicker.vue';
 import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
 
 interface SignaturePart {
@@ -98,8 +99,17 @@ const filteredProperties = computed(() => {
   return classProperties.value.filter(property => [property.name, property.aliases, property.owner, property.type, property.id, formatId(property.id), property.visibility, property.package]
     .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(query)));
 });
+const attributeCount = computed(() => attributesLoaded.value
+  ? attributes.value.length
+  : includeInheritedAttributes.value ? details.value?.inheritedAttributeCount ?? 0 : details.value?.attributeCount ?? 0);
+const methodCount = computed(() => methodsLoaded.value
+  ? methods.value.length
+  : includeInheritedMethods.value ? details.value?.inheritedMethodCount ?? 0 : details.value?.methodCount ?? 0);
+const propertyCount = computed(() => classPropertiesLoaded.value
+  ? classProperties.value.length
+  : includeInheritedProperties.value ? details.value?.inheritedPropertyCount ?? 0 : details.value?.propertyCount ?? 0);
 const sortedProperties = computed(() => sortedRows(filteredProperties.value, propertySortKey.value, propertySortDirection.value, (row, key) => row[key as keyof ClassProperty]));
-const virtualRowHeight = 24;
+const virtualRowHeight = 32;
 const virtualOverscan = 12;
 const attributeScrollTop = ref(0);
 const attributeViewportHeight = ref(600);
@@ -405,156 +415,119 @@ vscode.postMessage({ command: 'classDetailsReady' });
 </script>
 
 <template>
-  <main v-if="details" class="flex h-screen min-h-0 flex-col p-1">
-    <Tabs :model-value="activeTab" class="min-h-0 flex-1 gap-1" @update:model-value="onTabChange">
-      <TabsList variant="line">
-        <TabsTrigger value="class">Класс</TabsTrigger>
-        <TabsTrigger value="attributes">Атрибуты</TabsTrigger>
-        <TabsTrigger value="methods">Методы</TabsTrigger>
-        <TabsTrigger value="properties">Свойства</TabsTrigger>
+  <main v-if="details" class="flex h-screen min-h-0 min-w-0 flex-col gap-4 p-3 sm:p-5">
+    <header class="flex shrink-0 flex-wrap items-center justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted"><HugeiconsIcon :icon="Layers01Icon" class="size-5 text-kind-class" /></div>
+        <div class="min-w-0"><h1 class="truncate text-lg font-semibold" :title="details.name">{{ details.name }}</h1><p class="truncate text-xs text-muted-foreground">{{ details.title || 'Структура и метаданные класса' }}</p></div>
+      </div>
+      <EntityContextMenu :entity-id="details.id" entity-type="Класс" :view-objects-class-id="!details.virtual && details.dbtablename ? details.id : undefined">
+        <div class="flex flex-wrap items-center gap-2"><Badge variant="class">Класс</Badge><Badge variant="outline">ID {{ formatId(details.id) }}</Badge><Badge v-if="details.virtual" variant="secondary">Виртуальный</Badge></div>
+      </EntityContextMenu>
+    </header>
+    <Tabs :model-value="activeTab" class="min-h-0 min-w-0 flex-1 gap-3" @update:model-value="onTabChange">
+      <TabsList class="h-auto min-h-8 max-w-full shrink-0 flex-wrap">
+        <TabsTrigger value="class">Обзор</TabsTrigger>
+        <TabsTrigger value="attributes">Атрибуты <Badge variant="attribute">{{ attributeCount }}</Badge></TabsTrigger>
+        <TabsTrigger value="methods">Методы <Badge variant="method">{{ methodCount }}</Badge></TabsTrigger>
+        <TabsTrigger value="properties">Свойства <Badge variant="secondary">{{ propertyCount }}</Badge></TabsTrigger>
       </TabsList>
       <EntityContextMenu :entity-id="details.id" entity-type="Класс" :view-objects-class-id="!details.virtual && details.dbtablename ? details.id : undefined">
-      <TabsContent value="class" class="flex max-w-4xl flex-col gap-2 p-1">
-        <FieldGroup class="grid gap-x-5 gap-y-2 lg:grid-cols-2">
-          <FieldGroup class="gap-2">
-            <FieldGroup class="gap-1">
-              <Field v-for="[label, key] in fieldColumns[0]" :key="`${label}-${key}`" orientation="horizontal" class="gap-2">
-                <FieldLabel :for="`class-${key}-${label}`" class="w-28 shrink-0 flex-none">{{ label }}</FieldLabel>
-                <Input :id="`class-${key}-${label}`" :model-value="displayClassField(key, details[key])" class="h-6" readonly />
+      <TabsContent value="class" class="min-h-0 flex-1 overflow-auto p-0.5">
+        <div class="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(240px,0.7fr)]">
+          <Card v-for="(column, index) in fieldColumns" :key="index" class="min-w-0">
+            <CardHeader><CardTitle>{{ index === 0 ? 'Основное' : 'Хранение и связи' }}</CardTitle><CardDescription>{{ index === 0 ? 'Имена и выражения отображения' : 'Таблица, связанные классы и целостность' }}</CardDescription></CardHeader>
+            <CardContent><FieldGroup class="gap-3">
+              <Field v-for="[label, key] in column" :key="`${label}-${key}`" class="gap-1.5">
+                <FieldLabel :for="`class-${key}-${label}`">{{ label }}</FieldLabel>
+                <Input :id="`class-${key}-${label}`" :model-value="displayClassField(key, details[key])" readonly />
               </Field>
-            </FieldGroup>
-
-            <FieldSet class="gap-1">
-              <FieldLegend>Свойства</FieldLegend>
-              <FieldGroup class="grid grid-cols-3 gap-x-2 gap-y-0.5">
-                <Field v-for="[label, key] in properties" :key="key" orientation="horizontal" class="gap-1" data-disabled>
-                  <Checkbox :id="`property-${key}`" :model-value="Boolean(details[key])" disabled />
-                  <FieldLabel :for="`property-${key}`">{{ label }}</FieldLabel>
-                </Field>
-              </FieldGroup>
-            </FieldSet>
-          </FieldGroup>
-
-          <FieldGroup class="gap-1">
-            <Field v-for="[label, key] in fieldColumns[1]" :key="`${label}-${key}`" orientation="horizontal" class="gap-2">
-              <FieldLabel :for="`class-${key}-${label}`" class="w-36 shrink-0 flex-none">{{ label }}</FieldLabel>
-              <Input :id="`class-${key}-${label}`" :model-value="displayClassField(key, details[key])" class="h-6" readonly />
-            </Field>
-          </FieldGroup>
-        </FieldGroup>
-
-        <FieldSet class="gap-1">
-          <FieldLegend>Описание</FieldLegend>
-          <FieldGroup class="gap-1">
-            <Field>
-              <Textarea readonly placeholder="Описание отсутствует" class="min-h-16" />
-            </Field>
-          </FieldGroup>
-        </FieldSet>
+            </FieldGroup></CardContent>
+          </Card>
+          <Card class="min-w-0">
+            <CardHeader><CardTitle>Поведение</CardTitle><CardDescription>Свойства класса · только чтение</CardDescription></CardHeader>
+            <CardContent><FieldSet><FieldLegend class="sr-only">Свойства класса</FieldLegend><FieldGroup class="gap-3">
+              <Field v-for="[label, key] in properties" :key="key" orientation="horizontal" data-disabled>
+                <Checkbox :id="`property-${key}`" :model-value="Boolean(details[key])" disabled />
+                <FieldLabel :for="`property-${key}`">{{ label }}</FieldLabel>
+              </Field>
+            </FieldGroup></FieldSet></CardContent>
+          </Card>
+        </div>
       </TabsContent>
 
-      <TabsContent value="properties" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
-        <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
-          <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать свойства родительских классов">
-            <Checkbox
-              :model-value="includeInheritedProperties"
-              :disabled="classPropertiesLoading"
-              @update:model-value="toggleInheritedProperties"
-            />
-            <span aria-hidden="true">↥</span>
-            Наследуемые свойства
-          </label>
-          <Input v-model="propertySearchQuery" type="search" class="h-6 w-64 shrink-0" placeholder="Быстрый поиск…" aria-label="Поиск свойства" />
-        </div>
-        <div class="text-[0.625rem] text-muted-foreground">Показаны скриптовые свойства из Properties. Бинарные RTTI-свойства доступны только внутри клиента.</div>
-        <Table v-if="classPropertiesLoading || sortedProperties.length" container-class="min-h-0 flex-1 overflow-auto">
-          <TableHeader class="sticky top-0 z-10 bg-background"><TableRow>
-            <SortableTableHead class="h-6 min-w-56 px-1" :active="propertySortKey === 'name'" :direction="propertySortDirection" @sort="sortProperties('name')">Имя</SortableTableHead>
-            <SortableTableHead class="h-6 min-w-40 px-1" :active="propertySortKey === 'aliases'" :direction="propertySortDirection" @sort="sortProperties('aliases')">Псевдоним</SortableTableHead>
-            <SortableTableHead class="h-6 min-w-40 px-1" :active="propertySortKey === 'owner'" :direction="propertySortDirection" @sort="sortProperties('owner')">Владелец</SortableTableHead>
-            <SortableTableHead class="h-6 min-w-32 px-1" :active="propertySortKey === 'type'" :direction="propertySortDirection" @sort="sortProperties('type')">Тип</SortableTableHead>
-            <SortableTableHead class="h-6 min-w-28 px-1" :active="propertySortKey === 'readOnly'" :direction="propertySortDirection" @sort="sortProperties('readOnly')">Только чтение</SortableTableHead>
-            <SortableTableHead class="h-6 min-w-28 px-1" :active="propertySortKey === 'id'" :direction="propertySortDirection" @sort="sortProperties('id')">ID</SortableTableHead>
-            <SortableTableHead class="h-6 min-w-28 px-1" :active="propertySortKey === 'visibility'" :direction="propertySortDirection" @sort="sortProperties('visibility')">Видимость</SortableTableHead>
-            <SortableTableHead class="h-6 min-w-40 px-1" :active="propertySortKey === 'package'" :direction="propertySortDirection" @sort="sortProperties('package')">Пакет</SortableTableHead>
+      <TabsContent value="properties" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
+        <MemberToolbar title="Свойства" description="Скриптовые свойства класса. Бинарные RTTI-свойства доступны в клиенте." :count="filteredProperties.length" :loading="classPropertiesLoading" :inherited="includeInheritedProperties" v-model:search="propertySearchQuery" @inherited-change="toggleInheritedProperties" />
+        <Table v-if="classPropertiesLoading || sortedProperties.length" container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card">
+          <TableHeader class="sticky top-0 z-10 bg-card"><TableRow>
+            <SortableTableHead class="h-9 min-w-56 px-1" :active="propertySortKey === 'name'" :direction="propertySortDirection" @sort="sortProperties('name')">Имя</SortableTableHead>
+            <SortableTableHead class="h-9 min-w-40 px-1" :active="propertySortKey === 'aliases'" :direction="propertySortDirection" @sort="sortProperties('aliases')">Псевдоним</SortableTableHead>
+            <SortableTableHead class="h-9 min-w-40 px-1" :active="propertySortKey === 'owner'" :direction="propertySortDirection" @sort="sortProperties('owner')">Владелец</SortableTableHead>
+            <SortableTableHead class="h-9 min-w-32 px-1" :active="propertySortKey === 'type'" :direction="propertySortDirection" @sort="sortProperties('type')">Тип</SortableTableHead>
+            <SortableTableHead class="h-9 min-w-28 px-1" :active="propertySortKey === 'readOnly'" :direction="propertySortDirection" @sort="sortProperties('readOnly')">Только чтение</SortableTableHead>
+            <SortableTableHead class="h-9 min-w-28 px-1" :active="propertySortKey === 'id'" :direction="propertySortDirection" @sort="sortProperties('id')">ID</SortableTableHead>
+            <SortableTableHead class="h-9 min-w-28 px-1" :active="propertySortKey === 'visibility'" :direction="propertySortDirection" @sort="sortProperties('visibility')">Видимость</SortableTableHead>
+            <SortableTableHead class="h-9 min-w-40 px-1" :active="propertySortKey === 'package'" :direction="propertySortDirection" @sort="sortProperties('package')">Пакет</SortableTableHead>
           </TableRow></TableHeader>
           <TableBody>
-            <template v-if="classPropertiesLoading"><TableRow v-for="row in 8" :key="row"><TableCell v-for="column in 8" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell></TableRow></template>
+            <template v-if="classPropertiesLoading"><TableRow v-for="row in 8" :key="row"><TableCell v-for="column in 8" :key="column" class="px-3 py-1"><Skeleton class="h-4 w-full" /></TableCell></TableRow></template>
             <EntityContextMenu v-for="property in classPropertiesLoading ? [] : sortedProperties" :key="property.id" :entity-id="property.id" entity-type="Свойство" edit @edit="openProperty(property)" @properties="viewEntityProperties(property.id)">
-              <TableRow :data-entity-id="property.id" class="cursor-default" title="Двойной щелчок — открыть карточку свойства" @dblclick="openProperty(property)">
-                <TableCell class="max-w-64 px-1 py-0.5" :title="property.name"><span v-if="property.inherited" class="mr-1 text-muted-foreground" title="Наследуемое свойство">↥</span>{{ property.name }}</TableCell>
-                <TableCell class="max-w-48 truncate px-1 py-0.5" :title="property.aliases">{{ property.aliases }}</TableCell>
-                <TableCell class="max-w-48 truncate px-1 py-0.5" :title="property.owner">{{ property.owner }}</TableCell>
-                <TableCell class="px-1 py-0.5">{{ property.type }}</TableCell>
-                <TableCell class="px-1 py-0.5">{{ property.readOnly ? 'Да' : '' }}</TableCell>
-                <TableCell class="px-1 py-0.5">{{ formatId(property.id) }}</TableCell>
-                <TableCell class="px-1 py-0.5">{{ property.visibility }}</TableCell>
-                <TableCell class="max-w-48 truncate px-1 py-0.5" :title="property.package">{{ property.package }}</TableCell>
+              <TableRow :data-entity-id="property.id" class="h-8 cursor-default" title="Двойной щелчок — открыть карточку свойства" @dblclick="openProperty(property)">
+                <TableCell class="max-w-64 px-3 py-1" :title="property.name"><span v-if="property.inherited" class="mr-1 text-muted-foreground" title="Наследуемое свойство">↥</span>{{ property.name }}</TableCell>
+                <TableCell class="max-w-48 truncate px-3 py-1" :title="property.aliases">{{ property.aliases }}</TableCell>
+                <TableCell class="max-w-48 truncate px-3 py-1" :title="property.owner">{{ property.owner }}</TableCell>
+                <TableCell class="px-3 py-1"><Badge variant="secondary">{{ property.type }}</Badge></TableCell>
+                <TableCell class="px-3 py-1">{{ property.readOnly ? 'Да' : '' }}</TableCell>
+                <TableCell class="px-3 py-1">{{ formatId(property.id) }}</TableCell>
+                <TableCell class="px-3 py-1">{{ property.visibility }}</TableCell>
+                <TableCell class="max-w-48 truncate px-3 py-1" :title="property.package">{{ property.package }}</TableCell>
               </TableRow>
             </EntityContextMenu>
           </TableBody>
-          <TableFooter v-if="classPropertiesLoaded" class="sticky bottom-0 z-10 bg-background"><TableRow><TableCell :colspan="8" class="h-5 px-1 py-0 text-right text-[0.625rem] font-normal text-muted-foreground">Строк: {{ filteredProperties.length }}</TableCell></TableRow></TableFooter>
+          <TableFooter v-if="classPropertiesLoaded" class="sticky bottom-0 z-10 bg-card"><TableRow><TableCell :colspan="8" class="h-5 px-1 py-0 text-right text-[0.625rem] font-normal text-muted-foreground">Строк: {{ filteredProperties.length }}</TableCell></TableRow></TableFooter>
         </Table>
         <Empty v-else-if="classPropertiesError" class="min-h-0 py-8"><EmptyHeader><EmptyTitle>Не удалось загрузить свойства</EmptyTitle><EmptyDescription>{{ classPropertiesError }}</EmptyDescription></EmptyHeader></Empty>
         <Empty v-else-if="classPropertiesLoaded" class="min-h-0 py-8"><EmptyHeader><EmptyTitle>Свойства не найдены</EmptyTitle><EmptyDescription>{{ propertySearchQuery.trim() ? 'Очистите строку поиска.' : 'Для этого класса нет скриптовых свойств.' }}</EmptyDescription></EmptyHeader></Empty>
       </TabsContent>
       </EntityContextMenu>
 
-      <TabsContent value="attributes" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
-        <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
-          <div class="flex shrink-0 items-center gap-2">
-            <Button size="sm" @click="createAttribute"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать</Button>
-            <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать атрибуты родительских классов">
-            <Checkbox
-              :model-value="includeInheritedAttributes"
-              :disabled="attributesLoading"
-              @update:model-value="toggleInheritedAttributes"
-            />
-            <span aria-hidden="true">↥</span>
-            Наследуемые атрибуты
-            </label>
-          </div>
-          <div class="flex shrink-0 flex-nowrap items-center justify-end gap-1">
-            <Input v-model="attributeCreatorQuery" type="search" class="h-6 w-44" placeholder="Создатель…" aria-label="Фильтр атрибутов по создателю" />
-            <DatePicker v-model="attributeDateFrom" label="Дата обновления атрибута с" title="Дата обновления с" />
-            <span class="text-xs text-muted-foreground">—</span>
-            <DatePicker v-model="attributeDateTo" label="Дата обновления атрибута по" title="Дата обновления по" />
-            <Input v-model="attributeSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск атрибута…" aria-label="Поиск атрибута по имени, сигнатуре, владельцу или ID" />
-          </div>
-        </div>
-        <Table :key="`attributes-${includeInheritedAttributes}`" v-if="attributesLoading || filteredAttributes.length > 0" container-class="min-h-0 flex-1 overflow-auto" @scroll="trackVirtualScroll('attributes', $event)">
-          <TableHeader class="sticky top-0 z-10 bg-background">
+      <TabsContent value="attributes" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
+        <MemberToolbar title="Атрибуты" description="Поля данных, типы и наследование" :count="filteredAttributes.length" :loading="attributesLoading" :inherited="includeInheritedAttributes" advanced v-model:search="attributeSearchQuery" v-model:creator="attributeCreatorQuery" v-model:date-from="attributeDateFrom" v-model:date-to="attributeDateTo" @inherited-change="toggleInheritedAttributes">
+          <Button size="sm" @click="createAttribute"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать атрибут</Button>
+        </MemberToolbar>
+        <Table :key="`attributes-${includeInheritedAttributes}`" v-if="attributesLoading || filteredAttributes.length > 0" container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" @scroll="trackVirtualScroll('attributes', $event)">
+          <TableHeader class="sticky top-0 z-10 bg-card">
             <TableRow>
-              <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="attributeSortKey === key" :direction="attributeSortDirection" @sort="sortAttributes(key)">{{ label }}</SortableTableHead>
+              <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-9 px-3" :active="attributeSortKey === key" :direction="attributeSortDirection" @sort="sortAttributes(key)">{{ label }}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <template v-if="attributesLoading">
               <TableRow v-for="row in 8" :key="row">
-                <TableCell v-for="column in tableColumns.length" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
+                <TableCell v-for="column in tableColumns.length" :key="column" class="px-3 py-1"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
             <TableRow v-if="!attributesLoading && attributeVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${attributeVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
             <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id" entity-type="Атрибут" edit @edit="openAttribute(attribute)" @properties="viewEntityProperties(attribute.id)">
-            <TableRow :data-entity-id="attribute.id" class="cursor-default" title="Двойной щелчок — открыть карточку атрибута" @dblclick="openAttribute(attribute)">
-              <TableCell class="max-w-64 px-1 py-0.5" :title="attribute.name">
+            <TableRow :data-entity-id="attribute.id" class="h-8 cursor-default" title="Двойной щелчок — открыть карточку атрибута" @dblclick="openAttribute(attribute)">
+              <TableCell class="max-w-64 px-3 py-1" :title="attribute.name">
                 <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
                 <span class="truncate">{{ attribute.name }}</span>
               </TableCell>
-              <TableCell class="max-w-56 truncate px-1 py-0.5" :title="attribute.owner">{{ attribute.owner }}</TableCell>
-              <TableCell class="max-w-96 truncate px-1 py-0.5" :title="attribute.signature">{{ attribute.signature }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ attribute.type }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ formatId(attribute.id) }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ attribute.visibility }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ attribute.package }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ attribute.line }}</TableCell>
-              <TableCell class="whitespace-nowrap px-1 py-0.5">{{ formatDate(attribute.updatedAt) }}</TableCell>
-              <TableCell class="max-w-64 truncate px-1 py-0.5" :title="attribute.createdBy">{{ attribute.createdBy }}</TableCell>
+              <TableCell class="max-w-56 truncate px-3 py-1" :title="attribute.owner">{{ attribute.owner }}</TableCell>
+              <TableCell class="max-w-96 truncate px-3 py-1" :title="attribute.signature">{{ attribute.signature }}</TableCell>
+              <TableCell class="px-3 py-1"><Badge variant="attribute">{{ attribute.type }}</Badge></TableCell>
+              <TableCell class="px-3 py-1">{{ formatId(attribute.id) }}</TableCell>
+              <TableCell class="px-3 py-1">{{ attribute.visibility }}</TableCell>
+              <TableCell class="px-3 py-1">{{ attribute.package }}</TableCell>
+              <TableCell class="px-3 py-1">{{ attribute.line }}</TableCell>
+              <TableCell class="whitespace-nowrap px-3 py-1">{{ formatDate(attribute.updatedAt) }}</TableCell>
+              <TableCell class="max-w-64 truncate px-3 py-1" :title="attribute.createdBy">{{ attribute.createdBy }}</TableCell>
             </TableRow>
             </EntityContextMenu>
             <TableRow v-if="!attributesLoading && attributeVirtualRange.end < sortedAttributes.length" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${(sortedAttributes.length - attributeVirtualRange.end) * virtualRowHeight}px` }" /></TableRow>
           </TableBody>
-          <TableFooter v-if="attributesLoaded" class="sticky bottom-0 z-10 bg-background">
+          <TableFooter v-if="attributesLoaded" class="sticky bottom-0 z-10 bg-card">
             <TableRow>
               <TableCell :colspan="tableColumns.length" class="h-5 px-1 py-0 text-right text-[0.625rem] font-normal text-muted-foreground">
                 Строк: {{ filteredAttributes.length }}
@@ -574,65 +547,47 @@ vscode.postMessage({ command: 'classDetailsReady' });
         </Empty>
       </TabsContent>
 
-      <TabsContent value="methods" class="flex min-h-0 flex-1 flex-col gap-1 p-1">
-        <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
-          <div class="flex shrink-0 items-center gap-2">
-            <Button size="sm" @click="createMethod"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать</Button>
-            <label class="flex w-fit shrink-0 items-center gap-1 text-xs" title="Показать методы родительских классов">
-              <Checkbox
-                :model-value="includeInheritedMethods"
-                :disabled="methodsLoading"
-                @update:model-value="toggleInheritedMethods"
-              />
-              <span aria-hidden="true">↥</span>
-              Наследуемые методы
-            </label>
-          </div>
-          <div class="flex shrink-0 flex-nowrap items-center justify-end gap-1">
-            <Input v-model="methodCreatorQuery" type="search" class="h-6 w-44" placeholder="Создатель…" aria-label="Фильтр методов по создателю" />
-            <DatePicker v-model="methodDateFrom" label="Дата обновления метода с" title="Дата обновления с" />
-            <span class="text-xs text-muted-foreground">—</span>
-            <DatePicker v-model="methodDateTo" label="Дата обновления метода по" title="Дата обновления по" />
-            <Input v-model="methodSearchQuery" type="search" class="h-6 w-56" placeholder="Поиск метода…" aria-label="Поиск метода по имени, сигнатуре, владельцу или ID" />
-          </div>
-        </div>
-        <Table :key="`methods-${includeInheritedMethods}`" v-if="methodsLoading || filteredMethods.length > 0" data-method-table container-class="min-h-0 flex-1 overflow-auto" @scroll="trackVirtualScroll('methods', $event)">
-          <TableHeader class="sticky top-0 z-10 bg-background">
+      <TabsContent value="methods" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
+        <MemberToolbar title="Методы" description="Двойной щелчок по строке открывает код метода" :count="filteredMethods.length" :loading="methodsLoading" :inherited="includeInheritedMethods" advanced v-model:search="methodSearchQuery" v-model:creator="methodCreatorQuery" v-model:date-from="methodDateFrom" v-model:date-to="methodDateTo" @inherited-change="toggleInheritedMethods">
+          <Button size="sm" @click="createMethod"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать метод</Button>
+        </MemberToolbar>
+        <Table :key="`methods-${includeInheritedMethods}`" v-if="methodsLoading || filteredMethods.length > 0" data-method-table container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" @scroll="trackVirtualScroll('methods', $event)">
+          <TableHeader class="sticky top-0 z-10 bg-card">
             <TableRow>
-              <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-6 px-1" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
+              <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-9 px-3" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <template v-if="methodsLoading">
               <TableRow v-for="row in 8" :key="row">
-                <TableCell v-for="column in tableColumns.length" :key="column" class="px-1 py-0.5"><Skeleton class="h-4 w-full" /></TableCell>
+                <TableCell v-for="column in tableColumns.length" :key="column" class="px-3 py-1"><Skeleton class="h-4 w-full" /></TableCell>
               </TableRow>
             </template>
             <TableRow v-if="!methodsLoading && methodVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${methodVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
             <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" entity-type="Метод" edit svn @edit="openMethod(method)" @properties="viewEntityProperties(method.id)" @svn-action="methodSvnAction(method, $event)">
-            <TableRow :data-entity-id="method.id" class="cursor-default" :data-row-selected="method.id === revealedMethodId ? '' : undefined" :aria-selected="method.id === revealedMethodId ? 'true' : undefined" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
-              <TableCell class="max-w-64 px-1 py-0.5" :title="method.name">
+            <TableRow :data-entity-id="method.id" class="h-8 cursor-default" :data-row-selected="method.id === revealedMethodId ? '' : undefined" :aria-selected="method.id === revealedMethodId ? 'true' : undefined" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
+              <TableCell class="max-w-64 px-3 py-1" :title="method.name">
                 <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>
                 <span class="truncate">{{ method.name }}</span>
               </TableCell>
-              <TableCell class="max-w-56 truncate px-1 py-0.5" :title="method.owner">{{ method.owner }}</TableCell>
-              <TableCell class="max-w-96 px-1 py-0.5" :title="method.signature">
+              <TableCell class="max-w-56 truncate px-3 py-1" :title="method.owner">{{ method.owner }}</TableCell>
+              <TableCell class="max-w-96 px-3 py-1" :title="method.signature">
                 <span class="block truncate font-mono text-xs">
                   <span v-for="(part, index) in signatureParts(method.signature)" :key="index" :class="signaturePartClass(part.kind)">{{ part.text }}</span>
                 </span>
               </TableCell>
-              <TableCell class="px-1 py-0.5">{{ method.type }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ formatId(method.id) }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ method.visibility }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ method.package }}</TableCell>
-              <TableCell class="px-1 py-0.5">{{ method.line }}</TableCell>
-              <TableCell class="whitespace-nowrap px-1 py-0.5">{{ formatDate(method.updatedAt) }}</TableCell>
-              <TableCell class="max-w-64 truncate px-1 py-0.5" :title="method.createdBy">{{ method.createdBy }}</TableCell>
+              <TableCell class="px-3 py-1"><Badge variant="method">{{ method.type }}</Badge></TableCell>
+              <TableCell class="px-3 py-1">{{ formatId(method.id) }}</TableCell>
+              <TableCell class="px-3 py-1">{{ method.visibility }}</TableCell>
+              <TableCell class="px-3 py-1">{{ method.package }}</TableCell>
+              <TableCell class="px-3 py-1">{{ method.line }}</TableCell>
+              <TableCell class="whitespace-nowrap px-3 py-1">{{ formatDate(method.updatedAt) }}</TableCell>
+              <TableCell class="max-w-64 truncate px-3 py-1" :title="method.createdBy">{{ method.createdBy }}</TableCell>
             </TableRow>
             </EntityContextMenu>
             <TableRow v-if="!methodsLoading && methodVirtualRange.end < sortedMethods.length" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${(sortedMethods.length - methodVirtualRange.end) * virtualRowHeight}px` }" /></TableRow>
           </TableBody>
-          <TableFooter v-if="methodsLoaded" class="sticky bottom-0 z-10 bg-background">
+          <TableFooter v-if="methodsLoaded" class="sticky bottom-0 z-10 bg-card">
             <TableRow>
               <TableCell :colspan="tableColumns.length" class="h-5 px-1 py-0 text-right text-[0.625rem] font-normal text-muted-foreground">
                 Строк: {{ filteredMethods.length }}
@@ -657,6 +612,6 @@ vscode.postMessage({ command: 'classDetailsReady' });
 </template>
 
 <style scoped>
-.signature-parameter { color: var(--vscode-symbolIcon-variableForeground, var(--primary)); }
-.signature-type { color: var(--vscode-symbolIcon-classForeground, var(--foreground)); }
+.signature-parameter { color: var(--kind-attribute); }
+.signature-type { color: var(--kind-class); }
 </style>

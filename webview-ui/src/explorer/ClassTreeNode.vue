@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight01Icon, BrowserIcon, CodeIcon, DatabaseIcon, Message01Icon } from '@hugeicons/core-free-icons';
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, ref, watchEffect } from 'vue';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
+import { classAppearance } from './classAppearance';
 
 export interface TreeNode {
   id: number | string;
@@ -29,6 +30,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ selectClass: [id: number] }>();
 const open = ref(props.initiallyOpen);
 const hasChildren = computed(() => props.node.children.length > 0);
+const appearance = computed(() => classAppearance(props.node));
 let clickTimer: number | undefined;
 
 watchEffect(() => {
@@ -57,7 +59,7 @@ function openClass(pinned: boolean): void {
       :view-objects-class-id="node.kind === 'class' && !node.virtual && node.dbtablename && typeof node.id === 'number' ? node.id : undefined"
       copy-shortcut="Ctrl+C"
     >
-      <div class="group flex min-h-7 min-w-full items-center whitespace-nowrap hover:bg-accent">
+      <div class="group flex min-h-7 min-w-full items-center whitespace-nowrap rounded-md hover:bg-accent">
         <CollapsibleTrigger as-child>
           <Button variant="ghost" size="icon-xs" :disabled="!hasChildren" :aria-label="open ? 'Свернуть' : 'Развернуть'" class="shrink-0 disabled:opacity-0">
             <HugeiconsIcon :icon="ArrowRight01Icon" data-icon="inline-start" class="transition-transform" :class="{ 'rotate-90': open }" />
@@ -69,23 +71,21 @@ function openClass(pinned: boolean): void {
           :class="cn(
             'h-7 flex-1 justify-start px-1 font-normal',
             node.kind === 'class' && node.id === selectedClassId && (explorerActive
-              ? 'bg-primary/15 text-primary hover:bg-primary/20'
+              ? 'bg-primary/15 text-foreground hover:bg-primary/20'
               : 'bg-muted text-muted-foreground hover:bg-muted'),
           )"
           :aria-current="node.kind === 'class' && node.id === selectedClassId ? 'page' : undefined"
           :data-class-id="node.kind === 'class' ? node.id : undefined"
+          :title="`${node.name} · ${appearance.label}${node.entityId ? ` · ID ${node.entityId}` : ''}`"
           @click="openClass(false)"
           @dblclick="openClass(true)"
         >
-		  <HugeiconsIcon v-if="node.kind === 'class' && node.hasDfm" :icon="BrowserIcon" data-icon="inline-start" class="text-[var(--vscode-charts-orange)]" />
-		  <HugeiconsIcon v-else-if="node.kind === 'class' || node.kind === 'root'" :icon="CodeIcon" data-icon="inline-start" />
-          <HugeiconsIcon v-else-if="node.kind === 'comment'" :icon="Message01Icon" data-icon="inline-start" />
-          <HugeiconsIcon v-else :icon="DatabaseIcon" data-icon="inline-start" />
+          <HugeiconsIcon :icon="appearance.icon" data-icon="inline-start" :class="appearance.color" />
           <span>{{ node.name }}</span>
         </Button>
       </div>
     </EntityContextMenu>
-    <CollapsibleContent v-if="hasChildren" class="pl-4">
+    <CollapsibleContent v-if="hasChildren" class="ml-2.5 border-l border-border/60 pl-1.5">
       <ClassTreeNode
         v-for="child in node.children"
         :key="child.id"

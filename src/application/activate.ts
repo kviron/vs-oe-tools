@@ -254,9 +254,12 @@ export async function activate(context: vscode.ExtensionContext) {
 				authorization ??= extractCapturedAuthorization(capture);
 				if (key && personId && authorization) { break; }
 			}
-			if (!key && !personId) { void vscode.window.showErrorMessage('В захватах не найдены настройки клиентской сессии OENP.'); return false; }
+			if (!key) {
+				void vscode.window.showErrorMessage('В выбранном захвате не найден новый ключ клиентской сессии OENP. Начните захват до подключения клиента и импортируйте файл повторно.');
+				return false;
+			}
 			const configuration = vscode.workspace.getConfiguration('vcVeTools');
-			if (key) { await configuration.update('productionClientSessionKey', key, vscode.ConfigurationTarget.Workspace); }
+			await configuration.update('productionClientSessionKey', key, vscode.ConfigurationTarget.Workspace);
 			if (personId) { await configuration.update('productionPersonId', personId, vscode.ConfigurationTarget.Workspace); }
 			if (authorization) { await context.secrets.store(productionAuthorizationReferenceKey, JSON.stringify(authorization)); }
 			extensionLogger.info('Production Tasks', 'Настройки из захвата импортированы.', { checkedCaptureFiles: captures.size, importedSessionKey: Boolean(key), importedPersonId: Boolean(personId), foundAuthorizationReference: Boolean(authorization) });

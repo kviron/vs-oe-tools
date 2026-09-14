@@ -1,7 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.requireSingleMetaOwner = requireSingleMetaOwner;
 exports.serializePkfMetaFile = serializePkfMetaFile;
 const visibilityOrder = ['private', 'protected', 'public', 'published'];
+function requireSingleMetaOwner(ownerIds, fileId) {
+    const unique = [...new Set(ownerIds.filter(Number.isSafeInteger))];
+    if (unique.length === 1) {
+        return unique[0];
+    }
+    if (!unique.length) {
+        throw new Error(`Не удалось определить класс-владелец meta-PKF SysFile ${fileId}.`);
+    }
+    throw new Error(`Meta-PKF SysFile ${fileId} содержит члены разных классов: ${unique.join(', ')}.`);
+}
 function serializePkfMetaFile(metaClass, members, newline = '\r\n') {
     const modifiers = metaClass.isVirtual ? 'virtual ' : '';
     const classMetadata = [

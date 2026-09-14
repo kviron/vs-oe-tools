@@ -50,6 +50,11 @@ class ProductionTasksPanelManager {
     static viewType = 'vc-ve-tools.productionTasks';
     panel;
     tasks = new Map();
+    userFilter;
+    refreshPromise;
+    refreshRevision = 0;
+    tasksPublished = false;
+    openingTasks = new Set();
     constructor(extensionUri, getOptions, openTask, importSessionKey, setPassword, logger, openLog) {
         this.extensionUri = extensionUri;
         this.getOptions = getOptions;
@@ -81,10 +86,7 @@ class ProductionTasksPanelManager {
                 return;
             }
             if (message.command === 'openProductionTask') {
-                const task = this.tasks.get(message.id);
-                if (task) {
-                    this.openTask(task);
-                }
+                void this.openTaskById(message.id);
                 return;
             }
             if (message.command === 'openProductionTaskInClient') {
@@ -94,13 +96,13 @@ class ProductionTasksPanelManager {
             }
             if (message.command === 'importProductionSessionKey') {
                 void this.importSessionKey().then(imported => { if (imported) {
-                    void this.refresh();
+                    void this.refresh(this.userFilter, true);
                 } });
                 return;
             }
             if (message.command === 'setProductionTasksPassword') {
                 void this.setPassword().then(changed => { if (changed) {
-                    void this.refresh();
+                    void this.refresh(this.userFilter, true);
                 } });
                 return;
             }
@@ -108,21 +110,86 @@ class ProductionTasksPanelManager {
                 this.openLog();
                 return;
             }
-            void this.refresh();
+            if (message.command === 'productionTasksReady') {
+                // Opening or restoring the panel always starts with the signed-in user,
+                // including older webviews that send a saved all-users filter.
+                this.userFilter = undefined;
+                void this.refresh(undefined, true);
+                return;
+            }
+            void this.refresh(message.userFilter);
         });
-        panel.onDidDispose(() => { this.panel = undefined; this.tasks.clear(); });
+        panel.onDidDispose(() => { this.panel = undefined; this.userFilter = undefined; this.refreshRevision++; this.tasks.clear(); });
     }
-    async refresh() {
-        await this.post({ command: 'productionTasksLoading' });
-        this.logger.info('Панель запросила обновление списка задач.');
+    refresh(userFilter = this.userFilter, force = false) {
+        if (this.refreshPromise && userFilter === this.userFilter && !force && !this.tasksPublished) {
+            return this.refreshPromise;
+        }
+        this.userFilter = userFilter;
+        this.refreshRevision++;
+        this.refreshPromise ??= this.refreshLatest().finally(() => { this.refreshPromise = undefined; });
+        return this.refreshPromise;
+    }
+    async refreshLatest() {
+        while (this.panel) {
+            const revision = this.refreshRevision;
+            const panel = this.panel;
+            this.tasksPublished = false;
+            await this.post({ command: 'productionTasksLoading' });
+            this.logger.info('Панель запросила обновление списка задач.', { userFilter: this.userFilter ?? 'current' });
+            try {
+                const options = await this.getOptions();
+                if (revision !== this.refreshRevision || panel !== this.panel) {
+                    continue;
+                }
+                const result = await (0, productionTasksRepository_1.loadProductionTaskList)(options, this.userFilter, this.logger, async (loaded) => {
+                    if (revision !== this.refreshRevision || panel !== this.panel) {
+                        return;
+                    }
+                    this.userFilter = loaded.userFilter;
+                    this.tasks = new Map(loaded.tasks.map(task => [task.id, task]));
+                    this.tasksPublished = true;
+                    await this.post({ command: 'productionTasksLoaded', ...loaded, loadedAt: new Date().toISOString(), currentPersonId: options.personId });
+                });
+                if (revision !== this.refreshRevision || panel !== this.panel) {
+                    continue;
+                }
+                await this.post({ command: 'productionTaskUsersLoaded', users: result.users });
+            }
+            catch (error) {
+                if (revision !== this.refreshRevision || panel !== this.panel) {
+                    continue;
+                }
+                this.logger.error('Не удалось обновить список задач.', error);
+                await this.post({ command: 'productionTasksFailed', message: error instanceof Error ? error.message : String(error) });
+            }
+            if (revision === this.refreshRevision) {
+                return;
+            }
+        }
+    }
+    async openTaskById(id) {
+        if (!this.tasks.has(id) || this.openingTasks.has(id)) {
+            return;
+        }
+        this.openingTasks.add(id);
         try {
-            const tasks = await (0, productionTasksRepository_1.loadProductionTasks)(await this.getOptions(), this.logger);
-            this.tasks = new Map(tasks.map(task => [task.id, task]));
-            await this.post({ command: 'productionTasksLoaded', tasks, loadedAt: new Date().toISOString() });
+            await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: 'Загрузка карточки задачи…' }, async () => {
+                const task = await (0, productionTasksRepository_1.loadProductionTaskById)(await this.getOptions(), id, this.logger);
+                if (task) {
+                    this.openTask(task);
+                }
+                else {
+                    void vscode.window.showInformationMessage(`Задача ${id} не найдена.`);
+                }
+            });
         }
         catch (error) {
-            this.logger.error('Не удалось обновить список задач.', error);
-            await this.post({ command: 'productionTasksFailed', message: error instanceof Error ? error.message : String(error) });
+            this.logger.error('Не удалось загрузить карточку задачи.', error);
+            void vscode.window.showErrorMessage(`Не удалось открыть задачу ${id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        finally {
+            this.openingTasks.delete(id);
         }
     }
     dispose() { this.panel?.dispose(); this.tasks.clear(); }

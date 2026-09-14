@@ -11,3 +11,5 @@ debug.log
 *.pcapng
 oesqlmon*.sqdb
 sql-result-*.csv
+/.playwright-cli/
+/output/playwright/

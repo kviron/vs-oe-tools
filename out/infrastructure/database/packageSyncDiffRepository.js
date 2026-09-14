@@ -107,11 +107,21 @@ async function loadPackageDatabaseVersion(item, fileName) {
     }, undefined, 'vc-ve-tools-package-diff');
 }
 async function loadMetaPkf(client, database, fileId) {
+    const ownerResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+        text: `SELECT DISTINCT OwnerID AS id FROM (
+			 SELECT C.ID AS OwnerID FROM Abstract A JOIN Classes C ON C.ID = A.ID WHERE A.SysFile = $1
+			 UNION ALL SELECT Attr.SeniorID AS OwnerID FROM Abstract A JOIN Attributes Attr ON Attr.ID = A.ID WHERE A.SysFile = $1
+			 UNION ALL SELECT M.SeniorID AS OwnerID FROM Abstract A JOIN Methods M ON M.ID = A.ID WHERE A.SysFile = $1
+			 UNION ALL SELECT Attr.SeniorID AS OwnerID FROM Abstract A JOIN DfltValues D ON D.ID = A.ID JOIN Attributes Attr ON Attr.ID = D.AttrID WHERE A.SysFile = $1
+		) Owners WHERE OwnerID IS NOT NULL ORDER BY OwnerID`,
+        values: [fileId], source: 'Синхронизация пакетов: корневой класс meta-PKF', database,
+    });
+    const ownerId = (0, pkfMetaReconstruction_1.requireSingleMetaOwner)(ownerResult.rows.map(row => Number(row.id)), fileId);
     const classResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
         text: `SELECT C.ID AS id, C.Name AS name, C.Aliases AS aliases, Parent.Name AS parentname,
 			 C.Virtual AS virtual, C.CacheObjClass AS cacheobjclass, C.RefIntegrityCheck AS refintegritycheck
 			 FROM Abstract A JOIN Classes C ON C.ID = A.ID LEFT JOIN Abstract Parent ON Parent.ID = C.SeniorID
-			 WHERE A.SysFile = $1 ORDER BY C.ID`, values: [fileId], source: 'Синхронизация пакетов: класс нового meta-PKF', database,
+			 WHERE C.ID = $1`, values: [ownerId], source: 'Синхронизация пакетов: класс meta-PKF', database,
     });
     const attributeResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
         text: `SELECT Attr.ID AS id, Attr.Name AS name, Attr.Aliases AS aliases, Attr.Visibility AS visibility,
@@ -133,7 +143,7 @@ async function loadMetaPkf(client, database, fileId) {
         values: [fileId], source: 'Синхронизация пакетов: методы нового meta-PKF', database,
     });
     if (classResult.rows.length !== 1) {
-        throw new Error(`Ожидался один корневой класс meta-PKF, найдено: ${classResult.rows.length}.`);
+        throw new Error(`Класс ID ${ownerId} для meta-PKF SysFile ${fileId} не найден.`);
     }
     if (attributeResult.rows.some(row => Number(row.attrtype) !== 330 || !row.valueclassname)) {
         throw new Error('Новый meta-PKF содержит атрибут не поддержанного декларативного типа.');

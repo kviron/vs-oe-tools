@@ -4,6 +4,28 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.3.0] - 2026-09-14
+
+### Added
+
+- Added a production-task workspace with responsible-user, status, project, priority, work-type, release, and overdue filters, configurable columns, summary metrics, and compact semantic badges.
+- Added full production-task history details in an accessible modal opened from a history row, while keeping task and history tables single-line and scannable.
+- Added HTTP API parameter documentation, reference-type hints, strict date/time controls, improved validation, and navigation from a selected method to its database object.
+- Added eager class member counters, reusable class-member filtering controls, and distinct colored appearances for class groups in Explorer.
+
+### Changed
+
+- Redesigned Settings, HTTP API, production tasks, task details, class details, class objects, Explorer, and Package Sync around the shared compact shadcn-vue design system.
+- Optimized production-task loading with a list-specific read-only query, server-side responsible-user filtering, independent user lookup, direct task-card loading, and longer query timeouts.
+- Kept class detail panels alive while hidden and loaded tab counters with the class card so counts remain stable before and after tab navigation.
+- Updated Hugeicons to 4.3.3 for the expanded semantic icon set.
+
+### Fixed
+
+- Fixed Package Sync database reconstruction for member-only meta-PKF files by resolving their owning class before serialization.
+- Fixed production session import so a capture without a fresh client session key cannot silently replace only partial authentication data.
+- Improved HTTP API handling for documented reference parameters and invalid calendar dates.
+
 ## [0.2.0] - 2026-09-14
 
 ### Added

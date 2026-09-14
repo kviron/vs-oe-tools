@@ -57,7 +57,6 @@ function clearDate(): void {
         :model-value="date"
         :default-placeholder="date"
         locale="ru-RU"
-        layout="month-and-year"
         @update:model-value="selectDate($event, close)"
       />
       <div v-if="date" class="border-t p-1">

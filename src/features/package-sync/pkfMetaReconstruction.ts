@@ -47,6 +47,13 @@ export type PkfMetaMember = PkfMetaAttribute | PkfMetaDefaultValue | PkfMetaMeth
 
 const visibilityOrder: MetaVisibility[] = ['private', 'protected', 'public', 'published'];
 
+export function requireSingleMetaOwner(ownerIds: readonly number[], fileId: number): number {
+	const unique = [...new Set(ownerIds.filter(Number.isSafeInteger))];
+	if (unique.length === 1) {return unique[0]!;}
+	if (!unique.length) {throw new Error(`Не удалось определить класс-владелец meta-PKF SysFile ${fileId}.`);}
+	throw new Error(`Meta-PKF SysFile ${fileId} содержит члены разных классов: ${unique.join(', ')}.`);
+}
+
 export function serializePkfMetaFile(metaClass: PkfMetaClass, members: readonly PkfMetaMember[], newline = '\r\n'): string {
 	const modifiers = metaClass.isVirtual ? 'virtual ' : '';
 	const classMetadata = [

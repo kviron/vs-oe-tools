@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -16,8 +17,9 @@ import { vscode } from '@/vscode';
 import ClassTreeNode, { type TreeNode } from './ClassTreeNode.vue';
 import PackageTreeNode from './PackageTreeNode.vue';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
-import { ArrowDown01Icon, BrowserIcon } from '@hugeicons/core-free-icons';
+import { Archive01Icon, ArrowDown01Icon, CodeIcon, DatabaseIcon, InformationCircleIcon, Search01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
+import { classAppearance, classAppearances } from './classAppearance';
 
 const activeTab = ref('packages');
 const packages = ref<PackageSummary[]>([]);
@@ -89,7 +91,7 @@ const classTree = computed<TreeNode>(() => {
     if (parent && parent !== node) parent.children.push(node);
     else roots.push(node);
   }
-  return { id: 'root', name: 'Root', kind: 'root', children: roots.length === 1 ? roots[0].children : roots };
+  return { id: 'root', name: 'Классы', kind: 'root', children: roots.length === 1 ? roots[0].children : roots };
 });
 
 function loadClasses(): void {
@@ -391,10 +393,10 @@ vscode.postMessage({ command: 'explorerReady' });
 
 <template>
   <Tabs :model-value="activeTab" class="h-screen min-h-0 min-w-0 overflow-hidden gap-0" @update:model-value="onTabChange">
-    <TabsList variant="line" class="relative z-20 w-full shrink-0 border-b bg-muted px-1">
-      <TabsTrigger value="packages" class="flex-1">Пакеты</TabsTrigger>
-      <TabsTrigger value="objects" class="flex-1">Объекты</TabsTrigger>
-      <TabsTrigger value="classes" class="flex-1">Классы</TabsTrigger>
+    <TabsList variant="line" class="w-full shrink-0 border-b px-2">
+      <TabsTrigger value="packages" class="flex-1"><HugeiconsIcon :icon="Archive01Icon" />Пакеты</TabsTrigger>
+      <TabsTrigger value="objects" class="flex-1"><HugeiconsIcon :icon="DatabaseIcon" />Объекты</TabsTrigger>
+      <TabsTrigger value="classes" class="flex-1"><HugeiconsIcon :icon="CodeIcon" />Классы</TabsTrigger>
     </TabsList>
     <TabsContent value="packages" class="min-h-0 min-w-0 overflow-hidden">
       <div class="flex h-full min-h-0 min-w-0 flex-col">
@@ -421,8 +423,8 @@ vscode.postMessage({ command: 'explorerReady' });
     </TabsContent>
     <TabsContent value="objects" class="min-h-0 overflow-hidden">
       <div class="flex h-full min-h-0 flex-col">
-        <div class="shrink-0 border-b bg-background p-1">
-          <Input v-model="objectSearchQuery" type="search" class="h-7 bg-background dark:bg-background" placeholder="ID или имя любого объекта" aria-label="Поиск объекта по ID или имени" @keydown.enter.prevent="searchDatabaseObjects()" />
+        <div class="shrink-0 border-b p-2">
+          <InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput v-model="objectSearchQuery" type="search" placeholder="ID или имя объекта…" aria-label="Поиск объекта по ID или имени" @keydown.enter.prevent="searchDatabaseObjects()" /></InputGroup>
         </div>
         <div v-if="objectSearchLoading" class="flex flex-col gap-1 p-1">
           <Skeleton v-for="index in 6" :key="index" class="h-10 w-full" />
@@ -473,33 +475,37 @@ vscode.postMessage({ command: 'explorerReady' });
       <Empty v-else-if="error" class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Не удалось загрузить классы</EmptyTitle><EmptyDescription>{{ error }}</EmptyDescription></EmptyHeader></Empty>
       <Empty v-else-if="loaded && classes.length === 0" class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Классы не найдены</EmptyTitle><EmptyDescription>База данных не вернула доступных классов.</EmptyDescription></EmptyHeader></Empty>
       <template v-else-if="loaded">
-        <div class="z-10 shrink-0 border-b bg-background p-1">
-          <Input
+        <div class="flex shrink-0 flex-col gap-2 border-b p-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-medium">Дерево классов <span class="ml-1 text-muted-foreground">{{ classes.length.toLocaleString('ru-RU') }}</span></span>
+            <Popover><PopoverTrigger as-child><Button variant="ghost" size="icon-xs" aria-label="Обозначения классов" title="Обозначения классов"><HugeiconsIcon :icon="InformationCircleIcon" /></Button></PopoverTrigger><PopoverContent align="end" class="w-60"><PopoverHeader><PopoverTitle>Обозначения</PopoverTitle><PopoverDescription>Значки одинаковы в дереве и поиске.</PopoverDescription></PopoverHeader><div class="mt-3 flex flex-col gap-2"><div v-for="appearance in classAppearances" :key="appearance.label" class="flex items-center gap-2 text-xs"><HugeiconsIcon :icon="appearance.icon" :class="cn('size-4', appearance.color)" /><span>{{ appearance.label }}</span></div></div></PopoverContent></Popover>
+          </div>
+          <InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput
             ref="classSearchInput"
             type="search"
-            class="h-7 bg-background dark:bg-background"
-            placeholder="Поиск класса по названию или ID"
+            placeholder="Название или ID класса…"
             aria-label="Поиск класса по названию или ID"
             @input="onClassSearchInput"
             @keydown.enter.prevent="searchClasses"
-          />
+          /></InputGroup>
         </div>
         <div v-if="normalizedSearchQuery" class="flex min-h-0 flex-1 flex-col overflow-auto p-1">
 		  <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" entity-type="Класс" :class-id="item.hasDfm ? item.id : undefined" :view-objects-class-id="!item.virtual && item.dbtablename ? item.id : undefined" copy-shortcut="Ctrl+C">
-          <button
-            type="button"
-            class="flex min-h-7 items-center gap-2 px-2 text-left hover:bg-accent"
+          <Button
+            variant="ghost"
+            class="min-h-8 w-full justify-start gap-2 px-2"
             :class="cn(item.id === selectedClassId && (explorerActive
-              ? 'bg-primary/15 text-primary hover:bg-primary/20'
+              ? 'bg-primary/15 text-foreground hover:bg-primary/20'
               : 'bg-muted text-muted-foreground hover:bg-muted'))"
-            :title="`${item.name} — ${item.id}`"
+            :title="`${item.name} · ${classAppearance(item).label} · ID ${item.id}`"
+            :aria-current="item.id === selectedClassId ? 'page' : undefined"
             @click="selectSearchResult(item, false)"
             @dblclick="selectSearchResult(item, true)"
           >
-			<HugeiconsIcon v-if="item.hasDfm" :icon="BrowserIcon" data-icon="inline-start" class="text-[var(--vscode-charts-orange)]" />
+            <HugeiconsIcon :icon="classAppearance(item).icon" data-icon="inline-start" :class="classAppearance(item).color" />
             <span class="min-w-0 flex-1 truncate">{{ item.name }}</span>
             <span class="shrink-0 text-xs text-muted-foreground">{{ item.id }}</span>
-          </button>
+          </Button>
 		  </EntityContextMenu>
           <Empty v-if="searchResults.length === 0" class="min-h-0 py-6">
             <EmptyHeader><EmptyTitle>Совпадений нет</EmptyTitle><EmptyDescription>Измените название или ID класса.</EmptyDescription></EmptyHeader>

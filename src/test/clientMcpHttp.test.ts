@@ -5,16 +5,24 @@ import { callClientMcpTool, getClientMcpHealth, listClientMcpTools, stopClientMc
 suite('East Express client HTTP MCP', () => {
 	let server: Server;
 	let baseUrl: string;
+	let lastToolCallMethod: string | undefined;
+	let lastStopMethod: string | undefined;
 
 	suiteSetup(async () => {
-		server = createServer((request, response) => {
+		server = createServer(async (request, response) => {
 			const url = new URL(request.url ?? '/', 'http://localhost');
+			if (request.method !== 'GET') {
+				response.statusCode = 501;
+				response.end();
+				return;
+			}
 			response.setHeader('content-type', 'application/json; charset=utf-8');
 			if (url.pathname === '/health') {
 				response.end(JSON.stringify({ status: 'ok', database: 'oetrunk' }));
 				return;
 			}
 			if (url.pathname === '/stop') {
+				lastStopMethod = request.method;
 				response.end(JSON.stringify({ status: 'stopping' }));
 				return;
 			}
@@ -29,6 +37,7 @@ suite('East Express client HTTP MCP', () => {
 				return;
 			}
 			if (url.pathname === '/tools/call') {
+				lastToolCallMethod = request.method;
 				const name = url.searchParams.get('name');
 				const argumentsValue = JSON.parse(url.searchParams.get('arguments') ?? '{}') as Record<string, unknown>;
 				response.end(JSON.stringify({ content: [{ type: 'text', text: `${name}:${String(argumentsValue.Query)}` }] }));
@@ -63,11 +72,24 @@ suite('East Express client HTTP MCP', () => {
 
 	test('requests shutdown through the client HTTP endpoint', async () => {
 		await stopClientMcpServer(baseUrl);
+		assert.equal(lastStopMethod, 'GET');
 	});
 
-	test('passes the tool name and JSON arguments through query parameters', async () => {
+	test('sends the tool name and JSON arguments through the native GET contract', async () => {
 		const result = await callClientMcpTool('validate_sql', { Query: 'SELECT 1' }, baseUrl);
 		assert.deepEqual(result, { content: [{ type: 'text', text: 'validate_sql:SELECT 1' }] });
+		assert.equal(lastToolCallMethod, 'GET');
+	});
+
+	test('rejects arguments that are too large for a URL', async () => {
+		const query = 'Ж'.repeat(20_000);
+		await assert.rejects(() => callClientMcpTool('validate_sql', { Query: query }, baseUrl), /слишком велики/);
+	});
+
+	test('preserves Cyrillic and reserved characters in GET arguments', async () => {
+		const query = "SELECT 'Привет & + ? # = %'";
+		const result = await callClientMcpTool('validate_sql', { Query: query }, baseUrl);
+		assert.deepEqual(result, { content: [{ type: 'text', text: `validate_sql:${query}` }] });
 	});
 
 	test('reports an unreachable client server with its address', async () => {

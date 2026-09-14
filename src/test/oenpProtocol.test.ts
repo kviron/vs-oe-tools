@@ -26,6 +26,7 @@ suite('OENP protocol', () => {
 		assert.match(productionTaskSql, /FROM HistoryLC H WHERE H\.ID = T0\.LCLastActionID/);
 		assert.match(productionTaskSql, /CAST\(\(SELECT COUNT\(SF\.ID\)[\s\S]+AS VARCHAR\(64\)\), '0'\) AS attachmentcount/);
 		assert.match(productionTaskSql, /P\.ID = T0\.RespPerson\), ''\) AS responsibleuser/);
+		assert.match(productionTaskSql, /T0\.RespPerson, 0\) AS responsibleuserid/);
 		assert.equal(productionTaskSql.includes('%CurPerson'), false);
 		assert.equal(productionTaskSql.includes('LIMIT 250'), false);
 		assert.match(productionTaskSql, /ORDER BY T0\.CreDate DESC, T0\.ID DESC$/);
@@ -106,6 +107,9 @@ suite('OENP protocol', () => {
 		const response = Buffer.from('4f454e502900000006000000002500000020413836463744313639334539313838464233374142413935373644383038444300000000', 'hex');
 		assert.equal(parseChallenge(response), 'A86F7D1693E9188FB37ABA9576D808DC');
 		assert.equal(extractClientSessionKey(Buffer.concat([Buffer.from([1, 2, 3]), packet])), '00112233445566778899aabbccddeeff');
+		const reconnected = createInitialPacket('ffeeddccbbaa99887766554433221100');
+		reconnected.writeUInt32LE(42, 8);
+		assert.equal(extractClientSessionKey(Buffer.concat([reconnected, packet])), 'ffeeddccbbaa99887766554433221100');
 		const personRecord = Buffer.concat([Buffer.from('CurPerson', 'utf16le'), Buffer.from('080009000000', 'hex'), Buffer.from('123456789', 'utf16le')]);
 		assert.equal(extractCurrentPersonId(personRecord), 123456789);
 	});

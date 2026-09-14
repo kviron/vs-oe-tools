@@ -64,12 +64,12 @@ export async function callClientMcpTool(
 	if (!toolName) { throw new Error('Имя клиентского MCP-инструмента не задано.'); }
 
 	const url = createUrl(baseUrl, 'tools/call');
+	// The native wHttpListener currently accepts GET requests only.
 	url.searchParams.set('name', toolName);
 	url.searchParams.set('arguments', JSON.stringify(argumentsValue));
 	if (url.href.length > maximumRequestUrlLength) {
 		throw new Error(`Параметры клиентского MCP слишком велики для HTTP API (${url.href.length} символов).`);
 	}
-
 	const response = await requestJson<ClientMcpCallResult>(url);
 	if (!response || !Array.isArray(response.content)
 		|| !response.content.every(item => item?.type === 'text' && typeof item.text === 'string')) {

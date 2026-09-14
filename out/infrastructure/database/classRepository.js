@@ -107,7 +107,20 @@ async function getClassDetails(id) {
     return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         let classDetails;
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-            text: `SELECT class.*, child.name AS childclassname, parent.name AS parentclassname
+            text: `WITH RECURSIVE class_chain AS (
+				 SELECT id, seniorid, ARRAY[id] AS path FROM classes WHERE id = $1
+				 UNION ALL
+				 SELECT parent.id, parent.seniorid, chain.path || parent.id
+				 FROM classes AS parent JOIN class_chain AS chain ON chain.seniorid = parent.id
+				 WHERE NOT parent.id = ANY(chain.path)
+			 )
+			 SELECT class.*, child.name AS childclassname, parent.name AS parentclassname,
+			   (SELECT COUNT(*)::integer FROM attributes WHERE seniorid = class.id) AS "attributeCount",
+			   (SELECT COUNT(DISTINCT upper(attribute.name))::integer FROM attributes AS attribute JOIN class_chain AS chain ON chain.id = attribute.seniorid) AS "inheritedAttributeCount",
+			   (SELECT COUNT(*)::integer FROM methods WHERE seniorid = class.id) AS "methodCount",
+			   (SELECT COUNT(DISTINCT upper(method.name))::integer FROM methods AS method JOIN class_chain AS chain ON chain.id = method.seniorid) AS "inheritedMethodCount",
+			   (SELECT COUNT(*)::integer FROM properties WHERE seniorid = class.id) AS "propertyCount",
+			   (SELECT COUNT(DISTINCT upper(property.name))::integer FROM properties AS property JOIN class_chain AS chain ON chain.id = property.seniorid) AS "inheritedPropertyCount"
 			 FROM classes AS class
 			 LEFT JOIN classes AS child ON child.id = class.childclassid
 			 LEFT JOIN classes AS parent ON parent.id = class.parentclassid

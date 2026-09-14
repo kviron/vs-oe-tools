@@ -39,7 +39,11 @@ function isProductionTasksWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
     }
-    return message.command === 'productionTasksReady' || message.command === 'refreshProductionTasks' || message.command === 'importProductionSessionKey'
+    if (message.command === 'productionTasksReady' || message.command === 'refreshProductionTasks') {
+        return !('userFilter' in message) || message.userFilter === undefined
+            || (typeof message.userFilter === 'string' && message.userFilter.length <= 1000);
+    }
+    return message.command === 'importProductionSessionKey'
         || message.command === 'setProductionTasksPassword'
         || message.command === 'openProductionTasksLog'
         || (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')

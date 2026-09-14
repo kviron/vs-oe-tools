@@ -57,7 +57,7 @@ function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetail
 		'vc-ve-tools.classDetails',
 		`Класс ${classDetails.name}`,
 		{ viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned },
-		{ enableScripts: true, localResourceRoots: [assetsRoot] },
+		{ enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true },
 	);
 	panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
 	const entry: ClassDetailPanel = { panel, pinned, details: classDetails, activeTab, ready: false, attributeIncludeInherited: false, methodIncludeInherited: false };

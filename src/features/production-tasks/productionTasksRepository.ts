@@ -2,9 +2,12 @@ import { createHash } from 'node:crypto';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import iconv from 'iconv-lite';
-import type { CapturedAuthorization, ProductionConnectionOptions, ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTasksLogger, ProductionTaskSummary } from './models';
+import type { CapturedAuthorization, ProductionConnectionOptions, ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskListItem, ProductionTasksLogger, ProductionTaskSummary, ProductionTaskUser } from './models';
 import { createChallengePacket, createClientReadyPacket, createClientVersionPacket, createDatabaseProbePacket, createInitialPacket, createLoginPacket, createProtocolInitPacket, createReadonlyQueryPacket, expectedPacketLength, parseChallenge, parseMemoryDataPacket, readOenpError } from './oenpProtocol';
 import type { MemoryDataRow } from './oenpProtocol';
+
+const protocolTimeoutMs = 15_000;
+const readonlyQueryTimeoutMs = 60_000;
 
 const productionTaskSelectSql = `SELECT T0.ID AS id,
   COALESCE(CAST(T0.DNumber AS VARCHAR(64)), '') AS number,
@@ -27,6 +30,7 @@ const productionTaskSelectSql = `SELECT T0.ID AS id,
     CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Executor), '') AS executor,
   COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
     CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.RespPerson), '') AS responsibleuser,
+  COALESCE(T0.RespPerson, 0) AS responsibleuserid,
   COALESCE((SELECT CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
     CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)) FROM Persons P WHERE P.ID = T0.Controller), '') AS reviewer,
   COALESCE(CAST(T0.Mantis AS VARCHAR(1000)), '') AS appeal,
@@ -53,6 +57,60 @@ LEFT JOIN StateLC SO1 ON SO1.ID=T0.LCStateID`;
 
 export const productionTaskSql = `${productionTaskSelectSql}
 ORDER BY T0.CreDate DESC, T0.ID DESC`;
+
+// The table does not need the full card's comments, lifecycle history, news sections,
+// or all participant names. Keep these expensive fields in the exact-task query.
+const productionTaskListSelectSql = `SELECT T0.ID AS id,
+  COALESCE(CAST(T0.DNumber AS VARCHAR(64)), '') AS number,
+  COALESCE(CAST(S.FName AS VARCHAR(250)), '') AS state,
+  COALESCE(CAST(left(T0.Description, 6000) AS VARCHAR(6000)), '') AS title,
+  COALESCE(CAST(DateToStrFmt(T0.CreDate, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS created,
+  COALESCE(CAST(DateToStrFmt(T0.Deadline, 'dd.mm.yyyy hh:mm:ss') AS VARCHAR(32)), '') AS deadline,
+  COALESCE(CAST(W.FName AS VARCHAR(250)), '') AS worktype,
+  CAST(COALESCE((SELECT string_agg(CAST(PD.Description AS VARCHAR(6000)), ', ')
+    FROM ProjectDoc PD
+    WHERE commagetpos((SELECT R.Refs FROM GETREFOBJECTS(T0.ID, 8927966, 8927510) R), PD.ID) > -1), '') AS VARCHAR(6000)) AS project,
+  COALESCE(CAST(TrimAll(COALESCE(E.Fam || ' ', '') || COALESCE(E.Im || ' ', '') ||
+    CASE WHEN E.WithoutPatro <> 0 THEN '' ELSE COALESCE(E.Ot, '') END) AS VARCHAR(1000)), '') AS executor,
+  COALESCE(CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)), '') AS responsibleuser,
+  COALESCE(T0.RespPerson, 0) AS responsibleuserid,
+  COALESCE(CAST(T0.Mantis AS VARCHAR(1000)), '') AS appeal,
+  COALESCE(CAST(T0.PackageOfWork AS VARCHAR(250)), '') AS packagename,
+  COALESCE(CAST(PR.Name AS VARCHAR(250)), '') AS priority,
+  COALESCE(CAST(RL.ReleaseByDigits AS VARCHAR(64)), '') AS releaseplan,
+  COALESCE(CAST((SELECT COUNT(SF.ID) FROM StoredFiles SF
+    WHERE SF.SeniorID = T0.ID OR SF.RootObj = T0.ID OR SF.MainStoredFile IN
+      (SELECT PSF.ID FROM StoredFiles PSF WHERE PSF.SeniorID = T0.ID OR PSF.RootObj = T0.ID)) AS VARCHAR(64)), '0') AS attachmentcount
+FROM WorkDoc T0
+LEFT JOIN StateLC S ON S.ID = T0.LCStateID
+LEFT JOIN TypeWork W ON W.ID = T0.Tip
+LEFT JOIN Persons E ON E.ID = T0.Executor
+LEFT JOIN Persons P ON P.ID = T0.RespPerson
+LEFT JOIN Enum PR ON PR.ID = T0.Priority
+LEFT JOIN URRelease RL ON RL.ID = T0.ReleasePlan`;
+
+export function productionTaskListSql(responsiblePersonId?: number): string {
+	if (responsiblePersonId !== undefined && (!Number.isSafeInteger(responsiblePersonId) || responsiblePersonId <= 0)) {
+		throw new Error('ID ответственного должен быть положительным целым числом.');
+	}
+	const where = responsiblePersonId === undefined ? '' : `\nWHERE T0.RespPerson = ${responsiblePersonId}`;
+	return `${productionTaskListSelectSql}${where}\nORDER BY T0.CreDate DESC, T0.ID DESC`;
+}
+
+// Load the selector independently of task cards, so every responsible user remains
+// available even when the table is filtered to the signed-in person.
+export const productionTaskUsersSql = `SELECT P.ID AS id,
+  COALESCE(CAST(TrimAll(COALESCE(P.Fam || ' ', '') || COALESCE(P.Im || ' ', '') ||
+    CASE WHEN P.WithoutPatro <> 0 THEN '' ELSE COALESCE(P.Ot, '') END) AS VARCHAR(1000)), '') AS name
+FROM Persons P
+WHERE EXISTS (SELECT T.ID FROM WorkDoc T WHERE T.RespPerson = P.ID)
+ORDER BY name, P.ID`;
+
+export function productionTaskByIdSql(id: number): string {
+	if (!Number.isSafeInteger(id) || id <= 0) { throw new Error('ID задачи должен быть положительным целым числом.'); }
+	return `${productionTaskSelectSql}\nWHERE T0.ID = ${id}\nLIMIT 1`;
+}
 
 export function productionTaskReferenceSql(reference: number): string {
 	if (!Number.isSafeInteger(reference) || reference <= 0) {
@@ -177,7 +235,7 @@ export async function loadProductionTaskActions(
 		stage = 'авторизация для действий';
 		await exchangeLogged(connection, createLoginPacket(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
 		stage = 'запрос действий задачи';
-		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskActionsSql(taskId), options.personId), stage, logger);
+		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskActionsSql(taskId), options.personId), stage, logger, true, readonlyQueryTimeoutMs);
 		stage = 'разбор ответа с действиями задачи';
 		const actions = parseMemoryDataPacket(response).map(row => ({
 			id: Number(row.id) >>> 0,
@@ -227,7 +285,7 @@ export async function loadProductionTaskAttachments(
 		stage = 'авторизация для вложений';
 		await exchangeLogged(connection, createLoginPacket(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
 		stage = 'запрос вложений задачи';
-		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskAttachmentsSql(taskId), options.personId), stage, logger);
+		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskAttachmentsSql(taskId), options.personId), stage, logger, true, readonlyQueryTimeoutMs);
 		stage = 'разбор ответа со вложениями задачи';
 		const attachments = parseMemoryDataPacket(response).map(row => ({
 			id: Number(row.id) >>> 0,
@@ -279,7 +337,7 @@ export async function loadProductionTaskHistory(
 		stage = 'авторизация для истории';
 		await exchangeLogged(connection, createLoginPacket(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
 		stage = 'запрос истории задачи';
-		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskHistorySql(taskId), options.personId), stage, logger);
+		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskHistorySql(taskId), options.personId), stage, logger, true, readonlyQueryTimeoutMs);
 		const history = parseMemoryDataPacket(response).map(row => ({
 			id: Number(row.id) >>> 0,
 			createdAt: normalizeProductionDate(text(row.created)),
@@ -302,6 +360,52 @@ export async function loadProductionTasks(options: ProductionConnectionOptions, 
 	return loadProductionTasksWithSql(options, productionTaskSql, 'списка задач', logger);
 }
 
+export async function loadProductionTaskList(
+	options: ProductionConnectionOptions,
+	userFilter: string | undefined,
+	logger?: ProductionTasksLogger,
+	onTasksLoaded?: (result: { tasks: ProductionTaskListItem[]; users: ProductionTaskUser[]; userFilter: string }) => Promise<void>,
+): Promise<{ tasks: ProductionTaskListItem[]; users: ProductionTaskUser[]; userFilter: string }> {
+	return withProductionTaskConnection(options, 'таблицы задач', logger, async connection => {
+		let requestId = 8;
+		const loadUsers = async () => {
+			const response = await exchangeLogged(connection, createReadonlyQueryPacket(requestId++, productionTaskUsersSql, options.personId), 'список ответственных', logger, true, readonlyQueryTimeoutMs);
+			return parseMemoryDataPacket(response).map(row => ({ id: Number(row.id), name: text(row.name) }));
+		};
+		// Older webviews saved a display name instead of a person ID.
+		const legacyUserFilter = Boolean(userFilter && !/^\d+$/.test(userFilter));
+		let users: ProductionTaskUser[] = legacyUserFilter ? await loadUsers() : [];
+		const selectedUser = userFilter === undefined ? String(options.personId)
+			: legacyUserFilter ? String(users.find(user => user.name === userFilter)?.id ?? options.personId) : userFilter;
+		const sql = productionTaskListSql(selectedUser ? Number(selectedUser) : undefined);
+		const response = await exchangeLogged(connection, createReadonlyQueryPacket(requestId++, sql, options.personId), 'запрос строк таблицы задач', logger, true, readonlyQueryTimeoutMs);
+		const tasks = parseMemoryDataPacket(response).map(row => {
+			const task = mapProductionTask(row);
+			return {
+				id: task.id, number: task.number, state: task.state, title: task.title,
+				createdAt: task.createdAt, deadline: task.deadline, workType: task.workType, project: task.project,
+				executor: task.executor, responsibleUser: task.responsibleUser, responsibleUserId: task.responsibleUserId,
+				appeal: task.appeal, packageName: task.packageName, priority: task.priority,
+				releasePlan: task.releasePlan, attachmentCount: task.attachmentCount,
+			};
+		});
+		logger?.info('Строки таблицы задач загружены.', { count: tasks.length, responsiblePersonId: selectedUser || null });
+		if (!legacyUserFilter) {
+			users = [...new Map(tasks.filter(task => task.responsibleUserId > 0).map(task => [task.responsibleUserId, { id: task.responsibleUserId, name: task.responsibleUser }])).values()];
+		}
+		await onTasksLoaded?.({ tasks, users, userFilter: selectedUser });
+		if (!legacyUserFilter) {
+			try { users = await loadUsers(); }
+			catch (error) { logger?.warning('Не удалось догрузить список ответственных. Задачи уже загружены.', errorDetails(error)); }
+		}
+		return { tasks, users, userFilter: selectedUser };
+	});
+}
+
+export async function loadProductionTaskById(options: ProductionConnectionOptions, id: number, logger?: ProductionTasksLogger): Promise<ProductionTaskSummary | undefined> {
+	return (await loadProductionTasksWithSql(options, productionTaskByIdSql(id), 'карточки задачи', logger, { id }))[0];
+}
+
 export async function loadProductionTasksByQuery(
 	options: ProductionConnectionOptions,
 	query: string,
@@ -318,6 +422,20 @@ async function loadProductionTasksWithSql(
 	logger?: ProductionTasksLogger,
 	details?: Record<string, unknown>,
 ): Promise<ProductionTaskSummary[]> {
+	return withProductionTaskConnection(options, requestLabel, logger, async connection => {
+		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, sql, options.personId), `запрос ${requestLabel}`, logger, true, readonlyQueryTimeoutMs);
+		const tasks = parseMemoryDataPacket(response).map(mapProductionTask);
+		logger?.info(`Загрузка ${requestLabel} завершена.`, { count: tasks.length, ...details });
+		return tasks;
+	});
+}
+
+async function withProductionTaskConnection<T>(
+	options: ProductionConnectionOptions,
+	requestLabel: string,
+	logger: ProductionTasksLogger | undefined,
+	run: (connection: OenpConnection) => Promise<T>,
+): Promise<T> {
 	const connection = new OenpConnection(options.host, options.port);
 	const startedAt = Date.now();
 	let stage = 'подключение';
@@ -325,7 +443,6 @@ async function loadProductionTasksWithSql(
 		host: options.host, port: options.port, database: options.database, personId: options.personId,
 		hasUsername: options.username.length > 0, hasPassword: options.password.length > 0,
 		hasClientSessionKey: options.clientSessionKey.length > 0,
-		...details,
 	});
 	const authCompatibility = inspectAuthorizationCompatibility(options);
 	if (authCompatibility) {
@@ -350,12 +467,7 @@ async function loadProductionTasksWithSql(
 		stage = 'авторизация';
 		await exchangeLogged(connection, createLoginPacket(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
 		stage = `запрос ${requestLabel}`;
-		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, sql, options.personId), stage, logger);
-		stage = `разбор ответа ${requestLabel}`;
-		const rows = parseMemoryDataPacket(response);
-		const tasks = rows.map(mapProductionTask);
-		logger?.info(`Загрузка ${requestLabel} завершена.`, { count: tasks.length, elapsedMs: Date.now() - startedAt, ...details });
-		return tasks;
+		return await run(connection);
 	} catch (error) {
 		logger?.error(`Ошибка на этапе «${stage}».`, {
 			...errorDetails(error), elapsedMs: Date.now() - startedAt,
@@ -394,7 +506,7 @@ export async function loadProductionTaskReference(
 		stage = 'авторизация для связанной задачи';
 		await exchangeLogged(connection, createLoginPacket(7, createLoginParameters(options, challenge, authCompatibility?.mode, authCompatibility?.username)), stage, logger, false);
 		stage = 'запрос связанной задачи';
-		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskReferenceSql(reference), options.personId), stage, logger);
+		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskReferenceSql(reference), options.personId), stage, logger, true, readonlyQueryTimeoutMs);
 		const task = parseMemoryDataPacket(response)[0];
 		logger?.info('Связанная задача загружена.', { reference, found: Boolean(task), elapsedMs: Date.now() - startedAt });
 		return task ? mapProductionTask(task) : undefined;
@@ -406,12 +518,12 @@ export async function loadProductionTaskReference(
 	}
 }
 
-async function exchangeLogged(connection: OenpConnection, request: Buffer, stage: string, logger?: ProductionTasksLogger, includeResponseHead = true): Promise<Buffer> {
+async function exchangeLogged(connection: OenpConnection, request: Buffer, stage: string, logger?: ProductionTasksLogger, includeResponseHead = true, timeoutMs = protocolTimeoutMs): Promise<Buffer> {
 	const requestId = request.readUInt32LE(8);
 	const startedAt = Date.now();
 	logger?.info(`OENP: отправлен этап «${stage}».`, { requestId, requestBytes: request.length });
 	try {
-		const response = await connection.exchange(request);
+		const response = await connection.exchange(request, timeoutMs);
 		logger?.info(`OENP: получен ответ на этап «${stage}».`, {
 			requestId, responseRequestId: response.length >= 12 ? response.readUInt32LE(8) : undefined,
 			responseBytes: response.length, packetType: response.length >= 13 ? response[12] : undefined,
@@ -503,7 +615,7 @@ function mapProductionTask(row: MemoryDataRow): ProductionTaskSummary {
 		id: Number(row.id) >>> 0, number: text(row.number), state: text(row.state), title: text(row.title),
 		createdAt: normalizeProductionDate(text(row.created)), deadline: normalizeProductionDate(text(row.deadline)),
 		activityKind: text(row.activitykind), workType: text(row.worktype), project: decodeProductionText(row.project),
-		author: text(row.author), manager: text(row.manager), analyst: text(row.analyst), executor: text(row.executor), responsibleUser: text(row.responsibleuser), reviewer: text(row.reviewer),
+		author: text(row.author), manager: text(row.manager), analyst: text(row.analyst), executor: text(row.executor), responsibleUser: text(row.responsibleuser), responsibleUserId: Number(row.responsibleuserid) || 0, reviewer: text(row.reviewer),
 		appeal: text(row.appeal), packageName: text(row.packagename), newsSection: text(row.newssection), priority: text(row.priority), effort: text(row.effort),
 		releasePlan: text(row.releaseplan), releaseActual: text(row.releaseactual), revisionTrunk: text(row.revisiontrunk), revisionBranch: text(row.revisionbranch),
 		attachmentCount: Math.max(0, Number(row.attachmentcount) || 0),
@@ -519,16 +631,17 @@ class OenpConnection {
 		return new Promise((resolve, reject) => {
 			const socket = net.createConnection({ host: this.host, port: this.port });
 			this.socket = socket;
-			socket.setTimeout(15_000);
+			socket.setTimeout(protocolTimeoutMs);
 			socket.once('connect', resolve);
 			socket.once('error', reject);
 			socket.once('timeout', () => reject(new Error(`Тайм-аут подключения к ${this.host}:${this.port}.`)));
 		});
 	}
-	exchange(request: Buffer): Promise<Buffer> {
+	exchange(request: Buffer, timeoutMs = protocolTimeoutMs): Promise<Buffer> {
 		const socket = this.socket;
 		if (!socket) { return Promise.reject(new Error('Соединение OENP не открыто.')); }
 		return new Promise((resolve, reject) => {
+			socket.setTimeout(timeoutMs);
 			let required = 0;
 			const cleanup = () => { socket.off('data', onData); socket.off('error', onError); socket.off('timeout', onTimeout); };
 			const onError = (error: Error) => { cleanup(); reject(error); };

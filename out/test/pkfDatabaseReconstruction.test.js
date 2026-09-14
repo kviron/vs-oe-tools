@@ -37,6 +37,11 @@ const assert = __importStar(require("node:assert/strict"));
 const pkfDatabaseReconstruction_1 = require("../features/package-sync/pkfDatabaseReconstruction");
 const pkfMetaReconstruction_1 = require("../features/package-sync/pkfMetaReconstruction");
 suite('PKF database reconstruction', () => {
+    test('resolves a member-only meta PKF to its owning class', () => {
+        assert.equal((0, pkfMetaReconstruction_1.requireSingleMetaOwner)([3200139, 3200139], 23479325), 3200139);
+        assert.throws(() => (0, pkfMetaReconstruction_1.requireSingleMetaOwner)([], 23479325), /class-owner|класс-владелец/iu);
+        assert.throws(() => (0, pkfMetaReconstruction_1.requireSingleMetaOwner)([3200139, 3200149], 23479325), /3200139, 3200149/u);
+    });
     test('creates a new PKF header from SysFile autogroup metadata', () => {
         assert.equal((0, pkfDatabaseReconstruction_1.createEmptyPkf)('sysPackageUpdate'), "file\r\n  autogroup 'sysPackageUpdate';\r\ndata\r\nend.\r\n");
         assert.equal((0, pkfDatabaseReconstruction_1.createEmptyPkf)(''), 'file\r\ndata\r\nend.\r\n');

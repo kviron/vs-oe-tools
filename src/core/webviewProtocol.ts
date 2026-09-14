@@ -1,7 +1,7 @@
 import type { AttributeDetails, AttributeEditorOptions, ClassAttribute, ClassAttributeDraft, ClassDetails, ClassMethod, ClassObjectColumnSettings, ClassObjectsResult, ClassProperty, ClassTreeRow, ObjectViewResult, PropertyDetails } from '../features/classes/models';
 import type { PackageSyncIssue, PackageSyncItem, SvnConflictContent, SvnMergeResult } from '../features/package-sync/models';
 import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSearch';
-import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../features/production-tasks/models';
+import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskListItem, ProductionTaskSummary, ProductionTaskUser } from '../features/production-tasks/models';
 import type { CreatedSpu, SpuDraft, SpuEditorOptions } from '../features/spu/models';
 import type { SqlCompletionSchema } from '../features/sql-executor/sqlCompletionSchema';
 import type { PackageExplorerNode, PackageFileContent, PackageSummary } from '../features/packages/models';
@@ -29,8 +29,8 @@ export type NativeLogsHostMessage =
 	| { command: 'nativeLogsFailed'; message: string };
 
 export type ProductionTasksWebviewMessage =
-	| { command: 'productionTasksReady' }
-	| { command: 'refreshProductionTasks' }
+	| { command: 'productionTasksReady'; userFilter?: string }
+	| { command: 'refreshProductionTasks'; userFilter?: string }
 	| { command: 'importProductionSessionKey' }
 	| { command: 'setProductionTasksPassword' }
 	| { command: 'openProductionTasksLog' }
@@ -40,7 +40,8 @@ export type ProductionTasksWebviewMessage =
 	| TableSelectionDebugMessage;
 export type ProductionTasksHostMessage =
 	| { command: 'productionTasksLoading' }
-	| { command: 'productionTasksLoaded'; tasks: ProductionTaskSummary[]; loadedAt: string }
+	| { command: 'productionTaskUsersLoaded'; users: ProductionTaskUser[] }
+	| { command: 'productionTasksLoaded'; tasks: ProductionTaskListItem[]; loadedAt: string; currentPersonId: number; users: ProductionTaskUser[]; userFilter: string }
 	| { command: 'productionTasksFailed'; message: string };
 export type ProductionTaskDetailsWebviewMessage =
 	| { command: 'productionTaskDetailsReady' }
@@ -300,7 +301,11 @@ export function isNativeLogsWebviewMessage(message: unknown): message is NativeL
 
 export function isProductionTasksWebviewMessage(message: unknown): message is ProductionTasksWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
-	return message.command === 'productionTasksReady' || message.command === 'refreshProductionTasks' || message.command === 'importProductionSessionKey'
+	if (message.command === 'productionTasksReady' || message.command === 'refreshProductionTasks') {
+		return !('userFilter' in message) || message.userFilter === undefined
+			|| (typeof message.userFilter === 'string' && message.userFilter.length <= 1000);
+	}
+	return message.command === 'importProductionSessionKey'
 		|| message.command === 'setProductionTasksPassword'
 		|| message.command === 'openProductionTasksLog'
 		|| (message.command === 'copyTableCells' && 'text' in message && typeof message.text === 'string')

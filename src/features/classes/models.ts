@@ -78,6 +78,12 @@ export interface ClassTreeRow extends ClassRow {
 }
 
 export interface ClassDetails extends ClassRow {
+	attributeCount: number;
+	inheritedAttributeCount: number;
+	methodCount: number;
+	inheritedMethodCount: number;
+	propertyCount: number;
+	inheritedPropertyCount: number;
 	aliases: string | null;
 	title: string | null;
 	dbtablename: string | null;

@@ -13,6 +13,7 @@ export interface ProductionTaskSummary {
 	analyst: string;
 	executor: string;
 	responsibleUser: string;
+	responsibleUserId: number;
 	reviewer: string;
 	appeal: string;
 	packageName: string;
@@ -28,6 +29,13 @@ export interface ProductionTaskSummary {
 	stateComment: string;
 	stateCommentAuthor: string;
 }
+
+export type ProductionTaskListItem = Pick<ProductionTaskSummary,
+	'id' | 'number' | 'state' | 'title' | 'createdAt' | 'deadline' | 'workType' | 'project'
+	| 'executor' | 'responsibleUser' | 'responsibleUserId' | 'appeal' | 'packageName'
+	| 'priority' | 'releasePlan' | 'attachmentCount'>;
+
+export interface ProductionTaskUser { id: number; name: string }
 
 export interface ProductionTaskAttachment {
 	id: number;

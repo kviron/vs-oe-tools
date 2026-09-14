@@ -41,10 +41,17 @@ export function createInitialPacket(clientSessionKey: string): Buffer {
 }
 
 export function extractClientSessionKey(capture: Buffer): string | undefined {
-	const prefix = Buffer.from('4f454e501700000001000000019d0000', 'hex');
-	const offset = capture.indexOf(prefix);
-	if (offset < 0 || offset + 32 > capture.length) { return undefined; }
-	return capture.subarray(offset + prefix.length, offset + prefix.length + 16).toString('hex');
+	let offset = 0;
+	while ((offset = capture.indexOf('OENP', offset, 'ascii')) >= 0) {
+		if (offset + 32 <= capture.length
+			&& capture.readUInt32LE(offset + 4) === 23
+			&& capture[offset + 12] === 1
+			&& capture.readUInt16LE(offset + 13) === 157) {
+			return capture.subarray(offset + 16, offset + 32).toString('hex');
+		}
+		offset += 4;
+	}
+	return undefined;
 }
 
 export function extractCurrentPersonId(capture: Buffer): number | undefined {
