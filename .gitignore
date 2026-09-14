@@ -7,6 +7,7 @@ src/**/*.js.map
 .tmp-*/
 debug.log
 *.vsix
+/releases/
 *.pcapng
 oesqlmon*.sqdb
 sql-result-*.csv

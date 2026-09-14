@@ -3,6 +3,7 @@
 .tmp-*/**
 debug.log
 *.vsix
+releases/**
 .codex/**
 out/**
 node_modules/**
