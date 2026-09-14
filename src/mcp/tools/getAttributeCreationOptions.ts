@@ -5,7 +5,7 @@ import type { McpToolServer } from '../toolTypes';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('get_attribute_creation_options', {
-		description: 'Read the owner class and valid AttrTypes, visibility, and distribution choices required by create_class_attribute. This tool is read-only and reports the defaults used by the native client capture.',
+		description: 'Read the owner class and valid AttrTypes, visibility, and distribution choices for class attributes. This tool is read-only and reports the defaults used by the native client capture.',
 		inputSchema: {
 			ownerClassId: z.number().int().positive().describe('Class that will own the new attribute'),
 		},

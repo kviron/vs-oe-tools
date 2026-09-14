@@ -21,6 +21,7 @@ const entryNames = [
   'native-logs',
   'code-history',
   'settings',
+  'http-api',
   'spu-editor',
 ] as const;
 

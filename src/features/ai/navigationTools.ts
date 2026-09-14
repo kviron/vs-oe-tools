@@ -23,6 +23,10 @@ export interface NavigationActions {
 	createClassAttribute(draft: ClassAttributeDraft): Promise<Record<string, unknown>>;
 	executeLifecycleMethod(methodId: number, methodParameter: string, database: string, host: string): Promise<Record<string, unknown>>;
 	startClientMcp(database: string, host: string): Promise<Record<string, unknown>>;
+	startHttpTestServer(methodName: string): Promise<Record<string, unknown>>;
+	stopHttpTestServer(): Promise<Record<string, unknown>>;
+	getHttpTestServerStatus(): Promise<Record<string, unknown>>;
+	callHttpTestServer(request: { method: string; methodName?: string; headers?: Record<string, string>; body?: string }): Promise<Record<string, unknown>>;
 	getSvnFileHistory(filePath: string, limit: number): Promise<Record<string, unknown>>;
 	getPackageSyncChanges(query: string | undefined, offset: number, limit: number): Promise<Record<string, unknown>>;
 	getProductionTasks(query: string | undefined, limit: number): Promise<Record<string, unknown>>;

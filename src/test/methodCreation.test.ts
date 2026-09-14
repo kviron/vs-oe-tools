@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import {
+	classProcedureMethodKind,
 	defaultMethodCode,
 	normalizeClassMethodDraft,
 	serializeMethodCreationAuditValues,
@@ -29,6 +30,12 @@ suite('Class method creation', () => {
 		assert.equal(normalized.code, 'proc()\r\nbegin\r\nend;');
 		assert.equal(normalized.signature, '()');
 		assert.doesNotThrow(() => validateClassMethodDraft({ ...captured, code: defaultMethodCode }));
+	});
+
+	test('accepts and preserves an interpreted class procedure', () => {
+		const classProcedure = { ...captured, methodKind: classProcedureMethodKind };
+		assert.doesNotThrow(() => validateClassMethodDraft(classProcedure));
+		assert.match(serializeMethodCreationAuditValues(classProcedure), /1800,6/);
 	});
 
 	test('rejects unsupported method types and invalid names', () => {

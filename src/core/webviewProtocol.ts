@@ -247,6 +247,9 @@ export interface SettingsState {
 	clientMcpToolsError?: string;
 	mcpConnectionCode: string;
 	lastExtensionError?: { timestamp: string; source: string; message: string };
+	httpMethods: Array<{ id: number; name: string; methodId: number; signature: string; description: string }>;
+	httpMethodsError?: string;
+	httpTestServer?: { methodName: string; database: string; url: string; processId?: number };
 }
 export type SettingsWebviewMessage =
 	| { command: 'settingsReady' }
@@ -263,6 +266,12 @@ export type SettingsWebviewMessage =
 	| { command: 'checkClientMcpTools' }
 	| { command: 'startClientMcpServer' }
 	| { command: 'stopClientMcpServer' }
+	| { command: 'executeHttpApiRequest'; method: string; url: string; headers: Record<string, string>; body?: string }
+	| { command: 'startHttpTestServer'; methodName: string }
+	| { command: 'stopHttpTestServer' }
+	| { command: 'searchHttpParameterValues'; parameter: string; typeName: string; query: string }
+	| { command: 'copyHttpApiRequest'; text: string; notification?: string }
+	| { command: 'openDatabaseObjectById'; id: number; target?: 'explorer' | 'object' }
 	| { command: 'testSettingsDatabaseConnection' }
 	| { command: 'copyMcpConnectionCode'; text: string }
 	| { command: 'clearExtensionLogs' };
@@ -273,7 +282,13 @@ export type SettingsHostMessage =
 	| { command: 'clientMcpActionStarted'; action: 'start' | 'stop' }
 	| { command: 'clientMcpActionFinished'; action: 'start' | 'stop'; success: boolean; message: string }
 	| { command: 'clientMcpToolsCheckStarted' }
-	| { command: 'clientMcpToolsCheckFinished'; success: boolean };
+	| { command: 'clientMcpToolsCheckFinished'; success: boolean }
+	| { command: 'httpApiRequestStarted' }
+	| { command: 'httpApiRequestFinished'; success: true; response: { status: number; statusText: string; durationMs: number; headers: Record<string, string>; body: string } }
+	| { command: 'httpApiRequestFinished'; success: false; message: string }
+	| { command: 'httpTestServerActionStarted'; action: 'start' | 'stop' }
+	| { command: 'httpTestServerActionFinished'; action: 'start' | 'stop'; success: boolean; message: string }
+	| { command: 'httpParameterValuesLoaded'; parameter: string; query: string; values: Array<{ id: number; name: string }> };
 export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | NativeLogsWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SvnConflictWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
 
 export function isNativeLogsWebviewMessage(message: unknown): message is NativeLogsWebviewMessage {
@@ -319,8 +334,29 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
 		return false;
 	}
-	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'checkClientMcpTools' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'clearExtensionLogs') {
+	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'checkClientMcpTools' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'stopHttpTestServer' || message.command === 'clearExtensionLogs') {
 		return true;
+	}
+	if (message.command === 'openDatabaseObjectById') {
+		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0
+			&& (!('target' in message) || message.target === 'explorer' || message.target === 'object');
+	}
+	if (message.command === 'executeHttpApiRequest') {
+		return 'method' in message && typeof message.method === 'string'
+			&& 'url' in message && typeof message.url === 'string'
+			&& 'headers' in message && typeof message.headers === 'object' && message.headers !== null
+			&& Object.entries(message.headers).every(([key, value]) => key.length > 0 && typeof value === 'string')
+			&& (!('body' in message) || message.body === undefined || typeof message.body === 'string');
+	}
+	if (message.command === 'startHttpTestServer') { return 'methodName' in message && typeof message.methodName === 'string' && message.methodName.trim().length > 0; }
+	if (message.command === 'searchHttpParameterValues') {
+		return 'parameter' in message && typeof message.parameter === 'string'
+			&& 'typeName' in message && typeof message.typeName === 'string'
+			&& 'query' in message && typeof message.query === 'string';
+	}
+	if (message.command === 'copyHttpApiRequest') {
+		return 'text' in message && typeof message.text === 'string' && message.text.length > 0
+			&& (!('notification' in message) || message.notification === undefined || typeof message.notification === 'string');
 	}
 	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
 		return 'enabled' in message && typeof message.enabled === 'boolean';

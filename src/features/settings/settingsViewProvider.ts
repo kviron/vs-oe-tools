@@ -7,21 +7,27 @@ import { testDatabaseConnection } from '../../infrastructure/database/classRepos
 import type { ExtensionLogService } from '../../infrastructure/logging/extensionLogService';
 import type { McpNavigationConnection } from '../../mcp/registerMcpServer';
 import { getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/clientMcpHttp';
-import { clientMcpMethodIds, startClientMcpProcess } from '../lifecycle/oeStaticMethodExecutor';
+import { clientMcpMethodIds, startClientMcpProcess, startHttpTestServerProcess, type HttpTestServerProcess } from '../lifecycle/oeStaticMethodExecutor';
 import { loadRdboadmDatabases, saveRdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
 import { startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../project/projectCommandService';
 import type { ClientCredentials } from '../project/projectCommandService';
 import { getRegisteredToolCatalog } from '../../mcp/tools';
+import { executeHttpApiRequest, type HttpApiRequest } from '../http-api/httpApiRequest';
+import { loadHttpMethods, searchHttpParameterValues, type HttpMethodDefinition } from '../http-api/httpMethodRepository';
 
 export class SettingsViewProvider implements vscode.Disposable {
 	private static readonly clientMcpToolsCacheKey = 'vcVeTools.clientMcpTools.v1';
 	private panel?: vscode.WebviewPanel;
+	private httpApiPanel?: vscode.WebviewPanel;
 	private clientMcpStatusTimer?: ReturnType<typeof setInterval>;
 	private clientMcpDatabaseSync?: Promise<void>;
 	private clientMcpTools?: SettingsState['clientMcpTools'];
 	private clientMcpToolsDatabase?: string;
 	private clientMcpToolsUpdatedAt?: string;
 	private clientMcpToolsError?: string;
+	private httpMethods: HttpMethodDefinition[] = [];
+	private httpMethodsError?: string;
+	private httpTestServer?: HttpTestServerProcess;
 	private readonly disposables: vscode.Disposable[] = [];
 
 	public constructor(
@@ -95,13 +101,88 @@ export class SettingsViewProvider implements vscode.Disposable {
 		});
 	}
 
+	public showHttpApi(): void {
+		if (this.httpApiPanel) {
+			this.httpApiPanel.reveal(vscode.ViewColumn.Active);
+			void this.postState();
+			return;
+		}
+		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const panel = vscode.window.createWebviewPanel('vc-ve-tools.httpApi', 'HTTP API Восточного Экспресса', vscode.ViewColumn.Active, {
+			enableScripts: true,
+			retainContextWhenHidden: true,
+			localResourceRoots: [assetsRoot],
+		});
+		this.httpApiPanel = panel;
+		panel.webview.html = this.getHtml(panel.webview, assetsRoot, 'http-api', 'HTTP API');
+		panel.webview.onDidReceiveMessage(message => void this.handleMessage(message));
+		panel.onDidChangeViewState(event => {
+			if (event.webviewPanel.visible) { void this.postState(); }
+		});
+		panel.onDidDispose(() => { this.httpApiPanel = undefined; });
+	}
+
 	public refresh(): void {
 		void this.postState();
+	}
+
+	public async startHttpTestServer(methodName: string): Promise<Record<string, unknown>> {
+		await this.refreshHttpMethods();
+		const selected = this.httpMethods.find(item => item.name === methodName);
+		if (methodName !== '*' && !selected) { throw new Error('Выбранный HTTP-метод не найден в текущей базе.'); }
+		await this.httpTestServer?.stop();
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+		if (!workspacePath) { throw new Error('Сначала откройте папку проекта Восточного Экспресса.'); }
+		const options = await getProjectDatabaseOptions();
+		this.httpTestServer = await startHttpTestServerProcess(
+			workspacePath, methodName === '*' ? '*' : selected!.name,
+			options.database, options.host, await this.getClientCredentials(),
+		);
+		await this.postState();
+		return this.getHttpTestServerState();
+	}
+
+	public async stopHttpTestServer(): Promise<Record<string, unknown>> {
+		await this.httpTestServer?.stop();
+		this.httpTestServer = undefined;
+		await this.postState();
+		return { running: false };
+	}
+
+	public async callHttpTestServer(request: Omit<HttpApiRequest, 'url'> & { methodName?: string }): Promise<Record<string, unknown>> {
+		const server = this.httpTestServer;
+		if (!server || !server.isRunning()) { throw new Error('Тестовый HTTP-сервер не запущен.'); }
+		const state = this.getHttpTestServerState();
+		const url = new URL(server.url);
+		if (request.methodName?.trim()) { url.searchParams.set('method', request.methodName.trim()); }
+		const response = await executeHttpApiRequest({
+			method: typeof request.method === 'string' && request.method.trim() ? request.method : 'POST',
+			url: url.toString(), headers: request.headers ?? {}, body: request.body,
+		});
+		return { server: state, response };
+	}
+
+	public getHttpTestServerState(): Record<string, unknown> {
+		if (this.httpTestServer && !this.httpTestServer.isRunning()) { this.httpTestServer = undefined; }
+		return this.httpTestServer ? {
+			running: true,
+			methodName: this.httpTestServer.methodName,
+			database: this.httpTestServer.database,
+			url: this.httpTestServer.url,
+			processId: this.httpTestServer.processId,
+		} : { running: false };
+	}
+
+	private async refreshHttpMethods(): Promise<void> {
+		this.httpMethods = await loadHttpMethods();
+		this.httpMethodsError = undefined;
 	}
 
 	public dispose(): void {
 		if (this.clientMcpStatusTimer) { clearInterval(this.clientMcpStatusTimer); }
 		this.panel?.dispose();
+		this.httpApiPanel?.dispose();
+		void this.httpTestServer?.stop();
 		this.disposables.forEach(disposable => disposable.dispose());
 	}
 
@@ -180,6 +261,28 @@ export class SettingsViewProvider implements vscode.Disposable {
 			await this.setClientMcpServerRunning('start');
 		} else if (message.command === 'stopClientMcpServer') {
 			await this.setClientMcpServerRunning('stop');
+		} else if (message.command === 'executeHttpApiRequest') {
+			this.post({ command: 'httpApiRequestStarted' });
+			try {
+				const response = await executeHttpApiRequest(message);
+				this.post({ command: 'httpApiRequestFinished', success: true, response });
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				this.logger.warning('HTTP API', `Запрос ${message.method} ${message.url} завершился ошибкой.`, error);
+				this.post({ command: 'httpApiRequestFinished', success: false, message: errorMessage });
+			}
+		} else if (message.command === 'startHttpTestServer') {
+			await this.setHttpTestServerRunning('start', message.methodName);
+		} else if (message.command === 'stopHttpTestServer') {
+			await this.setHttpTestServerRunning('stop');
+		} else if (message.command === 'searchHttpParameterValues') {
+			const values = await searchHttpParameterValues(message.typeName, message.query);
+			this.post({ command: 'httpParameterValuesLoaded', parameter: message.parameter, query: message.query, values });
+		} else if (message.command === 'copyHttpApiRequest') {
+			await vscode.env.clipboard.writeText(message.text);
+			vscode.window.setStatusBarMessage(message.notification ?? 'Запрос cURL скопирован — вставьте его в Import → Raw text в Postman', 5000);
+		} else if (message.command === 'openDatabaseObjectById') {
+			await vscode.commands.executeCommand('vc-ve-tools.openClipboardObject', message.id, message.target ?? 'object');
 		} else if (message.command === 'testSettingsDatabaseConnection') {
 			await this.testConnection();
 		} else if (message.command === 'clearExtensionLogs') {
@@ -345,14 +448,35 @@ export class SettingsViewProvider implements vscode.Disposable {
 		}
 	}
 
+	private async setHttpTestServerRunning(action: 'start' | 'stop', methodName?: string): Promise<void> {
+		this.post({ command: 'httpTestServerActionStarted', action });
+		try {
+			if (action === 'stop') {
+				await this.stopHttpTestServer();
+			} else {
+				await this.startHttpTestServer(methodName ?? '*');
+			}
+			const message = action === 'start'
+				? `Тестовый сервер ${this.httpTestServer?.methodName === '*' ? 'всех HTTP-методов' : 'метода ' + this.httpTestServer?.methodName} запущен: ${this.httpTestServer?.url}`
+				: 'Тестовый HTTP-сервер остановлен.';
+			this.post({ command: 'httpTestServerActionFinished', action, success: true, message });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.post({ command: 'httpTestServerActionFinished', action, success: false, message });
+			this.logger.error('HTTP API', `Не удалось ${action === 'start' ? 'запустить' : 'остановить'} тестовый сервер.`, error);
+		}
+		await this.postState();
+	}
+
 	private async postState(): Promise<void> {
-		if (!this.panel) {
+		if (!this.panel && !this.httpApiPanel) {
 			return;
 		}
 		this.post({ command: 'settingsState', state: await this.getState() });
 	}
 
 	private async getState(): Promise<SettingsState> {
+		if (this.httpTestServer && !this.httpTestServer.isRunning()) { this.httpTestServer = undefined; }
 		const configuration = vscode.workspace.getConfiguration('vcVeTools');
 		const workspace = vscode.workspace.workspaceFolders?.[0];
 		const enabled = configuration.get<boolean>(mcpEnabledSetting, true);
@@ -374,6 +498,13 @@ export class SettingsViewProvider implements vscode.Disposable {
 		const configuredProfile = configuration.get<string>(databaseProfileSetting, '');
 		const databaseProfile = databaseProfiles.some(item => item.id === configuredProfile) ? configuredProfile : (databaseProfiles[0]?.id ?? '');
 		const lastError = this.logger.getLastError();
+		try {
+			this.httpMethods = await loadHttpMethods();
+			this.httpMethodsError = undefined;
+		} catch (error) {
+			this.httpMethods = [];
+			this.httpMethodsError = error instanceof Error ? error.message : String(error);
+		}
 		let clientMcpStatus: SettingsState['clientMcpStatus'] = 'offline';
 		let clientMcpStatusText = 'Нет связи';
 		let clientMcpDatabase: string | undefined;
@@ -436,6 +567,14 @@ export class SettingsViewProvider implements vscode.Disposable {
 			clientMcpToolsError: this.clientMcpToolsError,
 			mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role, databaseProfile, clientMcpUrl),
 			lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
+			httpMethods: this.httpMethods,
+			httpMethodsError: this.httpMethodsError,
+			httpTestServer: this.httpTestServer && {
+				methodName: this.httpTestServer.methodName,
+				database: this.httpTestServer.database,
+				url: this.httpTestServer.url,
+				processId: this.httpTestServer.processId,
+			},
 		};
 	}
 
@@ -462,13 +601,14 @@ export class SettingsViewProvider implements vscode.Disposable {
 
 	private post(message: SettingsHostMessage): void {
 		void this.panel?.webview.postMessage(message);
+		void this.httpApiPanel?.webview.postMessage(message);
 	}
 
-	private getHtml(webview: vscode.Webview, assetsRoot: vscode.Uri): string {
-		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'settings.js'));
+	private getHtml(webview: vscode.Webview, assetsRoot: vscode.Uri, entry = 'settings', title = 'Настройки'): string {
+		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, `${entry}.js`));
 		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
 		const nonce = createNonce();
-		return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Настройки</title></head><body><div id="app"></div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+		return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csp-nonce" content="${nonce}"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>${title}</title></head><body><div id="app"></div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 	}
 }
 

@@ -55,6 +55,11 @@ suite('Class method creation', () => {
         assert.equal(normalized.signature, '()');
         assert.doesNotThrow(() => (0, methodCreation_1.validateClassMethodDraft)({ ...captured, code: methodCreation_1.defaultMethodCode }));
     });
+    test('accepts and preserves an interpreted class procedure', () => {
+        const classProcedure = { ...captured, methodKind: methodCreation_1.classProcedureMethodKind };
+        assert.doesNotThrow(() => (0, methodCreation_1.validateClassMethodDraft)(classProcedure));
+        assert.match((0, methodCreation_1.serializeMethodCreationAuditValues)(classProcedure), /1800,6/);
+    });
     test('rejects unsupported method types and invalid names', () => {
         assert.throws(() => (0, methodCreation_1.validateClassMethodDraft)({ ...captured, name: 'bad name' }), /Имя метода/);
         assert.throws(() => (0, methodCreation_1.validateClassMethodDraft)({ ...captured, methodType: 1 }), /интерпретируемых/);

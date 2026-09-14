@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.defaultMethodCode = exports.defaultMethodKind = exports.interpretedMethodType = exports.defaultMethodVisibilityId = exports.methodClassId = void 0;
+exports.defaultMethodCode = exports.classProcedureMethodKind = exports.defaultMethodKind = exports.interpretedMethodType = exports.defaultMethodVisibilityId = exports.methodClassId = void 0;
 exports.normalizeClassMethodDraft = normalizeClassMethodDraft;
 exports.validateClassMethodDraft = validateClassMethodDraft;
 exports.serializeMethodCreationAuditValues = serializeMethodCreationAuditValues;
@@ -45,6 +45,7 @@ exports.methodClassId = 5;
 exports.defaultMethodVisibilityId = 12450286;
 exports.interpretedMethodType = 3;
 exports.defaultMethodKind = 0;
+exports.classProcedureMethodKind = 6;
 exports.defaultMethodCode = 'proc()\r\nbegin\r\n\r\nend;\r\n';
 function normalizeClassMethodDraft(draft) {
     const code = draft.code.replace(/\r?\n/g, '\r\n');
@@ -57,6 +58,11 @@ function normalizeClassMethodDraft(draft) {
 }
 function validateClassMethodDraft(input) {
     const draft = normalizeClassMethodDraft(input);
+    // The legacy validation below accepts the ordinary kind. Validate class
+    // procedures through the same persistence path without rewriting the input.
+    if (draft.methodKind === exports.classProcedureMethodKind) {
+        draft.methodKind = exports.defaultMethodKind;
+    }
     if (!Number.isSafeInteger(draft.ownerClassId) || draft.ownerClassId <= 0) {
         throw new Error('Класс-владелец должен иметь положительный ID.');
     }

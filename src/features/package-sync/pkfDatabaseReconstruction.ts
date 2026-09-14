@@ -38,12 +38,14 @@ export function parseSerializedAttributeValues(source: string): SerializedAttrib
 
 export function extractPkfObjectIds(source: string): Set<number> {
 	const ids = new Set<number>();
-	for (const match of source.matchAll(/^\s*_Ид\s*=\s*'(\d+)'\s*;/gmu)) {ids.add(Number(match[1]));}
+	// Data objects keep the identifier on its own line, while meta declarations
+	// place it inside attribute brackets (and defaults qualify it with a class).
+	for (const match of source.matchAll(/(?:^|[.\[\s])_Ид\s*=\s*'(\d+)'/gmu)) {ids.add(Number(match[1]));}
 	return ids;
 }
 
 export function appendPkfObjects(source: string, objects: readonly PkfDatabaseObject[]): string {
-	if (!/^file\r?\n(?:  autogroup '.*';\r?\n)?data\s*$/mu.test(source)) {throw new Error('Файл не похож на PKF (не найден заголовок file/data).');}
+	if (!/^file\s*$/mu.test(source) || !/^data\s*$/mu.test(source)) {throw new Error('Файл не похож на PKF (не найдены секции file/data).');}
 	const existingIds = extractPkfObjectIds(source);
 	for (const object of objects) {
 		if (existingIds.has(object.id)) {throw new Error(`Объект ID ${object.id} уже присутствует в локальном PKF.`);}

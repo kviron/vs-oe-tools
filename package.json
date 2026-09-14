@@ -2,7 +2,7 @@
   "name": "vc-ve-tools",
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.1.101",
+  "version": "0.2.0",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
@@ -185,6 +185,11 @@
           "icon": "resources/train.svg"
         },
         {
+          "id": "vc-ve-tools-native-logs",
+          "title": "Логирование",
+          "icon": "resources/train.svg"
+        },
+        {
           "id": "vc-ve-tools-code-history",
           "title": "История кода",
           "icon": "resources/train.svg"
@@ -210,7 +215,9 @@
           "id": "vc-ve-tools.sqlExecutor",
           "name": "Исполнитель SQL",
           "type": "webview"
-        },
+        }
+      ],
+      "vc-ve-tools-native-logs": [
         {
           "id": "vc-ve-tools.nativeLogs",
           "name": "Логирование",
@@ -243,6 +250,12 @@
         "title": "SQL-монитор",
         "category": "Восточный экспресс",
         "icon": "$(database)"
+      },
+      {
+        "command": "vc-ve-tools.openHttpApi",
+        "title": "HTTP API",
+        "category": "Восточный экспресс",
+        "icon": "$(server-process)"
       },
       {
         "command": "vc-ve-tools.openPackageSync",
@@ -365,14 +378,19 @@
           "group": "navigation@1"
         },
         {
-          "command": "vc-ve-tools.openPackageSync",
+          "command": "vc-ve-tools.openHttpApi",
           "when": "view == vc-ve-tools.explorer",
           "group": "navigation@2"
         },
         {
-          "command": "vc-ve-tools.openSettings",
+          "command": "vc-ve-tools.openPackageSync",
           "when": "view == vc-ve-tools.explorer",
           "group": "navigation@3"
+        },
+        {
+          "command": "vc-ve-tools.openSettings",
+          "when": "view == vc-ve-tools.explorer",
+          "group": "navigation@4"
         }
       ]
     },
@@ -558,6 +576,7 @@
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.0",
+    "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/language": "^6.12.4",
     "@codemirror/state": "^6.7.4",

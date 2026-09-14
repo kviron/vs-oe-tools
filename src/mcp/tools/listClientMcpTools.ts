@@ -4,7 +4,7 @@ import type { McpToolServer } from '../toolTypes';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('list_client_mcp_tools', {
-		description: 'List tools exposed by the East Express client HTTP MCP server. The client MCP is started on demand and stopped after an idle timeout. Use this before call_client_mcp_tool because the client catalog changes dynamically.',
+		description: 'List tools exposed by an already running East Express client HTTP MCP server. Call start_client_mcp first and stop_client_mcp after the client work is complete.',
 		inputSchema: {},
 		annotations: { readOnlyHint: true },
 	}, async () => {

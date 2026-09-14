@@ -25,6 +25,18 @@ suite('PKF database reconstruction', () => {
 		assert.ok(result.endsWith('end.\r\n'));
 	});
 
+	test('appends data objects without rewriting a mixed meta section', () => {
+		const source = "file\r\nmeta\r\n  Demo = class(Abstract) [_Ид='10000001']\r\n  public\r\n    var Title: string100 [_Ид='10000003'];\r\n    class var Title = 'Demo' [ЗначАтрПоУмолчанию._Ид='10000004'];\r\n  end;\r\ndata\r\nend.\r\n";
+		const result = appendPkfObjects(source, [{
+			id: 10000002, className: 'ИндексВТаблицеКласса', name: 'DemoIndex',
+			properties: [{ attributeId: 100, name: 'КлассТаблицы', value: '10000001', format: 'scalar' }],
+		}]);
+		assert.ok(result.includes("  Demo = class(Abstract) [_Ид='10000001']"));
+		assert.ok(result.includes('  object DemoIndex: ИндексВТаблицеКласса'));
+		assert.deepEqual([...extractPkfObjectIds(result)], [10000001, 10000003, 10000004, 10000002]);
+		assert.ok(result.indexOf('meta') < result.indexOf('data'));
+	});
+
 	test('inserts new blocks according to numeric object ID order', () => {
 		const source = "file\ndata\n  object $: A\n    _Ид = '10';\n  end;\n  object $: A\n    _Ид = '30';\n  end;\nend.\n";
 		const result = appendPkfObjects(source, [

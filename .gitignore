@@ -4,3 +4,9 @@ node_modules
 /out/
 src/**/*.js
 src/**/*.js.map
+.tmp-*/
+debug.log
+*.vsix
+*.pcapng
+oesqlmon*.sqdb
+sql-result-*.csv

@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
 import type { NativeLogsHostMessage } from '../../core/webviewProtocol';
 import { isNativeLogsWebviewMessage } from '../../core/webviewProtocol';
-import { listNativeLogs, readNativeLog } from './nativeLogService';
+import { listNativeLogs } from './nativeLogService';
 
 export class NativeLogsViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'vc-ve-tools.nativeLogs';
 	private selectedFile?: string;
 
-	public constructor(private readonly extensionUri: vscode.Uri) {}
+	public constructor(private readonly extensionUri: vscode.Uri, private readonly openLog: (fileName: string) => Promise<void>) {}
 
 	public resolveWebviewView(webviewView: vscode.WebviewView): void {
 		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
@@ -20,7 +20,11 @@ export class NativeLogsViewProvider implements vscode.WebviewViewProvider {
 				vscode.window.setStatusBarMessage('Лог нативного клиента скопирован', 2500);
 				return;
 			}
-			if (message.command === 'openNativeLog') { this.selectedFile = message.fileName; }
+			if (message.command === 'openNativeLog') {
+				this.selectedFile = message.fileName;
+				await this.openLog(message.fileName);
+				return;
+			}
 			await this.refresh(webviewView.webview);
 		});
 	}
@@ -34,14 +38,11 @@ export class NativeLogsViewProvider implements vscode.WebviewViewProvider {
 			if (!this.selectedFile || !listing.files.some(file => file.name === this.selectedFile)) {
 				this.selectedFile = listing.files[0]?.name;
 			}
-			const selected = this.selectedFile ? await readNativeLog(workspacePath, this.selectedFile, 1, 2000) : undefined;
 			void webview.postMessage({
 				command: 'nativeLogsLoaded',
 				directory: listing.directory,
 				files: listing.files.map(({ name, size, modifiedAt }) => ({ name, size, modifiedAt })),
-				selectedFile: selected?.name,
-				content: selected?.content,
-				contentTruncated: selected?.truncated,
+				selectedFile: this.selectedFile,
 			} satisfies NativeLogsHostMessage);
 		} catch (error) {
 			void webview.postMessage({ command: 'nativeLogsFailed', message: error instanceof Error ? error.message : String(error) } satisfies NativeLogsHostMessage);

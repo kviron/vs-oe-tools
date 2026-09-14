@@ -46,6 +46,7 @@ const explorerViewProvider_1 = require("../features/explorer/explorerViewProvide
 const sqlMonitorService_1 = require("../features/sql-monitor/sqlMonitorService");
 const sqlExecutorViewProvider_1 = require("../features/sql-executor/sqlExecutorViewProvider");
 const nativeLogsViewProvider_1 = require("../features/native-logs/nativeLogsViewProvider");
+const nativeLogEditorProvider_1 = require("../features/native-logs/nativeLogEditorProvider");
 const methodEditorProvider_1 = require("../features/methods/methodEditorProvider");
 const methodLanguageFeatures_1 = require("../features/methods/methodLanguageFeatures");
 const codeHistoryService_1 = require("../features/code-history/codeHistoryService");
@@ -162,6 +163,7 @@ async function activate(context) {
     const settingsProvider = new settingsViewProvider_1.SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials, context.workspaceState);
     settingsProvider.refreshClientMcpToolsOnActivation();
     const openSettingsCommand = vscode.commands.registerCommand('vc-ve-tools.openSettings', () => settingsProvider.show());
+    const openHttpApiCommand = vscode.commands.registerCommand('vc-ve-tools.openHttpApi', () => settingsProvider.showHttpApi());
     const updateMainDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateMainDatabase', () => (0, projectCommandService_1.updateProjectDatabase)('main'));
     const updateTestDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateTestDatabase', () => (0, projectCommandService_1.updateProjectDatabase)('test'));
     const startMainClientCommand = vscode.commands.registerCommand('vc-ve-tools.startMainClient', async () => (0, projectCommandService_1.startProjectClient)('main', await getClientCredentials()));
@@ -347,6 +349,10 @@ async function activate(context) {
             extensionLogger.info('MCP client', 'Клиентский MCP автоматически запущен по запросу агента.', { database });
             return result;
         },
+        startHttpTestServer: methodName => settingsProvider.startHttpTestServer(methodName),
+        stopHttpTestServer: () => settingsProvider.stopHttpTestServer(),
+        getHttpTestServerStatus: async () => settingsProvider.getHttpTestServerState(),
+        callHttpTestServer: request => settingsProvider.callHttpTestServer(request),
         getSvnFileHistory: async (filePath, limit) => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
@@ -446,7 +452,9 @@ async function activate(context) {
     });
     const sqlExecutorProvider = new sqlExecutorViewProvider_1.SqlExecutorViewProvider(context.extensionUri);
     const sqlExecutorRegistration = vscode.window.registerWebviewViewProvider(sqlExecutorViewProvider_1.SqlExecutorViewProvider.viewType, sqlExecutorProvider, { webviewOptions: { retainContextWhenHidden: true } });
-    const nativeLogsProvider = new nativeLogsViewProvider_1.NativeLogsViewProvider(context.extensionUri);
+    const nativeLogEditor = new nativeLogEditorProvider_1.NativeLogEditorProvider();
+    const nativeLogEditorRegistrations = nativeLogEditor.registrations();
+    const nativeLogsProvider = new nativeLogsViewProvider_1.NativeLogsViewProvider(context.extensionUri, fileName => nativeLogEditor.open(fileName));
     const nativeLogsRegistration = vscode.window.registerWebviewViewProvider(nativeLogsViewProvider_1.NativeLogsViewProvider.viewType, nativeLogsProvider, { webviewOptions: { retainContextWhenHidden: true } });
     const configurationListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
         if (event.affectsConfiguration('vcVeTools.productionHost') || event.affectsConfiguration('vcVeTools.productionPort')
@@ -495,7 +503,7 @@ async function activate(context) {
         copySelectedExplorerId: () => explorerProvider.copySelectedEntityId(),
         refreshSettings: () => settingsProvider.refresh(),
     });
-    context.subscriptions.push({ dispose: projectDatabaseSession_1.disposeProjectDatabaseSessions }, extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, productionTasksProvider, productionTasksRegistration, openProductionTasksCommand, clipboardObjectNavigation, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, nativeLogsRegistration, configurationListener, activeWorkspaceListener, activeWindowListener, databaseCommands);
+    context.subscriptions.push({ dispose: projectDatabaseSession_1.disposeProjectDatabaseSessions }, extensionLogger, navigationBridge, databaseMcpServerRegistration, agentSkillInstaller, settingsProvider, openSettingsCommand, openHttpApiCommand, updateMainDatabaseCommand, updateTestDatabaseCommand, startMainClientCommand, startTestClientCommand, openClientEntityCommand, explorerProvider, explorerRegistration, productionTasksProvider, productionTasksRegistration, openProductionTasksCommand, clipboardObjectNavigation, packageSyncProvider, openPackageSyncCommand, sqlExecutorRegistration, nativeLogsRegistration, ...nativeLogEditorRegistrations, configurationListener, activeWorkspaceListener, activeWindowListener, databaseCommands);
 }
 async function extractProductionMetadataFromCaptureDirectories(directories) {
     let personId;

@@ -7,6 +7,7 @@ export const methodClassId = 5;
 export const defaultMethodVisibilityId = 12450286;
 export const interpretedMethodType = 3 as const;
 export const defaultMethodKind = 0 as const;
+export const classProcedureMethodKind = 6 as const;
 export const defaultMethodCode = 'proc()\r\nbegin\r\n\r\nend;\r\n';
 
 export function normalizeClassMethodDraft(draft: ClassMethodDraft): ClassMethodDraft {
@@ -21,6 +22,9 @@ export function normalizeClassMethodDraft(draft: ClassMethodDraft): ClassMethodD
 
 export function validateClassMethodDraft(input: ClassMethodDraft): void {
 	const draft = normalizeClassMethodDraft(input);
+	// The legacy validation below accepts the ordinary kind. Validate class
+	// procedures through the same persistence path without rewriting the input.
+	if (draft.methodKind === classProcedureMethodKind) { draft.methodKind = defaultMethodKind; }
 	if (!Number.isSafeInteger(draft.ownerClassId) || draft.ownerClassId <= 0) { throw new Error('Класс-владелец должен иметь положительный ID.'); }
 	if (!draft.name) { throw new Error('Укажите имя метода.'); }
 	if (draft.name.length > 250) { throw new Error('Имя метода не должно превышать 250 символов.'); }

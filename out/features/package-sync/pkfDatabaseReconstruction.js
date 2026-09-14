@@ -30,14 +30,16 @@ function parseSerializedAttributeValues(source) {
 }
 function extractPkfObjectIds(source) {
     const ids = new Set();
-    for (const match of source.matchAll(/^\s*_Ид\s*=\s*'(\d+)'\s*;/gmu)) {
+    // Data objects keep the identifier on its own line, while meta declarations
+    // place it inside attribute brackets (and defaults qualify it with a class).
+    for (const match of source.matchAll(/(?:^|[.\[\s])_Ид\s*=\s*'(\d+)'/gmu)) {
         ids.add(Number(match[1]));
     }
     return ids;
 }
 function appendPkfObjects(source, objects) {
-    if (!/^file\r?\n(?:  autogroup '.*';\r?\n)?data\s*$/mu.test(source)) {
-        throw new Error('Файл не похож на PKF (не найден заголовок file/data).');
+    if (!/^file\s*$/mu.test(source) || !/^data\s*$/mu.test(source)) {
+        throw new Error('Файл не похож на PKF (не найдены секции file/data).');
     }
     const existingIds = extractPkfObjectIds(source);
     for (const object of objects) {

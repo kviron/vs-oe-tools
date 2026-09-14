@@ -70,6 +70,10 @@ function eventCell(event: Event): HTMLTableCellElement | undefined {
   return cell && row && container.value?.contains(row) ? cell : undefined
 }
 
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('input, textarea, select, button, a, [contenteditable="true"]'))
+}
+
 function selectRectangle(from: HTMLTableCellElement, to: HTMLTableCellElement, additive: boolean): void {
   const rows = tableRows()
   const fromRow = rows.indexOf(from.parentElement as HTMLTableRowElement)
@@ -91,6 +95,13 @@ function selectRectangle(from: HTMLTableCellElement, to: HTMLTableCellElement, a
 
 function startSelection(event: PointerEvent): void {
   if (event.button !== 0) return
+  if (isInteractiveTarget(event.target)) {
+    clearSelection()
+    activeCell?.removeAttribute('data-active-cell')
+    activeCell = undefined
+    anchorCell = undefined
+    return
+  }
   const cell = eventCell(event)
   if (!cell) return
   event.preventDefault()
@@ -236,11 +247,13 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 function handleDocumentKeydown(event: KeyboardEvent): void {
+  if (isInteractiveTarget(event.target)) return
   if (!isActiveTable()) return
   handleKeydown(event)
 }
 
 function handleDocumentCopy(event: ClipboardEvent): void {
+  if (isInteractiveTarget(event.target) || isInteractiveTarget(document.activeElement)) return
   if (!isActiveTable()) return
   debug(`copy capture: target=${elementDescription(event.target)}, activeElement=${elementDescription(document.activeElement)}, clipboardData=${Boolean(event.clipboardData)}, выбрано ячеек=${selectedCells.size}.`)
   copySelectedCells(event)

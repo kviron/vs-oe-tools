@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { Copy01Icon, File01Icon, RefreshIcon } from '@hugeicons/core-free-icons';
+import { File01Icon, RefreshIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, ref } from 'vue';
 import type { NativeLogsHostMessage, NativeLogListEntry } from '../../../src/core/webviewProtocol';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
@@ -12,8 +11,6 @@ import { vscode } from '@/vscode';
 const directory = ref('');
 const files = ref<NativeLogListEntry[]>([]);
 const selectedFile = ref<string>();
-const content = ref('');
-const contentTruncated = ref(false);
 const loading = ref(false);
 const error = ref('');
 const filter = ref('');
@@ -33,8 +30,6 @@ window.addEventListener('message', (event: MessageEvent<NativeLogsHostMessage>) 
 		directory.value = message.directory;
 		files.value = message.files;
 		selectedFile.value = message.selectedFile;
-		content.value = message.content ?? '';
-		contentTruncated.value = message.contentTruncated ?? false;
 	} else {
 		loading.value = false;
 		error.value = message.message;
@@ -60,9 +55,9 @@ vscode.postMessage({ command: 'nativeLogsReady' });
       <Button variant="outline" size="sm" :disabled="loading" @click="vscode.postMessage({ command: 'refreshNativeLogs' })"><HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />{{ loading ? 'Обновление…' : 'Обновить' }}</Button>
     </header>
 
-    <div v-if="files.length" class="flex shrink-0 flex-col gap-1 border-b p-2">
+    <div v-if="files.length" class="flex min-h-0 flex-1 flex-col gap-1 p-2">
       <Input v-model="filter" type="search" placeholder="Фильтр файлов" aria-label="Фильтр файлов логов" />
-      <div class="max-h-48 overflow-auto rounded-md border">
+      <div class="min-h-0 flex-1 overflow-auto rounded-md border">
         <Button v-for="file in displayedFiles" :key="file.name" type="button" variant="ghost" class="h-auto w-full justify-start rounded-none border-b px-2 py-1.5 text-left last:border-b-0" :class="selectedFile === file.name ? 'bg-accent text-accent-foreground' : undefined" @click="openLog(file)">
           <HugeiconsIcon :icon="File01Icon" class="shrink-0" />
           <span class="min-w-0 flex-1 truncate text-xs" :title="file.name">{{ file.name }}</span>
@@ -73,9 +68,5 @@ vscode.postMessage({ command: 'nativeLogsReady' });
 
     <Empty v-if="error" class="min-h-0 flex-1 py-4"><EmptyHeader><EmptyTitle>Не удалось прочитать логи</EmptyTitle><EmptyDescription>{{ error }}</EmptyDescription></EmptyHeader></Empty>
     <Empty v-else-if="!loading && files.length === 0" class="min-h-0 flex-1 py-4"><EmptyHeader><EmptyMedia variant="icon"><HugeiconsIcon :icon="File01Icon" /></EmptyMedia><EmptyTitle>Логи не найдены</EmptyTitle><EmptyDescription>Ожидаются текстовые файлы в bin\logs или bin.win64\logs.</EmptyDescription></EmptyHeader></Empty>
-    <section v-else class="flex min-h-0 flex-1 flex-col">
-      <div v-if="selectedFile" class="flex shrink-0 items-center gap-2 border-b px-2 py-1.5"><span class="min-w-0 flex-1 truncate text-xs font-medium" :title="selectedFile">{{ selectedFile }}</span><Badge v-if="contentTruncated" variant="secondary">Первые 2000 строк</Badge><Button variant="ghost" size="sm" :disabled="!content" @click="vscode.postMessage({ command: 'copyNativeLog', text: content })"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Копировать</Button></div>
-      <pre class="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-2 font-mono text-xs leading-relaxed">{{ loading && !content ? 'Загрузка…' : content }}</pre>
-    </section>
   </main>
 </template>

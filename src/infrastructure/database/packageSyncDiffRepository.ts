@@ -69,7 +69,15 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 		const missingRows = abstractResult.rows.filter(row => !localIds.has(Number(row.id)));
 		const hasMetaObjects = abstractResult.rows.some(row => META_CLASS_IDS.has(Number(row.classid)));
 		if (hasMetaObjects) {
-			if (abstractResult.rows.some(row => !META_CLASS_IDS.has(Number(row.classid)))) {throw new Error('Meta-PKF содержит смешанные конструкции, которые пока нельзя безопасно сериализовать.');}
+			if (abstractResult.rows.some(row => !META_CLASS_IDS.has(Number(row.classid)))) {
+				const missingMetaRows = missingRows.filter(row => META_CLASS_IDS.has(Number(row.classid)));
+				if (missingMetaRows.length) {
+					throw new Error(`Смешанный Meta/Data-PKF содержит новые meta-объекты (${missingMetaRows.map(row => row.id).join(', ')}), которые пока нельзя безопасно сериализовать.`);
+				}
+				const missingDataRows = missingRows.filter(row => !META_CLASS_IDS.has(Number(row.classid)));
+				const objects = await buildDatabaseObjects(client, options.database, missingDataRows);
+				return { content: appendPkfObjects(source, objects), addedObjectIds: missingDataRows.map(row => Number(row.id)), localContent };
+			}
 			const content = await loadMetaPkf(client, options.database, item.objectId);
 			return { content, addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
 		}

@@ -10,6 +10,7 @@ import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider'
 import { sqlMonitorService } from '../features/sql-monitor/sqlMonitorService';
 import { SqlExecutorViewProvider } from '../features/sql-executor/sqlExecutorViewProvider';
 import { NativeLogsViewProvider } from '../features/native-logs/nativeLogsViewProvider';
+import { NativeLogEditorProvider } from '../features/native-logs/nativeLogEditorProvider';
 import { registerMethodEditor } from '../features/methods/methodEditorProvider';
 import { registerMethodLanguageFeatures } from '../features/methods/methodLanguageFeatures';
 import { registerCodeHistory } from '../features/code-history/codeHistoryService';
@@ -127,6 +128,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials, context.workspaceState);
 	settingsProvider.refreshClientMcpToolsOnActivation();
 	const openSettingsCommand = vscode.commands.registerCommand('vc-ve-tools.openSettings', () => settingsProvider.show());
+	const openHttpApiCommand = vscode.commands.registerCommand('vc-ve-tools.openHttpApi', () => settingsProvider.showHttpApi());
 	const updateMainDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateMainDatabase', () => updateProjectDatabase('main'));
 	const updateTestDatabaseCommand = vscode.commands.registerCommand('vc-ve-tools.updateTestDatabase', () => updateProjectDatabase('test'));
 	const startMainClientCommand = vscode.commands.registerCommand('vc-ve-tools.startMainClient', async () => startProjectClient('main', await getClientCredentials()));
@@ -321,6 +323,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			extensionLogger.info('MCP client', 'Клиентский MCP автоматически запущен по запросу агента.', { database });
 			return result;
 		},
+		startHttpTestServer: methodName => settingsProvider.startHttpTestServer(methodName),
+		stopHttpTestServer: () => settingsProvider.stopHttpTestServer(),
+		getHttpTestServerStatus: async () => settingsProvider.getHttpTestServerState(),
+		callHttpTestServer: request => settingsProvider.callHttpTestServer(request),
 		getSvnFileHistory: async (filePath, limit) => {
 			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 			if (!workspaceFolder) {
@@ -430,7 +436,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		sqlExecutorProvider,
 		{ webviewOptions: { retainContextWhenHidden: true } },
 	);
-	const nativeLogsProvider = new NativeLogsViewProvider(context.extensionUri);
+	const nativeLogEditor = new NativeLogEditorProvider();
+	const nativeLogEditorRegistrations = nativeLogEditor.registrations();
+	const nativeLogsProvider = new NativeLogsViewProvider(context.extensionUri, fileName => nativeLogEditor.open(fileName));
 	const nativeLogsRegistration = vscode.window.registerWebviewViewProvider(
 		NativeLogsViewProvider.viewType,
 		nativeLogsProvider,
@@ -492,6 +500,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		agentSkillInstaller,
 		settingsProvider,
 		openSettingsCommand,
+		openHttpApiCommand,
 		updateMainDatabaseCommand,
 		updateTestDatabaseCommand,
 		startMainClientCommand,
@@ -507,6 +516,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		openPackageSyncCommand,
 		sqlExecutorRegistration,
 		nativeLogsRegistration,
+		...nativeLogEditorRegistrations,
 		configurationListener,
 		activeWorkspaceListener,
 		activeWindowListener,

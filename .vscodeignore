@@ -1,5 +1,8 @@
 .vscode/**
 .vscode-test/**
+.tmp-*/**
+debug.log
+*.vsix
 .codex/**
 out/**
 node_modules/**

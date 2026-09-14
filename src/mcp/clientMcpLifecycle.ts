@@ -1,7 +1,8 @@
 import { bridgeToolResult } from './bridge';
 import { callClientMcpTool, getClientMcpHealth, getClientMcpUrl, listClientMcpTools, stopClientMcpServer, type ClientMcpCallResult, type ClientMcpTool } from './clientMcpHttp';
 import { withMcpDatabaseSession } from './databaseSession';
-import { ClientMcpLifecycleManager } from './clientMcpLifecycleManager';
+const startupAttempts = 10;
+const startupDelayMs = 500;
 
 async function startClientMcpThroughExtension(): Promise<void> {
 	const result = await withMcpDatabaseSession(async ({ options }) => bridgeToolResult({
@@ -14,23 +15,32 @@ async function startClientMcpThroughExtension(): Promise<void> {
 	}
 }
 
-const lifecycle = new ClientMcpLifecycleManager({
-	getHealth: async () => {
+async function isClientMcpRunning(): Promise<boolean> {
+	try {
 		const health = await getClientMcpHealth();
-		if (health.status.toLocaleLowerCase('en') !== 'ok') {
-			throw new Error(`Client MCP health status is ${health.status}.`);
-		}
-	},
-	start: startClientMcpThroughExtension,
-	stop: () => stopClientMcpServer(),
-	setTimer: (callback, delayMs) => setTimeout(callback, delayMs),
-	clearTimer: timer => clearTimeout(timer),
-});
+		return health.status.toLocaleLowerCase('en') === 'ok';
+	} catch { return false; }
+}
+
+export async function startManagedClientMcp(): Promise<{ url: string; alreadyRunning: boolean }> {
+	if (await isClientMcpRunning()) { return { url: getClientMcpUrl(), alreadyRunning: true }; }
+	await startClientMcpThroughExtension();
+	for (let attempt = 0; attempt < startupAttempts; attempt += 1) {
+		if (await isClientMcpRunning()) { return { url: getClientMcpUrl(), alreadyRunning: false }; }
+		await new Promise(resolve => setTimeout(resolve, startupDelayMs));
+	}
+	throw new Error('Client MCP was started, but its health endpoint did not become available.');
+}
+
+export async function stopManagedClientMcp(): Promise<{ url: string; stopped: true }> {
+	await stopClientMcpServer();
+	return { url: getClientMcpUrl(), stopped: true };
+}
 
 export function listManagedClientMcpTools(): Promise<ClientMcpTool[]> {
-	return lifecycle.run(() => listClientMcpTools());
+	return listClientMcpTools();
 }
 
 export function callManagedClientMcpTool(name: string, argumentsValue?: Record<string, unknown>): Promise<ClientMcpCallResult> {
-	return lifecycle.run(() => callClientMcpTool(name, argumentsValue));
+	return callClientMcpTool(name, argumentsValue);
 }

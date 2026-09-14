@@ -1,0 +1,15 @@
+<script setup lang="ts">
+import type { HTMLAttributes } from 'vue'
+
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
+import { cn } from '@/lib/utils'
+
+const props = defineProps<{
+  class?: HTMLAttributes['class']
+}>()
+</script>
+
+<template>
+  <HugeiconsIcon :icon="Loading03Icon" role="status" aria-label="Загрузка" :class="cn('animate-spin', props.class)" />
+</template>

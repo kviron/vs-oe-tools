@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { buildLifecycleMethodParameter } from '../features/lifecycle/lifecycleMethodExecution';
-import { buildClientMcpStartArguments, buildOeExecTaskArguments } from '../features/lifecycle/oeStaticMethodExecutor';
+import { buildClientMcpStartArguments, buildHttpTestServerArguments, buildHttpTestServerMethodParameter, buildOeExecTaskArguments, httpTestServerMethodId } from '../features/lifecycle/oeStaticMethodExecutor';
 
 suite('Lifecycle method execution', () => {
 	test('builds the native MethodParam value', () => {
@@ -19,18 +19,33 @@ suite('Lifecycle method execution', () => {
 
 	test('builds OEExecTask arguments without a shell', () => {
 		assert.deepEqual(buildOeExecTaskArguments(3143815, 'paramName=A,paramKind=8927425', 'oetest', 'localhost', { username: 'dev', password: 'secret' }), [
-			'-l', 'host=localhost,db=oetest,Username=dev,password=secret', '-MethodID=3143815',
+			'-l', 'host=localhost,db=oetest,MultiLogin=True,Username=dev,password=secret', '-MethodID=3143815',
 			'-MethodParam=paramName=A,paramKind=8927425', '-ForceOutputOEM',
 		]);
 	});
 
 	test('builds aiMCP.http_Start arguments in configuration mode without an empty method parameter', () => {
 		assert.deepEqual(buildClientMcpStartArguments('oetrunk', 'localhost', { username: 'dev', password: 'secret' }), [
-			'-l', 'host=localhost,db=oetrunk,Username=dev,password=secret,Shell=Настройка',
+			'-l', 'host=localhost,db=oetrunk,MultiLogin=True,Username=dev,password=secret,Shell=Настройка',
 			'-MethodID=12464780',
 			'-MethodParam=1',
 			'-ForceOutputOEM',
 		]);
+	});
+
+	test('builds native HTTP method test server arguments', () => {
+		assert.deepEqual(buildHttpTestServerArguments('ПолучитьФайл', 'oetrunk', 'localhost', { username: 'dev', password: 'secret' }), [
+			'-l', 'host=localhost,db=oetrunk,MultiLogin=True,Username=dev,password=secret,Shell=Настройка',
+			`-MethodID=${httpTestServerMethodId}`,
+			'-MethodParam=method=ПолучитьФайл,username=dev',
+			'-ForceOutputOEM',
+		]);
+		assert.equal(buildHttpTestServerArguments('*', 'oetrunk', 'localhost', { username: 'dev', password: 'secret' })[3], '-MethodParam=method=*,username=dev');
+	});
+
+	test('passes the authenticated client login in the HTTP server method parameter', () => {
+		assert.equal(buildHttpTestServerMethodParameter(' Метод ', ' ВЭ_Разработчик '), 'method=Метод,username=ВЭ_Разработчик');
+		assert.throws(() => buildHttpTestServerMethodParameter('Метод', 'user,admin'), /Логин клиента/);
 	});
 
 	test('rejects command delimiters in user text', () => {

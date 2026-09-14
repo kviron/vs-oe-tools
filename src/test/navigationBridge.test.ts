@@ -47,6 +47,10 @@ suite('Navigation bridge', () => {
 				startedClientMcp = { database, host };
 				return { methodId: 12464780, database };
 			},
+			startHttpTestServer: async methodName => ({ running: true, methodName, url: 'http://127.0.0.1:18081/api' }),
+			stopHttpTestServer: async () => ({ running: false }),
+			getHttpTestServerStatus: async () => ({ running: false }),
+			callHttpTestServer: async request => ({ response: { status: 200, method: request.method } }),
 			getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
 			getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
 			getProductionTasks: async (query, limit) => {

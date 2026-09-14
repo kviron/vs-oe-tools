@@ -55,7 +55,7 @@ export async function readNativeLog(
 	const content = decodeNativeLog(await readFile(file.path));
 	const lines = content.replace(/\r\n?/gu, '\n').split('\n');
 	const normalizedStart = Math.max(1, Math.min(startLine, Math.max(lines.length, 1)));
-	const normalizedLimit = Math.max(1, Math.min(maxLines, 2000));
+	const normalizedLimit = Math.max(1, Math.min(maxLines, 100_000));
 	const selected = lines.slice(normalizedStart - 1, normalizedStart - 1 + normalizedLimit);
 	return {
 		...file,

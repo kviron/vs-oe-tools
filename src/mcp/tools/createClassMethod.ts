@@ -2,6 +2,7 @@ import { z } from '../schemas';
 import { loadActiveDatabaseOptions } from '../databaseSession';
 import { bridgeToolResult } from '../bridge';
 import type { McpToolServer } from '../toolTypes';
+import { classProcedureMethodKind, defaultMethodKind } from '../../features/methods/methodCreation';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('create_class_method', {
@@ -10,11 +11,12 @@ export function registerTool(server: McpToolServer): void {
 			ownerClassId: z.number().int().positive().describe('Owning class ID'),
 			name: z.string().min(1).max(250).regex(/^[\p{L}_][\p{L}\p{N}_]*$/u).describe('Method card name without a proc/function declaration'),
 			visibilityId: z.number().int().positive().optional().describe('Visibility enum ID, default 12450286 (Public)'),
+			methodKind: z.union([z.literal(defaultMethodKind), z.literal(classProcedureMethodKind)]).optional().describe('0 for an instance method (default), 6 for a class procedure'),
 			signature: z.string().max(4000).optional().describe('Legacy compatibility field; the stored signature is derived from the anonymous declaration in code'),
 			code: z.string().max(1_500_000).optional().describe('Complete anonymous proc/procedure/func/function source; defaults to an empty proc() block'),
 		},
 		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
-	}, async (input: { ownerClassId: number; name: string; visibilityId?: number; signature?: string; code?: string }) => {
+	}, async (input: { ownerClassId: number; name: string; visibilityId?: number; methodKind?: 0 | 6; signature?: string; code?: string }) => {
 		const options = await loadActiveDatabaseOptions();
 		return bridgeToolResult({
 			action: 'create_class_method',
@@ -25,7 +27,7 @@ export function registerTool(server: McpToolServer): void {
 			name: input.name,
 			visibilityId: input.visibilityId ?? 12450286,
 			methodType: 3,
-			methodKind: 0,
+			methodKind: input.methodKind ?? defaultMethodKind,
 			signature: input.signature ?? '',
 			code: input.code ?? 'proc()\r\nbegin\r\n\r\nend;\r\n',
 			},

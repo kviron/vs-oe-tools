@@ -178,7 +178,7 @@ export interface ClassMethodDraft {
 	name: string;
 	visibilityId: number;
 	methodType: 3;
-	methodKind: 0;
+	methodKind: 0 | 6;
 	signature: string;
 	code: string;
 }
