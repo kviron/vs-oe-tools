@@ -2,7 +2,7 @@
 import { Add01Icon, Copy01Icon, DatabaseIcon, Edit02Icon, Search01Icon, Settings02Icon, SourceCodeIcon, ViewIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, ref } from 'vue';
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { ContextMenu, ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { vscode } from '@/vscode';
 
 const props = defineProps<{
@@ -75,6 +75,7 @@ function viewProperties(): void {
       <slot />
     </ContextMenuTrigger>
     <ContextMenuContent>
+      <ContextMenuGroup>
       <ContextMenuItem v-if="create" @select="emit('create', effectiveEntityId)">
         <HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />
         {{ createLabel || 'Создать…' }}
@@ -106,8 +107,10 @@ function viewProperties(): void {
           Открыть в клиенте
         </ContextMenuSubTrigger>
         <ContextMenuSubContent>
+          <ContextMenuGroup>
           <ContextMenuItem @select="openInClient('test')">В тестовой базе</ContextMenuItem>
           <ContextMenuItem @select="openInClient('main')">В основной базе</ContextMenuItem>
+          </ContextMenuGroup>
         </ContextMenuSubContent>
       </ContextMenuSub>
       <template v-if="classId !== undefined">
@@ -126,11 +129,14 @@ function viewProperties(): void {
           SVN
         </ContextMenuSubTrigger>
         <ContextMenuSubContent>
+          <ContextMenuGroup>
           <ContextMenuItem @select="emit('svnAction', 'localDiff')">Local Diff</ContextMenuItem>
           <ContextMenuItem @select="emit('svnAction', 'history')">История файла</ContextMenuItem>
           <ContextMenuItem @select="emit('svnAction', 'blame')">Blame</ContextMenuItem>
+          </ContextMenuGroup>
         </ContextMenuSubContent>
       </ContextMenuSub>
+      </ContextMenuGroup>
     </ContextMenuContent>
   </ContextMenu>
   <slot v-else />

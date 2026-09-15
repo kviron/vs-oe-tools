@@ -5,13 +5,13 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import type { Disposable } from 'vscode';
 import type { NavigationActions } from './navigationTools';
-import type { ClassAttributeDraft, ClassMethodDraft } from '../classes/models';
+import type { ClassAttributeDraft } from '../classes/models';
 import { createLifecycleParameterMethodId } from '../lifecycle/lifecycleMethodExecution';
 
 type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source'
 	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client'
 	| 'open_client_entity' | 'get_production_tasks' | 'get_production_task' | 'get_production_tasks_in_progress'
-	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'create_class_method' | 'execute_lifecycle_method' | 'start_client_mcp'
+	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'execute_lifecycle_method' | 'start_client_mcp'
 	| 'start_http_test_server' | 'stop_http_test_server' | 'get_http_test_server_status' | 'call_http_test_server';
 
 interface NavigationRequest {
@@ -25,7 +25,7 @@ interface NavigationRequest {
 	offset?: number;
 	role?: 'main' | 'test';
 	entityType?: string;
-	draft?: ClassAttributeDraft | ClassMethodDraft;
+	draft?: ClassAttributeDraft;
 	methodParameter?: string;
 	database?: string;
 	host?: string;
@@ -107,10 +107,6 @@ async function handleRequest(
 			return;
 		} else if (input.action === 'create_class_attribute') {
 			const result = await actions.createClassAttribute(input.draft as ClassAttributeDraft);
-			respond(response, 200, { ok: true, action: input.action, ...result });
-			return;
-		} else if (input.action === 'create_class_method') {
-			const result = await actions.createClassMethod(input.draft as ClassMethodDraft, input.database as string, input.host as string);
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
 		} else if (input.action === 'execute_lifecycle_method') {
@@ -213,7 +209,7 @@ function validateRequest(value: unknown): NavigationRequest {
 		&& action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
 		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
 		&& action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
-		&& action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method'
+		&& action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute'
 		&& action !== 'execute_lifecycle_method' && action !== 'start_client_mcp'
 		&& action !== 'start_http_test_server' && action !== 'stop_http_test_server'
 		&& action !== 'get_http_test_server_status' && action !== 'call_http_test_server') {
@@ -222,7 +218,7 @@ function validateRequest(value: unknown): NavigationRequest {
 	if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
 		&& action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
 		&& action !== 'update_packages' && action !== 'update_binaries'
-		&& action !== 'create_class_attribute' && action !== 'create_class_method' && action !== 'start_client_mcp'
+		&& action !== 'create_class_attribute' && action !== 'start_client_mcp'
 		&& action !== 'start_http_test_server' && action !== 'stop_http_test_server'
 		&& action !== 'get_http_test_server_status' && action !== 'call_http_test_server'
 		&& (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
@@ -240,18 +236,9 @@ function validateRequest(value: unknown): NavigationRequest {
 	if (action === 'create_class_attribute' && (!draft || typeof draft !== 'object')) {
 		throw new Error('draft is required for create_class_attribute.');
 	}
-	if (action === 'create_class_method' && (!draft || typeof draft !== 'object')) {
-		throw new Error('draft is required for create_class_method.');
-	}
 	const methodParameter = (value as Partial<NavigationRequest>).methodParameter;
 	const database = (value as Partial<NavigationRequest>).database;
 	const host = (value as Partial<NavigationRequest>).host;
-	if (action === 'create_class_method' && (typeof database !== 'string' || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
-		throw new Error('database is invalid for create_class_method.');
-	}
-	if (action === 'create_class_method' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
-		throw new Error('host is invalid for create_class_method.');
-	}
 	if (action === 'execute_lifecycle_method' && (typeof methodParameter !== 'string' || !methodParameter.trim())) {
 		throw new Error('methodParameter is required for execute_lifecycle_method.');
 	}

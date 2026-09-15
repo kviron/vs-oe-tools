@@ -165,7 +165,7 @@ export function parseMemoryDataPacket(packet: Buffer): MemoryDataRow[] {
 		const name = packet.subarray(offset, offset + nameLength).toString('ascii').toLowerCase();
 		offset += nameLength;
 		const type = packet[offset];
-		if (type !== 3 && type !== 15 && type !== 24) {
+		if (type !== 2 && type !== 3 && type !== 15 && type !== 24) {
 			throw new Error(`Неподдерживаемый тип поля ${name}: ${type}.`);
 		}
 		if (type === 24) {
@@ -196,7 +196,12 @@ export function parseMemoryDataPacket(packet: Buffer): MemoryDataRow[] {
 				row[field.name] = null;
 				continue;
 			}
-			if (field.type === 3) {
+			if (field.type === 2) {
+				// Delphi ftSmallint values (for example StoredFiles.Important) use two
+				// signed little-endian bytes in a MemoryDataPacket row.
+				row[field.name] = packet.readInt16LE(offset);
+				offset += 2;
+			} else if (field.type === 3) {
 				row[field.name] = packet.readInt32LE(offset);
 				offset += 4;
 			} else if (field.type === 15) {

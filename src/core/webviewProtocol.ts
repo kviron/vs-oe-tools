@@ -1,7 +1,8 @@
-import type { AttributeDetails, AttributeEditorOptions, ClassAttribute, ClassAttributeDraft, ClassDetails, ClassMethod, ClassObjectColumnSettings, ClassObjectsResult, ClassProperty, ClassTreeRow, ObjectViewResult, PropertyDetails } from '../features/classes/models';
+import type { AttributeDetails, AttributeEditorOptions, ClassAttribute, ClassDetails, ClassMethod, ClassObjectColumnSettings, ClassObjectsResult, ClassProperty, ClassTreeRow, MethodPropertiesDetails, ObjectViewResult, PropertyDetails } from '../features/classes/models';
+import { validateNativeAttributeDraft, type NativeAttributeDraft } from '../features/classes/nativeAttributeEditing';
 import type { PackageSyncIssue, PackageSyncItem, SvnConflictContent, SvnMergeResult } from '../features/package-sync/models';
 import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSearch';
-import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskListItem, ProductionTaskSummary, ProductionTaskUser } from '../features/production-tasks/models';
+import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskDescriptionPart, ProductionTaskHistoryEntry, ProductionTaskListItem, ProductionTaskSummary, ProductionTaskUser } from '../features/production-tasks/models';
 import type { CreatedSpu, SpuDraft, SpuEditorOptions } from '../features/spu/models';
 import type { SqlCompletionSchema } from '../features/sql-executor/sqlCompletionSchema';
 import type { PackageExplorerNode, PackageFileContent, PackageSummary } from '../features/packages/models';
@@ -59,6 +60,9 @@ export type ProductionTaskDetailsWebviewMessage =
 	| TableSelectionDebugMessage;
 export type ProductionTaskDetailsHostMessage =
 	| { command: 'productionTaskDetailsLoaded'; task: ProductionTaskSummary }
+	| { command: 'productionTaskRichDescriptionLoading' }
+	| { command: 'productionTaskRichDescriptionLoaded'; parts: ProductionTaskDescriptionPart[] }
+	| { command: 'productionTaskRichDescriptionFailed'; message: string }
 	| { command: 'productionTaskActionsLoading' }
 	| { command: 'productionTaskActionsLoaded'; actions: ProductionTaskAction[] }
 	| { command: 'productionTaskActionsFailed'; message: string }
@@ -123,6 +127,7 @@ export type ClassDetailsWebviewMessage =
 	| { command: 'createMethod'; classId: number }
 	| { command: 'openMethod'; id: number }
 	| { command: 'openAttribute'; id: number }
+	| { command: 'editAttribute'; id: number }
 	| { command: 'openProperty'; id: number }
 	| { command: 'openClassObjects'; classId: number }
 	| { command: 'viewObject'; id: number }
@@ -143,18 +148,18 @@ export type ClassDetailsHostMessage =
 	| { command: 'classPropertiesLoaded'; properties: ClassProperty[]; includeInherited: boolean }
 	| { command: 'classPropertiesLoadFailed'; message: string; includeInherited: boolean };
 export type AttributeDetailsWebviewMessage =
-	| { command: 'attributeDetailsReady' }
-	| { command: 'createClassAttribute'; draft: ClassAttributeDraft };
+	| { command: 'attributeDetailsReady' | 'attributeRefresh' | 'attributeEdit' | 'attributeCancel' | 'attributeNew' | 'attributeCopyId' | 'attributeOpenOwner' }
+	| { command: 'attributeSave'; draft: NativeAttributeDraft };
 export type AttributeDetailsHostMessage =
-	| { command: 'attributeDetailsLoaded'; details: AttributeDetails }
-	| { command: 'attributeCreationInitialized'; options: AttributeEditorOptions; draft: ClassAttributeDraft }
-	| { command: 'attributeCreating' }
-	| { command: 'attributeCreated'; details: AttributeDetails }
-	| { command: 'attributeCreationFailed'; message: string };
+	{ command: 'attributeEditorState'; details?: AttributeDetails; options: AttributeEditorOptions;
+		draft: NativeAttributeDraft; mode: 'view' | 'edit' | 'create'; busy: boolean;
+		error?: string; warning?: string; blocked?: boolean };
 export type PropertyDetailsWebviewMessage = { command: 'propertyDetailsReady' };
 export type PropertyDetailsHostMessage = { command: 'propertyDetailsLoaded'; details: PropertyDetails };
-export type EntityPropertiesWebviewMessage = { command: 'entityPropertiesReady' };
-export type EntityPropertiesHostMessage = { command: 'entityPropertiesLoaded'; result: ObjectViewResult };
+export type EntityPropertiesWebviewMessage =
+	{ command: 'entityPropertiesReady' | 'entityPropertiesRefresh' | 'methodPropertiesCopyId' | 'methodPropertiesOpenOwner' | 'methodPropertiesOpenCode' };
+export type EntityPropertiesHostMessage = { command: 'entityPropertiesLoaded'; result: ObjectViewResult;
+	attributes?: Record<string, unknown>; method?: MethodPropertiesDetails; busy?: boolean; error?: string };
 export type ClassObjectsWebviewMessage =
 	| { command: 'classObjectsReady' }
 	| { command: 'refreshClassObjects' }
@@ -462,7 +467,7 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 	if (message.command === 'createAttribute' || message.command === 'createMethod') {
 		return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId) && message.classId > 0;
 	}
-	if (message.command === 'openMethod' || message.command === 'openAttribute' || message.command === 'openProperty') {
+	if (message.command === 'openMethod' || message.command === 'openAttribute' || message.command === 'editAttribute' || message.command === 'openProperty') {
 		return 'id' in message && typeof message.id === 'number';
 	}
 	if (message.command === 'openClassObjects') {
@@ -491,8 +496,9 @@ export function isClassDetailsWebviewMessage(message: unknown): message is Class
 
 export function isAttributeDetailsWebviewMessage(message: unknown): message is AttributeDetailsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
-	if (message.command === 'attributeDetailsReady') { return true; }
-	return message.command === 'createClassAttribute' && 'draft' in message && typeof message.draft === 'object' && message.draft !== null;
+	if (['attributeDetailsReady', 'attributeRefresh', 'attributeEdit', 'attributeCancel', 'attributeNew', 'attributeCopyId', 'attributeOpenOwner'].includes(String(message.command))) { return true; }
+	if (message.command !== 'attributeSave' || !('draft' in message)) { return false; }
+	try { validateNativeAttributeDraft(message.draft); return true; } catch { return false; }
 }
 
 export function isPropertyDetailsWebviewMessage(message: unknown): message is PropertyDetailsWebviewMessage {

@@ -19,7 +19,6 @@ import { registerTool as searchMethods } from './searchMethods';
 import { registerTool as resolveMethodReference } from './resolveMethodReference';
 import { registerTool as getMethodSource } from './getMethodSource';
 import { registerTool as updateMethodSource } from './updateMethodSource';
-import { registerTool as createClassMethod } from './createClassMethod';
 import { registerTool as getLifecycleFunctionCatalog } from './getLifecycleFunctionCatalog';
 import { registerTool as executeLifecycleMethod } from './executeLifecycleMethod';
 import { registerTool as updateDatabase } from './updateDatabase';
@@ -77,7 +76,6 @@ export function registerTools(server: McpToolServer): void {
 	resolveMethodReference(server);
 	getMethodSource(server);
 	updateMethodSource(server);
-	createClassMethod(server);
 	getLifecycleFunctionCatalog(server);
 	executeLifecycleMethod(server);
 	updateDatabase(server);

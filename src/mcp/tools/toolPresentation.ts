@@ -1,6 +1,5 @@
 export const deprecatedMcpToolNames = new Set([
 	'update_method_source',
-	'create_class_method',
 	'execute_lifecycle_method',
 	'update_database',
 	'update_packages',
@@ -29,7 +28,6 @@ export const russianMcpToolDescriptions: Record<string, string> = {
 	resolve_method_reference: 'Разрешает вызов метода из исходного кода с учётом класса, наследования, квалификатора и числа аргументов.',
 	get_method_source: 'Читает декодированный из Windows-1251 исходный код метода с номерами строк и пагинацией.',
 	update_method_source: 'Заменяет полный исходный код метода через контролируемый конвейер сохранения VS Code.',
-	create_class_method: 'Создаёт интерпретируемый метод в существующем классе через контролируемую транзакцию VS Code.',
 	get_lifecycle_function_catalog: 'Показывает методы класса Функции_ЖЦ, их сигнатуры и доступную контролируемую операцию создания метаданных.',
 	execute_lifecycle_method: 'Выполняет разрешённый статический метод Функции_ЖЦ.СоздатьПараметрИПраво через OEExecTask.',
 	update_database: 'Запускает обновление основной или тестовой базы после подтверждения пользователя в VS Code.',

@@ -4,9 +4,9 @@ import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, reactive, ref } from 'vue';
 import type { ProductionTaskDetailsHostMessage } from '../../../src/core/webviewProtocol';
 import type { DatabaseObjectSearchResult } from '../../../src/core/objectSearch';
-import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../../../src/features/production-tasks/models';
+import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskDescriptionPart, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../../../src/features/production-tasks/models';
 import { productionDeadlineInfo, productionTaskMarkdown } from '../../../src/features/production-tasks/productionTaskPresentation';
-import { splitWorkDescriptionObjectIds } from '../../../src/features/production-tasks/workDescriptionLinks';
+import { splitWorkDescriptionObjectIds, type WorkDescriptionPart } from '../../../src/features/production-tasks/workDescriptionLinks';
 import ProductionTaskBadge from '@/components/ProductionTaskBadge.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,8 @@ const historyLoading = ref(false);
 const historyLoaded = ref(false);
 const historyError = ref('');
 const selectedHistoryEntry = ref<ProductionTaskHistoryEntry>();
+const richDescriptionParts = ref<ProductionTaskDescriptionPart[]>([]);
+const richDescriptionError = ref('');
 const peopleFields = [
   ['Автор', 'author'], ['Менеджер', 'manager'], ['Аналитик', 'analyst'],
   ['Исполнитель', 'executor'], ['Проверяющий', 'reviewer'],
@@ -51,7 +53,24 @@ const typeFields = [
   ['Релиз (план)', 'releasePlan'], ['Релиз (факт)', 'releaseActual'],
   ['Ревизия (trunk)', 'revisionTrunk'], ['Ревизия (branch)', 'revisionBranch'],
 ] as const;
-const workDescriptionParts = computed(() => splitWorkDescriptionObjectIds(task.value?.workDescription || 'Описание работы не заполнено.'));
+type WorkDescriptionRenderPart =
+  | ({ renderKind: 'text' } & WorkDescriptionPart)
+  | ({ renderKind: 'image' } & Omit<Extract<ProductionTaskDescriptionPart, { kind: 'image' }>, 'kind'>);
+const workDescriptionParts = computed<WorkDescriptionRenderPart[]>(() => {
+  const rich = richDescriptionParts.value;
+  if (!rich.some(part => part.kind === 'image')) {
+    return splitWorkDescriptionObjectIds(task.value?.workDescription || 'Описание работы не заполнено.').map(part => ({ renderKind: 'text', ...part }));
+  }
+  const result: WorkDescriptionRenderPart[] = [];
+  for (const part of rich) {
+    if (part.kind === 'image') {
+      result.push({ renderKind: 'image', dataUrl: part.dataUrl, width: part.width, height: part.height });
+    } else {
+      result.push(...splitWorkDescriptionObjectIds(part.text).map(textPart => ({ renderKind: 'text' as const, ...textPart })));
+    }
+  }
+  return result;
+});
 const detailGroups = [
   { title: 'Команда', description: 'Участники задачи', icon: UserGroupIcon, fields: peopleFields },
   { title: 'Работа', description: 'Контекст и связанные объекты', icon: Task01Icon, fields: workFields },
@@ -175,6 +194,9 @@ function previewRows(object: DatabaseObjectSearchResult): Array<[string, string]
 window.addEventListener('message', (event: MessageEvent<ProductionTaskDetailsHostMessage>) => {
   const message = event.data;
   if (message.command === 'productionTaskDetailsLoaded') { task.value = message.task; return; }
+  if (message.command === 'productionTaskRichDescriptionLoading') { richDescriptionError.value = ''; return; }
+  if (message.command === 'productionTaskRichDescriptionLoaded') { richDescriptionParts.value = message.parts; richDescriptionError.value = ''; return; }
+  if (message.command === 'productionTaskRichDescriptionFailed') { richDescriptionError.value = message.message; return; }
   if (message.command === 'productionTaskActionsLoading') { actionsLoading.value = true; actionsError.value = ''; return; }
   if (message.command === 'productionTaskActionsLoaded') {
     actions.value = message.actions;
@@ -293,7 +315,8 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
             <CardHeader class="border-b"><CardTitle>Описание работы</CardTitle><CardDescription>Постановка задачи и связанные материалы</CardDescription></CardHeader>
         <CardContent class="break-words whitespace-pre-wrap text-sm leading-relaxed">
           <template v-for="(part, index) in workDescriptionParts" :key="index">
-            <Button v-if="part.href" variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :title="part.href" @click="openExternalUrl(part.href)">{{ part.text }}</Button>
+            <img v-if="part.renderKind === 'image'" :src="part.dataUrl" :width="part.width" :height="part.height" alt="Изображение из описания задачи" class="my-3 block h-auto max-w-full rounded-md border object-contain" />
+            <Button v-else-if="part.href" variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :title="part.href" @click="openExternalUrl(part.href)">{{ part.text }}</Button>
             <Popover v-else-if="part.id && part.kind === 'task'" :open="activePreviewIndex === index">
               <PopoverAnchor as-child>
                 <Button variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :title="`Задача ${part.id}`" @pointerenter="showTaskPreview(part.id, index)" @pointerleave="closeObjectPreviewSoon" @focus="showTaskPreview(part.id, index)" @blur="closeObjectPreviewSoon">{{ part.text }}</Button>
@@ -342,7 +365,8 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
             </Popover>
             <span v-else>{{ part.text }}</span>
           </template>
-            </CardContent>
+          <p v-if="richDescriptionError" class="mt-3 text-xs text-destructive">Не удалось загрузить встроенные изображения: {{ richDescriptionError }}</p>
+        </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="attachments">

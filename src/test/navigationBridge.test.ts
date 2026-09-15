@@ -16,8 +16,6 @@ suite('Navigation bridge', () => {
 		let packagesUpdated = false;
 		let binariesUpdated = false;
 		let createdAttributeName: string | undefined;
-		let createdMethodName: string | undefined;
-		let createdMethodTarget: { database: string; host: string } | undefined;
 		let executedLifecycleMethod: { methodId: number; methodParameter: string; database: string; host: string } | undefined;
 		let startedClientMcp: { database: string; host: string } | undefined;
 		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
@@ -29,11 +27,6 @@ suite('Navigation bridge', () => {
 			updateMethodSource: async (methodId, code) => {
 				updatedMethod = { methodId, code };
 				return { methodId, changed: true };
-			},
-			createClassMethod: async (draft, database, host) => {
-				createdMethodName = draft.name;
-				createdMethodTarget = { database, host };
-				return { methodId: 3200151, ownerClassId: draft.ownerClassId, name: draft.name };
 			},
 			createClassAttribute: async draft => {
 				createdAttributeName = draft.name;
@@ -91,18 +84,6 @@ suite('Navigation bridge', () => {
 			});
 			assert.equal(updateResponse.status, 200);
 			assert.deepEqual(updatedMethod, { methodId: 3200110, code: 'begin\r\nend' });
-			const createMethodResponse = await fetch(connection.url, {
-				method: 'POST',
-				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
-				body: JSON.stringify({ action: 'create_class_method', database: 'oetest', host: 'localhost', draft: {
-					ownerClassId: 3200139, name: 'acTestExecute', visibilityId: 12450286,
-					methodType: 3, methodKind: 0, signature: '', code: 'proc()\r\nbegin\r\nend;',
-				} }),
-			});
-			assert.equal(createMethodResponse.status, 200);
-			assert.equal(createdMethodName, 'acTestExecute');
-			assert.deepEqual(createdMethodTarget, { database: 'oetest', host: 'localhost' });
-			assert.equal((await createMethodResponse.json() as { methodId: number }).methodId, 3200151);
 			const attributeResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

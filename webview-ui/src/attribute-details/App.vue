@@ -1,260 +1,199 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { AttributeDetailsHostMessage } from '../../../src/core/webviewProtocol';
-import type { AttributeDetails, AttributeEditorOptions, ClassAttributeDraft } from '../../../src/features/classes/models';
+import { Add01Icon, ArrowLeft01Icon, Copy01Icon, Edit02Icon, RefreshIcon, Tick02Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/vue';
+import type { AttributeDetailsHostMessage, AttributeDetailsWebviewMessage } from '../../../src/core/webviewProtocol';
+import { validateNativeAttributeDraft, type NativeAttributeDraft } from '../../../src/features/classes/nativeAttributeEditing';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { ContextMenu, ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { vscode } from '@/vscode';
 
-const details = ref<AttributeDetails>();
-const creationOptions = ref<AttributeEditorOptions>();
-const draft = ref<ClassAttributeDraft>();
+const state = ref<AttributeDetailsHostMessage>();
+const draft = ref<NativeAttributeDraft>();
 const saving = ref(false);
-const creationError = ref('');
-const normalizedData = computed(() => new Map(
-  Object.entries(details.value?.data ?? {}).map(([key, value]) => [key.toLocaleLowerCase('ru'), value]),
-));
-
-const mainLeftFields = [
-  ['Идентификатор', ['id']],
-  ['Владелец', ['owner', 'ownername', 'classname']],
-  ['Имя', ['name']],
-  ['Псевдоним', ['alias', 'aliases']],
-  ['Тип', ['typename', 'type', 'attrtype', 'attributetype']],
-] as const;
-
-const mainRightFields = [
-  ['Поле таблицы', ['dbfieldname', 'dbfield', 'fieldname', 'columnname']],
-  ['Дистрибуция', ['distribution', 'distrib', 'package', 'packagename']],
-  ['Обл. видимости', ['visibility', 'access', 'scope']],
-] as const;
-
-const flags = [
-  ['Исторический', ['historical', 'ishistorical', 'history']],
-  ['Вычисляемый', ['calculated', 'iscalculated', 'computed']],
-  ['Статический', ['static', 'isstatic']],
-  ['Не пустой', ['notnull', 'required', 'notempty']],
-  ['Виртуальный', ['virtual', 'isvirtual']],
-  ['Скрытый', ['hidden', 'ishidden']],
-] as const;
-
-const additionalLeftFields = [
-  ['Классы значений (расширение)', ['valueclasses', 'valueclassextension', 'classextension']],
-  ['Порядок', ['ord', 'order', 'sortorder']],
-  ['Заголовок', ['caption', 'title']],
-  ['Формат вывода', ['displayformat', 'outputformat']],
-  ['Формат редактора', ['editorformat', 'editformat']],
-  ['Роль для записи', ['writerole', 'editrole']],
-  ['Роль для чтения', ['readrole', 'viewrole']],
-  ['Значение', ['value', 'defvalue', 'defaultvalue']],
-] as const;
-
-const eventFields = [
-  ['При сохранении', ['onsave', 'beforesave', 'aftersave']],
-  ['При записи', ['onwrite', 'beforewrite', 'afterwrite']],
-  ['При выборе', ['onselect', 'onchoice', 'onlookup']],
-] as const;
-
-function rawValue(...names: readonly string[]): unknown {
-  for (const name of names) {
-    const value = normalizedData.value.get(name.toLocaleLowerCase('ru'));
-    if (value !== undefined && value !== null) return value;
-  }
-  return '';
-}
-
-function displayValue(names: readonly string[]): string {
-  const value = rawValue(...names);
-  if (Array.isArray(value)) return value.join(', ');
-  if (typeof value === 'object' && value !== null) return JSON.stringify(value, null, 2);
-  return String(value);
-}
-
-function booleanValue(names: readonly string[]): boolean {
-  const value = rawValue(...names);
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'number') return value !== 0;
-  return ['1', 'true', 'yes', 'да'].includes(String(value).trim().toLocaleLowerCase('ru'));
-}
-
-function fieldValue(names: readonly string[]): string {
-  if (names[0] === 'owner') return details.value?.ownerClassName ?? '';
-  if (names.includes('attrtype') && details.value?.attributeTypeName) return details.value.attributeTypeName;
-  return displayValue(names);
-}
-
-const expression = computed(() => displayValue(['calcexpression', 'calculatedexpression', 'expression', 'formula']));
-const description = computed(() => displayValue(['description', 'descr', 'comment', 'notes']));
-const props = computed(() => displayValue(['props', 'properties', 'propertytext']));
-
-window.addEventListener('message', (event: MessageEvent<AttributeDetailsHostMessage>) => {
-  if (event.data.command === 'attributeDetailsLoaded') details.value = event.data.details;
-  else if (event.data.command === 'attributeCreationInitialized') {
-    creationOptions.value = event.data.options;
-    draft.value = { ...event.data.draft };
-  } else if (event.data.command === 'attributeCreating') {
-    saving.value = true;
-    creationError.value = '';
-  } else if (event.data.command === 'attributeCreated') {
-    saving.value = false;
-    details.value = event.data.details;
-    creationOptions.value = undefined;
-    draft.value = undefined;
-  } else if (event.data.command === 'attributeCreationFailed') {
-    saving.value = false;
-    creationError.value = event.data.message;
-  }
+const attempted = ref(false);
+const formError = ref('');
+const editing = computed(() => state.value?.mode !== 'view');
+const creating = computed(() => state.value?.mode === 'create');
+const busy = computed(() => saving.value || Boolean(state.value?.busy));
+const canSave = computed(() => editing.value && !busy.value && !state.value?.blocked);
+const typeName = computed(() => state.value?.options.types.find(item => item.id === draft.value?.attributeTypeId)?.name ?? state.value?.details?.attributeTypeName ?? 'Тип не выбран');
+const referenceType = computed(() => [322, 324, 325, 330, 333].includes(draft.value?.attributeTypeId ?? 0));
+const typeOptions = computed(() => {
+  const options = state.value?.options.types ?? [];
+  return draft.value && !options.some(item => item.id === draft.value?.attributeTypeId)
+    ? [{ id: draft.value.attributeTypeId, name: typeName.value }, ...options] : options;
 });
-
-function setNumericField(field: 'attributeTypeId' | 'visibilityId' | 'distributionModeId', event: Event): void {
-  if (draft.value && event.target instanceof HTMLSelectElement) draft.value[field] = Number(event.target.value);
+const nameInvalid = computed(() => attempted.value && !draft.value?.name.trim());
+const fieldInvalid = computed(() => attempted.value && draft.value?.storageInDb && !draft.value.dbFieldName.trim());
+const classInvalid = computed(() => attempted.value && referenceType.value && !draft.value?.valueClass.trim());
+const packageInvalid = computed(() => attempted.value && creating.value && !draft.value?.sysPackage.trim());
+const expressionInvalid = computed(() => attempted.value && draft.value?.isComputedBy && !draft.value.computedByExpression.trim());
+const extraFields = [
+  ['aliases', 'Псевдоним'], ['title', 'Заголовок'], ['visibility', 'Видимость'], ['attrvaluedistrmode', 'Дистрибуция'],
+  ['ord', 'Порядок'], ['defvalue', 'Значение по умолчанию'], ['dispformat', 'Формат вывода'], ['editformat', 'Формат редактора'],
+  ['roleread', 'Роль для чтения'], ['rolewrite', 'Роль для записи'], ['onsetmethod', 'При записи'],
+  ['onsavemethod', 'При сохранении'], ['onchoosemethod', 'При выборе'],
+] as const;
+const flags = [
+  { key: 'isHistoric', label: 'Исторический', description: 'Хранить историю значений.' },
+  { key: 'isStatic', label: 'Статический', description: 'Значение на уровне класса.' },
+  { key: 'isComputedBy', label: 'Вычисляемый', description: 'Получать значение по SQL-выражению.' },
+] as const;
+function raw(key: string): string {
+  const value = state.value?.details?.data[key];
+  return value == null || value === '' ? '—' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
 }
-
-function saveNewAttribute(): void {
-  if (!draft.value || saving.value) return;
-  vscode.postMessage({ command: 'createClassAttribute', draft: { ...draft.value } });
+function flag(key: string): boolean {
+  return ['true', '1', '-1'].includes(raw(key).toLowerCase());
 }
+function action(command: Exclude<AttributeDetailsWebviewMessage['command'], 'attributeSave'>): void {
+  if (busy.value) return;
+  vscode.postMessage({ command });
+}
+function save(): void {
+  if (!draft.value || !canSave.value) return;
+  attempted.value = true; formError.value = '';
+  try {
+    validateNativeAttributeDraft(draft.value);
+    if (creating.value && !draft.value.sysPackage.trim()) throw new Error('Укажите пакет для нового атрибута.');
+  } catch (error) { formError.value = error instanceof Error ? error.message : String(error); return; }
+  saving.value = true;
+  vscode.postMessage({ command: 'attributeSave', draft: { ...draft.value } });
+}
+window.addEventListener('message', (event: MessageEvent<AttributeDetailsHostMessage>) => {
+  const message = event.data;
+  if (message.command !== 'attributeEditorState') return;
+  // Copy/open-owner acknowledgements must not replace a locally edited draft.
+  if (!draft.value || state.value?.mode !== message.mode || message.busy || message.mode === 'view') {
+    draft.value = { ...message.draft };
+  }
+  if (state.value?.mode !== message.mode) { attempted.value = false; formError.value = ''; }
+  state.value = message; saving.value = message.busy;
+});
 vscode.postMessage({ command: 'attributeDetailsReady' });
 </script>
 
 <template>
-  <main class="flex h-screen min-h-0 flex-col p-2">
-    <template v-if="creationOptions && draft">
-      <header class="mb-2 flex items-center gap-2">
-        <h1 class="truncate text-sm font-semibold">Новый атрибут — {{ creationOptions.ownerClassName }}</h1>
-        <Badge variant="secondary">виртуальный</Badge>
-        <Button class="ml-auto" size="sm" :disabled="saving" @click="saveNewAttribute">{{ saving ? 'Сохранение…' : 'Создать атрибут' }}</Button>
-      </header>
-      <Tabs default-value="main" class="min-h-0 flex-1 gap-2">
-        <TabsList variant="line"><TabsTrigger value="main">Основное</TabsTrigger><TabsTrigger value="additional">Дополнительное</TabsTrigger></TabsList>
-        <TabsContent value="main" class="min-h-0 overflow-auto p-1">
-          <FieldGroup class="gap-3">
-            <p v-if="creationError" class="text-xs text-destructive">{{ creationError }}</p>
-            <FieldGroup class="grid gap-x-6 gap-y-2 lg:grid-cols-2">
-              <FieldGroup class="gap-1">
-                <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-32 shrink-0 flex-none" for="attribute-owner">Владелец</FieldLabel><Input id="attribute-owner" :model-value="creationOptions.ownerClassName" readonly class="h-6" /></Field>
-                <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-32 shrink-0 flex-none" for="attribute-name">Имя</FieldLabel><Input id="attribute-name" v-model="draft.name" autofocus class="h-6" /></Field>
-                <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-32 shrink-0 flex-none" for="attribute-alias">Псевдоним</FieldLabel><Input id="attribute-alias" v-model="draft.aliases" class="h-6" /></Field>
-                <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-32 shrink-0 flex-none" for="attribute-type">Тип</FieldLabel><NativeSelect id="attribute-type" class="w-full" :model-value="String(draft.attributeTypeId)" @change="setNumericField('attributeTypeId', $event)"><NativeSelectOption v-for="item in creationOptions.types" :key="item.id" :value="String(item.id)">{{ item.name }} ({{ item.id }})</NativeSelectOption></NativeSelect></Field>
-                <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-32 shrink-0 flex-none" for="attribute-value-classes">Классы значений</FieldLabel><Input id="attribute-value-classes" v-model="draft.valueClasses" placeholder="ID через запятую" class="h-6" /></Field>
-              </FieldGroup>
-              <FieldGroup class="gap-1">
-                <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-36 shrink-0 flex-none" for="attribute-field">Поле таблицы</FieldLabel><Input id="attribute-field" v-model="draft.dbFieldName" class="h-6" /></Field>
-                <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-36 shrink-0 flex-none" for="attribute-visibility">Обл. видимости</FieldLabel><NativeSelect id="attribute-visibility" class="w-full" :model-value="String(draft.visibilityId)" @change="setNumericField('visibilityId', $event)"><NativeSelectOption v-for="item in creationOptions.visibilities" :key="item.id" :value="String(item.id)">{{ item.name }}</NativeSelectOption></NativeSelect></Field>
-                <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-36 shrink-0 flex-none" for="attribute-distribution">Дистрибуция</FieldLabel><NativeSelect id="attribute-distribution" class="w-full" :model-value="String(draft.distributionModeId)" @change="setNumericField('distributionModeId', $event)"><NativeSelectOption v-for="item in creationOptions.distributionModes" :key="item.id" :value="String(item.id)">{{ item.name }}</NativeSelectOption></NativeSelect></Field>
-                <FieldSet class="gap-1"><FieldLegend>Вид</FieldLegend><FieldGroup class="grid grid-cols-2 gap-x-3 gap-y-1">
-                  <Field orientation="horizontal" class="gap-1"><Checkbox :model-value="draft.isNotNull" @update:model-value="value => draft && (draft.isNotNull = value === true)" /><FieldLabel>Не пустой</FieldLabel></Field>
-                  <Field orientation="horizontal" class="gap-1" data-disabled><Checkbox :model-value="draft.virtual" disabled /><FieldLabel>Виртуальный</FieldLabel></Field>
-                  <Field orientation="horizontal" class="gap-1"><Checkbox :model-value="draft.refIntegrityCheck" @update:model-value="value => draft && (draft.refIntegrityCheck = value === true)" /><FieldLabel>Проверять ссылки</FieldLabel></Field>
-                </FieldGroup></FieldSet>
-              </FieldGroup>
-            </FieldGroup>
-            <p class="text-xs text-muted-foreground">Физические атрибуты пока не создаются: для них нужен отдельно подтверждённый сценарий изменения таблицы.</p>
-          </FieldGroup>
-        </TabsContent>
-        <TabsContent value="additional" class="min-h-0 overflow-auto p-1"><p class="text-xs text-muted-foreground">Остальные параметры будут добавляться после фиксации соответствующих операций в SQL-мониторе.</p></TabsContent>
-      </Tabs>
-    </template>
-    <template v-else-if="details">
-      <header class="mb-2 flex items-center gap-2">
-        <h1 class="truncate text-sm font-semibold">{{ details.ownerClassName }}.{{ details.name }}</h1>
-        <Badge variant="secondary">только чтение</Badge>
-        <span class="ml-auto text-xs text-muted-foreground">ID {{ details.id }}</span>
-      </header>
+  <ContextMenu>
+    <ContextMenuTrigger as-child>
+      <main class="flex h-screen min-h-0 flex-col overflow-auto bg-background p-4 sm:p-5">
+        <div v-if="state && draft" class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4">
+          <header class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" size="sm" :disabled="busy" @click="action('attributeOpenOwner')">
+                <HugeiconsIcon :icon="ArrowLeft01Icon" data-icon="inline-start" />{{ state.options.ownerClassName }}
+              </Button>
+              <span class="text-xs text-muted-foreground">Класс-владелец · {{ state.options.ownerClassId }}</span>
+            </div>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="flex min-w-0 flex-col gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <Badge variant="attribute">Атрибут</Badge>
+                  <Badge v-if="editing" variant="outline">{{ creating ? 'Создание' : 'Редактирование' }}</Badge>
+                  <Button v-if="state.details" variant="ghost" size="sm" :disabled="busy" title="Скопировать ID атрибута" @click="action('attributeCopyId')">
+                    <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />ID {{ state.details.id }}
+                  </Button>
+                </div>
+                <h1 class="break-all text-xl font-semibold tracking-tight">{{ creating ? 'Новый атрибут' : state.details?.name }}</h1>
+                <p class="text-xs text-muted-foreground">{{ typeName }} · {{ draft.storageInDb ? 'Хранится в БД' : 'Виртуальный' }}<template v-if="draft.isComputedBy"> · Вычисляемый</template></p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <template v-if="!editing">
+                  <Button variant="outline" size="sm" :disabled="busy" @click="action('attributeRefresh')"><HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />Обновить</Button>
+                  <Button variant="outline" size="sm" :disabled="busy || state.blocked" @click="action('attributeNew')"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать атрибут</Button>
+                  <Button size="sm" :disabled="busy || state.blocked" @click="action('attributeEdit')"><HugeiconsIcon :icon="Edit02Icon" data-icon="inline-start" />Редактировать</Button>
+                </template>
+                <template v-else>
+                  <Button variant="outline" size="sm" :disabled="busy" @click="action('attributeCancel')">Отмена</Button>
+                  <Button size="sm" :disabled="!canSave" @click="save"><HugeiconsIcon :icon="Tick02Icon" data-icon="inline-start" />{{ busy ? 'Сохранение…' : creating ? 'Создать атрибут' : 'Сохранить' }}</Button>
+                </template>
+              </div>
+            </div>
+          </header>
 
-      <Tabs default-value="main" class="min-h-0 flex-1 gap-2">
-        <TabsList variant="line">
-          <TabsTrigger value="main">Основное</TabsTrigger>
-          <TabsTrigger value="additional">Дополнительное</TabsTrigger>
-          <TabsTrigger value="props">Props</TabsTrigger>
-        </TabsList>
+          <Alert v-if="state.error || formError" variant="destructive" role="alert"><AlertTitle>{{ state.blocked ? 'Нужна проверка результата' : 'Не удалось сохранить изменения' }}</AlertTitle><AlertDescription>{{ state.error || formError }}</AlertDescription></Alert>
+          <Alert v-if="state.warning"><AlertTitle>Проверьте пакетную привязку</AlertTitle><AlertDescription>{{ state.warning }}</AlertDescription></Alert>
 
-        <TabsContent value="main" class="min-h-0 overflow-auto p-1">
-          <FieldGroup class="gap-3">
-            <FieldGroup class="grid gap-x-6 gap-y-2 lg:grid-cols-2">
-              <FieldGroup class="gap-1">
-                <Field v-for="[label, names] in mainLeftFields" :key="label" orientation="horizontal" class="gap-2">
-                  <FieldLabel class="w-28 shrink-0 flex-none">{{ label }}</FieldLabel>
-                  <Input :model-value="fieldValue(names)" readonly class="h-6" />
-                </Field>
-              </FieldGroup>
-              <FieldGroup class="gap-1">
-                <Field v-for="[label, names] in mainRightFields" :key="label" orientation="horizontal" class="gap-2">
-                  <FieldLabel class="w-32 shrink-0 flex-none">{{ label }}</FieldLabel>
-                  <Input :model-value="fieldValue(names)" readonly class="h-6" />
-                </Field>
-                <FieldSet class="gap-1">
-                  <FieldLegend>Вид</FieldLegend>
-                  <FieldGroup class="grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3">
-                    <Field v-for="[label, names] in flags" :key="label" orientation="horizontal" class="gap-1" data-disabled>
-                      <Checkbox :model-value="booleanValue(names)" disabled />
-                      <FieldLabel>{{ label }}</FieldLabel>
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
-              </FieldGroup>
-            </FieldGroup>
-
-            <FieldSet class="min-h-64 flex-1 gap-1">
-              <FieldLegend>Вычисляемое выражение</FieldLegend>
-              <FieldGroup class="min-h-56 flex-1 gap-1">
-                <Field class="min-h-56 flex-1"><Textarea :model-value="expression" readonly class="h-full min-h-56 resize-none font-mono" /></Field>
-              </FieldGroup>
-            </FieldSet>
-          </FieldGroup>
-        </TabsContent>
-
-        <TabsContent value="additional" class="min-h-0 overflow-auto p-1">
-          <FieldGroup class="gap-3">
-            <FieldGroup class="grid gap-x-6 gap-y-2 lg:grid-cols-2">
-              <FieldGroup class="gap-1">
-                <Field v-for="[label, names] in additionalLeftFields" :key="label" orientation="horizontal" class="gap-2">
-                  <FieldLabel class="w-48 shrink-0 flex-none">{{ label }}</FieldLabel>
-                  <Input :model-value="fieldValue(names)" readonly class="h-6" />
-                </Field>
-                <Field orientation="horizontal" class="gap-1" data-disabled>
-                  <Checkbox :model-value="booleanValue(['displayvaluetext', 'showvaluetext'])" disabled />
-                  <FieldLabel>Задать текст вывода значений</FieldLabel>
-                </Field>
-                <Field v-for="[label, names] in [['1', ['valuetext1']], ['0', ['valuetext0']], ['Null', ['valuetextnull']]] as const" :key="label" orientation="horizontal" class="gap-2">
-                  <FieldLabel class="w-10 shrink-0 flex-none">{{ label }}</FieldLabel>
-                  <Input :model-value="fieldValue(names)" readonly class="h-6 max-w-48" />
-                </Field>
-              </FieldGroup>
-              <FieldGroup class="gap-1">
-                <Field v-for="[label, names] in eventFields" :key="label" orientation="horizontal" class="gap-2">
-                  <FieldLabel class="w-28 shrink-0 flex-none">{{ label }}</FieldLabel>
-                  <Input :model-value="fieldValue(names)" readonly class="h-6" />
-                </Field>
-              </FieldGroup>
-            </FieldGroup>
-            <FieldSet class="min-h-64 flex-1 gap-1">
-              <FieldLegend>Описание</FieldLegend>
-              <FieldGroup class="min-h-56 flex-1 gap-1">
-                <Field class="min-h-56 flex-1"><Textarea :model-value="description" readonly class="h-full min-h-56 resize-none" /></Field>
-              </FieldGroup>
-            </FieldSet>
-          </FieldGroup>
-        </TabsContent>
-
-        <TabsContent value="props" class="min-h-0 flex-1 p-1">
-          <FieldGroup class="h-full gap-1">
-            <Field class="h-full"><Textarea :model-value="props" readonly class="h-full min-h-80 resize-none font-mono" /></Field>
-          </FieldGroup>
-        </TabsContent>
-      </Tabs>
-    </template>
-    <FieldGroup v-else class="gap-2">
-      <Skeleton class="h-7 w-72" />
-      <Skeleton class="h-7 w-full" />
-      <Skeleton class="h-64 w-full" />
-    </FieldGroup>
-  </main>
+          <Tabs default-value="main" class="flex flex-1 flex-col gap-4">
+            <TabsList variant="line" aria-label="Разделы атрибута">
+              <TabsTrigger value="main">Основное</TabsTrigger>
+              <TabsTrigger v-if="!creating" value="additional">Дополнительно</TabsTrigger>
+              <TabsTrigger v-if="!creating" value="metadata">Метаданные</TabsTrigger>
+            </TabsList>
+            <TabsContent value="main" class="flex flex-col gap-4">
+              <div class="grid items-start gap-4 md:grid-cols-2">
+                <Card>
+                  <CardHeader><CardTitle>Определение</CardTitle><CardDescription>Имя, тип и класс значения атрибута.</CardDescription></CardHeader>
+                  <CardContent>
+                    <FieldGroup class="gap-4">
+                      <Field :data-invalid="nameInvalid || undefined"><FieldLabel for="attribute-name">Имя атрибута</FieldLabel><Input id="attribute-name" v-model="draft.name" :readonly="!editing" :disabled="busy" :aria-invalid="nameInvalid" :autofocus="creating" placeholder="ИмяАтрибута" /><FieldError v-if="nameInvalid">Введите имя атрибута.</FieldError></Field>
+                      <Field><FieldLabel for="attribute-type">Тип данных</FieldLabel>
+                        <Select v-if="editing" :model-value="String(draft.attributeTypeId)" :disabled="busy" @update:model-value="value => draft && (draft.attributeTypeId = Number(value))">
+                          <SelectTrigger id="attribute-type" class="w-full"><SelectValue placeholder="Выберите тип" /></SelectTrigger>
+                          <SelectContent><SelectGroup><SelectItem v-for="item in typeOptions" :key="item.id" :value="String(item.id)">{{ item.name }} · {{ item.id }}</SelectItem></SelectGroup></SelectContent>
+                        </Select>
+                        <Input v-else id="attribute-type" :model-value="`${typeName} · ${draft.attributeTypeId}`" readonly />
+                      </Field>
+                      <Field :data-invalid="classInvalid || undefined"><FieldLabel for="attribute-value-class">Класс значения</FieldLabel><Input id="attribute-value-class" v-model="draft.valueClass" :readonly="!editing" :disabled="busy" :aria-invalid="classInvalid" :placeholder="editing ? 'Имя или ID класса' : 'Не задан'" /><FieldDescription v-if="editing">{{ referenceType ? 'Обязателен для выбранного ссылочного типа.' : 'Для типов, ссылающихся на класс.' }} Нативный метод принимает один класс.</FieldDescription><FieldError v-if="classInvalid">Укажите класс значения.</FieldError></Field>
+                      <Field v-if="creating" :data-invalid="packageInvalid || undefined"><FieldLabel for="attribute-package">Пакет</FieldLabel><Input id="attribute-package" v-model="draft.sysPackage" :disabled="busy" :aria-invalid="packageInvalid" placeholder="Имя или ID пакета" /><FieldDescription>Подставлен пакет класса. Используется при создании и назначении ID.</FieldDescription><FieldError v-if="packageInvalid">Укажите пакет.</FieldError></Field>
+                    </FieldGroup>
+                  </CardContent>
+                  <CardFooter><p class="text-xs text-muted-foreground">Владелец: {{ state.options.ownerClassName }}. Изменения относятся к этому классу, включая наследуемые атрибуты.</p></CardFooter>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle>Хранение и поведение</CardTitle><CardDescription>Поле таблицы и способ получения значения.</CardDescription></CardHeader>
+                  <CardContent>
+                    <FieldGroup class="gap-4">
+                      <Field orientation="horizontal" :data-disabled="!editing || busy || undefined"><Checkbox id="attribute-storage" v-model="draft.storageInDb" :disabled="!editing || busy" /><FieldContent><FieldLabel for="attribute-storage">Хранить в базе данных</FieldLabel><FieldDescription>{{ draft.storageInDb ? 'Физический атрибут с полем таблицы.' : 'Виртуальный атрибут без хранения значения.' }}</FieldDescription></FieldContent></Field>
+                      <Field :data-invalid="fieldInvalid || undefined"><FieldLabel for="attribute-db-field">Поле таблицы</FieldLabel><Input id="attribute-db-field" v-model="draft.dbFieldName" :readonly="!editing" :disabled="busy" :aria-invalid="Boolean(fieldInvalid)" :placeholder="editing ? 'Например, aValue' : 'Не задано'" /><FieldError v-if="fieldInvalid">Для хранения в БД укажите поле таблицы.</FieldError></Field>
+                      <FieldSet class="gap-3"><FieldLegend variant="label">Свойства</FieldLegend><FieldGroup class="gap-3">
+                        <Field v-for="item in flags" :key="item.key" orientation="horizontal" :data-disabled="!editing || busy || undefined"><Checkbox :id="`attribute-${item.key}`" :model-value="draft[item.key]" :disabled="!editing || busy" @update:model-value="value => draft && (draft[item.key] = value === true)" /><FieldContent><FieldLabel :for="`attribute-${item.key}`">{{ item.label }}</FieldLabel><FieldDescription>{{ item.description }}</FieldDescription></FieldContent></Field>
+                      </FieldGroup></FieldSet>
+                    </FieldGroup>
+                  </CardContent>
+                  <CardFooter v-if="editing && draft.storageInDb"><p class="text-xs text-muted-foreground">Изменение структуры таблицы потребует подтверждения перед сохранением.</p></CardFooter>
+                </Card>
+              </div>
+              <Card v-if="draft.isComputedBy || draft.computedByExpression">
+                <CardHeader><CardTitle>Вычисляемое выражение</CardTitle><CardDescription>SQL-выражение, передаваемое штатному методу клиента.</CardDescription></CardHeader>
+                <CardContent><Field :data-invalid="expressionInvalid || undefined"><FieldLabel for="attribute-expression" class="sr-only">SQL-выражение</FieldLabel><Textarea id="attribute-expression" v-model="draft.computedByExpression" :readonly="!editing" :disabled="busy" :aria-invalid="Boolean(expressionInvalid)" class="min-h-32" placeholder="SQL-выражение" /><FieldError v-if="expressionInvalid">Введите вычисляемое выражение.</FieldError></Field></CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent v-if="!creating" value="additional">
+              <Card><CardHeader><CardTitle>Дополнительные свойства</CardTitle><CardDescription>Данные из метаданных. Штатный метод редактирования не изменяет эти поля.</CardDescription></CardHeader>
+                <CardContent><FieldGroup class="grid gap-4 sm:grid-cols-2"><Field v-for="[key, label] in extraFields" :key="key"><FieldLabel :for="`extra-${key}`">{{ label }}</FieldLabel><Input :id="`extra-${key}`" :model-value="raw(key)" readonly /></Field></FieldGroup></CardContent>
+                <CardFooter><div class="flex flex-wrap gap-2"><Badge variant="outline">Не пустой: {{ flag('isnotnull') ? 'да' : 'нет' }}</Badge><Badge variant="outline">Скрытый: {{ flag('hidden') ? 'да' : 'нет' }}</Badge><Badge v-if="state.details?.createdBy" variant="secondary">Автор: {{ state.details.createdBy }}</Badge></div></CardFooter>
+              </Card>
+            </TabsContent>
+            <TabsContent v-if="!creating" value="metadata" class="flex flex-col gap-4">
+              <Card><CardHeader><CardTitle>Props</CardTitle><CardDescription>Дополнительные параметры атрибута без преобразований.</CardDescription></CardHeader><CardContent><Field><FieldLabel for="attribute-props" class="sr-only">Props</FieldLabel><Textarea id="attribute-props" :model-value="raw('props')" readonly class="min-h-32" /></Field></CardContent></Card>
+              <Card><CardHeader><CardTitle>Все метаданные</CardTitle><CardDescription>Исходные значения полей · только чтение.</CardDescription></CardHeader><CardContent><Field><FieldLabel for="attribute-metadata" class="sr-only">Все метаданные</FieldLabel><Textarea id="attribute-metadata" :model-value="JSON.stringify(state.details?.data ?? {}, null, 2)" readonly class="min-h-72" /></Field></CardContent></Card>
+            </TabsContent>
+          </Tabs>
+          <p role="status" aria-live="polite" class="text-xs text-muted-foreground">{{ busy ? 'Сохранение через клиент ВЭ и проверка результата…' : editing ? 'Изменения будут применены только после сохранения через клиент ВЭ.' : 'Просмотр атрибута. Для изменения данных нажмите «Редактировать».' }}</p>
+        </div>
+        <FieldGroup v-else class="mx-auto max-w-5xl gap-4" aria-label="Загрузка атрибута"><Skeleton class="h-8 w-60" /><Skeleton class="h-12 w-full" /><Skeleton class="h-80 w-full" /></FieldGroup>
+      </main>
+    </ContextMenuTrigger>
+    <ContextMenuContent v-if="state">
+      <ContextMenuGroup>
+        <ContextMenuItem v-if="!editing" :disabled="busy || state.blocked" @select="action('attributeEdit')"><HugeiconsIcon :icon="Edit02Icon" data-icon="inline-start" />Редактировать атрибут</ContextMenuItem>
+        <ContextMenuItem v-if="!editing" :disabled="busy || state.blocked" @select="action('attributeNew')"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать атрибут в этом классе…</ContextMenuItem>
+        <ContextMenuItem v-if="editing" :disabled="!canSave" @select="save"><HugeiconsIcon :icon="Tick02Icon" data-icon="inline-start" />{{ creating ? 'Создать атрибут' : 'Сохранить изменения' }}</ContextMenuItem>
+        <ContextMenuItem v-if="state.details" :disabled="busy" @select="action('attributeCopyId')"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Скопировать ID</ContextMenuItem>
+        <ContextMenuItem v-if="!editing" :disabled="busy" @select="action('attributeRefresh')"><HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />Обновить</ContextMenuItem>
+      </ContextMenuGroup>
+    </ContextMenuContent>
+  </ContextMenu>
 </template>

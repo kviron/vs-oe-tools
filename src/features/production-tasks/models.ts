@@ -51,6 +51,10 @@ export interface ProductionTaskAttachment {
 	important: boolean;
 }
 
+export type ProductionTaskDescriptionPart =
+	| { kind: 'text'; text: string }
+	| { kind: 'image'; dataUrl: string; width?: number; height?: number };
+
 export interface ProductionTaskHistoryEntry {
 	id: number;
 	createdAt: string;

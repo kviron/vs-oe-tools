@@ -4,6 +4,7 @@ import { isProductionTaskDetailsWebviewMessage } from '../../core/webviewProtoco
 import type { DatabaseObjectSearchResult } from '../../core/objectSearch';
 import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from './models';
 import { productionTaskPublicUrl } from './productionTaskPresentation';
+import { convertProductionTaskWmfImages, parseProductionTaskRichDescription } from './productionTaskRichText';
 
 const panels = new Map<number, vscode.WebviewPanel>();
 
@@ -16,6 +17,7 @@ export function openProductionTaskDetails(
 	loadActions: () => Promise<ProductionTaskAction[]>,
 	loadAttachments: () => Promise<ProductionTaskAttachment[]>,
 	loadHistory: () => Promise<ProductionTaskHistoryEntry[]>,
+	loadRichDescription: () => Promise<string>,
 ): void {
 	const existing = panels.get(task.id);
 	if (existing) { existing.reveal(vscode.ViewColumn.Active); return; }
@@ -31,6 +33,16 @@ export function openProductionTaskDetails(
 		if (!isProductionTaskDetailsWebviewMessage(message)) { return; }
 		if (message.command === 'productionTaskDetailsReady') {
 			await panel.webview.postMessage({ command: 'productionTaskDetailsLoaded', task } satisfies ProductionTaskDetailsHostMessage);
+			await panel.webview.postMessage({ command: 'productionTaskRichDescriptionLoading' } satisfies ProductionTaskDetailsHostMessage);
+			try {
+				const parts = await convertProductionTaskWmfImages(parseProductionTaskRichDescription(await loadRichDescription()));
+				await panel.webview.postMessage({ command: 'productionTaskRichDescriptionLoaded', parts } satisfies ProductionTaskDetailsHostMessage);
+			} catch (error) {
+				await panel.webview.postMessage({
+					command: 'productionTaskRichDescriptionFailed',
+					message: error instanceof Error ? error.message : String(error),
+				} satisfies ProductionTaskDetailsHostMessage);
+			}
 			return;
 		}
 		if (message.command === 'copyTableCells') {
@@ -187,5 +199,5 @@ function shell(webview: vscode.Webview, assetsRoot: vscode.Uri): string {
 	const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'production-task-details.js'));
 	const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
 	const nonce = Array.from({ length: 32 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join('');
-	return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Задача</title></head><body><div id="app">Загрузка…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+	return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Задача</title></head><body><div id="app">Загрузка…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }

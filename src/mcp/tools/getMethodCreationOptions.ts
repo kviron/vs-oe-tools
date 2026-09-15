@@ -5,7 +5,7 @@ import type { McpToolServer } from '../toolTypes';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('get_method_creation_options', {
-		description: 'Read the owner class and valid visibility choices for create_class_method. Returns the defaults captured from the native East Express client.',
+		description: 'Read the owner class, valid visibility choices, and defaults used by the extension method-creation form.',
 		inputSchema: {
 			ownerClassId: z.number().int().positive().describe('Class that will own the new method'),
 		},

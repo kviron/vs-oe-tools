@@ -57,7 +57,24 @@ export interface ObjectViewResult {
 	name: string;
 	classId: string;
 	className: string;
+	ownerId?: string;
+	ownerName?: string;
+	packageName?: string;
 	fields: ObjectFieldRow[];
+}
+
+export interface MethodPropertiesDetails {
+	id: number;
+	name: string;
+	aliases: string;
+	fullName: string;
+	ownerClassId: number;
+	ownerClassName: string;
+	packageName: string;
+	methodType: number | null;
+	methodKind: number | null;
+	visibility: string;
+	signature: string;
 }
 
 export interface ClassCommentRow {

@@ -5,6 +5,7 @@ import { loadClasses } from '../infrastructure/database/classRepository';
 import { getProjectDatabaseOptions, getProjectDatabaseOptionsForDatabase } from '../infrastructure/configuration/projectDatabaseOptions';
 import { applyProjectEncoding } from '../features/project/projectEncodingService';
 import { SettingsViewProvider } from '../features/settings/settingsViewProvider';
+import { configureNativeAttributeClient } from '../features/classes/nativeAttributeService';
 import { closeClassDetailPanels, openClassDetails, restoreClassDetailPanels, revealClassMethod } from '../features/classes/views/classDetailsPanelManager';
 import { ExplorerViewProvider } from '../features/explorer/explorerViewProvider';
 import { sqlMonitorService } from '../features/sql-monitor/sqlMonitorService';
@@ -26,7 +27,7 @@ import { openDfmPreview } from '../features/dfm/dfmPreview';
 import { registerDfmLanguageFeatures } from '../features/dfm/dfmLanguageFeatures';
 import { closeAttributeDetailPanels, openAttributeDetails } from '../features/classes/views/attributeDetailsPanelManager';
 import { closePropertyDetailPanels } from '../features/classes/views/propertyDetailsPanelManager';
-import { closeEntityPropertiesPanels, openEntityProperties } from '../features/classes/views/entityPropertiesPanelManager';
+import { closeEntityPropertiesPanels, configureEntityPropertiesActions, openEntityProperties } from '../features/classes/views/entityPropertiesPanelManager';
 import { searchDatabaseObjects } from '../infrastructure/database/objectSearchRepository';
 import { registerAgentSkillInstaller } from '../features/ai/agentSkillInstaller';
 import { closeClassObjectPanels, openClassObjects } from '../features/classes/views/classObjectsPanelManager';
@@ -37,7 +38,7 @@ import { getActiveDatabaseSelectionPath, getDatabaseSelectionPath, writeDatabase
 import { openProjectClientEntity, startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../features/project/projectCommandService';
 import { registerClipboardObjectNavigation } from '../features/explorer/clipboardObjectNavigation';
 import { ProductionTasksPanelManager, registerProductionTasksActivityLauncher } from '../features/production-tasks/productionTasksViewProvider';
-import { loadProductionTaskActions, loadProductionTaskAttachments, loadProductionTaskHistory, loadProductionTaskReference, loadProductionTasks, loadProductionTasksByQuery } from '../features/production-tasks/productionTasksRepository';
+import { loadProductionTaskActions, loadProductionTaskAttachments, loadProductionTaskHistory, loadProductionTaskReference, loadProductionTaskRichDescription, loadProductionTasks, loadProductionTasksByQuery } from '../features/production-tasks/productionTasksRepository';
 import { openProductionTaskDetails } from '../features/production-tasks/productionTaskDetailsPanel';
 import { extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId } from '../features/production-tasks/oenpProtocol';
 import type { CapturedAuthorization, ProductionTaskSummary } from '../features/production-tasks/models';
@@ -126,6 +127,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 	const settingsProvider = new SettingsViewProvider(context.extensionUri, updateProjectRootSetting, extensionLogger, () => navigationBridge, databaseSelectionPath, getClientCredentials, setClientCredentials, context.workspaceState);
+	context.subscriptions.push(configureNativeAttributeClient(getClientCredentials));
+	context.subscriptions.push(configureEntityPropertiesActions({ openMethodCode: id => methodEditor.open(id) }));
 	settingsProvider.refreshClientMcpToolsOnActivation();
 	const openSettingsCommand = vscode.commands.registerCommand('vc-ve-tools.openSettings', () => settingsProvider.show());
 	const openHttpApiCommand = vscode.commands.registerCommand('vc-ve-tools.openHttpApi', () => settingsProvider.showHttpApi());
@@ -216,6 +219,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		async () => loadProductionTaskActions(await getProductionConnectionOptions(), task.id, productionTasksLogger),
 		async () => loadProductionTaskAttachments(await getProductionConnectionOptions(), task.id, productionTasksLogger),
 		async () => loadProductionTaskHistory(await getProductionConnectionOptions(), task.id, productionTasksLogger),
+		async () => loadProductionTaskRichDescription(await getProductionConnectionOptions(), task.id, productionTasksLogger),
 	);
 	const productionTasksProvider = new ProductionTasksPanelManager(
 		context.extensionUri,
@@ -303,11 +307,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		openMethod: id => methodEditor.open(id),
 		revealMethod: (classId, methodId) => revealClassMethod(context, methodEditor, classId, methodId),
 		updateMethodSource: async (methodId, code) => methodEditor.save(methodId, code),
-		createClassMethod: async (draft, database, host) => {
-			const created = await methodEditor.create(draft, { database, host });
-			await explorerProvider.revealClass(created.ownerClassId);
-			return { methodId: created.id, ownerClassId: created.ownerClassId, name: created.name };
-		},
 		createClassAttribute: async draft => {
 			const created = await createClassAttribute(draft);
 			await explorerProvider.revealClass(created.ownerClassId);

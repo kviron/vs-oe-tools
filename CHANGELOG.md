@@ -4,6 +4,27 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.5.0] - 2026-09-15
+
+### Added
+
+- Added native client MCP-backed creation and editing for class attributes, including schema validation, optimistic concurrency checks, readback verification, package-binding warnings, and guarded handling of uncertain mutation results.
+- Added attribute actions to class cards and context menus for creating, opening, editing, copying IDs, and navigating to the owning class.
+
+### Changed
+
+- Redesigned attribute cards around the shared compact shadcn-vue interface with explicit view, edit, and creation states.
+- Redesigned method property cards to show method metadata, highlighted signatures, owner and package context, responsive layout, and navigation to the separate source editor without embedding method code.
+
+### Fixed
+
+- Fixed production-task attachment loading for native `Smallint` flags such as `StoredFiles.Important`.
+- Restored PNG and JPEG images embedded in the native `WorkDoc.Comment_Rich` RTF description while retaining plain-text fallback and object links.
+
+### Removed
+
+- **Breaking:** removed the extension MCP tool `create_class_method` and its navigation bridge action. Method creation from the extension UI and the native client MCP tool `class_method_add` remain available.
+
 ## [0.4.0] - 2026-09-15
 
 ### Added

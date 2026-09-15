@@ -161,6 +161,18 @@ ORDER BY SF.Name, SF.ID
 LIMIT 250`;
 }
 
+export function productionTaskRichDescriptionSql(taskId: number): string {
+	if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+		throw new Error('ID задачи для загрузки форматированного описания должен быть положительным целым числом.');
+	}
+	// Comment_Rich is the RTF value bound to the native wRichEdit. Load it only
+	// for an opened card: embedded images can make this field much larger than Comment.
+	return `SELECT COALESCE(CAST(left(T0.Comment_Rich, 8000000) AS VARCHAR(8000000)), '') AS richdescription
+FROM WorkDoc T0
+WHERE T0.ID = ${taskId}
+LIMIT 1`;
+}
+
 export function productionTaskHistorySql(taskId: number): string {
 	if (!Number.isSafeInteger(taskId) || taskId <= 0) {
 		throw new Error('ID задачи для загрузки истории должен быть положительным целым числом.');
@@ -404,6 +416,19 @@ export async function loadProductionTaskList(
 
 export async function loadProductionTaskById(options: ProductionConnectionOptions, id: number, logger?: ProductionTasksLogger): Promise<ProductionTaskSummary | undefined> {
 	return (await loadProductionTasksWithSql(options, productionTaskByIdSql(id), 'карточки задачи', logger, { id }))[0];
+}
+
+export async function loadProductionTaskRichDescription(
+	options: ProductionConnectionOptions,
+	taskId: number,
+	logger?: ProductionTasksLogger,
+): Promise<string> {
+	return withProductionTaskConnection(options, 'форматированного описания задачи', logger, async connection => {
+		const response = await exchangeLogged(connection, createReadonlyQueryPacket(8, productionTaskRichDescriptionSql(taskId), options.personId), 'запрос форматированного описания задачи', logger, false, readonlyQueryTimeoutMs);
+		const richDescription = text(parseMemoryDataPacket(response)[0]?.richdescription);
+		logger?.info('Форматированное описание задачи загружено.', { taskId, length: richDescription.length });
+		return richDescription;
+	});
 }
 
 export async function loadProductionTasksByQuery(

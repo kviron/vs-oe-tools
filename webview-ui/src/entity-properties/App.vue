@@ -1,59 +1,143 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { ObjectViewResult } from '../../../src/features/classes/models';
+import { ArrowLeft01Icon, CodeIcon, Copy01Icon, RefreshIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/vue';
+import type { EntityPropertiesHostMessage, EntityPropertiesWebviewMessage } from '../../../src/core/webviewProtocol';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ContextMenu, ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import MethodSignature from '@/components/MethodSignature.vue';
 import { vscode } from '@/vscode';
 
-const result = ref<ObjectViewResult>();
-const attributes = ref<Record<string, unknown>>({});
-const isMethod = computed(() => result.value?.className.toLocaleLowerCase('ru').includes('метод') ?? false);
-function value(name: string): unknown { return attributes.value[name.toLocaleLowerCase('ru')]; }
-function propertyValue(...names: string[]): unknown {
-  const normalized = names.map(name => name.toLocaleLowerCase('ru'));
-  return result.value?.fields.find(field => normalized.includes(field.attributeName.toLocaleLowerCase('ru')))?.value;
-}
-const methodType = computed(() => String(value('methtype') ?? ''));
-const methodKind = computed(() => String(value('methkind') ?? '0'));
+const state = ref<EntityPropertiesHostMessage>();
+const method = computed(() => state.value?.method);
+const busy = computed(() => Boolean(state.value?.busy));
+const kindLabel = computed(() => {
+  if (method.value?.methodKind === 6) return 'Процедура класса';
+  if (method.value?.methodKind === 2) return 'Конструктор';
+  if (method.value?.methodKind === 1) return 'Статический';
+  return 'Простой';
+});
+const typeLabel = computed(() => method.value?.methodType === 3 ? 'Интерпретируемый' : 'Объектный');
+const visibleProperties = computed(() => state.value?.result.fields.filter((field) => {
+  const name = field.attributeName.toLocaleLowerCase('ru').replaceAll(/[_\s]/g, '');
+  const tableField = field.tableField.toLocaleLowerCase('ru').replaceAll(/[_\s]/g, '');
+  return !['_группа', '_путькпакетам', '_путькфайлу'].includes(field.attributeName)
+    && !['code', 'код'].includes(name)
+    && !['code', 'код'].includes(tableField);
+}) ?? []);
+
 function display(value: unknown): string {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined || value === '') return '—';
   if (typeof value === 'boolean') return value ? 'Да' : 'Нет';
-  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  return typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
 }
-function closePanel(): void { window.close(); }
-window.addEventListener('message', event => {
-  if (event.data?.command === 'entityPropertiesLoaded') { result.value = event.data.result; attributes.value = event.data.attributes ?? {}; }
+
+function action(command: EntityPropertiesWebviewMessage['command']): void {
+  if (!busy.value) vscode.postMessage({ command });
+}
+
+window.addEventListener('message', (event: MessageEvent<EntityPropertiesHostMessage>) => {
+  if (event.data.command === 'entityPropertiesLoaded') state.value = event.data;
 });
 vscode.postMessage({ command: 'entityPropertiesReady' });
 </script>
 
 <template>
-  <main class="flex h-screen min-h-0 flex-col bg-background p-3 text-foreground">
-    <template v-if="result">
-      <header class="mb-3 flex items-center gap-2"><h1 class="truncate text-sm font-semibold">{{ result.className }} — {{ result.name }}</h1><Badge variant="secondary">только чтение</Badge><span class="ml-auto text-xs text-muted-foreground">ID {{ result.id }}</span></header>
-      <FieldGroup v-if="isMethod" class="max-w-3xl gap-2">
-        <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-40 shrink-0">Имя / Ид</FieldLabel><Input :model-value="String(value('name') ?? result.name)" readonly class="h-7" /></Field>
-        <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-40 shrink-0">Псевдонимы</FieldLabel><Input :model-value="String(value('aliases') ?? '')" readonly class="h-7" /></Field>
-        <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-40 shrink-0">Полное имя</FieldLabel><Input :model-value="String(value('fullname') ?? '')" readonly class="h-7" /></Field>
-        <Field orientation="horizontal" class="gap-2"><FieldLabel class="w-40 shrink-0">Обл. видимости</FieldLabel><Input :model-value="String(propertyValue('ОбластьВидимости', 'Видимость') ?? value('visibility') ?? '')" readonly class="h-7" /></Field>
-        <div class="grid grid-cols-2 gap-3 pt-1 text-xs">
-          <fieldset class="rounded border p-2"><legend class="px-1">Тип метода</legend><RadioGroup :model-value="methodType === '3' ? 'interpreted' : 'object'" disabled class="gap-1"><label class="flex items-center gap-1"><RadioGroupItem value="object" />Объектный</label><label class="flex items-center gap-1"><RadioGroupItem value="interpreted" />Интерпретируемый</label></RadioGroup></fieldset>
-          <fieldset class="rounded border p-2"><legend class="px-1">Принадлежит</legend><RadioGroup model-value="class" disabled class="gap-1"><label class="flex items-center gap-1"><RadioGroupItem value="class" />Классу</label><label class="flex items-center gap-1"><RadioGroupItem value="object" />Объекту</label></RadioGroup></fieldset>
+  <ContextMenu>
+    <ContextMenuTrigger as-child>
+      <main class="flex h-screen min-h-0 flex-col overflow-auto bg-background p-4 sm:p-5">
+        <div v-if="state" class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4">
+          <template v-if="method">
+            <header class="flex flex-col gap-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <Button variant="ghost" size="sm" :disabled="busy" @click="action('methodPropertiesOpenOwner')">
+                  <HugeiconsIcon :icon="ArrowLeft01Icon" data-icon="inline-start" />{{ method.ownerClassName || `Класс ${method.ownerClassId}` }}
+                </Button>
+                <span class="text-xs text-muted-foreground">Класс-владелец · {{ method.ownerClassId }}</span>
+              </div>
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="flex min-w-0 flex-col gap-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <Badge variant="method">Метод</Badge>
+                    <Button variant="ghost" size="sm" :disabled="busy" @click="action('methodPropertiesCopyId')"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />ID {{ method.id }}</Button>
+                  </div>
+                  <h1 class="break-all text-xl font-semibold tracking-tight">{{ method.name }}</h1>
+                  <p class="text-xs text-muted-foreground">{{ typeLabel }} · {{ kindLabel }}<template v-if="method.packageName"> · {{ method.packageName }}</template></p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="sm" :disabled="busy" @click="action('entityPropertiesRefresh')"><HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />Обновить</Button>
+                  <Button size="sm" :disabled="busy" @click="action('methodPropertiesOpenCode')"><HugeiconsIcon :icon="CodeIcon" data-icon="inline-start" />Открыть код</Button>
+                </div>
+              </div>
+            </header>
+
+            <Alert v-if="state.error" variant="destructive" role="alert"><AlertTitle>Не удалось обновить свойства</AlertTitle><AlertDescription>{{ state.error }}</AlertDescription></Alert>
+
+            <Tabs default-value="main" class="flex min-h-0 flex-1 flex-col gap-4">
+              <TabsList variant="line" aria-label="Разделы свойств метода"><TabsTrigger value="main">Основное</TabsTrigger><TabsTrigger value="metadata">Метаданные</TabsTrigger></TabsList>
+              <TabsContent value="main" class="flex flex-col gap-4">
+                <div class="grid items-start gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader><CardTitle>Определение</CardTitle><CardDescription>Имя и расположение метода.</CardDescription></CardHeader>
+                    <CardContent><FieldGroup class="gap-4">
+                      <Field><FieldLabel for="method-name">Имя</FieldLabel><Input id="method-name" :model-value="method.name" readonly /></Field>
+                      <Field><FieldLabel for="method-aliases">Псевдонимы</FieldLabel><Input id="method-aliases" :model-value="method.aliases || '—'" readonly /></Field>
+                      <Field><FieldLabel for="method-full-name">Полное имя</FieldLabel><Input id="method-full-name" :model-value="method.fullName || '—'" readonly /></Field>
+                      <Field><FieldLabel for="method-owner">Владелец</FieldLabel><Input id="method-owner" :model-value="method.ownerClassName || String(method.ownerClassId)" readonly /></Field>
+                      <Field><FieldLabel for="method-belongs">Принадлежит</FieldLabel><Input id="method-belongs" model-value="Классу" readonly /></Field>
+                      <Field><FieldLabel for="method-package">Пакет</FieldLabel><Input id="method-package" :model-value="method.packageName || '—'" readonly /></Field>
+                    </FieldGroup></CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader><CardTitle>Исполнение</CardTitle><CardDescription>Тип, вид и область видимости метода.</CardDescription></CardHeader>
+                    <CardContent><FieldGroup class="gap-4">
+                      <Field><FieldLabel for="method-type">Тип метода</FieldLabel><Input id="method-type" :model-value="`${typeLabel} · ${method.methodType ?? '—'}`" readonly /></Field>
+                      <Field><FieldLabel for="method-kind">Вид метода</FieldLabel><Input id="method-kind" :model-value="`${kindLabel} · ${method.methodKind ?? '—'}`" readonly /></Field>
+                      <Field><FieldLabel for="method-visibility">Область видимости</FieldLabel><Input id="method-visibility" :model-value="method.visibility || '—'" readonly /></Field>
+                    </FieldGroup></CardContent>
+                  </Card>
+                </div>
+                <Card>
+                  <CardHeader><CardTitle>Сигнатура</CardTitle><CardDescription>Параметры и возвращаемое значение метода.</CardDescription></CardHeader>
+                  <CardContent><pre class="whitespace-pre-wrap break-all rounded-md bg-muted/50 p-3 font-mono text-xs"><MethodSignature :signature="method.signature || 'Сигнатура не задана'" /></pre></CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="metadata">
+                <Card>
+                  <CardHeader><CardTitle>Все свойства объекта</CardTitle><CardDescription>Вычисляемые и системные значения метода · только чтение.</CardDescription></CardHeader>
+                  <CardContent><FieldGroup class="grid gap-4 sm:grid-cols-2">
+                    <Field v-for="field in visibleProperties" :key="String(field.attributeId ?? field.attributeName)">
+                      <FieldLabel>{{ field.attributeName }}</FieldLabel>
+                      <Textarea v-if="display(field.value).includes('\n')" :model-value="display(field.value)" readonly class="min-h-24 font-mono" />
+                      <Input v-else :model-value="display(field.value)" readonly />
+                    </Field>
+                  </FieldGroup></CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+            <p role="status" aria-live="polite" class="text-xs text-muted-foreground">{{ busy ? 'Обновление свойств…' : 'Просмотр свойств метода.' }}</p>
+          </template>
+
+          <template v-else>
+            <header class="flex flex-wrap items-center gap-2"><Badge variant="secondary">{{ state.result.className }}</Badge><h1 class="truncate text-lg font-semibold">{{ state.result.name }}</h1><span class="ml-auto text-xs text-muted-foreground">ID {{ state.result.id }}</span><Button variant="outline" size="sm" @click="action('entityPropertiesRefresh')"><HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />Обновить</Button></header>
+            <Card><CardHeader><CardTitle>Свойства объекта</CardTitle><CardDescription>Вычисляемые и системные значения · только чтение.</CardDescription></CardHeader><CardContent><FieldGroup class="grid gap-4 sm:grid-cols-2"><Field v-for="field in visibleProperties" :key="String(field.attributeId ?? field.attributeName)"><FieldLabel>{{ field.attributeName }}</FieldLabel><Input :model-value="display(field.value)" readonly /></Field></FieldGroup></CardContent></Card>
+          </template>
         </div>
-        <fieldset class="rounded border p-2 text-xs"><legend class="px-1">Вид метода</legend><RadioGroup :model-value="methodKind" disabled class="flex gap-8"><label class="flex items-center gap-1"><RadioGroupItem value="0" />Простой</label><label class="flex items-center gap-1"><RadioGroupItem value="1" />Статический</label><label class="flex items-center gap-1"><RadioGroupItem value="2" />Конструктор</label></RadioGroup></fieldset>
-      </FieldGroup>
-      <FieldGroup v-else class="min-h-0 max-w-3xl gap-2 overflow-auto">
-        <Field v-for="field in result.fields" :key="String(field.attributeId ?? field.attributeName)" orientation="horizontal" class="gap-2">
-          <FieldLabel class="w-52 shrink-0">{{ field.attributeName }}</FieldLabel>
-          <Input :model-value="display(field.value)" :title="display(field.value)" readonly class="h-7" />
-        </Field>
-      </FieldGroup>
-      <footer class="mt-auto flex justify-end gap-2 border-t pt-2"><Button size="sm" disabled>Сохранить</Button><Button size="sm" variant="outline" disabled>Отменить</Button><Button size="sm" variant="outline" @click="closePanel">Закрыть</Button></footer>
-    </template>
-    <FieldGroup v-else class="gap-2"><Skeleton v-for="row in 7" :key="row" class="h-7 w-full" /></FieldGroup>
-  </main>
+        <FieldGroup v-else class="mx-auto w-full max-w-5xl gap-4"><Skeleton class="h-8 w-64" /><Skeleton class="h-12 w-full" /><Skeleton class="h-80 w-full" /></FieldGroup>
+      </main>
+    </ContextMenuTrigger>
+    <ContextMenuContent v-if="method"><ContextMenuGroup>
+      <ContextMenuItem :disabled="busy" @select="action('methodPropertiesOpenCode')"><HugeiconsIcon :icon="CodeIcon" data-icon="inline-start" />Открыть код</ContextMenuItem>
+      <ContextMenuItem :disabled="busy" @select="action('methodPropertiesCopyId')"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Скопировать ID</ContextMenuItem>
+      <ContextMenuItem :disabled="busy" @select="action('entityPropertiesRefresh')"><HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" />Обновить</ContextMenuItem>
+    </ContextMenuGroup></ContextMenuContent>
+  </ContextMenu>
 </template>

@@ -343,6 +343,11 @@ function openAttribute(attribute: ClassAttribute): void {
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openAttribute', id });
 }
 
+function editAttribute(attribute: ClassAttribute): void {
+  const id = Number(attribute.id);
+  if (Number.isSafeInteger(id) && id > 0) vscode.postMessage({ command: 'editAttribute', id });
+}
+
 function createAttribute(): void {
   if (details.value) vscode.postMessage({ command: 'createAttribute', classId: details.value.id });
 }
@@ -461,6 +466,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
       </TabsContent>
       </EntityContextMenu>
 
+      <EntityContextMenu create create-label="Создать атрибут…" @create="createAttribute">
       <TabsContent value="attributes" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
         <MemberToolbar title="Атрибуты" description="Поля данных, типы и наследование" :count="filteredAttributes.length" :loading="attributesLoading" :inherited="includeInheritedAttributes" advanced v-model:search="attributeSearchQuery" v-model:creator="attributeCreatorQuery" v-model:date-from="attributeDateFrom" v-model:date-to="attributeDateTo" @inherited-change="toggleInheritedAttributes">
           <Button size="sm" @click="createAttribute"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать атрибут</Button>
@@ -478,7 +484,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
               </TableRow>
             </template>
             <TableRow v-if="!attributesLoading && attributeVirtualRange.start > 0" data-virtual-spacer><TableCell :colspan="tableColumns.length" class="p-0" :style="{ height: `${attributeVirtualRange.start * virtualRowHeight}px` }" /></TableRow>
-            <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id" entity-type="Атрибут" edit @edit="openAttribute(attribute)" @properties="viewEntityProperties(attribute.id)">
+            <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id" entity-type="Атрибут" edit create create-label="Создать атрибут…" @create="createAttribute" @edit="editAttribute(attribute)" @properties="viewEntityProperties(attribute.id)">
             <TableRow :data-entity-id="attribute.id" class="h-8 cursor-default" title="Двойной щелчок — открыть карточку атрибута" @dblclick="openAttribute(attribute)">
               <TableCell class="max-w-64 px-3 py-1" :title="attribute.name">
                 <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
@@ -517,6 +523,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
         </Empty>
       </TabsContent>
 
+      </EntityContextMenu>
       <TabsContent value="methods" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
         <MemberToolbar title="Методы" description="Двойной щелчок по строке открывает код метода" :count="filteredMethods.length" :loading="methodsLoading" :inherited="includeInheritedMethods" advanced v-model:search="methodSearchQuery" v-model:creator="methodCreatorQuery" v-model:date-from="methodDateFrom" v-model:date-to="methodDateTo" @inherited-change="toggleInheritedMethods">
           <Button size="sm" @click="createMethod"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать метод</Button>
