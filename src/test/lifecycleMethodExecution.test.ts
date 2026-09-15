@@ -40,7 +40,10 @@ suite('Lifecycle method execution', () => {
 			'-MethodParam=method=ПолучитьФайл,username=dev',
 			'-ForceOutputOEM',
 		]);
-		assert.equal(buildHttpTestServerArguments('*', 'oetrunk', 'localhost', { username: 'dev', password: 'secret' })[3], '-MethodParam=method=*,username=dev');
+		assert.throws(
+			() => buildHttpTestServerArguments('*', 'oetrunk', 'localhost', { username: 'dev', password: 'secret' }),
+			/Выберите конкретный HTTP-метод/u,
+		);
 	});
 
 	test('passes the authenticated client login in the HTTP server method parameter', () => {

@@ -93,6 +93,13 @@ function isSettingsWebviewMessage(message) {
             && Object.entries(message.headers).every(([key, value]) => key.length > 0 && typeof value === 'string')
             && (!('body' in message) || message.body === undefined || typeof message.body === 'string');
     }
+    if (message.command === 'executeDirectHttpMethod') {
+        return 'methodName' in message && typeof message.methodName === 'string' && message.methodName.trim().length > 0
+            && message.methodName.trim() !== '*' && !/[,;="\r\n]/u.test(message.methodName)
+            && 'parameters' in message && typeof message.parameters === 'object' && message.parameters !== null
+            && !Array.isArray(message.parameters)
+            && Object.entries(message.parameters).every(([key, value]) => key.length > 0 && typeof value === 'string');
+    }
     if (message.command === 'startHttpTestServer') {
         return 'methodName' in message && typeof message.methodName === 'string' && message.methodName.trim().length > 0;
     }

@@ -1,0 +1,238 @@
+procedure(aHttpMethodParams: String);
+
+ procedure ExecuteDirect(aMethodName, aRequestFile, aResponseFile: String);
+ begin
+  var vEnvelope := wDynamicStorage.Create;
+  vEnvelope.Write('protocol', 'vcve-direct-v1');
+  try
+   var vRequest := wDynamicStorage.CreateByJsonString(wStringList.CreateByFile(aRequestFile).Text);
+   Assert(ToStr(vRequest.Read('protocol')) = 'vcve-direct-v1', 'Несовместимая версия запроса');
+   Assert(ToStr(vRequest.Read('methodName')) = aMethodName, 'Имя метода в запросе не совпадает с выбранным');
+   var vHttp := RDBOHTTPServer.TryGetHttpMethod(aMethodName);
+   Assert(Assigned(vHttp), 'HTTP-метод не найден: ' + aMethodName);
+   var vMethod := vHttp.Метод;
+   Assert(Assigned(vMethod), 'Не задан обработчик HTTP-метода');
+   if Assigned(vMethod.ResultClass) then
+    Assert(not vMethod.ResultClass.InheritsFromClass(HttpDataStream),
+     'Результат HttpDataStream требует HTTP. Метод не вызван.');
+   var vArgs := VarArrayCreate(0, vMethod.ParamCount - 1);
+   var vRefs := Абстракт[].Create;
+   for var j := 0 to vRequest.Count('parameters') - 1 do
+   begin
+    var vGivenName := ToStr(vRequest.ReadFmt('parameters[%*].name', j));
+    var vKnown := false;
+    for var k := 0 to vMethod.ParamCount - 1 do
+     if (LCase(vGivenName) = LCase(vMethod.ParamName(k))) or
+      (LCase(vGivenName) = LCase(vMethod.ParamName(k) + '.json')) then
+      vKnown := true;
+    Assert(vKnown, 'Неизвестный параметр: ' + vGivenName);
+   end;
+   for var i := 0 to vMethod.ParamCount - 1 do
+   begin
+    var vName := vMethod.ParamName(i);
+    var vClass := vMethod.ParamClass(i);
+    if Assigned(vClass) then
+     Assert(not vClass.InheritsFromClass(HttpDataStream),
+      'Параметр ' + vName + ': HttpDataStream требует HTTP. Метод не вызван.');
+    var vFound := false;
+    var vValue := '';
+    var vJson := false;
+    for j := 0 to vRequest.Count('parameters') - 1 do
+    begin
+     vGivenName := ToStr(vRequest.ReadFmt('parameters[%*].name', j));
+     if (LCase(vGivenName) = LCase(vName)) or (LCase(vGivenName) = LCase(vName + '.json')) then
+     begin
+      Assert(not vFound, 'Параметр передан дважды: ' + vName);
+      vFound := true;
+      vValue := ToStr(vRequest.ReadFmt('parameters[%*].value', j));
+      vJson := LCase(vGivenName) = LCase(vName + '.json');
+     end;
+    end;
+    if not vFound then
+    begin
+     Assert(vMethod.ParamIsDefault(i), 'Не указан обязательный параметр: ' + vName);
+     vArgs[i] := vMethod.ParamDefVal(i, vRefs);
+    end else
+    begin
+     if Assigned(vClass) then
+      vJson := vJson or vClass.InheritsFromClass(wDynamicStorage);
+     if vJson then
+     begin
+      if vClass = APIПараметр then
+      begin
+       var vApiParam := APIПараметр.Create;
+       var vParamDS := wDynamicStorage.CreateByJsonString(vValue);
+       Assert(vParamDS.IsObject(''), 'APIПараметр должен быть JSON-объектом');
+       for var n := 0 to vParamDS.Count('') - 1 do
+       begin
+        var vKey := vParamDS.GetNameFmt('[%*]', n);
+        var vAttr := vApiParam.АтрибутПоИмени(vKey, true);
+        Assert(vAttr.SeniorID = APIПараметр, 'Недопустимое поле APIПараметр: ' + vKey);
+        var vAttrClass := vAttr.ОбщийКлассЗначений();
+        var vAttrValue := vParamDS.Read(vKey);
+        if vAttrClass = wDynamicStorage then
+        begin
+         var vNested := wDynamicStorage.CreateByJsonString(ToStr(vAttrValue));
+         vRefs.Append(vNested);
+         vAttrValue := vNested;
+        end else
+         vAttrValue := Функции_мат.ПреобразоватьЗначениеПоТипу(vAttr.ТипАтр, vAttrValue, vAttrClass, vRefs);
+        vApiParam.SetAttrValuesByName(vKey, vAttrValue);
+       end;
+       vRefs.Append(vApiParam);
+       vArgs[i] := vApiParam;
+      end else
+      begin
+       Assert(Assigned(vClass) and vClass.InheritsFromClass(wDynamicStorage),
+        'Параметр не поддерживает JSON: ' + vName);
+       var vStorage := wDynamicStorage.CreateByJsonString(vValue);
+       vRefs.Append(vStorage);
+       vArgs[i] := vStorage;
+      end;
+     end else
+      vArgs[i] := Функции_мат.ПреобразоватьЗначениеПоТипу(vMethod.ParamType(i), vValue, vClass, vRefs);
+    end;
+   end;
+   var vBody := wDynamicStorage.Create;
+   if vMethod = Метод(10893298) then
+   begin
+    Assert(vHttp is HttpМетодПоШаблону, 'Обработчику шаблона нужен объект HttpМетодПоШаблону');
+    var vQuery := HttpМетодПоШаблону(vHttp).РассчитатьПоШаблону(APIПараметр(ToRoid(vArgs[0])));
+    vBody.WriteJson('result', vQuery.AsJsonString);
+   end else
+   begin
+    var vResult := vMethod.Invoke(vMethod.SeniorID, vArgs);
+    var vResultClass := vMethod.ResultClass;
+    if Assigned(vResultClass) and VarIsInt(vResult) and (ToRoid(vResult) <> 0) then
+    begin
+     if vResultClass.InheritsFromClass(wDynamicStorage) then
+      vBody.WriteJson('result', wDynamicStorage(ToRoid(vResult)).AsJsonString)
+     else if vResultClass.InheritsFromClass(wDataSet) then
+      vBody.WriteJson('result', wDataSet(ToRoid(vResult)).AsJsonString)
+     else
+      vBody.Write('result', vResult);
+    end else
+     vBody.Write('result', vResult);
+   end;
+   for i := 0 to vMethod.ParamCount - 1 do
+    if vMethod.ParamIsRef(i) then
+     vBody.Write('outParameters.' + vMethod.ParamName(i), vArgs[i]);
+   vEnvelope.Write('ok', true);
+   vEnvelope.Write('body', vBody.AsJsonString);
+  except
+   vEnvelope.Write('ok', false);
+   vEnvelope.Write('error', ExceptionMessage());
+  end;
+  var vOutput := wFileStream.CreateFileStream(aResponseFile, enumFileMode.Creation, enumFileShare.Exclusive);
+  try
+   vEnvelope.ToJsonStreamAsUTF8(vOutput);
+  finally
+   vOutput.Close;
+  end;
+ end;
+
+begin
+ var aHttpMethodName := ToStr(ParamListGet(aHttpMethodParams, 'method'));
+ var L0 := ToStr(ParamListGet(aHttpMethodParams, 'username'));
+ Assert(L0 <> '', 'Не задан логин пользователя');
+
+ var L1 := ToInt(RAT.EvalQuery(
+  sqltext!
+   select count(1)
+   from GETUSERSBYROLE(12851160) role_user
+   join Users app_user on app_user.ID = role_user.ID
+   where lower(app_user.Name) = &LCase(L0)&
+  !end
+ ));
+
+ Assert(
+  L1 > 0,
+  'Запуск тестового HTTP-сервера разрешён только пользователю с ролью Разработчик'
+ );
+
+ var localRequestFile := ToStr(ParamListGet(aHttpMethodParams, 'requestFile'));
+ if localRequestFile <> '' then
+ begin
+  var localResponseFile := ToStr(ParamListGet(aHttpMethodParams, 'responseFile'));
+  Assert(localResponseFile <> '', 'Не задан файл результата прямого вызова');
+  ExecuteDirect(aHttpMethodName, localRequestFile, localResponseFile);
+  Exit;
+ end;
+
+ Assert(aHttpMethodName <> '', 'Не задано имя HTTP-метода');
+ var L2 := 'http://127.0.0.1:18081/api';
+ var L3 := wHttpListener.Create;
+ L3.AddUrlPrefix('http://127.0.0.1:18081/');
+
+ SysUtils.WriteLn('VCVE_HTTP_URL=' + L2);
+ FileUtils.SaveStringToFile(L2, 'vcve_http_url.txt');
+
+ while Assigned(L3) do
+ begin
+  if L3.TryGetRequest(100) then
+  begin
+   var L4 := 200;
+   var L5 := 'OK';
+   var L6 := '';
+   try
+    if L3.CurrentRequestPath <> '/api' then
+    begin
+     L4 := 404;
+     L5 := 'Not Found';
+     L6 := '{"error":"Unknown endpoint"}';
+    end else
+    begin
+     var L7 := L3.CurrentRequestParamValueByName('method');
+     Assert(L7 <> '', 'Не задан параметр method');
+     if aHttpMethodName <> '*' then
+      Assert(UCase(L7) = UCase(aHttpMethodName),
+       'Метод не разрешен тестовым сервером: ' + SingleQuoteStr(L7));
+
+     var L8 := Метод(ToRoid(RAT.EvalQuery(
+      sqltext!select Method from HttpMethods where upper(Name) = &UCase(L7)&!end
+     )));
+     Assert(Assigned(L8), 'HTTP-метод не найден: ' + SingleQuoteStr(L7));
+
+     var L9 := VarArrayCreate(0, L8.ParamCount - 1);
+     var L10: Абстракт[];
+     for var i := 0 to L8.ParamCount - 1 do
+     begin
+      var L11 := L8.ParamName(i);
+      var L12 := L3.CurrentRequestParamValueByName(L11 + '.json');
+      if L12 <> '' then
+       L9[i] := wDynamicStorage.CreateByJsonString(L12)
+      else
+      begin
+       var L13 := L3.CurrentRequestParamValueByName(L11);
+       if L13 = '' then
+       begin
+        if not L8.ParamIsDefault(i) then
+         Error('Не указан обязательный параметр: ' + L11);
+        L9[i] := L8.ParamDefVal(i, L10);
+       end
+       else
+        L9[i] := Функции_мат.ПреобразоватьЗначениеПоТипу(
+         L8.ParamType(i), L13, L8.ParamClass(i), L10);
+      end;
+     end;
+
+     var L14 := L8.Invoke(L8.SeniorID, L9);
+     if VarIsInt(L14) and (L8.ResultClass = wDynamicStorage) then
+      L6 := wDynamicStorage(ToRoid(L14))?.AsJsonString
+     else if VarIsInt(L14) and Assigned(L8.ResultClass)
+      and L8.ResultClass.InheritsFromClass(wDataSet) then
+      L6 := wDataSet(ToRoid(L14))?.AsJsonString
+     else
+      L6 := ToStr(L14);
+    end;
+   except
+    L4 := 500;
+    L5 := 'Internal Server Error';
+    var L15 := wDynamicStorage.Create;
+    L15.Write('error', ExceptionMessage());
+    L6 := L15.AsJsonString;
+   end;
+   L3.Respond(L4, L5, 'application/json; charset=utf-8', L6);
+  end;
+ end;
+end;

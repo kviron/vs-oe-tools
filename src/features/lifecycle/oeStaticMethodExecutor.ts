@@ -136,6 +136,9 @@ export function buildHttpTestServerArguments(
 ): string[] {
 	const normalizedMethodName = methodName.trim();
 	if (!normalizedMethodName || /[,;"\r\n]/u.test(normalizedMethodName)) { throw new Error('Имя HTTP-метода содержит недопустимые символы.'); }
+	if (normalizedMethodName === '*') {
+		throw new Error('Выберите конкретный HTTP-метод.');
+	}
 	const args = buildConnectionArguments(httpTestServerMethodId, database, host, credentials);
 	args[1] += ',Shell=Настройка';
 	args.splice(-1, 0, `-MethodParam=${buildHttpTestServerMethodParameter(normalizedMethodName, credentials.username!)}`);
@@ -147,6 +150,9 @@ export function buildHttpTestServerMethodParameter(methodName: string, username:
 	const normalizedUsername = username.trim();
 	if (!normalizedMethodName || /[,;="\r\n]/u.test(normalizedMethodName)) {
 		throw new Error('Имя HTTP-метода содержит недопустимые символы.');
+	}
+	if (normalizedMethodName === '*') {
+		throw new Error('Выберите конкретный HTTP-метод.');
 	}
 	if (!normalizedUsername || /[,;="\r\n]/u.test(normalizedUsername)) {
 		throw new Error('Логин клиента содержит недопустимые символы для запуска тестового HTTP-сервера.');

@@ -50,7 +50,7 @@ suite('Navigation bridge', () => {
 			startHttpTestServer: async methodName => ({ running: true, methodName, url: 'http://127.0.0.1:18081/api' }),
 			stopHttpTestServer: async () => ({ running: false }),
 			getHttpTestServerStatus: async () => ({ running: false }),
-			callHttpTestServer: async request => ({ response: { status: 200, method: request.method } }),
+			callHttpTestServer: async request => ({ response: { status: 200, ...request } }),
 			getSvnFileHistory: async (filePath, limit) => ({ filePath, limit, entries: [{ revision: 42 }] }),
 			getPackageSyncChanges: async (query, offset, limit) => ({ query, offset, limit, items: [{ objectId: 7 }] }),
 			getProductionTasks: async (query, limit) => {
@@ -200,6 +200,25 @@ suite('Navigation bridge', () => {
 			});
 			assert.equal(clientResponse.status, 200);
 			assert.equal(startedClient, 'main');
+			for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']) {
+				const headers = { Accept: 'application/json', 'X-Test': 'keep me' };
+				const body = '{"message":"тест"}';
+				const httpResponse = await fetch(connection.url, {
+					method: 'POST', headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+					body: JSON.stringify({ action: 'call_http_test_server', httpMethod, methodParameter: 'АнкетыСписок', headers, body }),
+				});
+				assert.equal(httpResponse.status, 200);
+				assert.deepEqual((await httpResponse.json() as { response: unknown }).response, {
+					status: 200, method: httpMethod, methodName: 'АнкетыСписок', headers, body,
+				});
+			}
+			for (const invalid of [{ headers: [] }, { headers: { Accept: 42 } }, { body: {} }]) {
+				const httpResponse = await fetch(connection.url, {
+					method: 'POST', headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+					body: JSON.stringify({ action: 'call_http_test_server', httpMethod: 'GET', ...invalid }),
+				});
+				assert.equal(httpResponse.status, 400);
+			}
 		} finally {
 			bridge.dispose();
 		}

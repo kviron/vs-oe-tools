@@ -19,12 +19,8 @@ import { vscode } from '@/vscode';
 import { formatId } from '@/lib/formatId';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
 import SortableTableHead from '@/components/SortableTableHead.vue';
+import MethodSignature from '@/components/MethodSignature.vue';
 import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
-
-interface SignaturePart {
-  text: string;
-  kind: 'plain' | 'parameter' | 'type';
-}
 
 interface ClassDetailsViewState {
   activeTab?: string;
@@ -70,7 +66,6 @@ const propertySortDirection = ref<SortDirection>('asc');
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'medium' });
 const formattedDateCache = new Map<string, string>();
 const localDateCache = new Map<string, string>();
-const signaturePartsCache = new Map<string, SignaturePart[]>();
 
 function persistViewState(): void {
   vscode.setState({
@@ -282,31 +277,6 @@ function toggleInheritedProperties(value: boolean | 'indeterminate'): void {
   classProperties.value = [];
   classPropertiesLoaded.value = false;
   loadPropertiesForActiveTab();
-}
-
-function signatureParts(signature: string): SignaturePart[] {
-  const cached = signaturePartsCache.get(signature);
-  if (cached) return cached;
-  const parts: SignaturePart[] = [];
-  const pattern = /([\p{L}_][\p{L}\p{N}_]*)(\s*:\s*)([\p{L}_][\p{L}\p{N}_.]*)/gu;
-  let position = 0;
-  for (const match of signature.matchAll(pattern)) {
-    const index = match.index ?? 0;
-    if (index > position) parts.push({ text: signature.slice(position, index), kind: 'plain' });
-    parts.push({ text: match[1], kind: 'parameter' });
-    parts.push({ text: match[2], kind: 'plain' });
-    parts.push({ text: match[3], kind: 'type' });
-    position = index + match[0].length;
-  }
-  if (position < signature.length) parts.push({ text: signature.slice(position), kind: 'plain' });
-  signaturePartsCache.set(signature, parts);
-  return parts;
-}
-
-function signaturePartClass(kind: SignaturePart['kind']): string | undefined {
-  if (kind === 'parameter') return 'signature-parameter font-medium';
-  if (kind === 'type') return 'signature-type font-medium';
-  return undefined;
 }
 
 function displayClassField(key: string, value: unknown): string {
@@ -573,7 +543,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
               <TableCell class="max-w-56 truncate px-3 py-1" :title="method.owner">{{ method.owner }}</TableCell>
               <TableCell class="max-w-96 px-3 py-1" :title="method.signature">
                 <span class="block truncate font-mono text-xs">
-                  <span v-for="(part, index) in signatureParts(method.signature)" :key="index" :class="signaturePartClass(part.kind)">{{ part.text }}</span>
+                  <MethodSignature :signature="method.signature" />
                 </span>
               </TableCell>
               <TableCell class="px-3 py-1"><Badge variant="method">{{ method.type }}</Badge></TableCell>
@@ -610,8 +580,3 @@ vscode.postMessage({ command: 'classDetailsReady' });
   </main>
   <Empty v-else class="min-h-0 py-8"><EmptyHeader><EmptyTitle>Загрузка класса…</EmptyTitle><EmptyDescription>Получаем данные класса из расширения.</EmptyDescription></EmptyHeader></Empty>
 </template>
-
-<style scoped>
-.signature-parameter { color: var(--kind-attribute); }
-.signature-type { color: var(--kind-class); }
-</style>

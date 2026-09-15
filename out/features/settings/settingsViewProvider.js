@@ -45,6 +45,8 @@ const rdboadmIni_1 = require("../../infrastructure/configuration/rdboadmIni");
 const projectCommandService_1 = require("../project/projectCommandService");
 const tools_1 = require("../../mcp/tools");
 const httpApiRequest_1 = require("../http-api/httpApiRequest");
+const httpServerLifecycle_1 = require("../http-api/httpServerLifecycle");
+const directHttpMethod_1 = require("../http-api/directHttpMethod");
 const httpMethodRepository_1 = require("../http-api/httpMethodRepository");
 class SettingsViewProvider {
     extensionUri;
@@ -66,7 +68,10 @@ class SettingsViewProvider {
     clientMcpToolsError;
     httpMethods = [];
     httpMethodsError;
-    httpTestServer;
+    httpServerLifecycle = new httpServerLifecycle_1.HttpServerLifecycle();
+    directRequestController;
+    get httpTestServer() { return this.httpServerLifecycle.server; }
+    set httpTestServer(server) { this.httpServerLifecycle.server = server; }
     disposables = [];
     constructor(extensionUri, setProjectRootEnabled, logger, getNavigationConnection, databaseSelectionPath, getClientCredentials = async () => ({}), setClientCredentials = async () => undefined, workspaceState) {
         this.extensionUri = extensionUri;
@@ -159,24 +164,24 @@ class SettingsViewProvider {
         void this.postState();
     }
     async startHttpTestServer(methodName) {
-        await this.refreshHttpMethods();
-        const selected = this.httpMethods.find(item => item.name === methodName);
-        if (methodName !== '*' && !selected) {
-            throw new Error('Выбранный HTTP-метод не найден в текущей базе.');
-        }
-        await this.httpTestServer?.stop();
-        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (!workspacePath) {
-            throw new Error('Сначала откройте папку проекта Восточного Экспресса.');
-        }
-        const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-        this.httpTestServer = await (0, oeStaticMethodExecutor_1.startHttpTestServerProcess)(workspacePath, methodName === '*' ? '*' : selected.name, options.database, options.host, await this.getClientCredentials());
+        await this.httpServerLifecycle.replace(async () => {
+            await this.refreshHttpMethods();
+            const selected = this.httpMethods.find(item => item.name === methodName);
+            if (!selected) {
+                throw new Error('Выбранный HTTP-метод не найден в текущей базе.');
+            }
+            const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspacePath) {
+                throw new Error('Сначала откройте папку проекта Восточного Экспресса.');
+            }
+            const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+            return (0, oeStaticMethodExecutor_1.startHttpTestServerProcess)(workspacePath, selected.name, options.database, options.host, await this.getClientCredentials());
+        });
         await this.postState();
         return this.getHttpTestServerState();
     }
     async stopHttpTestServer() {
-        await this.httpTestServer?.stop();
-        this.httpTestServer = undefined;
+        await this.httpServerLifecycle.replace();
         await this.postState();
         return { running: false };
     }
@@ -187,14 +192,35 @@ class SettingsViewProvider {
         }
         const state = this.getHttpTestServerState();
         const url = new URL(server.url);
-        if (request.methodName?.trim()) {
-            url.searchParams.set('method', request.methodName.trim());
-        }
+        url.searchParams.set('method', request.methodName?.trim() || server.methodName);
         const response = await (0, httpApiRequest_1.executeHttpApiRequest)({
-            method: typeof request.method === 'string' && request.method.trim() ? request.method : 'POST',
+            method: typeof request.method === 'string' && request.method.trim() ? request.method : 'GET',
             url: url.toString(), headers: request.headers ?? {}, body: request.body,
         });
         return { server: state, response };
+    }
+    async callDirectHttpMethod(input) {
+        if (this.directRequestController) {
+            throw new Error('Предыдущий прямой вызов ещё выполняется.');
+        }
+        const request = (0, directHttpMethod_1.validateDirectHttpMethodRequest)(input);
+        const controller = new AbortController();
+        this.directRequestController = controller;
+        try {
+            const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspacePath) {
+                throw new Error('Сначала откройте папку проекта Восточного Экспресса.');
+            }
+            const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
+            const methods = await (0, httpMethodRepository_1.loadHttpMethods)();
+            if (!methods.some(method => method.name === request.methodName)) {
+                throw new Error('Метод не найден в каталоге текущей базы. Обновите список методов.');
+            }
+            return await (0, directHttpMethod_1.executeDirectHttpMethod)(workspacePath, request, options.database, options.host, await this.getClientCredentials(), controller.signal);
+        }
+        finally {
+            this.directRequestController = undefined;
+        }
     }
     getHttpTestServerState() {
         if (this.httpTestServer && !this.httpTestServer.isRunning()) {
@@ -213,12 +239,13 @@ class SettingsViewProvider {
         this.httpMethodsError = undefined;
     }
     dispose() {
+        this.directRequestController?.abort();
         if (this.clientMcpStatusTimer) {
             clearInterval(this.clientMcpStatusTimer);
         }
         this.panel?.dispose();
         this.httpApiPanel?.dispose();
-        void this.httpTestServer?.stop();
+        void this.httpServerLifecycle.replace().catch(error => this.logger.error('HTTP API', 'Не удалось остановить тестовый сервер.', error));
         this.disposables.forEach(disposable => disposable.dispose());
     }
     scheduleClientMcpDatabaseSync() {
@@ -316,6 +343,16 @@ class SettingsViewProvider {
         }
         else if (message.command === 'stopClientMcpServer') {
             await this.setClientMcpServerRunning('stop');
+        }
+        else if (message.command === 'executeDirectHttpMethod') {
+            this.post({ command: 'httpApiRequestStarted' });
+            try {
+                const response = await this.callDirectHttpMethod(message);
+                this.post({ command: 'httpApiRequestFinished', success: true, response });
+            }
+            catch (error) {
+                this.post({ command: 'httpApiRequestFinished', success: false, message: error instanceof Error ? error.message : String(error) });
+            }
         }
         else if (message.command === 'executeHttpApiRequest') {
             this.post({ command: 'httpApiRequestStarted' });
@@ -537,19 +574,22 @@ class SettingsViewProvider {
                 await this.stopHttpTestServer();
             }
             else {
-                await this.startHttpTestServer(methodName ?? '*');
+                if (!methodName) {
+                    throw new Error('Выберите конкретный HTTP-метод перед запуском сервера.');
+                }
+                await this.startHttpTestServer(methodName);
             }
             const message = action === 'start'
-                ? `Тестовый сервер ${this.httpTestServer?.methodName === '*' ? 'всех HTTP-методов' : 'метода ' + this.httpTestServer?.methodName} запущен: ${this.httpTestServer?.url}`
+                ? `Тестовый сервер метода ${this.httpTestServer?.methodName} запущен: ${this.httpTestServer?.url}`
                 : 'Тестовый HTTP-сервер остановлен.';
             this.post({ command: 'httpTestServerActionFinished', action, success: true, message });
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            this.post({ command: 'httpTestServerActionFinished', action, success: false, message });
             this.logger.error('HTTP API', `Не удалось ${action === 'start' ? 'запустить' : 'остановить'} тестовый сервер.`, error);
+            await this.postState();
+            this.post({ command: 'httpTestServerActionFinished', action, success: false, message });
         }
-        await this.postState();
     }
     async postState() {
         if (!this.panel && !this.httpApiPanel) {

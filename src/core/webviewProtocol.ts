@@ -268,6 +268,7 @@ export type SettingsWebviewMessage =
 	| { command: 'startClientMcpServer' }
 	| { command: 'stopClientMcpServer' }
 	| { command: 'executeHttpApiRequest'; method: string; url: string; headers: Record<string, string>; body?: string }
+	| { command: 'executeDirectHttpMethod'; methodName: string; parameters: Record<string, string> }
 	| { command: 'startHttpTestServer'; methodName: string }
 	| { command: 'stopHttpTestServer' }
 	| { command: 'searchHttpParameterValues'; parameter: string; typeName: string; query: string }
@@ -285,7 +286,7 @@ export type SettingsHostMessage =
 	| { command: 'clientMcpToolsCheckStarted' }
 	| { command: 'clientMcpToolsCheckFinished'; success: boolean }
 	| { command: 'httpApiRequestStarted' }
-	| { command: 'httpApiRequestFinished'; success: true; response: { status: number; statusText: string; durationMs: number; headers: Record<string, string>; body: string } }
+	| { command: 'httpApiRequestFinished'; success: true; response: { execution?: 'direct'; status: number; statusText: string; durationMs: number; headers: Record<string, string>; body: string } }
 	| { command: 'httpApiRequestFinished'; success: false; message: string }
 	| { command: 'httpTestServerActionStarted'; action: 'start' | 'stop' }
 	| { command: 'httpTestServerActionFinished'; action: 'start' | 'stop'; success: boolean; message: string }
@@ -352,6 +353,13 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 			&& 'headers' in message && typeof message.headers === 'object' && message.headers !== null
 			&& Object.entries(message.headers).every(([key, value]) => key.length > 0 && typeof value === 'string')
 			&& (!('body' in message) || message.body === undefined || typeof message.body === 'string');
+	}
+	if (message.command === 'executeDirectHttpMethod') {
+		return 'methodName' in message && typeof message.methodName === 'string' && message.methodName.trim().length > 0
+			&& message.methodName.trim() !== '*' && !/[,;="\r\n]/u.test(message.methodName)
+			&& 'parameters' in message && typeof message.parameters === 'object' && message.parameters !== null
+			&& !Array.isArray(message.parameters)
+			&& Object.entries(message.parameters).every(([key, value]) => key.length > 0 && typeof value === 'string');
 	}
 	if (message.command === 'startHttpTestServer') { return 'methodName' in message && typeof message.methodName === 'string' && message.methodName.trim().length > 0; }
 	if (message.command === 'searchHttpParameterValues') {

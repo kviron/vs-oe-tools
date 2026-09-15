@@ -3,7 +3,7 @@ import type { SettingsHostMessage, SettingsState } from '../../../src/core/webvi
 import { parseHttpMethodDocumentation } from '../../../src/features/http-api/httpParameterDocumentation';
 import { AlertCircleIcon, ApiIcon, ArrowDown01Icon, CheckmarkCircle02Icon, Clock01Icon, Copy01Icon, Delete02Icon, PlayIcon, SourceCodeIcon, StopIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
-import { computed, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import DateTimePicker from '@/components/DateTimePicker.vue';
 import JsonResponseEditor from '@/components/JsonResponseEditor.vue';
+import MethodSignature from '@/components/MethodSignature.vue';
 import { vscode } from '@/vscode';
 
 type Parameter = {
@@ -39,8 +40,8 @@ type Parameter = {
   referenceType?: string;
   description?: string;
 };
-type Response = { status: number; statusText: string; durationMs: number; headers: Record<string, string>; body: string };
-type ApiRequest = { method: string; url: string; headers: Record<string, string>; body?: string };
+type Response = { execution?: 'direct'; status: number; statusText: string; durationMs: number; headers: Record<string, string>; body: string };
+type ApiRequest = { method: string; url: string; headers: Record<string, string>; body?: string; direct?: { methodName: string; parameters: Record<string, string> } };
 type RequestSource = 'method' | 'manual';
 type HistoryEntry = {
   id: string;
@@ -58,6 +59,7 @@ const state = ref<SettingsState>();
 const selectedMethodName = ref('');
 const parameters = ref<Parameter[]>([]);
 const requestMethod = ref('GET');
+const executionMode = ref<'direct' | 'http'>('direct');
 const manualUrl = ref('');
 const manualHeaders = ref('{\n  "Accept": "application/json"\n}');
 const manualBody = ref('');
@@ -65,6 +67,8 @@ const activeRequestTab = ref<RequestSource | 'history'>('method');
 const responseTab = ref('body');
 const busy = ref(false);
 const serverAction = ref<'start' | 'stop'>();
+const switchQueued = ref(false);
+let switchTimer: ReturnType<typeof setTimeout> | undefined;
 const result = ref<{ response?: Response; error?: string }>();
 const activeRequest = ref<{ request: ApiRequest; source: RequestSource; label: string }>();
 const history = ref<HistoryEntry[]>(Array.isArray(persistedState?.history) ? persistedState.history.slice(0, 30) : []);
@@ -73,6 +77,15 @@ const touchedParameters = ref(new Set<string>());
 const selectedMethod = computed(() => state.value?.httpMethods.find(item => item.name === selectedMethodName.value));
 const selectedMethodDescription = computed(() => parseHttpMethodDocumentation(selectedMethod.value?.description ?? '').description);
 const serverUrl = computed(() => state.value?.httpTestServer?.url ?? '');
+const serverMatchesSelection = computed(() => Boolean(serverUrl.value) && state.value?.httpTestServer?.methodName === selectedMethodName.value);
+const serverChanging = computed(() => Boolean(serverAction.value) || switchQueued.value);
+const connectionStatus = computed(() => {
+  if (serverAction.value === 'stop') return 'Сервер останавливается…';
+  if (switchQueued.value && busy.value) return `После текущего запроса переключимся на «${selectedMethodName.value}».`;
+  if (serverChanging.value) return `Запускаем «${selectedMethodName.value}»…`;
+  if (state.value?.httpTestServer) return `Сервер метода «${state.value.httpTestServer.methodName}». При выборе другого метода переключится автоматически.`;
+  return 'Запустите сервер один раз — дальше он будет переключаться вместе с выбранным методом.';
+});
 const responseHeaders = computed(() => Object.entries(result.value?.response?.headers ?? {}).sort(([left], [right]) => left.localeCompare(right)));
 const formattedResponseBody = computed(() => {
   const body = result.value?.response?.body ?? '';
@@ -191,7 +204,7 @@ function parseParameters(signature: string, description: string): Parameter[] {
       const value = /^(?:nil|null|'')$/iu.test(defaultValue) ? '' : defaultValue;
       return {
         name: normalizedName,
-        requestName: /^wDynamicStorage$/iu.test(type) ? `${normalizedName}.json` : normalizedName,
+        requestName: /^(?:wDynamicStorage|APIПараметр)$/iu.test(type) ? `${normalizedName}.json` : normalizedName,
         type,
         value,
         defaultValue: value,
@@ -208,12 +221,33 @@ function parseParameters(signature: string, description: string): Parameter[] {
   });
 }
 
+async function scrollToSelectedMethod(): Promise<void> {
+  await nextTick();
+  requestAnimationFrame(() => {
+    if (!methodPickerOpen.value) return;
+    const item = document.querySelector<HTMLElement>('[data-http-method-selected="true"]');
+    const list = item?.closest<HTMLElement>('[data-slot="command-list"]');
+    if (!item || !list) return;
+    const bounds = list.getBoundingClientRect();
+    // Popover's zoom animation scales DOMRects, but scrollTop uses unscaled CSS pixels.
+    const scale = bounds.height / list.offsetHeight || 1;
+    list.scrollTop += (item.getBoundingClientRect().top - bounds.top) / scale - (list.clientHeight - item.offsetHeight) / 2;
+  });
+}
+
 function chooseMethod(name: string): void {
+  const changed = selectedMethodName.value !== name;
+  const shouldSwitch = executionMode.value === 'http' && changed && Boolean(selectedMethodName.value) && (Boolean(state.value?.httpTestServer) || serverAction.value === 'start' || switchQueued.value) && serverAction.value !== 'stop';
   touchedParameters.value.clear();
   selectedMethodName.value = name;
   const method = state.value?.httpMethods.find(item => item.name === name);
   parameters.value = parseParameters(method?.signature ?? '', method?.description ?? '');
   methodPickerOpen.value = false;
+  if (shouldSwitch) {
+    switchQueued.value = true;
+    if (switchTimer) clearTimeout(switchTimer);
+    switchTimer = setTimeout(() => { switchTimer = undefined; flushServerSwitch(); }, 300);
+  }
 }
 
 function resetParameters(): void {
@@ -226,9 +260,34 @@ function resetParameters(): void {
   });
 }
 
-function startServer(all = false): void {
-  vscode.postMessage({ command: 'startHttpTestServer', methodName: all ? '*' : selectedMethodName.value });
+function startServer(): void {
+  if (serverAction.value || busy.value || !selectedMethodName.value) return;
+  if (switchTimer) clearTimeout(switchTimer);
+  switchTimer = undefined;
+  switchQueued.value = false;
+  serverAction.value = 'start';
+  vscode.postMessage({ command: 'startHttpTestServer', methodName: selectedMethodName.value });
 }
+
+function flushServerSwitch(): void {
+  if (!switchQueued.value || switchTimer || busy.value || serverAction.value) return;
+  if (serverMatchesSelection.value) { switchQueued.value = false; return; }
+  startServer();
+}
+
+function stopServer(): void {
+  if (serverAction.value || busy.value) return;
+  if (switchTimer) clearTimeout(switchTimer);
+  switchTimer = undefined;
+  switchQueued.value = false;
+  serverAction.value = 'stop';
+  vscode.postMessage({ command: 'stopHttpTestServer' });
+}
+
+onBeforeUnmount(() => {
+  if (switchTimer) clearTimeout(switchTimer);
+  if (valueSearchTimer) clearTimeout(valueSearchTimer);
+});
 
 function parseValue(parameter: Parameter): unknown {
   const value = parameter.value.trim();
@@ -243,7 +302,11 @@ function parseValue(parameter: Parameter): unknown {
 }
 
 function buildGeneratedRequest(): ApiRequest | undefined {
-  if (!serverUrl.value || !selectedMethodName.value) { return undefined; }
+  if (executionMode.value === 'direct' && selectedMethod.value) {
+    const direct = { methodName: selectedMethodName.value, parameters: Object.fromEntries(parameters.value.filter(parameter => parameter.enabled).map(parameter => [parameter.requestName, parameter.value])) };
+    return { method: 'DIRECT', url: `oe-method:${selectedMethodName.value}`, headers: {}, direct };
+  }
+  if (!serverMatchesSelection.value || serverChanging.value || !selectedMethodName.value) { return undefined; }
   const payload = Object.fromEntries(parameters.value.filter(parameter => parameter.enabled).map(parameter => [parameter.requestName, parseValue(parameter)]));
   const url = new URL(serverUrl.value);
   url.searchParams.set('method', selectedMethodName.value);
@@ -252,9 +315,12 @@ function buildGeneratedRequest(): ApiRequest | undefined {
 }
 
 function executeRequest(request: ApiRequest, source: RequestSource, label: string): void {
+  if (busy.value || serverChanging.value) return;
+  busy.value = true;
   activeRequest.value = { request, source, label };
   responseTab.value = 'body';
-  vscode.postMessage({ command: 'executeHttpApiRequest', ...request });
+  if (request.direct) vscode.postMessage({ command: 'executeDirectHttpMethod', ...request.direct });
+  else vscode.postMessage({ command: 'executeHttpApiRequest', ...request });
 }
 
 function sendGeneratedRequest(): void {
@@ -266,7 +332,7 @@ function openSelectedMethod(): void {
 }
 
 function buildManualRequest(): ApiRequest | undefined {
-  if (manualHeadersError.value || manualBodyError.value || !manualUrl.value.trim()) { return undefined; }
+  if (serverChanging.value || manualHeadersError.value || manualBodyError.value || !manualUrl.value.trim()) { return undefined; }
   const headers = manualHeaders.value.trim() ? JSON.parse(manualHeaders.value) as Record<string, string> : {};
   return { method: requestMethod.value, url: manualUrl.value.trim(), headers, ...(['GET', 'HEAD'].includes(requestMethod.value) ? {} : { body: manualBody.value }) };
 }
@@ -285,6 +351,7 @@ function copyText(text: string, notification: string): void { vscode.postMessage
 
 function copyForPostman(request: ApiRequest | undefined): void {
   if (!request) { return; }
+  if (request.direct) { copyText(JSON.stringify(request.direct, null, 2), 'Параметры прямого вызова скопированы.'); return; }
   const parts = [`curl --request ${shellQuote(request.method)}`, `--url ${shellQuote(request.url)}`];
   for (const [name, value] of Object.entries(request.headers)) { parts.push(`--header ${shellQuote(`${name}: ${value}`)}`); }
   if (request.body !== undefined) { parts.push(`--data-raw ${shellQuote(request.body)}`); }
@@ -319,6 +386,18 @@ function completeHistory(response?: Response, error?: string): void {
 }
 
 function loadHistoryEntry(entry: HistoryEntry): void {
+  if (busy.value || serverChanging.value) return;
+  if (entry.request.direct) {
+    executionMode.value = 'direct';
+    activeRequestTab.value = 'method';
+    chooseMethod(entry.request.direct.methodName);
+    for (const parameter of parameters.value) {
+      parameter.enabled = Object.hasOwn(entry.request.direct.parameters, parameter.requestName);
+      if (parameter.enabled) parameter.value = entry.request.direct.parameters[parameter.requestName];
+    }
+    result.value = undefined;
+    return;
+  }
   activeRequestTab.value = 'manual';
   requestMethod.value = entry.request.method;
   manualUrl.value = entry.request.url;
@@ -341,9 +420,13 @@ function openDatabaseObject(id: number): void { vscode.postMessage({ command: 'o
 window.addEventListener('message', (event: MessageEvent<SettingsHostMessage>) => {
   const message = event.data;
   if (message.command === 'settingsState') {
+    const previousUrl = serverUrl.value;
     state.value = message.state;
-    if (!selectedMethodName.value && message.state.httpMethods[0]) { chooseMethod(message.state.httpMethods[0].name); }
-    if (message.state.httpTestServer && !manualUrl.value) { manualUrl.value = message.state.httpTestServer.url; }
+    if (!selectedMethodName.value) {
+      const initialMethod = message.state.httpTestServer?.methodName ?? message.state.httpMethods[0]?.name;
+      if (initialMethod) chooseMethod(initialMethod);
+    }
+    if (message.state.httpTestServer && (!manualUrl.value || manualUrl.value === previousUrl)) { manualUrl.value = message.state.httpTestServer.url; }
   } else if (message.command === 'httpApiRequestStarted') {
     busy.value = true;
     result.value = undefined;
@@ -351,11 +434,13 @@ window.addEventListener('message', (event: MessageEvent<SettingsHostMessage>) =>
     busy.value = false;
     result.value = message.success ? { response: message.response } : { error: message.message };
     completeHistory(message.success ? message.response : undefined, message.success ? undefined : message.message);
+    flushServerSwitch();
   } else if (message.command === 'httpTestServerActionStarted') {
     serverAction.value = message.action;
   } else if (message.command === 'httpTestServerActionFinished') {
     serverAction.value = undefined;
     if (!message.success) { result.value = { error: message.message }; }
+    flushServerSwitch();
   } else if (message.command === 'httpParameterValuesLoaded') {
     const parameter = parameters.value.find(item => item.name === message.parameter);
     if (parameter && parameter.suggestionQuery === message.query) {
@@ -378,17 +463,22 @@ vscode.postMessage({ command: 'settingsReady' });
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <Badge v-if="state?.httpTestServer" variant="outline">База · {{ state.httpTestServer.database }}</Badge>
-        <Badge :variant="state?.httpTestServer ? 'default' : 'secondary'"><HugeiconsIcon v-if="state?.httpTestServer" :icon="CheckmarkCircle02Icon" data-icon="inline-start" />{{ state?.httpTestServer ? 'Сервер запущен' : 'Сервер остановлен' }}</Badge>
+        <Badge v-if="executionMode === 'direct'" variant="secondary">Прямой вызов · без HTTP</Badge>
+        <Badge v-else :variant="state?.httpTestServer && !serverChanging ? 'default' : 'secondary'"><HugeiconsIcon v-if="state?.httpTestServer && !serverChanging" :icon="CheckmarkCircle02Icon" data-icon="inline-start" />{{ serverChanging ? 'Переключение…' : state?.httpTestServer ? 'Сервер запущен' : 'Сервер остановлен' }}</Badge>
       </div>
     </header>
 
     <Card>
-      <CardHeader><CardTitle>Подключение</CardTitle><CardDescription>{{ serverUrl ? 'Тестовый сервер готов принимать запросы.' : 'Для вызова методов запустите тестовый сервер.' }}</CardDescription><CardAction class="flex flex-wrap gap-2">
-        <Button v-if="!state?.httpTestServer" :disabled="Boolean(serverAction) || !selectedMethodName" @click="startServer(false)"><HugeiconsIcon :icon="PlayIcon" data-icon="inline-start" />{{ serverAction === 'start' ? 'Запуск…' : 'Запустить выбранный' }}</Button>
-        <Button v-if="!state?.httpTestServer" variant="outline" :disabled="Boolean(serverAction) || !state?.httpMethods.length" @click="startServer(true)">Запустить все</Button>
-        <Button v-else variant="outline" :disabled="Boolean(serverAction)" @click="vscode.postMessage({ command: 'stopHttpTestServer' })"><HugeiconsIcon :icon="StopIcon" data-icon="inline-start" />{{ serverAction === 'stop' ? 'Остановка…' : 'Остановить' }}</Button>
-      </CardAction></CardHeader>
-      <CardContent><div class="flex flex-wrap items-center gap-3 bg-muted/50 px-3 py-2"><Badge variant="outline">Endpoint</Badge><span class="min-w-0 flex-1 break-all font-mono text-xs">{{ serverUrl || 'Адрес появится после запуска сервера' }}</span><Button v-if="serverUrl" size="icon-xs" variant="ghost" aria-label="Копировать адрес сервера" @click="copyText(serverUrl, 'Адрес сервера скопирован.')"><HugeiconsIcon :icon="Copy01Icon" /></Button></div></CardContent>
+      <Tabs v-model="executionMode">
+      <CardHeader><CardTitle>Способ выполнения</CardTitle><CardDescription>Параметры сохраняются при смене способа выполнения.</CardDescription></CardHeader>
+      <CardContent>
+      <TabsList><TabsTrigger value="direct" :disabled="busy || serverChanging">Прямой вызов</TabsTrigger><TabsTrigger value="http" :disabled="busy || serverChanging">HTTP-сервер</TabsTrigger></TabsList>
+      <TabsContent value="direct"><Alert><AlertTitle>Выполнение обработчика в клиенте ВЭ</AlertTitle><AlertDescription>Каждый вызов запускает отдельный процесс с сохранённым логином клиента. Параметры передаются по сигнатуре; HTTP-авторизация, заголовки и загрузка файлов не воспроизводятся. Метод может изменять данные. Автоматических повторов нет. Для проверки самого HTTP API используйте ручной запрос.</AlertDescription></Alert></TabsContent>
+      <TabsContent value="http" class="flex flex-col gap-3"><p class="text-xs text-muted-foreground" role="status">{{ connectionStatus }}</p><div class="flex flex-wrap gap-2">
+        <Button v-if="!state?.httpTestServer || (!serverMatchesSelection && !serverChanging)" :disabled="serverChanging || busy || !selectedMethodName" @click="startServer"><HugeiconsIcon :icon="PlayIcon" data-icon="inline-start" />{{ serverAction === 'start' ? 'Запуск…' : 'Запустить выбранный' }}</Button>
+        <Button v-if="state?.httpTestServer" variant="outline" :disabled="Boolean(serverAction) || busy" @click="stopServer"><HugeiconsIcon :icon="StopIcon" data-icon="inline-start" />{{ serverAction === 'stop' ? 'Остановка…' : 'Остановить' }}</Button>
+      </div><div class="flex flex-wrap items-center gap-3 bg-muted/50 px-3 py-2"><Badge variant="outline">Endpoint</Badge><span class="min-w-0 flex-1 break-all font-mono text-xs">{{ serverUrl || 'Адрес появится после запуска сервера' }}</span><Button v-if="serverUrl" size="icon-xs" variant="ghost" aria-label="Копировать адрес сервера" @click="copyText(serverUrl, 'Адрес сервера скопирован.')"><HugeiconsIcon :icon="Copy01Icon" /></Button></div></TabsContent>
+      </CardContent></Tabs>
     </Card>
 
     <div class="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
@@ -402,9 +492,9 @@ vscode.postMessage({ command: 'settingsReady' });
           <Field><FieldLabel class="sr-only" for="http-method-picker">Метод API</FieldLabel>
         <Popover v-model:open="methodPickerOpen">
           <PopoverTrigger as-child><Button id="http-method-picker" variant="outline" class="w-full min-w-0 justify-between" aria-label="Выбрать метод API"><span class="truncate">{{ selectedMethodName || 'Выберите HTTP-метод' }}</span><HugeiconsIcon :icon="ArrowDown01Icon" data-icon="inline-end" /></Button></PopoverTrigger>
-          <PopoverContent class="w-[min(28rem,calc(100vw-3rem))] p-0" align="start">
+          <PopoverContent class="w-[min(28rem,calc(100vw-3rem))] p-0" align="start" @open-auto-focus="scrollToSelectedMethod">
             <Command :model-value="selectedMethodName"><CommandInput placeholder="Название, описание или сигнатура…" /><CommandList><CommandEmpty>Методы не найдены</CommandEmpty><CommandGroup :heading="`${state?.httpMethods.length ?? 0} методов`">
-              <CommandItem v-for="method in state?.httpMethods ?? []" :key="method.id" :value="`${method.name} ${method.description} ${method.signature}`" @select="chooseMethod(method.name)"><div class="flex min-w-0 flex-1 flex-col"><span class="truncate font-medium">{{ method.name }}</span><span class="truncate text-muted-foreground">{{ publicMethodDescription(method.description) || method.signature }}</span></div><Badge variant="outline">{{ method.id }}</Badge></CommandItem>
+              <CommandItem v-for="method in state?.httpMethods ?? []" :key="method.id" :value="method.name" :data-http-method-selected="method.name === selectedMethodName" @select="chooseMethod(method.name)"><div class="flex min-w-0 flex-1 flex-col"><span class="truncate font-medium">{{ method.name }}</span><span class="truncate text-muted-foreground">{{ publicMethodDescription(method.description) || method.signature }}</span><span v-if="publicMethodDescription(method.description)" class="sr-only">{{ method.signature }}</span></div><Badge variant="outline">{{ method.id }}</Badge></CommandItem>
             </CommandGroup></CommandList></Command>
           </PopoverContent>
         </Popover>
@@ -413,7 +503,7 @@ vscode.postMessage({ command: 'settingsReady' });
           <div v-if="selectedMethod" class="flex flex-wrap items-center gap-2"><Badge variant="outline">HTTP ID {{ selectedMethod.id }}</Badge><Badge variant="outline">Метод ID {{ selectedMethod.methodId }}</Badge><Button variant="ghost" size="sm" class="ml-auto" @click="openSelectedMethod"><HugeiconsIcon :icon="SourceCodeIcon" data-icon="inline-start" />Открыть код</Button></div>
           </CardHeader>
           <CardContent v-if="selectedMethod" class="flex min-w-0 flex-col gap-4">
-            <div class="bg-muted/50 p-3"><p class="mb-1 text-xs text-muted-foreground">Сигнатура</p><pre class="whitespace-pre-wrap break-all font-mono text-xs">{{ selectedMethod.signature }}</pre></div>
+            <div class="bg-muted/50 p-3"><p class="mb-1 text-xs text-muted-foreground">Сигнатура</p><pre class="whitespace-pre-wrap break-all font-mono text-xs"><MethodSignature :signature="selectedMethod.signature" /></pre></div>
             <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="text-sm font-medium">Параметры <span class="text-muted-foreground">{{ parameters.length }}</span></h2><span v-if="requiredRemaining" class="text-xs text-muted-foreground">Осталось заполнить: {{ requiredRemaining }}</span></div>
             <FieldGroup class="gap-4">
               <Field v-for="parameter in parameters" :key="parameter.name" :data-invalid="Boolean(visibleParameterError(parameter))" :data-disabled="!parameter.enabled" @focusout="touchedParameters.add(parameter.name)">
@@ -428,11 +518,12 @@ vscode.postMessage({ command: 'settingsReady' });
             </FieldGroup>
             <Empty v-if="!parameters.length" class="border-0"><EmptyHeader><EmptyTitle>Нет параметров</EmptyTitle><EmptyDescription>Метод можно отправить без дополнительных значений.</EmptyDescription></EmptyHeader></Empty>
             <Separator />
-            <Field v-if="generatedRequest"><FieldLabel for="generated-url">Итоговый URL</FieldLabel><Input id="generated-url" :model-value="generatedRequest.url" readonly class="font-mono" /></Field>
-            <p v-else-if="!serverUrl" class="text-xs text-muted-foreground">Запустите сервер, чтобы отправить запрос.</p>
+            <Field v-if="generatedRequest"><FieldLabel for="generated-url">{{ executionMode === 'direct' ? 'Прямой вызов' : 'Итоговый URL' }}</FieldLabel><Input id="generated-url" :model-value="generatedRequest.url" readonly class="font-mono" /></Field>
+            <p v-else-if="executionMode === 'http' && !serverUrl" class="text-xs text-muted-foreground">Запустите сервер, чтобы отправить запрос.</p>
+            <p v-else-if="executionMode === 'http' && (serverChanging || !serverMatchesSelection)" class="text-xs text-muted-foreground" role="status">{{ serverChanging ? connectionStatus : 'Сервер выбранного метода не запущен. Повторите запуск.' }}</p>
             <Alert v-if="visibleParameterErrors.length" variant="destructive"><HugeiconsIcon :icon="AlertCircleIcon" /><AlertTitle>Проверьте параметры</AlertTitle><AlertDescription>{{ visibleParameterErrors.join(' ') }}</AlertDescription></Alert>
           </CardContent>
-          <CardFooter v-if="selectedMethod" class="flex flex-wrap gap-2 border-t"><HttpVerbSelect v-model="requestMethod" :verbs="['GET', 'POST', 'PUT', 'PATCH', 'DELETE']" /><Button :disabled="busy || !generatedRequest" @click="sendGeneratedRequest"><HugeiconsIcon :icon="PlayIcon" data-icon="inline-start" />{{ busy ? 'Отправка…' : 'Отправить' }}</Button><Button variant="outline" :disabled="!generatedRequest" @click="copyForPostman(generatedRequest)"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />cURL</Button><Button variant="ghost" :disabled="busy" @click="resetParameters">Сбросить значения</Button></CardFooter>
+          <CardFooter v-if="selectedMethod" class="flex flex-wrap gap-2 border-t"><HttpVerbSelect v-if="executionMode === 'http'" v-model="requestMethod" :verbs="['GET', 'POST', 'PUT', 'PATCH', 'DELETE']" /><Button :disabled="busy || serverChanging || !generatedRequest" @click="sendGeneratedRequest"><HugeiconsIcon :icon="PlayIcon" data-icon="inline-start" />{{ busy ? 'Выполнение…' : executionMode === 'direct' ? 'Выполнить' : 'Отправить' }}</Button><Button variant="outline" :disabled="!generatedRequest" @click="copyForPostman(generatedRequest)"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />{{ executionMode === 'direct' ? 'Параметры JSON' : 'cURL' }}</Button><Button variant="ghost" :disabled="busy" @click="resetParameters">Сбросить значения</Button></CardFooter>
         </Card>
       </TabsContent>
 
@@ -447,7 +538,7 @@ vscode.postMessage({ command: 'settingsReady' });
       <TabsContent value="history" class="mt-0">
         <Card>
           <CardHeader><CardTitle>История запросов</CardTitle><CardDescription>Последние 30 запросов. Выберите запись, чтобы снова открыть её в редакторе.</CardDescription><CardAction><Button variant="outline" size="sm" :disabled="!history.length" @click="clearHistory"><HugeiconsIcon :icon="Delete02Icon" data-icon="inline-start" />Очистить</Button></CardAction></CardHeader>
-          <CardContent v-if="history.length" class="p-0"><Table><TableHeader><TableRow><TableHead>Время</TableHead><TableHead>Запрос</TableHead><TableHead>Результат</TableHead><TableHead class="w-24"><span class="sr-only">Действия</span></TableHead></TableRow></TableHeader><TableBody><TableRow v-for="entry in history" :key="entry.id"><TableCell class="whitespace-nowrap text-muted-foreground">{{ formatHistoryTime(entry.timestamp) }}</TableCell><TableCell><div class="flex min-w-0 flex-col"><span class="truncate font-medium">{{ entry.request.method }} · {{ entry.label }}</span><span class="max-w-xl truncate text-muted-foreground" :title="entry.request.url">{{ entry.request.url }}</span></div></TableCell><TableCell><Badge v-if="entry.response" :variant="entry.response.status >= 400 ? 'destructive' : 'secondary'">{{ entry.response.status }} · {{ entry.response.durationMs }} мс</Badge><Badge v-else variant="destructive">Ошибка</Badge></TableCell><TableCell><Button variant="ghost" size="sm" @click="loadHistoryEntry(entry)">В форму</Button></TableCell></TableRow></TableBody></Table></CardContent>
+          <CardContent v-if="history.length" class="p-0"><Table><TableHeader><TableRow><TableHead>Время</TableHead><TableHead>Запрос</TableHead><TableHead>Результат</TableHead><TableHead class="w-24"><span class="sr-only">Действия</span></TableHead></TableRow></TableHeader><TableBody><TableRow v-for="entry in history" :key="entry.id"><TableCell class="whitespace-nowrap text-muted-foreground">{{ formatHistoryTime(entry.timestamp) }}</TableCell><TableCell><div class="flex min-w-0 flex-col"><span class="truncate font-medium">{{ entry.request.method }} · {{ entry.label }}</span><span class="max-w-xl truncate text-muted-foreground" :title="entry.request.url">{{ entry.request.url }}</span></div></TableCell><TableCell><Badge v-if="entry.response" :variant="entry.response.status >= 400 ? 'destructive' : 'secondary'">{{ entry.request.direct ? 'Выполнено' : entry.response.status }} · {{ entry.response.durationMs }} мс</Badge><Badge v-else variant="destructive">Ошибка</Badge></TableCell><TableCell><Button variant="ghost" size="sm" @click="loadHistoryEntry(entry)">В форму</Button></TableCell></TableRow></TableBody></Table></CardContent>
           <CardContent v-else><Empty><EmptyHeader><EmptyMedia variant="icon"><HugeiconsIcon :icon="Clock01Icon" /></EmptyMedia><EmptyTitle>История пуста</EmptyTitle><EmptyDescription>Здесь появятся выполненные запросы, их статус и время ответа.</EmptyDescription></EmptyHeader></Empty></CardContent>
         </Card>
       </TabsContent>
@@ -456,10 +547,10 @@ vscode.postMessage({ command: 'settingsReady' });
 
     <section aria-label="Результат запроса" class="min-w-0 xl:sticky xl:top-6 xl:pt-10">
     <Card class="min-h-96">
-      <CardHeader><CardTitle>Ответ</CardTitle><CardDescription v-if="result?.response">{{ result.response.durationMs }} мс · {{ result.response.body.length.toLocaleString('ru-RU') }} символов · {{ responseHeaders.length }} заголовков</CardDescription><CardDescription v-else-if="result?.error" class="text-destructive">Запрос завершился ошибкой</CardDescription><CardDescription v-else>Результат следующего запроса появится здесь.</CardDescription><CardAction v-if="result?.response" class="flex items-center gap-2"><Badge :variant="result.response.status >= 400 ? 'destructive' : 'secondary'">{{ result.response.status }} {{ result.response.statusText }}</Badge><Button variant="outline" size="sm" @click="copyText(formattedResponseBody, 'Ответ скопирован.')"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Копировать</Button></CardAction></CardHeader>
-      <CardContent v-if="result?.response"><Tabs v-model="responseTab"><TabsList variant="line"><TabsTrigger value="body">Body</TabsTrigger><TabsTrigger value="headers">Headers <Badge variant="secondary">{{ responseHeaders.length }}</Badge></TabsTrigger><TabsTrigger value="raw">Raw</TabsTrigger></TabsList><TabsContent value="body"><JsonResponseEditor class="h-[28rem]" :model-value="formattedResponseBody" @open-object="openDatabaseObject" /></TabsContent><TabsContent value="headers"><Table><TableHeader><TableRow><TableHead class="w-64">Заголовок</TableHead><TableHead>Значение</TableHead></TableRow></TableHeader><TableBody><TableRow v-for="([name, value]) in responseHeaders" :key="name"><TableCell class="font-medium">{{ name }}</TableCell><TableCell class="break-all font-mono">{{ value }}</TableCell></TableRow></TableBody></Table></TabsContent><TabsContent value="raw"><Textarea :model-value="result.response.body" readonly class="min-h-64 resize-y font-mono" aria-label="Ответ без форматирования" /></TabsContent></Tabs></CardContent>
+      <CardHeader><CardTitle>Ответ</CardTitle><CardDescription v-if="result?.response">{{ result.response.durationMs }} мс · {{ result.response.body.length.toLocaleString('ru-RU') }} символов · {{ result.response.execution === 'direct' ? 'Прямой вызов, не HTTP' : `${responseHeaders.length} заголовков` }}</CardDescription><CardDescription v-else-if="result?.error" class="text-destructive">Запрос завершился ошибкой</CardDescription><CardDescription v-else>Результат следующего запроса появится здесь.</CardDescription><CardAction v-if="result?.response" class="flex items-center gap-2"><Badge :variant="result.response.status >= 400 ? 'destructive' : 'secondary'">{{ result.response.execution === 'direct' ? '' : result.response.status }} {{ result.response.statusText }}</Badge><Button variant="outline" size="sm" @click="copyText(formattedResponseBody, 'Ответ скопирован.')"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Копировать</Button></CardAction></CardHeader>
+      <CardContent v-if="result?.response"><Tabs v-model="responseTab"><TabsList variant="line"><TabsTrigger value="body">Body</TabsTrigger><TabsTrigger v-if="!result.response.execution" value="headers">Headers <Badge variant="secondary">{{ responseHeaders.length }}</Badge></TabsTrigger><TabsTrigger value="raw">Raw</TabsTrigger></TabsList><TabsContent value="body"><JsonResponseEditor class="h-[28rem]" :model-value="formattedResponseBody" @open-object="openDatabaseObject" /></TabsContent><TabsContent value="headers"><Table><TableHeader><TableRow><TableHead class="w-64">Заголовок</TableHead><TableHead>Значение</TableHead></TableRow></TableHeader><TableBody><TableRow v-for="([name, value]) in responseHeaders" :key="name"><TableCell class="font-medium">{{ name }}</TableCell><TableCell class="break-all font-mono">{{ value }}</TableCell></TableRow></TableBody></Table></TabsContent><TabsContent value="raw"><Textarea :model-value="result.response.body" readonly class="min-h-64 resize-y font-mono" aria-label="Ответ без форматирования" /></TabsContent></Tabs></CardContent>
       <CardContent v-else-if="result?.error"><Alert variant="destructive"><HugeiconsIcon :icon="AlertCircleIcon" /><AlertTitle>Не удалось выполнить запрос</AlertTitle><AlertDescription>{{ result.error }}</AlertDescription></Alert></CardContent>
-      <CardContent v-else-if="busy" class="flex flex-col gap-3"><p class="text-xs text-muted-foreground" role="status">Ожидаем ответ сервера…</p><Skeleton class="h-5 w-2/3" /><Skeleton class="h-5 w-full" /><Skeleton class="h-5 w-4/5" /></CardContent>
+      <CardContent v-else-if="busy" class="flex flex-col gap-3"><p class="text-xs text-muted-foreground" role="status">Ожидаем результат выполнения…</p><Skeleton class="h-5 w-2/3" /><Skeleton class="h-5 w-full" /><Skeleton class="h-5 w-4/5" /></CardContent>
       <CardContent v-else class="flex flex-1 items-center justify-center"><Empty><EmptyHeader><EmptyMedia variant="icon"><HugeiconsIcon :icon="ApiIcon" /></EmptyMedia><EmptyTitle>Готов к первому запросу</EmptyTitle><EmptyDescription>Здесь появятся статус, время выполнения и содержимое ответа.</EmptyDescription></EmptyHeader></Empty></CardContent>
     </Card>
     </section>

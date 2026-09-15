@@ -4,6 +4,26 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.4.0] - 2026-09-15
+
+### Added
+
+- Added direct execution of selected HTTP API handlers through a separate native client process, retaining the parameter form, JSON inputs, native defaults, response viewer, and request history without starting an HTTP server.
+- Added the native executor source and deployment instructions under `native/http-api/`. Direct execution requires the updated method 3200176 in the selected database; it does not emulate HTTP authentication, headers, or file streams.
+- Added lossless parameter transport, execution timeouts, cancellation, and regression tests for direct calls and HTTP server switching, without automatic retries of potentially mutating handlers.
+
+### Changed
+
+- Made direct execution the default HTTP API panel mode while retaining the HTTP-server and manual-request workflows.
+- **Breaking:** removed wildcard `*` startup for all HTTP methods; callers must select one exact method. The MCP HTTP request default changed from POST to GET; callers needing POST must specify it explicitly.
+
+### Fixed
+
+- Fixed template-handler execution, including `АнкетыСписок`, by supplying the selected HTTP object explicitly instead of relying on missing HTTP context, avoiding cache-object ID 0 in direct mode.
+- Serialized HTTP server stop/start and switched automatically to the latest selected method, preventing stale method allowlists and overlapping starts.
+- Restored the selected method's scroll position whenever the method picker opens and shared signature highlighting with the class-method view.
+- Preserved HTTP verbs, headers, and request bodies across the extension MCP bridge.
+
 ## [0.3.0] - 2026-09-14
 
 ### Added

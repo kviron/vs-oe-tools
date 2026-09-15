@@ -104,7 +104,7 @@ async function handleRequest(request, response, token, actions) {
         }
         else if (input.action === 'call_http_test_server') {
             respond(response, 200, { ok: true, action: input.action, ...await actions.callHttpTestServer({
-                    method: typeof input.httpMethod === 'string' ? input.httpMethod : 'POST', methodName: input.methodParameter,
+                    method: input.httpMethod, methodName: input.methodParameter,
                     headers: input.headers, body: input.body,
                 }) });
             return;
@@ -251,11 +251,22 @@ function validateRequest(value) {
         throw new Error('host is invalid for start_client_mcp.');
     }
     if (action === 'start_http_test_server' && (typeof methodParameter !== 'string' || !methodParameter.trim())) {
-        throw new Error('methodName is required for start_http_test_server. Use * for all methods.');
+        throw new Error('An exact methodName is required for start_http_test_server.');
     }
     const httpMethod = value.httpMethod;
     if (action === 'call_http_test_server' && (typeof httpMethod !== 'string' || !httpMethod.trim())) {
         throw new Error('httpMethod is required for call_http_test_server.');
+    }
+    const headers = value.headers;
+    const body = value.body;
+    if (action === 'call_http_test_server') {
+        if (headers !== undefined && (!headers || typeof headers !== 'object' || Array.isArray(headers)
+            || Object.values(headers).some(header => typeof header !== 'string'))) {
+            throw new Error('HTTP headers must be an object with string values.');
+        }
+        if (body !== undefined && typeof body !== 'string') {
+            throw new Error('HTTP body must be a string.');
+        }
     }
     const filePath = value.filePath;
     const limit = value.limit;
@@ -296,7 +307,7 @@ function validateRequest(value) {
     if (action === 'open_client_entity' && (typeof entityType !== 'string' || !entityType.trim())) {
         throw new Error('entityType is required for open_client_entity.');
     }
-    return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host };
+    return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host, httpMethod, headers, body };
 }
 function respond(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });

@@ -2,7 +2,7 @@
   "name": "vc-ve-tools",
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
