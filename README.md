@@ -17,6 +17,10 @@ New large areas should be added as independent folders under `src/features`. A f
 
 Add UI primitives with `npx shadcn-vue@latest add <component>`; do not hand-build substitutes for components available in the registry. Webview code communicates with the extension host through the typed contracts in `src/core/webviewProtocol.ts`.
 
+Полное описание текущей архитектуры, реализованных сценариев, интеграционных
+границ и правил сопровождения находится в
+[`docs/PROJECT_KNOWLEDGE_BASE.md`](docs/PROJECT_KNOWLEDGE_BASE.md).
+
 ## Возможности
 
 - Проводник пакетов, классов и объектов метаданных.
