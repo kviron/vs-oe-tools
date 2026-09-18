@@ -7,7 +7,8 @@ import { formatSqlResult } from '../features/sql-executor/sqlResultExport';
 import { adaptCompositeDateTimeFields } from '../features/sql-executor/sqlDialectAdapter';
 import { parseVarsFile } from '../infrastructure/configuration/projectDatabaseOptions';
 import { parseRdboadmIni, rdboadmDatabaseOptions, resolveRdboadmPath, updateRdboadmSection } from '../infrastructure/configuration/rdboadmIni';
-import { applyClientCredentials, applyClientOpenUri, createBatchFileCommand, extractBatchCommand } from '../features/project/projectCommandService';
+import { createBatchFileCommand, createClientLaunchCommand, extractBatchCommand, parseClientLaunchArguments } from '../features/project/projectCommandService';
+import { activeDatabaseStatusText, projectRoleActions } from '../features/project/projectStatusBar';
 import { getActiveDatabaseSelectionPath } from '../core/databaseSelection';
 // import * as myExtension from '../../extension';
 
@@ -69,18 +70,55 @@ suite('Extension Test Suite', () => {
 		assert.throws(() => createBatchFileCommand('C:\\OE\\bad"path\\BinUpdate.bat'), /недопустимые символы/);
 	});
 
-	test('client credentials replace values from start.bat', () => {
+	test('client launch command invokes fme.exe without project batch files', () => {
+		const command = createClientLaunchCommand(
+			'C:\\OE\\trunk',
+			'main',
+			{ host: 'localhost', database: 'oetrunk' },
+			{ username: 'ВЭ_Пользователь', password: 'secret' },
+			'oe-oetrunk:/open/Метод/11158589',
+		);
 		assert.strictEqual(
-			applyClientCredentials('call _fme.bat -l "host=localhost,db=oetest,username=old,password=oldpass" -ok', { username: 'ВЭ_Пользователь', password: 'secret' }),
-			'call _fme.bat -l "host=localhost,db=oetest,username=ВЭ_Пользователь,password=secret" -ok',
+			command,
+			'start "" /D "C:\\OE\\trunk\\bin" "C:\\OE\\trunk\\bin\\fme.exe" -NoSelfUpdate "oe-oetrunk:/open/Метод/11158589" -l "host=localhost,db=oetrunk,username=ВЭ_Пользователь,password=secret,MultiLogin=True" -ok',
+		);
+		assert.ok(!/\.bat|\bcall\b/iu.test(command));
+		assert.throws(
+			() => createClientLaunchCommand('C:\\OE\\trunk', 'test', { host: 'localhost', database: 'oetest' }, {}),
+			/Укажите логин и пароль/,
 		);
 	});
 
-	test('client deep link is passed before login arguments', () => {
-		assert.strictEqual(
-			applyClientOpenUri('call "C:\\OE\\trunk\\_fme.bat" -l "host=localhost,db=oetrunk" -ok', 'oe-oetrunk:/open/Метод/11158589'),
-			'call "C:\\OE\\trunk\\_fme.bat" "oe-oetrunk:/open/Метод/11158589" -l "host=localhost,db=oetrunk" -ok',
+	test('client launch command safely appends configured arguments', () => {
+		assert.deepStrictEqual(
+			parseClientLaunchArguments('-BeautifyPGQueries -CustomOption "value with spaces"'),
+			['-BeautifyPGQueries', '-CustomOption', 'value with spaces'],
 		);
+		const command = createClientLaunchCommand(
+			'C:\\OE\\trunk',
+			'test',
+			{ host: 'localhost', database: 'oetest' },
+			{ username: 'user', password: 'secret' },
+			undefined,
+			'-BeautifyPGQueries -CustomOption "value with spaces"',
+		);
+		assert.ok(command.includes('-NoSelfUpdate "-BeautifyPGQueries" "-CustomOption" "value with spaces" -l'));
+		assert.throws(() => parseClientLaunchArguments('-l hacked'), /задаётся расширением автоматически/);
+		assert.throws(() => parseClientLaunchArguments('-CustomOption & whoami'), /недопустимые/);
+		assert.throws(() => parseClientLaunchArguments('-CustomOption "unfinished'), /не закрыта/);
+	});
+
+	test('project status bar offers main and test database actions', () => {
+		assert.deepStrictEqual(
+			projectRoleActions.map(action => ({ label: action.label, role: action.role })),
+			[
+				{ label: 'Основная база', role: 'main' },
+				{ label: 'Тестовая база', role: 'test' },
+			],
+		);
+		assert.strictEqual(activeDatabaseStatusText('oetrunk', 'test'), '$(database) oetrunk $(chevron-down)');
+		assert.strictEqual(activeDatabaseStatusText('', 'main'), '$(database) Основная $(chevron-down)');
+		assert.strictEqual(activeDatabaseStatusText('', 'test'), '$(database) Тестовая $(chevron-down)');
 	});
 
 	test('SQL result export produces readable Markdown and valid JSON', () => {

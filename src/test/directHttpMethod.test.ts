@@ -28,9 +28,16 @@ suite('Direct HTTP method execution', () => {
 		const parse = (envelope: unknown) => parseDirectHttpMethodResponse(Buffer.from(JSON.stringify(envelope)), 42);
 		const result = parse({ protocol:'vcve-direct-v1',ok:true,body:'{"result":"Тест 😀"}' });
 		assert.equal(result.execution, 'direct'); assert.equal(result.status, 0); assert.deepEqual(result.headers, {});
+		assert.deepEqual(result.cookies, []); assert.equal(result.contentType, 'application/json; charset=utf-8');
+		assert.equal(result.bodySizeBytes, Buffer.byteLength(result.body, 'utf8'));
 		assert.throws(() => parse({protocol:'vcve-direct-v1',ok:false,error:'Missing parameter'}), /Missing parameter/);
 		assert.throws(() => parse({ok:true,body:'{}'}), /Несовместимая/);
 		assert.throws(() => parse({protocol:'vcve-direct-v1',ok:true,body:'not json'}));
+	});
+	test('validates response export messages', () => {
+		assert.equal(isSettingsWebviewMessage({ command:'saveHttpApiResponse', text:'{"ok":true}', fileName:'http-response.json', contentType:'application/json' }), true);
+		assert.equal(isSettingsWebviewMessage({ command:'saveHttpApiResponse', text:'x', fileName:'..\\secret.txt' }), false);
+		assert.equal(isSettingsWebviewMessage({ command:'saveHttpApiResponse', text:'x', fileName:'bad/name.txt' }), false);
 	});
 	test('waits for normal process completion and reports failures without retries', async () => {
 		await runDirectProcess(process.execPath, ['-e', 'process.exit(0)'], process.cwd());

@@ -16,6 +16,7 @@ exports.isSpuEditorWebviewMessage = isSpuEditorWebviewMessage;
 exports.isObjectViewWebviewMessage = isObjectViewWebviewMessage;
 exports.isPackageContentWebviewMessage = isPackageContentWebviewMessage;
 exports.isExplorerWebviewMessage = isExplorerWebviewMessage;
+const nativeAttributeEditing_1 = require("../features/classes/nativeAttributeEditing");
 const commonMessages_1 = require("./webview/commonMessages");
 var commonMessages_2 = require("./webview/commonMessages");
 Object.defineProperty(exports, "isCopyEntityIdMessage", { enumerable: true, get: function () { return commonMessages_2.isCopyEntityIdMessage; } });
@@ -112,6 +113,11 @@ function isSettingsWebviewMessage(message) {
         return 'text' in message && typeof message.text === 'string' && message.text.length > 0
             && (!('notification' in message) || message.notification === undefined || typeof message.notification === 'string');
     }
+    if (message.command === 'saveHttpApiResponse') {
+        return 'text' in message && typeof message.text === 'string' && message.text.length <= 16 * 1024 * 1024
+            && 'fileName' in message && typeof message.fileName === 'string' && /^[^\\/:*?"<>|\r\n]{1,200}$/u.test(message.fileName)
+            && (!('contentType' in message) || message.contentType === undefined || typeof message.contentType === 'string');
+    }
     if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
         return 'enabled' in message && typeof message.enabled === 'boolean';
     }
@@ -143,6 +149,9 @@ function isSettingsWebviewMessage(message) {
         return 'username' in message && typeof message.username === 'string'
             && (!('password' in message) || message.password === undefined || typeof message.password === 'string');
     }
+    if (message.command === 'setClientLaunchArguments') {
+        return 'value' in message && typeof message.value === 'string' && message.value.length <= 2000;
+    }
     return message.command === 'copyMcpConnectionCode' && 'text' in message && typeof message.text === 'string';
 }
 function isPackageSyncWebviewMessage(message) {
@@ -169,7 +178,10 @@ function isCodeHistoryWebviewMessage(message) {
         return false;
     }
     return message.command === 'codeHistoryReady'
-        || (message.command === 'openCodeHistoryEntry' && 'id' in message && typeof message.id === 'string');
+        || (0, commonMessages_1.isCopyTableCellsMessage)(message)
+        || (0, commonMessages_1.isTableSelectionDebugMessage)(message)
+        || (message.command === 'openCodeHistoryEntry' && 'id' in message && typeof message.id === 'string')
+        || (message.command === 'openCodeHistoryTask' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0);
 }
 function isClassDetailsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -190,7 +202,7 @@ function isClassDetailsWebviewMessage(message) {
     if (message.command === 'createAttribute' || message.command === 'createMethod') {
         return 'classId' in message && typeof message.classId === 'number' && Number.isSafeInteger(message.classId) && message.classId > 0;
     }
-    if (message.command === 'openMethod' || message.command === 'openAttribute' || message.command === 'openProperty') {
+    if (message.command === 'openMethod' || message.command === 'openAttribute' || message.command === 'editAttribute' || message.command === 'openProperty') {
         return 'id' in message && typeof message.id === 'number';
     }
     if (message.command === 'openClassObjects') {
@@ -220,10 +232,19 @@ function isAttributeDetailsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
     }
-    if (message.command === 'attributeDetailsReady') {
+    if (['attributeDetailsReady', 'attributeRefresh', 'attributeEdit', 'attributeCancel', 'attributeNew', 'attributeCopyId', 'attributeOpenOwner'].includes(String(message.command))) {
         return true;
     }
-    return message.command === 'createClassAttribute' && 'draft' in message && typeof message.draft === 'object' && message.draft !== null;
+    if (message.command !== 'attributeSave' || !('draft' in message)) {
+        return false;
+    }
+    try {
+        (0, nativeAttributeEditing_1.validateNativeAttributeDraft)(message.draft);
+        return true;
+    }
+    catch {
+        return false;
+    }
 }
 function isPropertyDetailsWebviewMessage(message) {
     return typeof message === 'object' && message !== null && 'command' in message && message.command === 'propertyDetailsReady';
@@ -294,7 +315,7 @@ function isPackageContentWebviewMessage(message) {
         || (0, commonMessages_1.isCopyTableCellsMessage)(message)
         || (0, commonMessages_1.isTableSelectionDebugMessage)(message)
         || (message.command === 'openPackageContentObject' && 'id' in message && typeof message.id === 'number'
-            && 'kind' in message && ['class', 'method', 'attribute', 'lifecycle', 'journal', 'list', 'object'].includes(String(message.kind)));
+            && 'kind' in message && ['class', 'method', 'module', 'attribute', 'lifecycle', 'journal', 'list', 'object'].includes(String(message.kind)));
 }
 function isExplorerWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
@@ -319,7 +340,7 @@ function isExplorerWebviewMessage(message) {
     if (message.command === 'openDatabaseObject') {
         return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id)
             && 'pinned' in message && typeof message.pinned === 'boolean'
-            && 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'attribute' || message.kind === 'lifecycle' || message.kind === 'journal' || message.kind === 'list' || message.kind === 'object');
+            && 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'module' || message.kind === 'attribute' || message.kind === 'lifecycle' || message.kind === 'journal' || message.kind === 'list' || message.kind === 'object');
     }
     if (message.command === 'explorerReady') {
         return true;

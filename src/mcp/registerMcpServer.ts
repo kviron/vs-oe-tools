@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getDatabaseRole } from '../infrastructure/configuration/projectDatabaseOptions';
 import { clientMcpUrlSetting, databaseProfileSetting, mcpEnabledSetting } from '../core/constants';
+import { buildDatabaseMcpArguments } from './databaseMcpArguments';
 
 export interface McpNavigationConnection {
 	infoPath: string;
@@ -21,17 +22,17 @@ export function registerDatabaseMcpServer(context: vscode.ExtensionContext, logs
 			const server = new vscode.McpStdioServerDefinition(
 				'East Express Database and Tools',
 				process.execPath,
-				[
-					vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath,
-					'--workspace', workspaceFolder.uri.fsPath,
-					'--database-role', getDatabaseRole(),
-					...(() => { const profile = vscode.workspace.getConfiguration('vcVeTools').get<string>(databaseProfileSetting, ''); return profile ? ['--database-profile', profile] : []; })(),
-					...(databaseSelectionPath ? ['--database-selection', databaseSelectionPath] : []),
-					'--logs', logsPath,
-					...(sqlMonitorHistoryPath ? ['--sql-monitor-history', sqlMonitorHistoryPath] : []),
-					'--navigation-info', navigation.infoPath,
-					'--client-mcp-url', vscode.workspace.getConfiguration('vcVeTools').get<string>(clientMcpUrlSetting, 'http://localhost:8080'),
-				],
+				buildDatabaseMcpArguments({
+					serverPath: vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath,
+					workspacePath: workspaceFolder.uri.fsPath,
+					databaseRole: getDatabaseRole(),
+					databaseProfile: vscode.workspace.getConfiguration('vcVeTools').get<string>(databaseProfileSetting, ''),
+					databaseSelectionPath,
+					logsPath,
+					sqlMonitorHistoryPath,
+					navigationInfoPath: navigation.infoPath,
+					clientMcpUrl: vscode.workspace.getConfiguration('vcVeTools').get<string>(clientMcpUrlSetting, 'http://localhost:8080'),
+				}),
 				{},
 				'0.22.0',
 			);

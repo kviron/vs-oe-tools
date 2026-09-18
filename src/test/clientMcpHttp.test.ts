@@ -1,5 +1,8 @@
 import * as assert from 'node:assert';
 import { createServer, type Server } from 'node:http';
+import { readFile, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import { callClientMcpTool, getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../mcp/clientMcpHttp';
 
 suite('East Express client HTTP MCP', () => {
@@ -7,6 +10,20 @@ suite('East Express client HTTP MCP', () => {
 	let baseUrl: string;
 	let lastToolCallMethod: string | undefined;
 	let lastStopMethod: string | undefined;
+	let codeFileEnabled = false;
+	let codeFileFailure = false;
+	let advertisedTemp = tmpdir();
+	let toolCallCount = 0;
+	let lastCodeFile: string | undefined;
+	let lastToolUrl = '';
+
+	setup(() => {
+		codeFileEnabled = false;
+		codeFileFailure = false;
+		advertisedTemp = tmpdir();
+		toolCallCount = 0;
+		lastCodeFile = undefined;
+	});
 
 	suiteSetup(async () => {
 		server = createServer(async (request, response) => {
@@ -18,7 +35,9 @@ suite('East Express client HTTP MCP', () => {
 			}
 			response.setHeader('content-type', 'application/json; charset=utf-8');
 			if (url.pathname === '/health') {
-				response.end(JSON.stringify({ status: 'ok', database: 'oetrunk' }));
+				response.end(JSON.stringify({ status: 'ok', database: 'oetrunk',
+					...(codeFileEnabled ? { methodCodeFile: 'vcve-code-file-v1', tempDirectory: advertisedTemp } : {}),
+				}));
 				return;
 			}
 			if (url.pathname === '/stop') {
@@ -37,9 +56,28 @@ suite('East Express client HTTP MCP', () => {
 				return;
 			}
 			if (url.pathname === '/tools/call') {
+				toolCallCount++;
+				lastToolUrl = request.url ?? '';
 				lastToolCallMethod = request.method;
 				const name = url.searchParams.get('name');
 				const argumentsValue = JSON.parse(url.searchParams.get('arguments') ?? '{}') as Record<string, unknown>;
+				const token = url.searchParams.get('codeToken');
+				if (token) {
+					assert.match(token, /^[0-9a-f]{32}$/);
+					lastCodeFile = path.join(tmpdir(), `vcve-mcp-code-${token}.json`);
+					if (codeFileFailure) {
+						response.statusCode = 500;
+						response.end(JSON.stringify({ error: 'native failure' }));
+						return;
+					}
+					const payload = JSON.parse(await readFile(lastCodeFile, 'utf8'));
+					assert.equal(payload.protocol, 'vcve-code-file-v1');
+					assert.equal(payload.Member, argumentsValue.Member);
+					assert.equal(argumentsValue.Code, undefined);
+					await rm(lastCodeFile);
+					response.end(JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(payload) }] }));
+					return;
+				}
 				response.end(JSON.stringify({ content: [{ type: 'text', text: `${name}:${String(argumentsValue.Query)}` }] }));
 				return;
 			}
@@ -90,6 +128,62 @@ suite('East Express client HTTP MCP', () => {
 		const query = "SELECT 'Привет & + ? # = %'";
 		const result = await callClientMcpTool('validate_sql', { Query: query }, baseUrl);
 		assert.deepEqual(result, { content: [{ type: 'text', text: `validate_sql:${query}` }] });
+	});
+
+	test('transfers large method code losslessly with a short GET and removes the file', async () => {
+		codeFileEnabled = true;
+		const Code = "// Привет 😀 & + ? # = % 00123\r\n".repeat(1200);
+		const result = await callClientMcpTool('class_method_change', { Member: '3200176', Code }, baseUrl);
+		assert.deepStrictEqual(JSON.parse(result.content[0].text), { protocol: 'vcve-code-file-v1', Member: '3200176', Code });
+		assert.equal(lastToolCallMethod, 'GET');
+		assert.ok(lastToolUrl.length < 1000);
+		assert.ok(!lastToolUrl.includes('Привет'));
+		assert.equal(toolCallCount, 1);
+		assert.ok(lastCodeFile);
+		assert.equal(await stat(lastCodeFile!).catch(() => undefined), undefined);
+	});
+
+	test('accepts a numeric member ID when transferring large method code', async () => {
+		codeFileEnabled = true;
+		const Code = 'begin\r\n // Большой исходник\r\nend;\r\n'.repeat(1000);
+		const result = await callClientMcpTool('class_method_change', { Member: 3200176, Code }, baseUrl);
+		assert.deepStrictEqual(JSON.parse(result.content[0].text), {
+			protocol: 'vcve-code-file-v1',
+			Member: '3200176',
+			Code,
+		});
+		assert.ok(lastToolUrl.includes('%223200176%22'));
+		assert.equal(toolCallCount, 1);
+	});
+
+	test('requires native capability before sending a large method mutation', async () => {
+		await assert.rejects(() => callClientMcpTool('class_method_change', { Member: '3200176', Code: 'x'.repeat(20000) }, baseUrl), /12464784/);
+		assert.equal(toolCallCount, 0);
+		assert.equal(lastCodeFile, undefined);
+	});
+
+	test('rejects oversized files and extra arguments before invoking a tool', async () => {
+		codeFileEnabled = true;
+		await assert.rejects(() => callClientMcpTool('class_method_change', { Member: '3200176', Code: 'x'.repeat(2 * 1024 * 1024) }, baseUrl), /2 МБ/);
+		await assert.rejects(() => callClientMcpTool('class_method_change', { Member: '3200176', Code: 'x'.repeat(20000), extra: true }, baseUrl), /слишком велики/);
+		assert.equal(toolCallCount, 0);
+	});
+
+	test('rejects a different native temp directory without writing or invoking', async () => {
+		codeFileEnabled = true;
+		advertisedTemp = process.cwd();
+		await assert.rejects(() => callClientMcpTool('class_method_change', { Member: '3200176', Code: 'x'.repeat(20000) }, baseUrl), /каталоги/);
+		assert.equal(toolCallCount, 0);
+		assert.equal(lastCodeFile, undefined);
+	});
+
+	test('cleans up an unconsumed file after failure without retrying the mutation', async () => {
+		codeFileEnabled = true;
+		codeFileFailure = true;
+		await assert.rejects(() => callClientMcpTool('class_method_change', { Member: '3200176', Code: 'x'.repeat(20000) }, baseUrl), /перед повтором перечитайте метод/);
+		assert.equal(toolCallCount, 1);
+		assert.ok(lastCodeFile);
+		assert.equal(await stat(lastCodeFile!).catch(() => undefined), undefined);
 	});
 
 	test('reports an unreachable client server with its address', async () => {

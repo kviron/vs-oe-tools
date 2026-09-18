@@ -38,8 +38,9 @@ exports.closeProductionTaskDetailsPanels = closeProductionTaskDetailsPanels;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const productionTaskPresentation_1 = require("./productionTaskPresentation");
+const productionTaskRichText_1 = require("./productionTaskRichText");
 const panels = new Map();
-function openProductionTaskDetails(context, task, findObjectById, loadTaskReference, openTaskReference, loadActions, loadAttachments, loadHistory) {
+function openProductionTaskDetails(context, task, findObjectById, loadTaskReference, openTaskReference, loadActions, loadAttachments, loadHistory, loadRichDescription) {
     const existing = panels.get(task.id);
     if (existing) {
         existing.reveal(vscode.ViewColumn.Active);
@@ -47,7 +48,7 @@ function openProductionTaskDetails(context, task, findObjectById, loadTaskRefere
     }
     const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.productionTaskDetails', `Задача ${task.number || task.id}`, vscode.ViewColumn.Active, {
-        enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
+        enableScripts: true, enableFindWidget: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
     });
     panels.set(task.id, panel);
     const attachments = new Map();
@@ -59,6 +60,17 @@ function openProductionTaskDetails(context, task, findObjectById, loadTaskRefere
         }
         if (message.command === 'productionTaskDetailsReady') {
             await panel.webview.postMessage({ command: 'productionTaskDetailsLoaded', task });
+            await panel.webview.postMessage({ command: 'productionTaskRichDescriptionLoading' });
+            try {
+                const parts = await (0, productionTaskRichText_1.convertProductionTaskWmfImages)((0, productionTaskRichText_1.parseProductionTaskRichDescription)(await loadRichDescription()));
+                await panel.webview.postMessage({ command: 'productionTaskRichDescriptionLoaded', parts });
+            }
+            catch (error) {
+                await panel.webview.postMessage({
+                    command: 'productionTaskRichDescriptionFailed',
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
             return;
         }
         if (message.command === 'copyTableCells') {
@@ -242,6 +254,6 @@ function shell(webview, assetsRoot) {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'production-task-details.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
     const nonce = Array.from({ length: 32 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join('');
-    return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Задача</title></head><body><div id="app">Загрузка…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+    return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Задача</title></head><body><div id="app">Загрузка…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
 //# sourceMappingURL=productionTaskDetailsPanel.js.map

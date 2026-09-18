@@ -13,6 +13,9 @@ suite('MCP tool catalog', () => {
 			'update_database', 'update_packages', 'update_binaries', 'call_client_mcp_tool',
 		]);
 		assert.ok(tools.some(tool => tool.name === 'get_active_database'));
+		assert.ok(tools.some(tool => tool.name === 'bind_objects_to_package'));
+		assert.ok(tools.some(tool => tool.name === 'get_module_source'));
+		assert.ok(tools.some(tool => tool.name === 'update_module_source' && !tool.deprecated));
 		assert.ok(tools.some(tool => tool.name === 'list_client_mcp_tools'));
 		assert.ok(tools.some(tool => tool.name === 'start_client_mcp'));
 		assert.ok(tools.some(tool => tool.name === 'stop_client_mcp'));

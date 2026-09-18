@@ -3,8 +3,9 @@ import { z } from '../schemas';
 import { readFile } from 'node:fs/promises';
 import { classifySqlQuery } from '../../features/sql-monitor/queryCategory';
 import type { McpToolServer } from '../toolTypes';
+import { readMcpRuntimeStateSync } from '../../core/mcpRuntimeState';
 
-const sqlMonitorHistoryPath = readOptionalArgument('--sql-monitor-history');
+const explicitSqlMonitorHistoryPath = readOptionalArgument('--sql-monitor-history');
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('get_recent_sql_queries', {
@@ -18,6 +19,7 @@ export function registerTool(server: McpToolServer): void {
 		},
 		annotations: { readOnlyHint: true },
 	}, async ({ limit, search, operation, category }: { limit?: number; search?: string; operation?: string; category?: string }) => {
+		const sqlMonitorHistoryPath = explicitSqlMonitorHistoryPath ?? readMcpRuntimeStateSync()?.sqlMonitorHistoryPath;
 		if (!sqlMonitorHistoryPath) {
 			return { content: [{ type: 'text' as const, text: 'SQL monitor history path is not configured.' }], isError: true };
 		}

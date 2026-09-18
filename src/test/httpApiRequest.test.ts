@@ -9,7 +9,7 @@ suite('HTTP API request', () => {
 			request.setEncoding('utf8');
 			request.on('data', chunk => { body += chunk; });
 			request.on('end', () => {
-				response.writeHead(201, { 'content-type': 'application/json; charset=utf-8', 'x-request-method': request.method ?? '' });
+				response.writeHead(201, { 'content-type': 'application/json; charset=utf-8', 'set-cookie': ['session=one; HttpOnly', 'theme=dark'], 'x-request-method': request.method ?? '' });
 				response.end(JSON.stringify({ body }));
 			});
 		});
@@ -26,6 +26,11 @@ suite('HTTP API request', () => {
 			assert.equal(result.status, 201);
 			assert.equal(result.headers['x-request-method'], 'POST');
 			assert.deepStrictEqual(JSON.parse(result.body), { body: '{"name":"test"}' });
+			assert.equal(result.bodySizeBytes, Buffer.byteLength(result.body, 'utf8'));
+			assert.equal(result.contentType, 'application/json; charset=utf-8');
+			assert.equal(result.url, `http://127.0.0.1:${address.port}/items`);
+			assert.equal(result.redirected, false);
+			assert.deepStrictEqual(result.cookies, ['session=one; HttpOnly', 'theme=dark']);
 		} finally {
 			await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 		}

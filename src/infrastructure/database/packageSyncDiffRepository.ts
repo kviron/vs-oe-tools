@@ -10,7 +10,7 @@ import {
 	extractPkfObjectIds,
 	type PkfDatabaseObject,
 } from '../../features/package-sync/pkfDatabaseReconstruction';
-import { requireSingleMetaOwner, serializePkfMetaFile, type MetaVisibility, type PkfMetaMember } from '../../features/package-sync/pkfMetaReconstruction';
+import { appendPkfMetaMembers, metaPkfOwnerQuery, requireSingleMetaOwner, serializePkfMetaFile, type MetaVisibility, type PkfMetaMember } from '../../features/package-sync/pkfMetaReconstruction';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 import { withProjectDatabaseSession } from './projectDatabaseSession';
 
@@ -24,6 +24,7 @@ interface MetaClassRow { id: number; name: string; aliases: string | null; paren
 interface MetaAttributeRow { id: number; name: string; aliases: string | null; visibility: number | null; attrtype: number; valueclassname: string | null; dbfieldname: string | null; roleread: number | null; rolewrite: number | null; refintegritycheck: number | null; }
 interface MetaDefaultRow { id: number; name: string; visibility: number | null; attrtype: number; defvalue: unknown; }
 interface MetaMethodRow { id: number; name: string; aliases: string | null; visibility: number | null; methkind: number; signature: unknown; code: unknown; }
+interface OwnedMetaMethodRow extends MetaMethodRow { ownerid: number; }
 interface MetaOwnerRow { id: number; }
 interface ClassStorageRow { name: string; dbtablename: string | null; }
 interface StoredAttributeRow { id: number; name: string; dbfieldname: string | null; attrtype: number; depth: number; }
@@ -72,12 +73,10 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 		if (hasMetaObjects) {
 			if (abstractResult.rows.some(row => !META_CLASS_IDS.has(Number(row.classid)))) {
 				const missingMetaRows = missingRows.filter(row => META_CLASS_IDS.has(Number(row.classid)));
-				if (missingMetaRows.length) {
-					throw new Error(`Смешанный Meta/Data-PKF содержит новые meta-объекты (${missingMetaRows.map(row => row.id).join(', ')}), которые пока нельзя безопасно сериализовать.`);
-				}
+				const sourceWithCurrentMeta = await appendMissingMetaMembers(client, options.database, source, missingMetaRows);
 				const missingDataRows = missingRows.filter(row => !META_CLASS_IDS.has(Number(row.classid)));
 				const objects = await buildDatabaseObjects(client, options.database, missingDataRows);
-				return { content: appendPkfObjects(source, objects), addedObjectIds: missingDataRows.map(row => Number(row.id)), localContent };
+				return { content: appendPkfObjects(sourceWithCurrentMeta, objects), addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
 			}
 			const content = await loadMetaPkf(client, options.database, item.objectId);
 			return { content, addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
@@ -88,14 +87,42 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 	}, undefined, 'vc-ve-tools-package-diff');
 }
 
+async function appendMissingMetaMembers(client: PoolClient, database: string, source: string, rows: readonly AbstractRow[]): Promise<string> {
+	if (!rows.length) {return source;}
+	const unsupported = rows.filter(row => Number(row.classid) !== 5);
+	if (unsupported.length) {
+		throw new Error(`Смешанный Meta/Data-PKF содержит новые meta-объекты неподдерживаемых классов (${unsupported.map(row => row.id).join(', ')}).`);
+	}
+	const ids = rows.map(row => Number(row.id));
+	const result = await executeMonitoredQuery<OwnedMetaMethodRow>(client, {
+		text: `SELECT M.ID AS id, M.SeniorID AS ownerid, M.Name AS name, M.Aliases AS aliases,
+		        M.Visibility AS visibility, M.MethKind AS methkind, M.Signature AS signature, M.Code AS code
+		 FROM Methods M WHERE M.ID = ANY($1::integer[]) ORDER BY M.SeniorID, M.ID`,
+		values: [ids], source: 'Синхронизация пакетов: новые методы смешанного Meta/Data-PKF', database,
+	});
+	if (result.rows.length !== rows.length) {
+		const found = new Set(result.rows.map(row => Number(row.id)));
+		throw new Error(`Не удалось прочитать новые meta-методы: ${ids.filter(id => !found.has(id)).join(', ')}.`);
+	}
+	let content = source;
+	const byOwner = new Map<number, PkfMetaMember[]>();
+	for (const row of result.rows) {
+		const ownerId = Number(row.ownerid);
+		const members = byOwner.get(ownerId) ?? [];
+		members.push({ kind: 'method', id: Number(row.id), name: row.name, aliases: row.aliases ?? '',
+			visibility: metaVisibility(row.visibility), methodKind: Number(row.methkind),
+			signature: decodeAuditText(row.signature), code: decodeAuditText(row.code) });
+		byOwner.set(ownerId, members);
+	}
+	for (const [ownerId, members] of byOwner) {content = appendPkfMetaMembers(content, ownerId, members);}
+	return content;
+}
+
 async function loadMetaPkf(client: PoolClient, database: string, fileId: number): Promise<string> {
 	const ownerResult = await executeMonitoredQuery<MetaOwnerRow>(client, {
-		text: `SELECT DISTINCT OwnerID AS id FROM (
-			 SELECT C.ID AS OwnerID FROM Abstract A JOIN Classes C ON C.ID = A.ID WHERE A.SysFile = $1
-			 UNION ALL SELECT Attr.SeniorID AS OwnerID FROM Abstract A JOIN Attributes Attr ON Attr.ID = A.ID WHERE A.SysFile = $1
-			 UNION ALL SELECT M.SeniorID AS OwnerID FROM Abstract A JOIN Methods M ON M.ID = A.ID WHERE A.SysFile = $1
-			 UNION ALL SELECT Attr.SeniorID AS OwnerID FROM Abstract A JOIN DfltValues D ON D.ID = A.ID JOIN Attributes Attr ON Attr.ID = D.AttrID WHERE A.SysFile = $1
-		) Owners WHERE OwnerID IS NOT NULL ORDER BY OwnerID`,
+		// A default value belongs to DfltValues.SeniorID. Its AttrID may point to an
+		// inherited attribute declared by any ancestor and must not change the PKF owner.
+		text: metaPkfOwnerQuery,
 		values: [fileId], source: 'Синхронизация пакетов: корневой класс meta-PKF', database,
 	});
 	const ownerId = requireSingleMetaOwner(ownerResult.rows.map(row => Number(row.id)), fileId);

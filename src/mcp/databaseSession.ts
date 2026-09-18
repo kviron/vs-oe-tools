@@ -1,5 +1,6 @@
-import { readArgument, readRoleArgument, readOptionalArgument } from './arguments';
+import { readOptionalArgument } from './arguments';
 import { getActiveDatabaseSelectionPath, readDatabaseSelection } from '../core/databaseSelection';
+import { readMcpRuntimeStateSync } from '../core/mcpRuntimeState';
 import { normalizeRow } from './toolResult';
 import { Pool, type PoolClient } from 'pg';
 import type { DatabaseConnectionOptions } from '../core/database';
@@ -7,18 +8,27 @@ import { loadRdboadmDatabases, rdboadmDatabaseOptions, type RdboadmDatabase } fr
 import { loadMcpDatabaseOptions } from './databaseConfig';
 import * as path from 'node:path';
 import { readFile } from 'node:fs/promises';
+import type { DatabaseRole } from '../core/database';
 
-export let workspacePath = readOptionalArgument('--workspace') ?? '';
+const initialRuntimeState = readMcpRuntimeStateSync();
+const explicitWorkspacePath = readOptionalArgument('--workspace');
+const explicitDatabaseRole = readOptionalArgument('--database-role');
+const explicitDatabaseProfile = readOptionalArgument('--database-profile');
+const explicitDatabaseSelectionPath = readOptionalArgument('--database-selection');
 
-const databaseRole = readOptionalArgument('--database-role') === 'test' ? 'test' : 'main';
+export let workspacePath = explicitWorkspacePath ?? initialRuntimeState?.workspacePath ?? '';
 
-export let activeDatabaseProfile = readOptionalArgument('--database-profile');
+let databaseRole: DatabaseRole = explicitDatabaseRole === 'test' || (!explicitDatabaseRole && initialRuntimeState?.databaseRole === 'test') ? 'test' : 'main';
+
+export let activeDatabaseProfile = explicitDatabaseProfile ?? initialRuntimeState?.databaseProfile;
 
 let lastDatabaseSelectionUpdate: string | undefined;
 
 let lastWorkspaceDatabaseProfile: string | undefined;
 
-const databaseSelectionPath = readOptionalArgument('--database-selection') ?? getActiveDatabaseSelectionPath();
+let lastRuntimeStateUpdate = initialRuntimeState?.updatedAt;
+
+const databaseSelectionPath = explicitDatabaseSelectionPath ?? initialRuntimeState?.databaseSelectionPath ?? getActiveDatabaseSelectionPath();
 
 interface McpPoolEntry {
 	pool: Pool;
@@ -83,6 +93,13 @@ export async function loadActiveDatabaseOptions() {
 }
 
 export async function synchronizeDatabaseSelection(): Promise<void> {
+	const runtimeState = readMcpRuntimeStateSync();
+	if (runtimeState && runtimeState.updatedAt !== lastRuntimeStateUpdate) {
+		lastRuntimeStateUpdate = runtimeState.updatedAt;
+		if (!explicitWorkspacePath) { workspacePath = runtimeState.workspacePath; }
+		if (!explicitDatabaseRole) { databaseRole = runtimeState.databaseRole; }
+		if (!explicitDatabaseProfile && runtimeState.databaseProfile) { activeDatabaseProfile = runtimeState.databaseProfile; }
+	}
 	if (databaseSelectionPath) {
 		try {
 			const selection = await readDatabaseSelection(databaseSelectionPath);

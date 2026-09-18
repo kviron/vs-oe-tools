@@ -6,7 +6,7 @@ import { Tick02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { reactiveOmit } from '@vueuse/core'
 import {
-  DropdownMenuCheckboxItem,
+  DropdownMenuCheckboxItem as DropdownMenuCheckboxItemPrimitive,
   DropdownMenuItemIndicator,
   useForwardPropsEmits,
 } from 'reka-ui'
@@ -21,9 +21,10 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
 </script>
 
 <template>
-  <DropdownMenuCheckboxItem
+  <DropdownMenuCheckboxItemPrimitive
     data-slot="dropdown-menu-checkbox-item"
     v-bind="forwarded"
+    :model-value="props.modelValue"
     :class="cn(
       'focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground min-h-7 gap-2 rounded-md py-1.5 pr-8 pl-2 text-xs data-inset:pl-7.5 [&_svg:not([class*=size-])]:size-3.5 relative flex cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
       props.class,
@@ -40,5 +41,5 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       </DropdownMenuItemIndicator>
     </span>
     <slot />
-  </DropdownMenuCheckboxItem>
+  </DropdownMenuCheckboxItemPrimitive>
 </template>

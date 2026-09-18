@@ -105,6 +105,7 @@ function startSelection(event: PointerEvent): void {
   const cell = eventCell(event)
   if (!cell) return
   event.preventDefault()
+  window.getSelection()?.removeAllRanges()
   container.value?.focus({ preventScroll: true })
   setActiveCell(cell)
 
@@ -248,19 +249,30 @@ function handleKeydown(event: KeyboardEvent): void {
 
 function handleDocumentKeydown(event: KeyboardEvent): void {
   if (isInteractiveTarget(event.target)) return
+  if (hasNativeTextSelection()) return
   if (!isActiveTable()) return
   handleKeydown(event)
 }
 
 function handleDocumentCopy(event: ClipboardEvent): void {
   if (isInteractiveTarget(event.target) || isInteractiveTarget(document.activeElement)) return
+  if (hasNativeTextSelection()) return
   if (!isActiveTable()) return
   debug(`copy capture: target=${elementDescription(event.target)}, activeElement=${elementDescription(document.activeElement)}, clipboardData=${Boolean(event.clipboardData)}, выбрано ячеек=${selectedCells.size}.`)
   copySelectedCells(event)
 }
 
 function isActiveTable(): boolean {
-  return selectedCells.size > 0 && Boolean(container.value?.isConnected && container.value.getClientRects().length)
+  const tableContainer = container.value
+  const activeElement = document.activeElement
+  return selectedRows.size > 0
+    && Boolean(tableContainer?.isConnected && tableContainer.getClientRects().length)
+    && Boolean(activeElement && (activeElement === tableContainer || tableContainer?.contains(activeElement)))
+}
+
+function hasNativeTextSelection(): boolean {
+  const selection = window.getSelection()
+  return Boolean(selection && !selection.isCollapsed && selection.toString().length > 0)
 }
 
 function debugKeyboardEvent(kind: 'keydown' | 'keyup', event: KeyboardEvent): void {

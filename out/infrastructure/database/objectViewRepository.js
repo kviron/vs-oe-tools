@@ -166,7 +166,9 @@ async function getObjectView(objectId) {
             }
             fields.push({ kind: 'property', attributeId: null, attributeName: key, value: serializable(value), tableField: key, distribution: '' });
         }
-        return { id: identity.id, name: identity.name ?? '', classId: identity.classid, className: identity.classname ?? '', fields };
+        return { id: identity.id, name: identity.name ?? '', classId: identity.classid, className: identity.classname ?? '',
+            ownerId: identity.ownerid ?? undefined, ownerName: identity.ownername ?? undefined,
+            packageName: identity.packagename ?? undefined, fields };
     });
 }
 function quote(value) { return `"${value.replace(/"/g, '""')}"`; }

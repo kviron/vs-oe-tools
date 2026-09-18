@@ -8,6 +8,7 @@ import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskDesc
 import { productionDeadlineInfo, productionTaskMarkdown } from '../../../src/features/production-tasks/productionTaskPresentation';
 import { splitWorkDescriptionObjectIds, type WorkDescriptionPart } from '../../../src/features/production-tasks/workDescriptionLinks';
 import ProductionTaskBadge from '@/components/ProductionTaskBadge.vue';
+import IdReferencePopover from '@/components/IdReferencePopover.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +17,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -163,7 +163,6 @@ function showTaskPreview(id: number, index: number): void {
   taskPreviews.set(id, { status: 'loading' });
   vscode.postMessage({ command: 'loadProductionTaskPreview', id });
 }
-function keepObjectPreviewOpen(): void { if (closePreviewTimer) clearTimeout(closePreviewTimer); }
 function closeObjectPreviewSoon(): void {
   if (closePreviewTimer) clearTimeout(closePreviewTimer);
   closePreviewTimer = setTimeout(() => { activePreviewIndex.value = undefined; }, 120);
@@ -178,7 +177,7 @@ function taskPreview(id: number): ProductionTaskSummary | undefined { const prev
 function taskPreviewStatus(id: number): TaskPreviewState['status'] | undefined { return taskPreviews.get(id)?.status; }
 function taskPreviewError(id: number): string { const preview = taskPreviews.get(id); return preview?.status === 'failed' ? preview.message : ''; }
 function objectKindLabel(kind: DatabaseObjectSearchResult['kind']): string {
-  return { class: 'Класс', method: 'Метод', attribute: 'Атрибут', lifecycle: 'Жизненный цикл', journal: 'Журнал', list: 'Список', object: 'Объект' }[kind];
+  return { class: 'Класс', method: 'Метод', module: 'Модуль', attribute: 'Атрибут', lifecycle: 'Жизненный цикл', journal: 'Журнал', list: 'Список', object: 'Объект' }[kind];
 }
 function objectKindBadgeVariant(kind: DatabaseObjectSearchResult['kind']): DatabaseObjectSearchResult['kind'] {
   return kind;
@@ -317,11 +316,7 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
           <template v-for="(part, index) in workDescriptionParts" :key="index">
             <img v-if="part.renderKind === 'image'" :src="part.dataUrl" :width="part.width" :height="part.height" alt="Изображение из описания задачи" class="my-3 block h-auto max-w-full rounded-md border object-contain" />
             <Button v-else-if="part.href" variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :title="part.href" @click="openExternalUrl(part.href)">{{ part.text }}</Button>
-            <Popover v-else-if="part.id && part.kind === 'task'" :open="activePreviewIndex === index">
-              <PopoverAnchor as-child>
-                <Button variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :title="`Задача ${part.id}`" @pointerenter="showTaskPreview(part.id, index)" @pointerleave="closeObjectPreviewSoon" @focus="showTaskPreview(part.id, index)" @blur="closeObjectPreviewSoon">{{ part.text }}</Button>
-              </PopoverAnchor>
-              <PopoverContent class="w-96" align="start" @pointerenter="keepObjectPreviewOpen" @pointerleave="closeObjectPreviewSoon">
+            <IdReferencePopover v-else-if="part.id && part.kind === 'task'" :id="part.id" :label="part.text" :open="activePreviewIndex === index" :title="`Задача ${part.id}`" content-class="w-96" @show="showTaskPreview(part.id, index)" @hide="closeObjectPreviewSoon" @copy="copyText(String($event))">
                 <div v-if="taskPreviewStatus(part.id) === 'loading'" class="flex flex-col gap-2"><Skeleton class="h-5 w-2/3" /><Skeleton class="h-4 w-full" /><Skeleton class="h-4 w-4/5" /></div>
                 <div v-else-if="taskPreviewStatus(part.id) === 'failed'" class="flex flex-col gap-1"><p class="font-medium">Не удалось загрузить задачу</p><p class="break-words text-muted-foreground">{{ taskPreviewError(part.id) }}</p></div>
                 <div v-else-if="taskPreview(part.id)" class="flex flex-col gap-3">
@@ -334,13 +329,8 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
                   <div class="flex flex-wrap gap-2"><Button size="sm" variant="outline" @click="openTaskReference(part.id)"><HugeiconsIcon :icon="ViewIcon" data-icon="inline-start" />Открыть задачу</Button><Button size="sm" @click="openTaskReferenceInClient(part.id)"><HugeiconsIcon :icon="ArrowUpRight01Icon" data-icon="inline-start" />Открыть в клиенте</Button></div>
                 </div>
                 <div v-else class="flex flex-col gap-1"><p class="font-medium">Задача не найдена</p><p class="text-muted-foreground">Номер или ID {{ part.id }} не найден в production.</p></div>
-              </PopoverContent>
-            </Popover>
-            <Popover v-else-if="part.id" :open="activePreviewIndex === index">
-              <PopoverAnchor as-child>
-                <Button variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :title="`Открыть объект ID=${part.id}`" @pointerenter="showObjectPreview(part.id, index)" @pointerleave="closeObjectPreviewSoon" @focus="showObjectPreview(part.id, index)" @blur="closeObjectPreviewSoon" @click="openDatabaseObject(part.id)">{{ part.text }}</Button>
-              </PopoverAnchor>
-              <PopoverContent class="w-80" align="start" @pointerenter="keepObjectPreviewOpen" @pointerleave="closeObjectPreviewSoon">
+            </IdReferencePopover>
+            <IdReferencePopover v-else-if="part.id" :id="part.id" :label="part.text" :open="activePreviewIndex === index" :title="`Открыть объект ID=${part.id}`" activate-on-click @show="showObjectPreview(part.id, index)" @hide="closeObjectPreviewSoon" @activate="openDatabaseObject(part.id)" @copy="copyText(String($event))">
                 <div v-if="previewStatus(part.id) === 'loading'" class="flex flex-col gap-2">
                   <Skeleton class="h-5 w-2/3" /><Skeleton class="h-4 w-full" /><Skeleton class="h-4 w-4/5" />
                 </div>
@@ -349,7 +339,7 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
                 </div>
                 <div v-else-if="previewObject(part.id)" class="flex flex-col gap-3">
                   <div class="flex items-start gap-2">
-                    <div class="min-w-0 flex-1"><p class="break-words font-semibold">{{ previewObject(part.id)?.name || `Объект ${part.id}` }}</p><p class="font-mono text-muted-foreground">ID {{ part.id }}</p></div>
+                    <div class="min-w-0 flex-1"><p class="break-words font-semibold">{{ previewObject(part.id)?.name || `Объект ${part.id}` }}</p></div>
                     <Badge :variant="objectKindBadgeVariant(previewObject(part.id)!.kind)">{{ objectKindLabel(previewObject(part.id)!.kind) }}</Badge>
                   </div>
                   <dl v-if="previewRows(previewObject(part.id)!).length" class="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
@@ -361,8 +351,7 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
                   </div>
                 </div>
                 <div v-else class="flex flex-col gap-1"><p class="font-medium">Объект не найден</p><p class="text-muted-foreground">В активной базе нет объекта с ID {{ part.id }}.</p></div>
-              </PopoverContent>
-            </Popover>
+            </IdReferencePopover>
             <span v-else>{{ part.text }}</span>
           </template>
           <p v-if="richDescriptionError" class="mt-3 text-xs text-destructive">Не удалось загрузить встроенные изображения: {{ richDescriptionError }}</p>

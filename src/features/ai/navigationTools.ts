@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { ClassAttributeDraft } from '../classes/models';
+import type { PackageBindingMutationRequest } from '../package-sync/packageBindingMutation';
 
 interface ClassInput {
 	classId: number;
@@ -19,6 +20,8 @@ export interface NavigationActions {
 	openMethod(methodId: number): Promise<void>;
 	revealMethod(classId: number, methodId: number): Promise<void>;
 	updateMethodSource(methodId: number, code: string): Promise<Record<string, unknown>>;
+	updateModuleSource(moduleId: number, code: string, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<Record<string, unknown>>;
+	bindObjectsToPackage(request: PackageBindingMutationRequest): Promise<Record<string, unknown>>;
 	createClassAttribute(draft: ClassAttributeDraft): Promise<Record<string, unknown>>;
 	executeLifecycleMethod(methodId: number, methodParameter: string, database: string, host: string): Promise<Record<string, unknown>>;
 	startClientMcp(database: string, host: string): Promise<Record<string, unknown>>;

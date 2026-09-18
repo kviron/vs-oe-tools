@@ -75,6 +75,19 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, { viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned }, { enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true });
     panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
     const entry = { panel, pinned, details: classDetails, activeTab, ready: false, attributeIncludeInherited: false, methodIncludeInherited: false };
+    const attributeChanges = (0, attributeDetailsPanelManager_1.onDidChangeAttribute)(({ ownerClassId }) => {
+        if (!entry.ready || (ownerClassId !== entry.details.id && !entry.attributeIncludeInherited)) {
+            return;
+        }
+        const id = entry.details.id;
+        const includeInherited = entry.attributeIncludeInherited;
+        void (0, classRepository_1.getClassAttributes)(id, entry.details.name, includeInherited).then(attributes => {
+            if (entry.details.id === id && entry.attributeIncludeInherited === includeInherited) {
+                void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes, includeInherited });
+            }
+        }).catch(error => { void vscode.window.showWarningMessage(`Атрибут сохранён, но список не обновлён: ${String(error)}`); });
+    });
+    panel.onDidDispose(() => attributeChanges.dispose());
     panel.webview.onDidReceiveMessage(async (message) => {
         if ((0, webviewProtocol_1.isClassDetailsWebviewMessage)(message)) {
             if (message.command === 'classDetailsStateChanged') {
@@ -154,9 +167,9 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
                 }
                 return;
             }
-            if (message.command === 'openAttribute') {
+            if (message.command === 'openAttribute' || message.command === 'editAttribute') {
                 try {
-                    await (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, message.id);
+                    await (0, attributeDetailsPanelManager_1.openAttributeDetails)(context, message.id, message.command === 'editAttribute');
                 }
                 catch (error) {
                     void vscode.window.showErrorMessage(`Не удалось открыть атрибут: ${error instanceof Error ? error.message : String(error)}`);
@@ -165,13 +178,7 @@ function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'c
             }
             if (message.command === 'createAttribute') {
                 try {
-                    await (0, attributeDetailsPanelManager_1.openNewAttributeDetails)(context, message.classId, async () => {
-                        if (entry.details.id !== message.classId) {
-                            return;
-                        }
-                        const attributes = await (0, classRepository_1.getClassAttributes)(entry.details.id, entry.details.name, entry.attributeIncludeInherited);
-                        void panel.webview.postMessage({ command: 'classAttributesLoaded', attributes, includeInherited: entry.attributeIncludeInherited });
-                    });
+                    await (0, attributeDetailsPanelManager_1.openNewAttributeDetails)(context, entry.details.id);
                 }
                 catch (error) {
                     void vscode.window.showErrorMessage(`Не удалось открыть создание атрибута: ${error instanceof Error ? error.message : String(error)}`);

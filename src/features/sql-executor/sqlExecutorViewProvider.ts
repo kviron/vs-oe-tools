@@ -49,6 +49,8 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 			}
 			if (message.command === 'executeSql') {
 				void this.runQuery(webviewView.webview, message.text, result => { latestResult = result; });
+			} else if (message.command === 'openQuickNavigation') {
+				void vscode.commands.executeCommand('vc-ve-tools.openClipboardObject', message.id);
 			} else if (message.command === 'copySqlResult') {
 				void this.copyResult(latestResult, message.format);
 			} else if (message.command === 'copySqlError') {

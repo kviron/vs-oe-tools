@@ -3,6 +3,7 @@ export const databaseRoleSetting = 'databaseRole';
 export const databaseProfileSetting = 'databaseProfile';
 export const sqlMonitorCollectorPathSetting = 'sqlMonitorCollectorPath';
 export const clientUsernameSetting = 'clientUsername';
+export const clientLaunchArgumentsSetting = 'clientLaunchArguments';
 export const mcpEnabledSetting = 'mcp.enabled';
 export const clientMcpUrlSetting = 'mcp.clientUrl';
 export const sourceLanguageIds = ['ve-pkf', 've-pascal', 'bat'] as const;

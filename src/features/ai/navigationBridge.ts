@@ -7,8 +7,10 @@ import type { Disposable } from 'vscode';
 import type { NavigationActions } from './navigationTools';
 import type { ClassAttributeDraft } from '../classes/models';
 import { createLifecycleParameterMethodId } from '../lifecycle/lifecycleMethodExecution';
+import type { PackageBindingMutationRequest } from '../package-sync/packageBindingMutation';
 
-type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source'
+type NavigationAction = 'reveal_class' | 'open_class' | 'open_method' | 'reveal_method' | 'update_method_source' | 'update_module_source'
+	| 'bind_objects_to_package'
 	| 'get_svn_file_history' | 'get_package_sync_changes' | 'update_database' | 'start_client'
 	| 'open_client_entity' | 'get_production_tasks' | 'get_production_task' | 'get_production_tasks_in_progress'
 	| 'update_packages' | 'update_binaries' | 'create_class_attribute' | 'execute_lifecycle_method' | 'start_client_mcp'
@@ -19,6 +21,12 @@ interface NavigationRequest {
 	id?: number;
 	classId?: number;
 	code?: string;
+	objectIds?: number[];
+	templateObjectId?: number;
+	sysFileId?: number;
+	expectedDatabase?: string;
+	expectedHost?: string;
+	expectedPort?: number;
 	filePath?: string;
 	limit?: number;
 	query?: string;
@@ -103,6 +111,19 @@ async function handleRequest(
 			await actions.revealMethod(input.classId as number, input.id as number);
 		} else if (input.action === 'update_method_source') {
 			const result = await actions.updateMethodSource(input.id as number, input.code as string);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else if (input.action === 'update_module_source') {
+			const result = await actions.updateModuleSource(input.id as number, input.code as string,
+				input.expectedDatabase as string, input.expectedHost as string, input.expectedPort as number);
+			respond(response, 200, { ok: true, action: input.action, ...result });
+			return;
+		} else if (input.action === 'bind_objects_to_package') {
+			const result = await actions.bindObjectsToPackage({
+				objectIds: input.objectIds!, templateObjectId: input.templateObjectId,
+				sysFileId: input.sysFileId, expectedDatabase: input.expectedDatabase!,
+				expectedHost: input.expectedHost!, expectedPort: input.expectedPort!,
+			});
 			respond(response, 200, { ok: true, action: input.action, ...result });
 			return;
 		} else if (input.action === 'create_class_attribute') {
@@ -206,7 +227,8 @@ function validateRequest(value: unknown): NavigationRequest {
 	}
 	const { action, id } = value as Partial<NavigationRequest>;
 	if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
-		&& action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
+		&& action !== 'update_method_source' && action !== 'update_module_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
+		&& action !== 'bind_objects_to_package'
 		&& action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
 		&& action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
 		&& action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute'
@@ -219,6 +241,7 @@ function validateRequest(value: unknown): NavigationRequest {
 		&& action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
 		&& action !== 'update_packages' && action !== 'update_binaries'
 		&& action !== 'create_class_attribute' && action !== 'start_client_mcp'
+		&& action !== 'bind_objects_to_package'
 		&& action !== 'start_http_test_server' && action !== 'stop_http_test_server'
 		&& action !== 'get_http_test_server_status' && action !== 'call_http_test_server'
 		&& (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
@@ -229,8 +252,35 @@ function validateRequest(value: unknown): NavigationRequest {
 		throw new Error('Navigation classId must be a positive integer for reveal_method.');
 	}
 	const code = (value as Partial<NavigationRequest>).code;
-	if (action === 'update_method_source' && typeof code !== 'string') {
-		throw new Error('Method code must be a string for update_method_source.');
+	const expectedDatabase = (value as Partial<NavigationRequest>).expectedDatabase;
+	const expectedHost = (value as Partial<NavigationRequest>).expectedHost;
+	const expectedPort = (value as Partial<NavigationRequest>).expectedPort;
+	if ((action === 'update_method_source' || action === 'update_module_source') && typeof code !== 'string') {
+		throw new Error(`Code must be a string for ${action}.`);
+	}
+	if (action === 'update_module_source' && (typeof expectedDatabase !== 'string' || !expectedDatabase.trim()
+		|| typeof expectedHost !== 'string' || !expectedHost.trim()
+		|| !Number.isInteger(expectedPort) || (expectedPort ?? 0) < 1 || (expectedPort ?? 0) > 65535)) {
+		throw new Error('expectedDatabase, expectedHost and expectedPort are required for update_module_source.');
+	}
+	const objectIds = (value as Partial<NavigationRequest>).objectIds;
+	const templateObjectId = (value as Partial<NavigationRequest>).templateObjectId;
+	const sysFileId = (value as Partial<NavigationRequest>).sysFileId;
+	if (action === 'bind_objects_to_package') {
+		if (!Array.isArray(objectIds) || objectIds.length < 1 || objectIds.length > 100
+			|| objectIds.some(objectId => !Number.isSafeInteger(objectId) || objectId <= 0)) {
+			throw new Error('objectIds must contain 1 to 100 positive integers for bind_objects_to_package.');
+		}
+		if ((templateObjectId === undefined) === (sysFileId === undefined)) {
+			throw new Error('Exactly one of templateObjectId or sysFileId is required for bind_objects_to_package.');
+		}
+		if (typeof expectedDatabase !== 'string' || !expectedDatabase.trim()) {
+			throw new Error('expectedDatabase is required for bind_objects_to_package.');
+		}
+		if (typeof expectedHost !== 'string' || !expectedHost.trim()
+			|| !Number.isInteger(expectedPort) || (expectedPort ?? 0) < 1 || (expectedPort ?? 0) > 65535) {
+			throw new Error('expectedHost and expectedPort are required for bind_objects_to_package.');
+		}
 	}
 	const draft = (value as Partial<NavigationRequest>).draft;
 	if (action === 'create_class_attribute' && (!draft || typeof draft !== 'object')) {
@@ -312,7 +362,8 @@ function validateRequest(value: unknown): NavigationRequest {
 	if (action === 'open_client_entity' && (typeof entityType !== 'string' || !entityType.trim())) {
 		throw new Error('entityType is required for open_client_entity.');
 	}
-	return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host, httpMethod, headers, body };
+	return { action, id, classId, code, objectIds, templateObjectId, sysFileId, expectedDatabase, expectedHost, expectedPort,
+		filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host, httpMethod, headers, body };
 }
 
 function respond(response: ServerResponse, statusCode: number, body: Record<string, unknown>): void {

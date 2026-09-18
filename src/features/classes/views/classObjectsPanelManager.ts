@@ -5,6 +5,7 @@ import { openObjectView } from './objectViewPanelManager';
 import { openEntityProperties } from './entityPropertiesPanelManager';
 import { openSpuEditor } from '../../spu/spuEditorPanel';
 import { classObjectColumnSettingsKey, normalizeClassObjectColumnSettings } from '../classObjectColumnSettings';
+import { moduleClassId } from '../../../infrastructure/database/moduleRepository';
 
 interface ClassObjectsPanelController {
 	panel: vscode.WebviewPanel;
@@ -12,6 +13,12 @@ interface ClassObjectsPanelController {
 }
 
 const panels = new Map<number, ClassObjectsPanelController>();
+let openModuleCode: ((id: number) => Promise<void>) | undefined;
+
+export function configureClassObjectsActions(actions: { openModuleCode(id: number): Promise<void> }): vscode.Disposable {
+	openModuleCode = actions.openModuleCode;
+	return new vscode.Disposable(() => { openModuleCode = undefined; });
+}
 
 export async function openClassObjects(context: vscode.ExtensionContext, classId: number, objectId?: number): Promise<void> {
 	const existing = panels.get(classId);
@@ -85,6 +92,10 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 		if (message.command === 'viewObject') {
 			if (classId === 12609684) {
 				await openSpuEditor(context, { spuId: message.id }, () => load(0));
+				return;
+			}
+			if (classId === moduleClassId && openModuleCode) {
+				await openModuleCode(message.id);
 				return;
 			}
 			await openObjectView(context, message.id);

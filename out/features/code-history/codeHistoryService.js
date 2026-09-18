@@ -42,26 +42,38 @@ const webviewProtocol_1 = require("../../core/webviewProtocol");
 const methodHistoryRepository_1 = require("../../infrastructure/database/methodHistoryRepository");
 const methodWorkingCopyRepository_1 = require("../../infrastructure/database/methodWorkingCopyRepository");
 const methodRepository_1 = require("../../infrastructure/database/methodRepository");
+const moduleRepository_1 = require("../../infrastructure/database/moduleRepository");
 const methodEditorProvider_1 = require("../methods/methodEditorProvider");
+const moduleEditorProvider_1 = require("../modules/moduleEditorProvider");
+const pkfMethodExtraction_1 = require("./pkfMethodExtraction");
 const svnClient_1 = require("./svnClient");
 const historyScheme = 'vc-ve-history';
-function registerCodeHistory(context, methodEditor) {
-    const service = new CodeHistoryService(context.extensionUri, methodEditor);
-    context.subscriptions.push(service, vscode.workspace.registerTextDocumentContentProvider(historyScheme, service), vscode.window.registerWebviewViewProvider(CodeHistoryService.viewType, service, { webviewOptions: { retainContextWhenHidden: true } }), vscode.commands.registerTextEditorCommand('vc-ve-tools.showCodeHistory', editor => service.show(editor, false)), vscode.commands.registerTextEditorCommand('vc-ve-tools.showSelectionHistory', editor => service.show(editor, true)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiff', (methodId) => service.showLocalDiff(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnHistory', (methodId) => service.showWorkingCopyHistory(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnBlame', (methodId) => service.showBlame(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiffFile', (fileName) => service.showFileLocalDiff(fileName)), vscode.commands.registerCommand('vc-ve-tools.openGeneratedPackageDiff', (fileName, generatedFileName) => service.showGeneratedPackageDiff(fileName, generatedFileName)), vscode.commands.registerCommand('vc-ve-tools.openPackageDatabaseDiff', (fileName, databaseContent, localContent) => service.showPackageDatabaseDiff(fileName, databaseContent, localContent)));
+const svnLoadConcurrency = 8;
+const maximumCachedSvnRevisions = 128;
+const maximumCachedMethodHistories = 50;
+function registerCodeHistory(context, methodEditor, moduleEditor, openTaskReference) {
+    const service = new CodeHistoryService(context.extensionUri, methodEditor, moduleEditor, openTaskReference);
+    context.subscriptions.push(service, vscode.workspace.registerTextDocumentContentProvider(historyScheme, service), vscode.window.registerWebviewViewProvider(CodeHistoryService.viewType, service, { webviewOptions: { retainContextWhenHidden: true } }), vscode.commands.registerTextEditorCommand('vc-ve-tools.showCodeHistory', editor => service.show(editor, false)), vscode.commands.registerTextEditorCommand('vc-ve-tools.showSelectionHistory', editor => service.show(editor, true)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiff', (methodId) => service.showLocalDiff(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnHistory', (methodId) => service.showWorkingCopyHistory(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnObjectHistory', (objectId) => service.showWorkingCopyObjectHistory(objectId)), vscode.commands.registerCommand('vc-ve-tools.svnBlame', (methodId) => service.showBlame(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiffFile', (fileName) => service.showFileLocalDiff(fileName)), vscode.commands.registerCommand('vc-ve-tools.openGeneratedPackageDiff', (fileName, generatedFileName) => service.showGeneratedPackageDiff(fileName, generatedFileName)), vscode.commands.registerCommand('vc-ve-tools.openPackageDatabaseDiff', (fileName, databaseContent, localContent) => service.showPackageDatabaseDiff(fileName, databaseContent, localContent)));
 }
 class CodeHistoryService {
     extensionUri;
     methodEditor;
+    moduleEditor;
+    openTaskReference;
     static viewType = 'vc-ve-tools.codeHistory';
     contents = new Map();
     actions = new Map();
+    svnRevisionCache = new Map();
+    methodSvnHistoryCache = new Map();
     output = vscode.window.createOutputChannel('Восточный Экспресс: История кода');
     view;
     message = { command: 'codeHistoryLoaded', title: 'История кода', subtitle: '', entries: [] };
     sequence = 0;
-    constructor(extensionUri, methodEditor) {
+    constructor(extensionUri, methodEditor, moduleEditor, openTaskReference) {
         this.extensionUri = extensionUri;
         this.methodEditor = methodEditor;
+        this.moduleEditor = moduleEditor;
+        this.openTaskReference = openTaskReference;
         this.log('Сервис истории кода запущен.');
     }
     resolveWebviewView(view) {
@@ -71,6 +83,20 @@ class CodeHistoryService {
         view.webview.html = webviewHtml(view.webview, assetsRoot);
         view.webview.onDidReceiveMessage((message) => {
             if (!(0, webviewProtocol_1.isCodeHistoryWebviewMessage)(message)) {
+                return;
+            }
+            if (message.command === 'copyTableCells') {
+                void vscode.env.clipboard.writeText(message.text);
+                return;
+            }
+            if (message.command === 'tableSelectionDebug') {
+                this.log(`[table] ${message.message}`);
+                return;
+            }
+            if (message.command === 'openCodeHistoryTask') {
+                void this.openTaskReference(message.id).catch(error => {
+                    void vscode.window.showErrorMessage(`Не удалось открыть задачу ${message.id}: ${errorMessage(error)}`);
+                });
                 return;
             }
             if (message.command === 'codeHistoryReady') {
@@ -95,6 +121,9 @@ class CodeHistoryService {
             if (editor.document.uri.scheme === methodEditorProvider_1.methodDocumentScheme) {
                 await this.loadMethodHistory(editor, selectionOnly);
             }
+            else if (editor.document.uri.scheme === moduleEditorProvider_1.moduleDocumentScheme) {
+                await this.loadModuleHistory(editor, selectionOnly);
+            }
             else if (editor.document.uri.scheme === 'file') {
                 await this.loadSvnHistory(editor, selectionOnly);
             }
@@ -108,9 +137,11 @@ class CodeHistoryService {
         }
     }
     async showLocalDiff(methodId) {
-        await this.runSvnAction('Local Diff', methodId, async (fileName, id) => {
+        await this.runSvnAction('Local Diff', methodId, async (fileName, id, sourceScheme) => {
             const local = await vscode.workspace.openTextDocument(vscode.Uri.file(fileName));
-            const stored = id === undefined ? await (0, svnClient_1.svnCatBase)(fileName) : (await (0, methodRepository_1.getMethodSource)(id)).code;
+            const stored = id === undefined
+                ? await (0, svnClient_1.svnCatBase)(fileName)
+                : sourceScheme === moduleEditorProvider_1.moduleDocumentScheme ? (await (0, moduleRepository_1.getModuleSource)(id)).code : (await (0, methodRepository_1.getMethodSource)(id)).code;
             await vscode.commands.executeCommand('vscode.diff', this.store(`${path.basename(fileName)} · ${id === undefined ? 'SVN BASE' : 'код из БД'}`, stored, path.extname(fileName)), local.uri, `${path.basename(fileName)} · Local Diff`, { preview: true });
         });
     }
@@ -139,7 +170,18 @@ class CodeHistoryService {
         await vscode.commands.executeCommand('vscode.diff', localUri, this.store(`${path.basename(fileName)} · версия из БД`, databaseContent, path.extname(fileName)), `${path.basename(fileName)} · БД ↔ файл`, { preview: true });
     }
     async showWorkingCopyHistory(methodId) {
-        await this.runSvnAction('История SVN', methodId, async (fileName) => {
+        await this.runSvnAction('История SVN', methodId, async (fileName, resolvedMethodId) => {
+            await vscode.commands.executeCommand('workbench.view.extension.vc-ve-tools-code-history');
+            this.actions.clear();
+            await this.setMessage({ command: 'codeHistoryLoading', title: path.basename(fileName) });
+            await this.loadSvnFileHistory(fileName, false, undefined, resolvedMethodId);
+        });
+    }
+    async showWorkingCopyObjectHistory(objectId) {
+        if (!Number.isSafeInteger(objectId) || objectId <= 0) {
+            throw new Error('ID объекта для истории SVN должен быть положительным целым числом.');
+        }
+        await this.runSvnAction('История SVN', objectId, async (fileName) => {
             await vscode.commands.executeCommand('workbench.view.extension.vc-ve-tools-code-history');
             this.actions.clear();
             await this.setMessage({ command: 'codeHistoryLoading', title: path.basename(fileName) });
@@ -166,14 +208,22 @@ class CodeHistoryService {
             vscode.window.setStatusBarMessage(`SVN Blame: ${lines.length} строк · ${path.basename(fileName)}`, 3000);
         });
     }
-    dispose() { this.contents.clear(); this.actions.clear(); this.output.dispose(); this.view = undefined; }
+    dispose() {
+        this.contents.clear();
+        this.actions.clear();
+        this.svnRevisionCache.clear();
+        this.methodSvnHistoryCache.clear();
+        this.output.dispose();
+        this.view = undefined;
+    }
     async loadSvnHistory(editor, selectionOnly) {
         const fileName = editor.document.uri.fsPath;
         await this.loadSvnFileHistory(fileName, selectionOnly, editor);
     }
-    async loadSvnFileHistory(fileName, selectionOnly, editor) {
+    async loadSvnFileHistory(fileName, selectionOnly, editor, methodId) {
         const allEntries = await (0, svnClient_1.svnLog)(fileName);
         let entries = allEntries;
+        let methodChanges = new Map();
         if (selectionOnly) {
             if (!editor || editor.selection.isEmpty) {
                 throw new Error('Сначала выделите строки, историю которых нужно посмотреть.');
@@ -183,13 +233,41 @@ class CodeHistoryService {
             const revisions = await (0, svnClient_1.svnBlameRevisions)(fileName, startLine, Math.max(startLine, endLine));
             entries = allEntries.filter(entry => revisions.has(entry.revision));
         }
+        else if (methodId !== undefined) {
+            const cacheKey = `${fileName.toLocaleLowerCase('en-US')}#${methodId}`;
+            const fingerprint = allEntries.map(entry => entry.revision).join(',');
+            const cached = this.methodSvnHistoryCache.get(cacheKey);
+            if (cached?.fingerprint === fingerprint) {
+                methodChanges = cached.changes;
+                this.touchCacheEntry(this.methodSvnHistoryCache, cacheKey, cached, maximumCachedMethodHistories);
+            }
+            else {
+                await mapConcurrent(allEntries, svnLoadConcurrency, async (entry, index) => {
+                    const previousRevision = allEntries[index + 1]?.revision ?? entry.revision - 1;
+                    const [beforeFile, afterFile] = await Promise.all([
+                        this.loadSvnRevision(fileName, previousRevision).catch(() => ''),
+                        this.loadSvnRevision(fileName, entry.revision),
+                    ]);
+                    const change = (0, pkfMethodExtraction_1.extractPkfMethodChange)(beforeFile, afterFile, methodId);
+                    if (change) {
+                        methodChanges.set(entry.revision, { previousRevision, ...change });
+                    }
+                });
+                this.touchCacheEntry(this.methodSvnHistoryCache, cacheKey, { fingerprint, changes: methodChanges }, maximumCachedMethodHistories);
+            }
+            entries = allEntries.filter(entry => methodChanges.has(entry.revision));
+        }
         const list = entries.map(entry => {
             const id = `svn:${entry.revision}`;
             this.actions.set(id, async () => {
+                const preparedChange = methodChanges.get(entry.revision);
                 const index = allEntries.findIndex(item => item.revision === entry.revision);
-                const previousRevision = allEntries[index + 1]?.revision ?? entry.revision - 1;
-                const [before, after] = await Promise.all([(0, svnClient_1.svnCat)(fileName, previousRevision).catch(() => ''), (0, svnClient_1.svnCat)(fileName, entry.revision)]);
-                await this.openDiff(`${path.basename(fileName)} · r${previousRevision}`, before, `${path.basename(fileName)} · r${entry.revision}`, after, path.extname(fileName), `SVN r${entry.revision}: ${firstLine(entry.message) || 'без комментария'}`);
+                const previousRevision = preparedChange?.previousRevision ?? allEntries[index + 1]?.revision ?? entry.revision - 1;
+                const [before, after] = preparedChange
+                    ? [preparedChange.before, preparedChange.after]
+                    : await Promise.all([(0, svnClient_1.svnCat)(fileName, previousRevision).catch(() => ''), (0, svnClient_1.svnCat)(fileName, entry.revision)]);
+                const label = methodId === undefined ? path.basename(fileName) : `Код ${methodId}`;
+                await this.openDiff(`${label} · r${previousRevision}`, before, `${label} · r${entry.revision}`, after, methodId === undefined ? path.extname(fileName) : '.pas', `SVN r${entry.revision}: ${firstLine(entry.message) || 'без комментария'}`);
             });
             return {
                 id,
@@ -205,17 +283,47 @@ class CodeHistoryService {
         });
         await this.setMessage({ command: 'codeHistoryLoaded', title: selectionOnly ? 'Ревизии выделенных строк' : path.basename(fileName), subtitle: `${list.length} ${pluralChanges(list.length)} · SVN`, entries: list });
     }
-    async runSvnAction(operation, methodId, action) {
+    loadSvnRevision(fileName, revision) {
+        const key = `${fileName.toLocaleLowerCase('en-US')}@${revision}`;
+        const cached = this.svnRevisionCache.get(key);
+        if (cached) {
+            this.touchCacheEntry(this.svnRevisionCache, key, cached, maximumCachedSvnRevisions);
+            return cached;
+        }
+        const loading = (0, svnClient_1.svnCat)(fileName, revision).catch(error => {
+            this.svnRevisionCache.delete(key);
+            throw error;
+        });
+        this.touchCacheEntry(this.svnRevisionCache, key, loading, maximumCachedSvnRevisions);
+        return loading;
+    }
+    touchCacheEntry(cache, key, value, maximumSize) {
+        cache.delete(key);
+        cache.set(key, value);
+        while (cache.size > maximumSize) {
+            const oldestKey = cache.keys().next().value;
+            if (oldestKey === undefined) {
+                break;
+            }
+            cache.delete(oldestKey);
+        }
+    }
+    async runSvnAction(operation, objectId, action) {
         let uri = vscode.window.activeTextEditor?.document.uri;
         try {
-            const resolvedId = Number.isSafeInteger(methodId) ? methodId : uri?.scheme === methodEditorProvider_1.methodDocumentScheme ? (await this.methodEditor.getMethod(uri)).id : undefined;
+            const sourceScheme = uri?.scheme;
+            const resolvedId = Number.isSafeInteger(objectId)
+                ? objectId
+                : uri?.scheme === methodEditorProvider_1.methodDocumentScheme
+                    ? (await this.methodEditor.getMethod(uri)).id
+                    : uri?.scheme === moduleEditorProvider_1.moduleDocumentScheme ? (await this.moduleEditor.getModule(uri)).id : undefined;
             const fileName = resolvedId === undefined ? uri?.scheme === 'file' ? uri.fsPath : undefined : await this.resolveWorkingCopy(resolvedId);
             if (!fileName) {
-                throw new Error('Откройте локальный файл или метод из базы данных.');
+                throw new Error('Откройте локальный файл или объект из базы данных.');
             }
             uri = vscode.Uri.file(fileName);
-            this.log(`${operation}: ${fileName}${resolvedId === undefined ? '' : `; метод ${resolvedId}`}.`);
-            await action(fileName, resolvedId);
+            this.log(`${operation}: ${fileName}${resolvedId === undefined ? '' : `; объект ${resolvedId}`}.`);
+            await action(fileName, resolvedId, sourceScheme);
         }
         catch (error) {
             this.reportError(operation, uri ?? vscode.Uri.parse('svn:/'), error);
@@ -276,6 +384,38 @@ class CodeHistoryService {
         });
         await this.setMessage({ command: 'codeHistoryLoaded', title: method.name, subtitle: `${list.length} ${pluralChanges(list.length)} · база данных · ID ${method.id}`, entries: list });
     }
+    async loadModuleHistory(editor, selectionOnly) {
+        const module = await this.moduleEditor.getModule(editor.document.uri);
+        const allEntries = await (0, methodHistoryRepository_1.getModuleHistory)(module.id);
+        let entries = allEntries;
+        if (selectionOnly) {
+            if (editor.selection.isEmpty) {
+                throw new Error('Сначала выделите код, историю которого нужно посмотреть.');
+            }
+            const selectedText = editor.document.getText(editor.selection).trim();
+            const matching = selectedText ? allEntries.filter(entry => entry.oldCode.includes(selectedText) || entry.newCode.includes(selectedText)) : [];
+            if (matching.length) {
+                entries = matching;
+            }
+        }
+        const extension = path.extname(editor.document.uri.path) || '.pas';
+        const list = entries.map((entry, index) => {
+            const id = `database:${entry.revision}:${index}`;
+            this.actions.set(id, () => this.openDiff(`${module.name} · до ${formatDate(entry.changedAt)}`, entry.oldCode, `${module.name} · после ${formatDate(entry.changedAt)}`, entry.newCode, extension, `История модуля ${module.name} · ${formatDate(entry.changedAt)}`));
+            return {
+                id,
+                kind: 'database',
+                date: formatDate(entry.changedAt),
+                timestamp: entry.changedAt.getTime(),
+                user: formatUser(entry),
+                computer: entry.computerName,
+                commit: entry.revision || 'БД',
+                commitOrder: Number(entry.revision) || entry.changedAt.getTime() || index,
+                comment: firstLine(entry.comment) || (entry.revision ? `Запись аудита ${entry.revision}` : 'Изменение кода'),
+            };
+        });
+        await this.setMessage({ command: 'codeHistoryLoaded', title: module.name, subtitle: `${list.length} ${pluralChanges(list.length)} · база данных · ID ${module.id}`, entries: list });
+    }
     async openDiff(leftLabel, left, rightLabel, right, extension, title) {
         await vscode.commands.executeCommand('vscode.diff', this.store(leftLabel, left, extension), this.store(rightLabel, right, extension), title, { preview: true });
     }
@@ -321,4 +461,15 @@ async function fileExists(fileName) { try {
 catch {
     return false;
 } }
+async function mapConcurrent(values, concurrency, action) {
+    const results = new Array(values.length);
+    let nextIndex = 0;
+    await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+        while (nextIndex < values.length) {
+            const index = nextIndex++;
+            results[index] = await action(values[index], index);
+        }
+    }));
+    return results;
+}
 //# sourceMappingURL=codeHistoryService.js.map

@@ -1,0 +1,67 @@
+{
+  "$schema": "../schema/knowledge-record.schema.json",
+  "schemaVersion": 1,
+  "id": "business.document-calculation.duplicates",
+  "type": "business-rule",
+  "title": "Запрет дублирования расчетов предложения",
+  "status": "verified",
+  "summary": "Для одного участника нельзя повторно добавлять один и тот же расчет документа.",
+  "content": "Проверка должна учитывать как сохраненные записи, так и еще не сохраненные строки текущего DataSource.",
+  "applicability": {
+    "scope": "specific",
+    "releases": ["trunk"],
+    "databaseProfiles": ["oetest"],
+    "validFrom": "2026-09-15T00:00:00Z",
+    "validTo": null
+  },
+  "entities": [
+    {
+      "type": "class",
+      "externalId": "10797250"
+    },
+    {
+      "type": "method",
+      "externalId": "12900506"
+    },
+    {
+      "type": "task",
+      "externalId": "88212"
+    }
+  ],
+  "relations": [
+    {
+      "from": "method:12900506",
+      "type": "belongs_to",
+      "to": "class:10797250",
+      "sourceLocator": "task:88212"
+    },
+    {
+      "from": "method:12900506",
+      "type": "changed_by",
+      "to": "task:88212",
+      "sourceLocator": "task:88212"
+    }
+  ],
+  "sources": [
+    {
+      "type": "production-task",
+      "locator": "task:88212",
+      "revision": null,
+      "capturedAt": "2026-09-15T00:00:00Z"
+    },
+    {
+      "type": "database",
+      "locator": "database-profile:oetest",
+      "revision": null,
+      "capturedAt": "2026-09-15T00:00:00Z"
+    }
+  ],
+  "verification": {
+    "method": "multiple",
+    "verifiedAt": "2026-09-15T00:00:00Z",
+    "verifiedBy": "knowledge-owner"
+  },
+  "owner": "accounting-domain",
+  "createdAt": "2026-09-15T00:00:00Z",
+  "updatedAt": "2026-09-15T00:00:00Z"
+}

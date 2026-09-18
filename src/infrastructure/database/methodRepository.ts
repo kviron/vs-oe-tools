@@ -30,6 +30,8 @@ interface MethodSourceRow {
 	code: unknown;
 	codetype: string;
 	sysfile?: number | null;
+	ownersysfile?: number | null;
+	hassyncstate?: boolean;
 }
 
 
@@ -98,10 +100,15 @@ export async function saveMethodSource(
 		// Получаем старый код перед обновлением
 		const oldCodeResult = await executeMonitoredQuery<MethodSourceRow, [number]>(client, {
 			text: `SELECT method.signature, pg_typeof(method.signature)::text AS signaturetype,
-			        method.code, pg_typeof(method.code)::text AS codetype, abstract.sysfile
+			        method.code, pg_typeof(method.code)::text AS codetype, abstract.sysfile,
+			        owner.sysfile AS ownersysfile,
+			        EXISTS (SELECT 1 FROM syspackagebase
+			                WHERE objectid = COALESCE(abstract.sysfile, owner.sysfile)) AS hassyncstate
 			 FROM methods AS method
 			 JOIN abstract ON abstract.id = method.id
-			 WHERE method.id = $1`,
+			 LEFT JOIN abstract AS owner ON owner.id = abstract.seniorid
+			 WHERE method.id = $1
+			 FOR UPDATE OF method, abstract`,
 			values: [method.id],
 			source: `Получение старого кода метода ${method.id}`,
 			database: options.database,
@@ -118,8 +125,13 @@ export async function saveMethodSource(
 		log(`Старый код прочитан: ${inspectValue(oldCodeValue)}.`);
 		log(`Сигнатура метода: старая=${JSON.stringify(oldSignature)}; новая=${JSON.stringify(nextSignature)}.`);
 
-		// Сравниваем старый и новый код
-		if (oldCodeValue === code) {
+		const sysFileId = oldCodeRow.sysfile ?? oldCodeRow.ownersysfile;
+		if (!sysFileId) {
+			throw new Error(`Метод ${method.id} и его класс не привязаны к пакетному файлу. Укажите пакетный файл перед сохранением.`);
+		}
+		const needsBinding = oldCodeRow.sysfile === null || oldCodeRow.sysfile === undefined;
+		// A no-op save must still repair missing package registration.
+		if (oldCodeValue === code && !needsBinding && oldCodeRow.hassyncstate) {
 			// Код не изменился, откатываем транзакцию и выходим
 			await client.query('ROLLBACK');
 			return;
@@ -127,6 +139,20 @@ export async function saveMethodSource(
 
 		// Получаем контекст сессии (UserID, ComputerName, ChangeDate)
 		const sessionContext = await getSessionContext(client, options.database);
+		if (needsBinding) {
+			await executeMonitoredQuery(client, {
+				text: 'UPDATE abstract SET sysfile = $1 WHERE id = $2 AND sysfile IS NULL',
+				values: [sysFileId, method.id],
+				source: `Привязка метода ${method.id} к файлу класса`,
+				database: options.database,
+			});
+		}
+		if (oldCodeValue === code) {
+			await markPackageFileChanged(client, options.database, sysFileId, sessionContext.userId, sessionContext.changeDate);
+			await client.query('COMMIT');
+			log(`Восстановлена регистрация пакетного файла ${sysFileId}; код не изменён.`);
+			return;
+		}
 
 		// Выполняем обновление методов
 		const lastChange = sessionContext.changeDate;
@@ -229,13 +255,8 @@ export async function saveMethodSource(
 			throw new Error(`Родительский класс ${method.seniorId} не найден при обновлении версии.`);
 		}
 
-		const sysFileId = oldCodeRow.sysfile === null || oldCodeRow.sysfile === undefined
-			? undefined
-			: Number(oldCodeRow.sysfile);
-		if (sysFileId !== undefined) {
-			await markPackageFileChanged(client, options.database, sysFileId, sessionContext.userId, lastChange);
-			log(`Пакетный файл ${sysFileId} зарегистрирован как изменённый.`);
-		}
+		await markPackageFileChanged(client, options.database, sysFileId, sessionContext.userId, lastChange);
+		log(`Пакетный файл ${sysFileId} зарегистрирован как изменённый.`);
 
 		await client.query('COMMIT');
 		method.signature = nextSignature;
@@ -413,8 +434,12 @@ async function markPackageFileChanged(
 		 JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
 		 LEFT JOIN abstract AS changed_user ON changed_user.id = $3
 		 WHERE file.id = $4 AND file_group.package IS NOT NULL
+		   AND NULLIF(file.filename, '') IS NOT NULL
+		   AND lower(file.filename) NOT IN ('#package$', '#package$.pkf')
 		 ON CONFLICT (objectid) DO UPDATE
-		 SET objectchangestate = 2`,
+		 SET objectchangestate = 2,
+		     objectchangelastdate = EXCLUDED.objectchangelastdate,
+		     objectchangelastuser = EXCLUDED.objectchangelastuser`,
 		values: [changeDate, String(userId), userId, sysFileId],
 		source: `Регистрация изменения пакетного файла ${sysFileId}`,
 		database,

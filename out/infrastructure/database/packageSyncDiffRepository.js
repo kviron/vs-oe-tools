@@ -91,12 +91,10 @@ async function loadPackageDatabaseVersion(item, fileName) {
         if (hasMetaObjects) {
             if (abstractResult.rows.some(row => !META_CLASS_IDS.has(Number(row.classid)))) {
                 const missingMetaRows = missingRows.filter(row => META_CLASS_IDS.has(Number(row.classid)));
-                if (missingMetaRows.length) {
-                    throw new Error(`Смешанный Meta/Data-PKF содержит новые meta-объекты (${missingMetaRows.map(row => row.id).join(', ')}), которые пока нельзя безопасно сериализовать.`);
-                }
+                const sourceWithCurrentMeta = await appendMissingMetaMembers(client, options.database, source, missingMetaRows);
                 const missingDataRows = missingRows.filter(row => !META_CLASS_IDS.has(Number(row.classid)));
                 const objects = await buildDatabaseObjects(client, options.database, missingDataRows);
-                return { content: (0, pkfDatabaseReconstruction_1.appendPkfObjects)(source, objects), addedObjectIds: missingDataRows.map(row => Number(row.id)), localContent };
+                return { content: (0, pkfDatabaseReconstruction_1.appendPkfObjects)(sourceWithCurrentMeta, objects), addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
             }
             const content = await loadMetaPkf(client, options.database, item.objectId);
             return { content, addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
@@ -106,14 +104,45 @@ async function loadPackageDatabaseVersion(item, fileName) {
         return { content: (0, pkfDatabaseReconstruction_1.appendPkfObjects)(databaseSource, objects), addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
     }, undefined, 'vc-ve-tools-package-diff');
 }
+async function appendMissingMetaMembers(client, database, source, rows) {
+    if (!rows.length) {
+        return source;
+    }
+    const unsupported = rows.filter(row => Number(row.classid) !== 5);
+    if (unsupported.length) {
+        throw new Error(`Смешанный Meta/Data-PKF содержит новые meta-объекты неподдерживаемых классов (${unsupported.map(row => row.id).join(', ')}).`);
+    }
+    const ids = rows.map(row => Number(row.id));
+    const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+        text: `SELECT M.ID AS id, M.SeniorID AS ownerid, M.Name AS name, M.Aliases AS aliases,
+		        M.Visibility AS visibility, M.MethKind AS methkind, M.Signature AS signature, M.Code AS code
+		 FROM Methods M WHERE M.ID = ANY($1::integer[]) ORDER BY M.SeniorID, M.ID`,
+        values: [ids], source: 'Синхронизация пакетов: новые методы смешанного Meta/Data-PKF', database,
+    });
+    if (result.rows.length !== rows.length) {
+        const found = new Set(result.rows.map(row => Number(row.id)));
+        throw new Error(`Не удалось прочитать новые meta-методы: ${ids.filter(id => !found.has(id)).join(', ')}.`);
+    }
+    let content = source;
+    const byOwner = new Map();
+    for (const row of result.rows) {
+        const ownerId = Number(row.ownerid);
+        const members = byOwner.get(ownerId) ?? [];
+        members.push({ kind: 'method', id: Number(row.id), name: row.name, aliases: row.aliases ?? '',
+            visibility: metaVisibility(row.visibility), methodKind: Number(row.methkind),
+            signature: decodeAuditText(row.signature), code: decodeAuditText(row.code) });
+        byOwner.set(ownerId, members);
+    }
+    for (const [ownerId, members] of byOwner) {
+        content = (0, pkfMetaReconstruction_1.appendPkfMetaMembers)(content, ownerId, members);
+    }
+    return content;
+}
 async function loadMetaPkf(client, database, fileId) {
     const ownerResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-        text: `SELECT DISTINCT OwnerID AS id FROM (
-			 SELECT C.ID AS OwnerID FROM Abstract A JOIN Classes C ON C.ID = A.ID WHERE A.SysFile = $1
-			 UNION ALL SELECT Attr.SeniorID AS OwnerID FROM Abstract A JOIN Attributes Attr ON Attr.ID = A.ID WHERE A.SysFile = $1
-			 UNION ALL SELECT M.SeniorID AS OwnerID FROM Abstract A JOIN Methods M ON M.ID = A.ID WHERE A.SysFile = $1
-			 UNION ALL SELECT Attr.SeniorID AS OwnerID FROM Abstract A JOIN DfltValues D ON D.ID = A.ID JOIN Attributes Attr ON Attr.ID = D.AttrID WHERE A.SysFile = $1
-		) Owners WHERE OwnerID IS NOT NULL ORDER BY OwnerID`,
+        // A default value belongs to DfltValues.SeniorID. Its AttrID may point to an
+        // inherited attribute declared by any ancestor and must not change the PKF owner.
+        text: pkfMetaReconstruction_1.metaPkfOwnerQuery,
         values: [fileId], source: 'Синхронизация пакетов: корневой класс meta-PKF', database,
     });
     const ownerId = (0, pkfMetaReconstruction_1.requireSingleMetaOwner)(ownerResult.rows.map(row => Number(row.id)), fileId);

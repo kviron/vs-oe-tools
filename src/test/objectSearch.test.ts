@@ -16,6 +16,7 @@ suite('Database object search', () => {
 	});
 
 	test('recognizes lifecycle objects by meta-class', () => {
+		assert.equal(mapDatabaseObject(row({ metaclassname: 'Модуль' })).kind, 'module');
 		assert.equal(mapDatabaseObject(row({ metaclassname: 'ЖизненныйЦикл' })).kind, 'lifecycle');
 		assert.equal(mapDatabaseObject(row({ metaclassname: 'Журнал документов' })).kind, 'journal');
 		assert.equal(mapDatabaseObject(row({ metaclassname: 'Список' })).kind, 'list');

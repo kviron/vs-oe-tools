@@ -70,13 +70,22 @@ async function handleRequest(request, response, token, actions) {
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
-        else if (input.action === 'create_class_attribute') {
-            const result = await actions.createClassAttribute(input.draft);
+        else if (input.action === 'update_module_source') {
+            const result = await actions.updateModuleSource(input.id, input.code, input.expectedDatabase, input.expectedHost, input.expectedPort);
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
-        else if (input.action === 'create_class_method') {
-            const result = await actions.createClassMethod(input.draft, input.database, input.host);
+        else if (input.action === 'bind_objects_to_package') {
+            const result = await actions.bindObjectsToPackage({
+                objectIds: input.objectIds, templateObjectId: input.templateObjectId,
+                sysFileId: input.sysFileId, expectedDatabase: input.expectedDatabase,
+                expectedHost: input.expectedHost, expectedPort: input.expectedPort,
+            });
+            respond(response, 200, { ok: true, action: input.action, ...result });
+            return;
+        }
+        else if (input.action === 'create_class_attribute') {
+            const result = await actions.createClassAttribute(input.draft);
             respond(response, 200, { ok: true, action: input.action, ...result });
             return;
         }
@@ -190,10 +199,11 @@ function validateRequest(value) {
     }
     const { action, id } = value;
     if (action !== 'reveal_class' && action !== 'open_class' && action !== 'open_method' && action !== 'reveal_method'
-        && action !== 'update_method_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
+        && action !== 'update_method_source' && action !== 'update_module_source' && action !== 'get_svn_file_history' && action !== 'get_package_sync_changes'
+        && action !== 'bind_objects_to_package'
         && action !== 'update_database' && action !== 'start_client' && action !== 'open_client_entity'
         && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
-        && action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute' && action !== 'create_class_method'
+        && action !== 'update_packages' && action !== 'update_binaries' && action !== 'create_class_attribute'
         && action !== 'execute_lifecycle_method' && action !== 'start_client_mcp'
         && action !== 'start_http_test_server' && action !== 'stop_http_test_server'
         && action !== 'get_http_test_server_status' && action !== 'call_http_test_server') {
@@ -202,7 +212,8 @@ function validateRequest(value) {
     if (action !== 'get_svn_file_history' && action !== 'get_package_sync_changes' && action !== 'update_database'
         && action !== 'start_client' && action !== 'get_production_tasks' && action !== 'get_production_task' && action !== 'get_production_tasks_in_progress'
         && action !== 'update_packages' && action !== 'update_binaries'
-        && action !== 'create_class_attribute' && action !== 'create_class_method' && action !== 'start_client_mcp'
+        && action !== 'create_class_attribute' && action !== 'start_client_mcp'
+        && action !== 'bind_objects_to_package'
         && action !== 'start_http_test_server' && action !== 'stop_http_test_server'
         && action !== 'get_http_test_server_status' && action !== 'call_http_test_server'
         && (!Number.isSafeInteger(id) || (id ?? 0) <= 0)) {
@@ -213,25 +224,43 @@ function validateRequest(value) {
         throw new Error('Navigation classId must be a positive integer for reveal_method.');
     }
     const code = value.code;
-    if (action === 'update_method_source' && typeof code !== 'string') {
-        throw new Error('Method code must be a string for update_method_source.');
+    const expectedDatabase = value.expectedDatabase;
+    const expectedHost = value.expectedHost;
+    const expectedPort = value.expectedPort;
+    if ((action === 'update_method_source' || action === 'update_module_source') && typeof code !== 'string') {
+        throw new Error(`Code must be a string for ${action}.`);
+    }
+    if (action === 'update_module_source' && (typeof expectedDatabase !== 'string' || !expectedDatabase.trim()
+        || typeof expectedHost !== 'string' || !expectedHost.trim()
+        || !Number.isInteger(expectedPort) || (expectedPort ?? 0) < 1 || (expectedPort ?? 0) > 65535)) {
+        throw new Error('expectedDatabase, expectedHost and expectedPort are required for update_module_source.');
+    }
+    const objectIds = value.objectIds;
+    const templateObjectId = value.templateObjectId;
+    const sysFileId = value.sysFileId;
+    if (action === 'bind_objects_to_package') {
+        if (!Array.isArray(objectIds) || objectIds.length < 1 || objectIds.length > 100
+            || objectIds.some(objectId => !Number.isSafeInteger(objectId) || objectId <= 0)) {
+            throw new Error('objectIds must contain 1 to 100 positive integers for bind_objects_to_package.');
+        }
+        if ((templateObjectId === undefined) === (sysFileId === undefined)) {
+            throw new Error('Exactly one of templateObjectId or sysFileId is required for bind_objects_to_package.');
+        }
+        if (typeof expectedDatabase !== 'string' || !expectedDatabase.trim()) {
+            throw new Error('expectedDatabase is required for bind_objects_to_package.');
+        }
+        if (typeof expectedHost !== 'string' || !expectedHost.trim()
+            || !Number.isInteger(expectedPort) || (expectedPort ?? 0) < 1 || (expectedPort ?? 0) > 65535) {
+            throw new Error('expectedHost and expectedPort are required for bind_objects_to_package.');
+        }
     }
     const draft = value.draft;
     if (action === 'create_class_attribute' && (!draft || typeof draft !== 'object')) {
         throw new Error('draft is required for create_class_attribute.');
     }
-    if (action === 'create_class_method' && (!draft || typeof draft !== 'object')) {
-        throw new Error('draft is required for create_class_method.');
-    }
     const methodParameter = value.methodParameter;
     const database = value.database;
     const host = value.host;
-    if (action === 'create_class_method' && (typeof database !== 'string' || !/^[\p{L}\p{N}_.-]+$/u.test(database))) {
-        throw new Error('database is invalid for create_class_method.');
-    }
-    if (action === 'create_class_method' && (typeof host !== 'string' || !/^[\p{L}\p{N}_.:-]+$/u.test(host))) {
-        throw new Error('host is invalid for create_class_method.');
-    }
     if (action === 'execute_lifecycle_method' && (typeof methodParameter !== 'string' || !methodParameter.trim())) {
         throw new Error('methodParameter is required for execute_lifecycle_method.');
     }
@@ -307,7 +336,8 @@ function validateRequest(value) {
     if (action === 'open_client_entity' && (typeof entityType !== 'string' || !entityType.trim())) {
         throw new Error('entityType is required for open_client_entity.');
     }
-    return { action, id, classId, code, filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host, httpMethod, headers, body };
+    return { action, id, classId, code, objectIds, templateObjectId, sysFileId, expectedDatabase, expectedHost, expectedPort,
+        filePath, limit, query, offset, role, entityType, draft, methodParameter, database, host, httpMethod, headers, body };
 }
 function respond(response, statusCode, body) {
     response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });

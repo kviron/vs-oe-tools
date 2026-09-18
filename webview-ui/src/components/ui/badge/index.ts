@@ -16,6 +16,7 @@ export const badgeVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
         class: 'border-kind-class/40 bg-kind-class/15 text-kind-class',
         method: 'border-kind-method/40 bg-kind-method/15 text-kind-method',
+        module: 'border-kind-method/40 bg-kind-method/15 text-kind-method',
         attribute: 'border-kind-attribute/40 bg-kind-attribute/15 text-kind-attribute',
         lifecycle: 'border-kind-lifecycle/40 bg-kind-lifecycle/15 text-kind-lifecycle',
         journal: 'border-kind-journal/40 bg-kind-journal/15 text-kind-journal',

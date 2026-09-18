@@ -18,6 +18,7 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		private readonly openDfmPreview: (id: number) => Promise<void>,
 		private readonly searchObjects: (query: string) => Promise<DatabaseObjectSearchResult[]>,
 		private readonly openMethod: (id: number) => Promise<void>,
+		private readonly openModule: (id: number) => Promise<void>,
 		private readonly openAttribute: (id: number) => Promise<void>,
 		private readonly openClassObjects: (id: number) => Promise<void>,
 		private readonly viewObject: (id: number) => Promise<void>,
@@ -127,6 +128,10 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		await vscode.commands.executeCommand('workbench.view.extension.vc-ve-tools');
 		await this.postMessage({ command: 'revealClass', id });
 	}
+	async revealPackage(id: number): Promise<void> {
+		await vscode.commands.executeCommand('workbench.view.extension.vc-ve-tools');
+		await this.postMessage({ command: 'revealPackage', id });
+	}
 	async copySelectedEntityId(): Promise<void> {
 		this.log(`Вызвана команда VS Code copySelectedEntityId; ID=${this.selectedEntityId ?? 'нет'}.`);
 		if (this.selectedEntityId === undefined) {
@@ -178,6 +183,8 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 				await this.openClass(id, pinned);
 			} else if (kind === 'method') {
 				await this.openMethod(id);
+			} else if (kind === 'module') {
+				await this.openModule(id);
 			} else if (kind === 'attribute') {
 				await this.openAttribute(id);
 			} else {

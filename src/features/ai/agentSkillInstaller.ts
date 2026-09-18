@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import * as vscode from 'vscode';
 
-const bundledSkill = { name: 'east-express', version: 2 } as const;
+const bundledSkill = { name: 'east-express', version: 3 } as const;
 
 interface InstalledSkillState {
 	version: number;

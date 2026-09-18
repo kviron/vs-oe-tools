@@ -14,8 +14,8 @@ interface WorkingCopyRow {
 	package_name: string | null;
 }
 
-/** Resolves the physical package file which owns a database method. */
-export async function getMethodWorkingCopyInfo(methodId: number): Promise<MethodWorkingCopyInfo> {
+/** Resolves the physical package file which owns a database object. */
+export async function getMethodWorkingCopyInfo(objectId: number): Promise<MethodWorkingCopyInfo> {
 	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<WorkingCopyRow, [number]>(client, {
 			text: `SELECT file.filename, groups.path AS group_path, package.packagename AS package_name
@@ -24,13 +24,13 @@ export async function getMethodWorkingCopyInfo(methodId: number): Promise<Method
 			 LEFT JOIN sysgroups AS groups ON groups.id = file.sysgroup
 			 LEFT JOIN syspackages AS package ON package.id = groups.package
 			 WHERE object.id = $1`,
-			values: [methodId],
-			source: `Поиск локального SVN-файла метода ${methodId}`,
+			values: [objectId],
+			source: `Поиск локального SVN-файла объекта ${objectId}`,
 			database: options.database,
 		});
 		const row = result.rows[0];
 		if (!row?.filename) {
-			throw new Error(`Для метода ${methodId} не найден связанный sysfile.`);
+			throw new Error(`Для объекта ${objectId} не найден связанный sysfile.`);
 		}
 		const relativePath = [row.package_name, row.group_path, row.filename].filter(Boolean).join('\\');
 		const tune = await executeMonitoredQuery<{ pathtopackages: string }, [string]>(client, {

@@ -95,6 +95,19 @@ function copyError(): void {
   vscode.postMessage({ command: 'copySqlError', text: errorDetails.value || error.value });
 }
 
+function navigationId(column: string, value: unknown): number | undefined {
+  if (!/id$/i.test(column.trim())) return undefined;
+  const normalized = typeof value === 'number' || typeof value === 'string' ? String(value).trim() : '';
+  if (!/^\d+$/.test(normalized)) return undefined;
+  const id = Number(normalized);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
+
+function openQuickNavigation(column: string, value: unknown): void {
+  const id = navigationId(column, value);
+  if (id !== undefined) vscode.postMessage({ command: 'openQuickNavigation', id });
+}
+
 vscode.postMessage({ command: 'sqlExecutorReady' });
 </script>
 
@@ -160,7 +173,7 @@ vscode.postMessage({ command: 'sqlExecutorReady' });
           </TableHeader>
           <TableBody>
             <TableRow v-for="(row, rowIndex) in sortedResultRows" :key="rowIndex">
-              <TableCell v-for="column in result.columns" :key="column" class="max-w-96 px-2 py-1 font-mono" :title="formatTableValue(column, row[column])">
+              <TableCell v-for="column in result.columns" :key="column" class="max-w-96 px-2 py-1 font-mono" :class="navigationId(column, row[column]) !== undefined && 'cursor-pointer hover:underline'" :title="navigationId(column, row[column]) !== undefined ? `${formatTableValue(column, row[column])} · двойной щелчок — быстрый переход` : formatTableValue(column, row[column])" @dblclick="openQuickNavigation(column, row[column])">
                 <span class="block truncate">{{ formatTableValue(column, row[column]) }}</span>
               </TableCell>
             </TableRow>

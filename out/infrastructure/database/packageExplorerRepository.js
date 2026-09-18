@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadPackages = loadPackages;
+exports.searchPackages = searchPackages;
 exports.loadPackageTree = loadPackageTree;
 exports.loadPackageFileContent = loadPackageFileContent;
 const iconv = __importStar(require("iconv-lite"));
@@ -45,6 +46,25 @@ async function loadPackages() {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT id::text, packagename FROM syspackages ORDER BY lower(packagename), id`,
             source: 'Пакеты проводника', database,
+        });
+        return result.rows.map(row => ({ id: Number(row.id), name: decodeText(row.packagename) }));
+    });
+}
+async function searchPackages(query, limit = 25) {
+    const normalized = query.trim();
+    if (!normalized || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+        return [];
+    }
+    const numericId = /^\d+$/u.test(normalized) ? Number(normalized) : null;
+    return withDatabase(async (client, database) => {
+        const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `SELECT id::text, packagename FROM syspackages
+			       WHERE ($1::bigint IS NOT NULL AND id = $1) OR packagename ILIKE $2
+			       ORDER BY CASE WHEN id = $1 THEN 0 WHEN lower(packagename) = lower($2) THEN 1 ELSE 2 END,
+			                lower(packagename), id
+			       LIMIT $3`,
+            values: [numericId, numericId === null ? `%${normalized}%` : normalized, limit],
+            source: `Поиск пакетов ${normalized}`, database,
         });
         return result.rows.map(row => ({ id: Number(row.id), name: decodeText(row.packagename) }));
     });
@@ -140,6 +160,9 @@ function objectKind(row) {
         return 'class';
     }
     const value = (row.classname ?? '').toLocaleLowerCase('ru').replace(/\s/g, '');
+    if (value === 'модуль') {
+        return 'module';
+    }
     if (value.includes('жизненныйцикл')) {
         return 'lifecycle';
     }

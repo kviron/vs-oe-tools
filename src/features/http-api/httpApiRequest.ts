@@ -10,7 +10,12 @@ export interface HttpApiResponse {
 	statusText: string;
 	durationMs: number;
 	headers: Record<string, string>;
+	cookies: string[];
 	body: string;
+	bodySizeBytes: number;
+	contentType: string;
+	url: string;
+	redirected: boolean;
 }
 
 const requestTimeoutMs = 15_000;
@@ -38,12 +43,18 @@ export async function executeHttpApiRequest(request: HttpApiRequest): Promise<Ht
 		});
 		const bytes = new Uint8Array(await response.arrayBuffer());
 		if (bytes.byteLength > maximumResponseBytes) { throw new Error('Ответ превышает 2 МБ.'); }
+		const contentType = response.headers.get('content-type') ?? '';
 		return {
 			status: response.status,
 			statusText: response.statusText,
 			durationMs: Math.round(performance.now() - startedAt),
 			headers: Object.fromEntries(response.headers.entries()),
-			body: new TextDecoder(response.headers.get('content-type')?.match(/charset=([^;]+)/i)?.[1] ?? 'utf-8').decode(bytes),
+			cookies: response.headers.getSetCookie(),
+			body: new TextDecoder(contentType.match(/charset=([^;]+)/i)?.[1] ?? 'utf-8').decode(bytes),
+			bodySizeBytes: bytes.byteLength,
+			contentType,
+			url: response.url,
+			redirected: response.redirected,
 		};
 	} catch (error) {
 		if (error instanceof Error && error.name === 'AbortError') { throw new Error(`Запрос не ответил за ${requestTimeoutMs / 1000} секунд.`); }

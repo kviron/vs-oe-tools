@@ -111,6 +111,7 @@ export type ExplorerHostMessage =
 	| { command: 'classesLoaded'; classes: ClassTreeRow[] }
 	| { command: 'classesLoadFailed'; message: string }
 	| { command: 'revealClass'; id: number }
+	| { command: 'revealPackage'; id: number }
 	| { command: 'resetClasses' }
 	| { command: 'resetPackages' }
 	| { command: 'databaseObjectsLoading'; query: string }
@@ -238,6 +239,7 @@ export interface SettingsState {
 	userId: number;
 	clientUsername: string;
 	clientPasswordSet: boolean;
+	clientLaunchArguments: string;
 	mcpEnabled: boolean;
 	mcpStatus: 'ready' | 'disabled' | 'unavailable';
 	mcpStatusText: string;
@@ -267,6 +269,7 @@ export type SettingsWebviewMessage =
 	| { command: 'runProjectCommand'; action: 'updatePackages' | 'updateBinaries' }
 	| { command: 'setUserId'; userId: number }
 	| { command: 'setClientCredentials'; username: string; password?: string }
+	| { command: 'setClientLaunchArguments'; value: string }
 	| { command: 'setMcpEnabled'; enabled: boolean }
 	| { command: 'refreshClientMcpStatus' }
 	| { command: 'checkClientMcpTools' }
@@ -278,6 +281,7 @@ export type SettingsWebviewMessage =
 	| { command: 'stopHttpTestServer' }
 	| { command: 'searchHttpParameterValues'; parameter: string; typeName: string; query: string }
 	| { command: 'copyHttpApiRequest'; text: string; notification?: string }
+	| { command: 'saveHttpApiResponse'; text: string; fileName: string; contentType?: string }
 	| { command: 'openDatabaseObjectById'; id: number; target?: 'explorer' | 'object' }
 	| { command: 'testSettingsDatabaseConnection' }
 	| { command: 'copyMcpConnectionCode'; text: string }
@@ -291,7 +295,7 @@ export type SettingsHostMessage =
 	| { command: 'clientMcpToolsCheckStarted' }
 	| { command: 'clientMcpToolsCheckFinished'; success: boolean }
 	| { command: 'httpApiRequestStarted' }
-	| { command: 'httpApiRequestFinished'; success: true; response: { execution?: 'direct'; status: number; statusText: string; durationMs: number; headers: Record<string, string>; body: string } }
+	| { command: 'httpApiRequestFinished'; success: true; response: { execution?: 'direct'; status: number; statusText: string; durationMs: number; headers: Record<string, string>; cookies: string[]; body: string; bodySizeBytes: number; contentType: string; url: string; redirected: boolean } }
 	| { command: 'httpApiRequestFinished'; success: false; message: string }
 	| { command: 'httpTestServerActionStarted'; action: 'start' | 'stop' }
 	| { command: 'httpTestServerActionFinished'; action: 'start' | 'stop'; success: boolean; message: string }
@@ -376,6 +380,11 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 		return 'text' in message && typeof message.text === 'string' && message.text.length > 0
 			&& (!('notification' in message) || message.notification === undefined || typeof message.notification === 'string');
 	}
+	if (message.command === 'saveHttpApiResponse') {
+		return 'text' in message && typeof message.text === 'string' && message.text.length <= 16 * 1024 * 1024
+			&& 'fileName' in message && typeof message.fileName === 'string' && /^[^\\/:*?"<>|\r\n]{1,200}$/u.test(message.fileName)
+			&& (!('contentType' in message) || message.contentType === undefined || typeof message.contentType === 'string');
+	}
 	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
 		return 'enabled' in message && typeof message.enabled === 'boolean';
 	}
@@ -398,6 +407,9 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	if (message.command === 'setClientCredentials') {
 		return 'username' in message && typeof message.username === 'string'
 			&& (!('password' in message) || message.password === undefined || typeof message.password === 'string');
+	}
+	if (message.command === 'setClientLaunchArguments') {
+		return 'value' in message && typeof message.value === 'string' && message.value.length <= 2000;
 	}
 	return message.command === 'copyMcpConnectionCode' && 'text' in message && typeof message.text === 'string';
 }
@@ -433,7 +445,10 @@ export interface CodeHistoryListEntry {
 
 export type CodeHistoryWebviewMessage =
 	| { command: 'codeHistoryReady' }
-	| { command: 'openCodeHistoryEntry'; id: string };
+	| { command: 'openCodeHistoryEntry'; id: string }
+	| { command: 'openCodeHistoryTask'; id: number }
+	| CopyTableCellsMessage
+	| TableSelectionDebugMessage;
 
 export type CodeHistoryHostMessage =
 	| { command: 'codeHistoryLoading'; title: string }
@@ -445,7 +460,10 @@ export function isCodeHistoryWebviewMessage(message: unknown): message is CodeHi
 		return false;
 	}
 	return message.command === 'codeHistoryReady'
-		|| (message.command === 'openCodeHistoryEntry' && 'id' in message && typeof message.id === 'string');
+		|| isCopyTableCellsMessage(message)
+		|| isTableSelectionDebugMessage(message)
+		|| (message.command === 'openCodeHistoryEntry' && 'id' in message && typeof message.id === 'string')
+		|| (message.command === 'openCodeHistoryTask' && 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0);
 }
 
 export function isClassDetailsWebviewMessage(message: unknown): message is ClassDetailsWebviewMessage {
@@ -564,7 +582,7 @@ export function isPackageContentWebviewMessage(message: unknown): message is Pac
 		|| isCopyTableCellsMessage(message)
 		|| isTableSelectionDebugMessage(message)
 		|| (message.command === 'openPackageContentObject' && 'id' in message && typeof message.id === 'number'
-			&& 'kind' in message && ['class', 'method', 'attribute', 'lifecycle', 'journal', 'list', 'object'].includes(String(message.kind)));
+			&& 'kind' in message && ['class', 'method', 'module', 'attribute', 'lifecycle', 'journal', 'list', 'object'].includes(String(message.kind)));
 }
 
 export function isExplorerWebviewMessage(message: unknown): message is ExplorerWebviewMessage {
@@ -588,7 +606,7 @@ export function isExplorerWebviewMessage(message: unknown): message is ExplorerW
 	if (message.command === 'openDatabaseObject') {
 		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id)
 			&& 'pinned' in message && typeof message.pinned === 'boolean'
-			&& 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'attribute' || message.kind === 'lifecycle' || message.kind === 'journal' || message.kind === 'list' || message.kind === 'object');
+			&& 'kind' in message && (message.kind === 'class' || message.kind === 'method' || message.kind === 'module' || message.kind === 'attribute' || message.kind === 'lifecycle' || message.kind === 'journal' || message.kind === 'list' || message.kind === 'object');
 	}
 	if (message.command === 'explorerReady') {
 		return true;

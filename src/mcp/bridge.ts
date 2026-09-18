@@ -1,6 +1,7 @@
 import { readOptionalArgument } from './arguments';
 import { synchronizeDatabaseSelection, workspacePath } from './databaseSession';
 import { getNavigationInfoPath } from '../core/navigationInfo';
+import { readMcpRuntimeStateSync } from '../core/mcpRuntimeState';
 import { readFile } from 'node:fs/promises';
 
 const explicitNavigationInfoPath = readOptionalArgument('--navigation-info');
@@ -12,7 +13,9 @@ export async function navigationToolResult(action: 'reveal_class' | 'open_class'
 export async function bridgeToolResult(body: Record<string, unknown>) {
 	try {
 		await synchronizeDatabaseSelection();
-		const navigationInfoPath = explicitNavigationInfoPath ?? getNavigationInfoPath(workspacePath);
+		const navigationInfoPath = explicitNavigationInfoPath
+			?? readMcpRuntimeStateSync()?.navigationInfoPath
+			?? getNavigationInfoPath(workspacePath);
 		const connection = JSON.parse(await readFile(navigationInfoPath, 'utf8')) as { url?: unknown; token?: unknown };
 		if (typeof connection.url !== 'string' || typeof connection.token !== 'string') {
 			throw new Error('VS Code navigation bridge information is invalid.');

@@ -23,6 +23,24 @@ export async function loadPackages(): Promise<PackageSummary[]> {
 	});
 }
 
+export async function searchPackages(query: string, limit = 25): Promise<PackageSummary[]> {
+	const normalized = query.trim();
+	if (!normalized || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) { return []; }
+	const numericId = /^\d+$/u.test(normalized) ? Number(normalized) : null;
+	return withDatabase(async (client, database) => {
+		const result = await executeMonitoredQuery<PackageRow, [number | null, string, number]>(client, {
+			text: `SELECT id::text, packagename FROM syspackages
+			       WHERE ($1::bigint IS NOT NULL AND id = $1) OR packagename ILIKE $2
+			       ORDER BY CASE WHEN id = $1 THEN 0 WHEN lower(packagename) = lower($2) THEN 1 ELSE 2 END,
+			                lower(packagename), id
+			       LIMIT $3`,
+			values: [numericId, numericId === null ? `%${normalized}%` : normalized, limit],
+			source: `Поиск пакетов ${normalized}`, database,
+		});
+		return result.rows.map(row => ({ id: Number(row.id), name: decodeText(row.packagename) }));
+	});
+}
+
 export async function loadPackageTree(packageId: number): Promise<PackageExplorerNode> {
 	return withDatabase(async (client, database) => {
 		const packageResult = await executeMonitoredQuery<PackageRow, [number]>(client, {
@@ -111,6 +129,7 @@ function objectKind(row: FileObjectRow): DatabaseObjectKind {
 	if (row.isattribute) { return 'attribute'; }
 	if (row.isclass) { return 'class'; }
 	const value = (row.classname ?? '').toLocaleLowerCase('ru').replace(/\s/g, '');
+	if (value === 'модуль') { return 'module'; }
 	if (value.includes('жизненныйцикл')) { return 'lifecycle'; }
 	if (value.includes('журнал')) { return 'journal'; }
 	if (value.includes('список')) { return 'list'; }

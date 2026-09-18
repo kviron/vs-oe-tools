@@ -15,7 +15,7 @@ export function readOptionalArgument(name: string): string | undefined {
 }
 
 export function readRoleArgument(): DatabaseRole {
-	const value = readArgument('--database-role');
+	const value = readOptionalArgument('--database-role') ?? 'main';
 	if (value !== 'main' && value !== 'test') {
 		throw new Error('--database-role must be main or test.');
 	}

@@ -2,7 +2,7 @@
   "name": "vc-ve-tools",
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
@@ -118,6 +118,13 @@
           "scope": "window",
           "description": "Логин пользователя для запуска оригинального клиента Восточного Экспресса."
         },
+        "vcVeTools.clientLaunchArguments": {
+          "type": "string",
+          "default": "",
+          "maxLength": 2000,
+          "scope": "window",
+          "description": "Дополнительные аргументы fme.exe, добавляемые после -NoSelfUpdate. Обязательные параметры подключения расширение формирует автоматически."
+        },
         "vcVeTools.productionHost": {
           "type": "string",
           "default": "172.20.0.23",
@@ -155,7 +162,7 @@
           "type": "boolean",
           "default": true,
           "scope": "window",
-          "description": "Включить MCP-сервер для AI-агентов. Прямые SQL-запросы доступны только для чтения; код методов можно изменять через контролируемый инструмент сохранения."
+          "description": "Включить MCP-сервер для AI-агентов. Прямые SQL-запросы доступны только для чтения; код методов и пакетную привязку новых объектов можно изменять через контролируемые инструменты."
         },
         "vcVeTools.mcp.clientUrl": {
           "type": "string",
@@ -296,12 +303,24 @@
         "category": "Восточный экспресс"
       },
       {
+        "command": "vc-ve-tools.quickStartClient",
+        "title": "Быстрый запуск клиента…",
+        "category": "Восточный экспресс",
+        "icon": "$(play)"
+      },
+      {
+        "command": "vc-ve-tools.quickUpdateDatabase",
+        "title": "Быстрое обновление базы…",
+        "category": "Восточный экспресс",
+        "icon": "$(sync)"
+      },
+      {
         "command": "vc-ve-tools.copySelectedExplorerId",
         "title": "Восточный Экспресс: Копировать ID выделенного объекта"
       },
       {
         "command": "vc-ve-tools.openClipboardObject",
-        "title": "Восточный Экспресс: Открыть объект по ID из буфера обмена"
+        "title": "Восточный Экспресс: Быстрый переход"
       },
       {
         "command": "vc-ve-tools.installAgentSkills",
@@ -314,7 +333,7 @@
       },
       {
         "command": "vc-ve-tools.showCodeHistory",
-        "title": "История файла или метода",
+        "title": "История файла, метода или модуля",
         "category": "Восточный Экспресс"
       },
       {
@@ -343,17 +362,17 @@
       "editor/context": [
         {
           "submenu": "vc-ve-tools.svnMenu",
-          "when": "editorTextFocus && (resourceScheme == file || resourceScheme == 'vc-ve-method')",
+          "when": "editorTextFocus && (resourceScheme == file || resourceScheme == 'vc-ve-method' || resourceScheme == 'vc-ve-module')",
           "group": "navigation@19"
         },
         {
           "command": "vc-ve-tools.showSelectionHistory",
-          "when": "editorTextFocus && editorHasSelection && (resourceScheme == file || resourceScheme == 'vc-ve-method')",
+          "when": "editorTextFocus && editorHasSelection && (resourceScheme == file || resourceScheme == 'vc-ve-method' || resourceScheme == 'vc-ve-module')",
           "group": "navigation@20"
         },
         {
           "command": "vc-ve-tools.showCodeHistory",
-          "when": "editorTextFocus && (resourceScheme == file || resourceScheme == 'vc-ve-method')",
+          "when": "editorTextFocus && (resourceScheme == file || resourceScheme == 'vc-ve-method' || resourceScheme == 'vc-ve-module')",
           "group": "navigation@21"
         }
       ],
@@ -535,19 +554,20 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "npm run check:release && npm run check:generated && npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
+    "compile": "npm run check:release && npm run check:generated && npm run check:knowledge && npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
     "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check:release && npm run check:generated && npm run check-types && npm run lint && npm run build:webview && node esbuild.js --production",
+    "package": "npm run check:release && npm run check:generated && npm run check:knowledge && npm run check-types && npm run lint && npm run build:webview && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "check:commit": "node scripts/check-commit-message.mjs",
     "check:generated": "node scripts/check-generated-source.mjs",
+    "check:knowledge": "node scripts/check-knowledge-schema.mjs",
     "check:release": "node scripts/check-release-version.mjs",
     "setup:hooks": "git config core.hooksPath .githooks",
     "lint": "eslint src --max-warnings 0",
@@ -563,6 +583,8 @@
     "@vitejs/plugin-vue": "^6.0.8",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.0.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",
     "npm-run-all": "^4.1.5",

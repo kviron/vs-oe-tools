@@ -44,6 +44,9 @@ suite('Method history parser', () => {
     test('ignores audit entries without Methods.Code', () => {
         assert.strictEqual((0, methodHistoryParsing_1.extractCodeFromChangeValues)('102,42'), undefined);
     });
+    test('reads Modules.Code using its attribute id', () => {
+        assert.strictEqual((0, methodHistoryParsing_1.extractCodeFromChangeValues)('180,"begin\r\nend;",102,42', 180), 'begin\r\nend;');
+    });
     test('reads legacy unquoted and empty values', () => {
         assert.strictEqual((0, methodHistoryParsing_1.extractCodeFromChangeValues)('127,begin end,102,42'), 'begin end');
         assert.strictEqual((0, methodHistoryParsing_1.extractCodeFromChangeValues)('127,,102,42'), '');

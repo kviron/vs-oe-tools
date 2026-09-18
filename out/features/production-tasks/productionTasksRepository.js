@@ -42,6 +42,7 @@ exports.productionTaskByIdSql = productionTaskByIdSql;
 exports.productionTaskReferenceSql = productionTaskReferenceSql;
 exports.productionTaskSearchSql = productionTaskSearchSql;
 exports.productionTaskAttachmentsSql = productionTaskAttachmentsSql;
+exports.productionTaskRichDescriptionSql = productionTaskRichDescriptionSql;
 exports.productionTaskHistorySql = productionTaskHistorySql;
 exports.productionTaskActionsSql = productionTaskActionsSql;
 exports.loadProductionTaskActions = loadProductionTaskActions;
@@ -50,6 +51,7 @@ exports.loadProductionTaskHistory = loadProductionTaskHistory;
 exports.loadProductionTasks = loadProductionTasks;
 exports.loadProductionTaskList = loadProductionTaskList;
 exports.loadProductionTaskById = loadProductionTaskById;
+exports.loadProductionTaskRichDescription = loadProductionTaskRichDescription;
 exports.loadProductionTasksByQuery = loadProductionTasksByQuery;
 exports.loadProductionTaskReference = loadProductionTaskReference;
 exports.createLoginParameters = createLoginParameters;
@@ -206,6 +208,17 @@ WHERE SF.SeniorID = ${taskId} OR SF.RootObj = ${taskId} OR SF.MainStoredFile IN
   (SELECT PSF.ID FROM StoredFiles PSF WHERE PSF.SeniorID = ${taskId} OR PSF.RootObj = ${taskId})
 ORDER BY SF.Name, SF.ID
 LIMIT 250`;
+}
+function productionTaskRichDescriptionSql(taskId) {
+    if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+        throw new Error('ID задачи для загрузки форматированного описания должен быть положительным целым числом.');
+    }
+    // Comment_Rich is the RTF value bound to the native wRichEdit. Load it only
+    // for an opened card: embedded images can make this field much larger than Comment.
+    return `SELECT COALESCE(CAST(left(T0.Comment_Rich, 8000000) AS VARCHAR(8000000)), '') AS richdescription
+FROM WorkDoc T0
+WHERE T0.ID = ${taskId}
+LIMIT 1`;
 }
 function productionTaskHistorySql(taskId) {
     if (!Number.isSafeInteger(taskId) || taskId <= 0) {
@@ -435,6 +448,14 @@ async function loadProductionTaskList(options, userFilter, logger, onTasksLoaded
 }
 async function loadProductionTaskById(options, id, logger) {
     return (await loadProductionTasksWithSql(options, productionTaskByIdSql(id), 'карточки задачи', logger, { id }))[0];
+}
+async function loadProductionTaskRichDescription(options, taskId, logger) {
+    return withProductionTaskConnection(options, 'форматированного описания задачи', logger, async (connection) => {
+        const response = await exchangeLogged(connection, (0, oenpProtocol_1.createReadonlyQueryPacket)(8, productionTaskRichDescriptionSql(taskId), options.personId), 'запрос форматированного описания задачи', logger, false, readonlyQueryTimeoutMs);
+        const richDescription = text((0, oenpProtocol_1.parseMemoryDataPacket)(response)[0]?.richdescription);
+        logger?.info('Форматированное описание задачи загружено.', { taskId, length: richDescription.length });
+        return richDescription;
+    });
 }
 async function loadProductionTasksByQuery(options, query, limit = 10, logger) {
     return loadProductionTasksWithSql(options, productionTaskSearchSql(query, limit), 'поиска задач', logger, { query, limit });

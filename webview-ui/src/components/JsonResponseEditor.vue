@@ -1,20 +1,38 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue';
 import { json } from '@codemirror/lang-json';
+import { findNext, findPrevious, search, SearchQuery, setSearchQuery } from '@codemirror/search';
 import { EditorState, RangeSetBuilder } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { cn } from '@/lib/utils';
 
-const props = withDefaults(defineProps<{ modelValue?: string; ariaLabel?: string; class?: HTMLAttributes['class'] }>(), {
-  modelValue: '', ariaLabel: 'Ответ HTTP API', class: undefined,
+const props = withDefaults(defineProps<{ modelValue?: string; searchQuery?: string; ariaLabel?: string; class?: HTMLAttributes['class'] }>(), {
+  modelValue: '', searchQuery: '', ariaLabel: 'Ответ HTTP API', class: undefined,
 });
-const emit = defineEmits<{ openObject: [id: number] }>();
+const emit = defineEmits<{ openObject: [id: number]; searchCount: [count: number] }>();
 const host = ref<HTMLElement>();
 const nonce = document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')?.content ?? '';
 const objectIdPattern = /\b[1-9]\d{6,}\b/gu;
 let view: EditorView | undefined;
+
+function applySearch(): void {
+  if (!view) return;
+  const query = new SearchQuery({ search: props.searchQuery, literal: true });
+  view.dispatch({ effects: setSearchQuery.of(query) });
+  let count = 0;
+  if (query.valid) {
+    const cursor = query.getCursor(view.state);
+    for (let next = cursor.next(); !next.done; next = cursor.next()) count += 1;
+  }
+  emit('searchCount', count);
+}
+
+function findNextMatch(): void { if (view) findNext(view); }
+function findPreviousMatch(): void { if (view) findPrevious(view); }
+
+defineExpose({ findNextMatch, findPreviousMatch });
 
 function objectIdDecorations(editor: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
@@ -38,7 +56,10 @@ const objectIdLinks = ViewPlugin.fromClass(class {
 watch(() => props.modelValue, value => {
   if (!view || view.state.doc.toString() === value) return;
   view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
+  applySearch();
 });
+
+watch(() => props.searchQuery, applySearch);
 
 onMounted(() => {
   if (!host.value) return;
@@ -48,6 +69,7 @@ onMounted(() => {
     extensions: [
       basicSetup,
       json(),
+      search({ top: true }),
       EditorView.cspNonce.of(nonce),
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
@@ -73,6 +95,7 @@ onMounted(() => {
       }),
     ],
   });
+  applySearch();
 });
 
 onBeforeUnmount(() => view?.destroy());

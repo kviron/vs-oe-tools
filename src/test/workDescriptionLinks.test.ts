@@ -30,4 +30,12 @@ suite('Production task work description links', () => {
 			{ text: ', список 12345, значение 99999999999999999999.' },
 		]);
 	});
+
+	test('treats standalone task-sized numbers as tasks for commit comments', () => {
+		assert.deepEqual(splitWorkDescriptionObjectIds('Исправлено по 88212 в 2026 году', 'task'), [
+			{ text: 'Исправлено по ' },
+			{ text: '88212', id: 88212, kind: 'task' },
+			{ text: ' в 2026 году' },
+		]);
+	});
 });

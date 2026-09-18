@@ -7,6 +7,24 @@ Deploy only through the native client MCP: verify the target database, read
 read it back. Keep the existing package binding and synchronize via the normal
 package workflow. The extension does not silently install database code.
 
+## Sending large source code through client MCP
+
+`class_method_change` still uses GET. If the encoded URL would exceed 16,000
+characters, the extension checks `/health` for `methodCodeFile: vcve-code-file-v1`
+and uses a one-use UTF-8 JSON file in the shared local OS temp directory.
+The request carries only `arguments={"Member":"..."}` and a random 32-character
+hex `codeToken`. The native adapter in `aiMCP.http_ProcessRequest` (12464784)
+constructs the filename itself, checks the protocol and member, removes the
+file, and delegates to the unchanged `class_method_change` tool.
+Both numeric and string `Member` values are accepted by the extension and
+normalized to the string form required by the file protocol.
+
+This requires the updated native adapter and a client MCP restart. The file is
+limited to 2 MiB including its JSON envelope. Other tools, remote servers, and
+clients without this capability retain the existing URL limit. The extension
+also removes unconsumed files on failure and never automatically retries a
+mutation. Read the method back after any uncertain result.
+
 The HTTP API panel defaults to direct execution. Each explicit invocation starts
 one `OEExecTask.exe` using the configured project database and saved client login.
 It passes only the selected method name and unique request/response file paths
@@ -51,7 +69,49 @@ Timeout/cancellation cannot undo changes already made. Requests are limited to
 Per-call files are removed after process completion. Request history retains
 parameter values locally in the webview, as with HTTP requests.
 
-## Verified on 2026-09-15
+## Refactored source layout
+
+The source now separates launch authorization, parameter conversion, handler
+execution, and transport code:
+
+- `CheckDeveloperAccess`: the existing username/role launch check.
+- `ValidateParameterNames`, `BuildArguments`, `ConvertParameter`, and
+  `CreateApiParameter`: shared validation, native defaults and JSON conversion.
+- `ExecuteHandler` and `WriteResult`: one invocation and serialization path,
+  retaining temporary objects through invocation and serialization.
+- `ExecuteDirect`: the unchanged `vcve-direct-v1` file envelope.
+- `ReadHttpParameters`, `RespondToHttpRequest`, and `RunHttpServer`: the legacy
+  listener and HTTP response handling.
+
+The HTTP branch now uses the same template-handler adapter and `APIПараметр`
+conversion as the direct branch. Its successful response remains an unwrapped
+JSON value; direct results retain `result` and `outParameters`. HTTP scalar
+results are JSON-serialized rather than passed through `ToStr`.
+
+This refactor does not resolve every review finding: the access check still
+uses the supplied username, and the HTTP adapter still treats empty values as
+omitted and gives `.json` precedence. Wildcard startup is blocked by the
+extension, but the native listener's existing wildcard branch remains. These
+behaviors require separate changes and native regression checks.
+
+The refactored source must be compiled and smoke-tested in the native runtime
+before it is considered verified. Recheck the following after deployment:
+
+| Case | Expected result |
+| --- | --- |
+| Direct `mcpGetTools`, no parameters | Successful file envelope, unchanged catalog shape |
+| Direct and HTTP `АнкетыСписок`, defaults and `ЧислоСтрок=1` | Successful template execution; one row with the limit |
+| Direct and HTTP `APIПараметр` JSON | Native attribute conversion, not a storage object substituted for the parameter |
+| Direct read-only `SQL_GetData` with Cyrillic and `00123` | Exact text and leading zeros retained |
+| Direct unknown/duplicate/missing parameters | Error before invocation |
+| HTTP method different from the allowed method | Error without invoking the handler |
+| HTTP string/scalar result | Valid JSON without a `result` wrapper |
+| Direct protocol/name mismatch | Error envelope; handler not invoked |
+
+The native checks below describe the pre-refactor implementation, not the
+refactored snapshot.
+
+## Baseline verified on 2026-09-15
 
 Native execution in `oetrunk`: `АнкетыСписок` with omitted/default parameters,
 empty JSON, and `ЧислоСтрок=1` (one row); `mcpGetTools` without arguments;

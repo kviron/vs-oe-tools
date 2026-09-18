@@ -1,8 +1,13 @@
 import * as assert from 'node:assert/strict';
 import { appendPkfObjects, createEmptyPkf, extractPkfObjectIds, parseSerializedAttributeValues, serializePkfObject } from '../features/package-sync/pkfDatabaseReconstruction';
-import { requireSingleMetaOwner, serializePkfMetaFile } from '../features/package-sync/pkfMetaReconstruction';
+import { appendPkfMetaMembers, metaPkfOwnerQuery, replacePkfMetaSection, requireSingleMetaOwner, serializePkfMetaFile } from '../features/package-sync/pkfMetaReconstruction';
 
 suite('PKF database reconstruction', () => {
+	test('uses the default value owner instead of the inherited attribute owner', () => {
+		assert.match(metaPkfOwnerQuery, /SELECT D\.SeniorID AS OwnerID FROM Abstract A JOIN DfltValues D/u);
+		assert.doesNotMatch(metaPkfOwnerQuery, /DfltValues D[^\n]+JOIN Attributes Attr/u);
+	});
+
 	test('resolves a member-only meta PKF to its owning class', () => {
 		assert.equal(requireSingleMetaOwner([3200139, 3200139], 23479325), 3200139);
 		assert.throws(() => requireSingleMetaOwner([], 23479325), /class-owner|класс-владелец/iu);
@@ -120,5 +125,72 @@ suite('PKF database reconstruction', () => {
 		assert.match(result, /private\r\n    var Объект: embedded BaseClass notstored \[_Ид='3200140',РольДляЧтения='0',РольДляЗаписи='0',ПровСсылЦел='1'\];/u);
 		assert.match(result, /class var Объект = '0' \[ЗначАтрПоУмолчанию\._Ид='3200141'\];/u);
 		assert.match(result, /procedure Открыть '' \[_Ид='3200142'\]\r\n    \{\{\r\n    procedure Открыть;/u);
+	});
+
+	test('replaces the meta section of a mixed PKF and preserves its data section', () => {
+		const source = [
+			'file',
+			'meta',
+			"  OldClass = class(BaseClass) [_Ид='100']",
+			'  end;',
+			'data',
+			'  object Existing: StoredClass',
+			"    _Ид = '200';",
+			'  end;',
+			'end.',
+			'',
+		].join('\r\n');
+		const currentMeta = [
+			'file',
+			'meta',
+			"  CurrentClass = class(BaseClass) [_Ид='100']",
+			'  public',
+			"    procedure Added '' [_Ид='3200180']",
+			'    {{',
+			'    procedure Added;',
+			'    begin',
+			'    end};',
+			'  end;',
+			'end.',
+			'',
+		].join('\r\n');
+
+		const result = replacePkfMetaSection(source, currentMeta);
+		assert.match(result, /CurrentClass.*3200180/su);
+		assert.doesNotMatch(result, /OldClass/u);
+		assert.match(result, /data\r\n  object Existing: StoredClass\r\n    _Ид = '200';/u);
+		assert.equal((result.match(/^data$/gmu) ?? []).length, 1);
+		assert.equal((result.match(/^end\.$/gmu) ?? []).length, 1);
+	});
+
+	test('adds a method to its owner in a mixed PKF with multiple meta classes', () => {
+		const source = [
+			'file',
+			'meta',
+			"  First = class(BaseClass) [_Ид='60100']",
+			'  public',
+			"    procedure Existing '' [_Ид='60101']",
+			'    {{',
+			'    procedure Existing;',
+			'    begin',
+			'    end;',
+			'    }};',
+			'  end;',
+			"  Second = class(BaseClass) [_Ид='2122235']",
+			'  end;',
+			'data',
+			'end.',
+			'',
+		].join('\r\n');
+
+		const result = appendPkfMetaMembers(source, 60100, [{
+			kind: 'method', id: 3200180, name: 'Added', aliases: '', visibility: 'public', methodKind: 0,
+			signature: '', code: 'procedure Added;\r\nbegin\r\nend',
+		}]);
+		const firstEnd = result.indexOf("  end;\r\n  Second = class");
+		assert.ok(firstEnd > 0);
+		assert.ok(result.indexOf("[_Ид='3200180']") < firstEnd);
+		assert.match(result, /Second = class\(BaseClass\) \[_Ид='2122235'\]\r\n  end;/u);
+		assert.equal((result.match(/\[_Ид='3200180'\]/gu) ?? []).length, 1);
 	});
 });

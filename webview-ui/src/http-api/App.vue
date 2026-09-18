@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SettingsHostMessage, SettingsState } from '../../../src/core/webviewProtocol';
 import { parseHttpMethodDocumentation } from '../../../src/features/http-api/httpParameterDocumentation';
-import { AlertCircleIcon, ApiIcon, ArrowDown01Icon, CheckmarkCircle02Icon, Clock01Icon, Copy01Icon, Delete02Icon, PlayIcon, SourceCodeIcon, StopIcon } from '@hugeicons/core-free-icons';
+import { AlertCircleIcon, ApiIcon, ArrowDown01Icon, ArrowUp01Icon, CheckmarkCircle02Icon, Clock01Icon, Copy01Icon, Delete02Icon, Download04Icon, PlayIcon, Search01Icon, SourceCodeIcon, StopIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -13,6 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import HttpVerbSelect from './HttpVerbSelect.vue';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -40,7 +41,7 @@ type Parameter = {
   referenceType?: string;
   description?: string;
 };
-type Response = { execution?: 'direct'; status: number; statusText: string; durationMs: number; headers: Record<string, string>; body: string };
+type Response = { execution?: 'direct'; status: number; statusText: string; durationMs: number; headers: Record<string, string>; cookies: string[]; body: string; bodySizeBytes: number; contentType: string; url: string; redirected: boolean };
 type ApiRequest = { method: string; url: string; headers: Record<string, string>; body?: string; direct?: { methodName: string; parameters: Record<string, string> } };
 type RequestSource = 'method' | 'manual';
 type HistoryEntry = {
@@ -65,6 +66,10 @@ const manualHeaders = ref('{\n  "Accept": "application/json"\n}');
 const manualBody = ref('');
 const activeRequestTab = ref<RequestSource | 'history'>('method');
 const responseTab = ref('body');
+const responseSearch = ref('');
+const responseSearchCount = ref(0);
+const responseReceivedAt = ref<string>();
+const responseEditor = ref<InstanceType<typeof JsonResponseEditor>>();
 const busy = ref(false);
 const serverAction = ref<'start' | 'stop'>();
 const switchQueued = ref(false);
@@ -87,9 +92,27 @@ const connectionStatus = computed(() => {
   return 'Запустите сервер один раз — дальше он будет переключаться вместе с выбранным методом.';
 });
 const responseHeaders = computed(() => Object.entries(result.value?.response?.headers ?? {}).sort(([left], [right]) => left.localeCompare(right)));
+const responseCookies = computed(() => result.value?.response?.cookies ?? []);
+const responseContentType = computed(() => result.value?.response?.contentType || 'не указан');
 const formattedResponseBody = computed(() => {
   const body = result.value?.response?.body ?? '';
   try { return JSON.stringify(JSON.parse(body), null, 2); } catch { return body; }
+});
+const responseInfo = computed(() => {
+  const response = result.value?.response;
+  if (!response) return [];
+  return [
+    ['Способ выполнения', response.execution === 'direct' ? 'Прямой вызов OEExecTask' : 'HTTP'],
+    ['URL', response.url || activeRequest.value?.request.url || '—'],
+    ['Статус', response.execution === 'direct' ? response.statusText : `${response.status} ${response.statusText}`.trim()],
+    ['Время', `${response.durationMs.toLocaleString('ru-RU')} мс`],
+    ['Размер', formatBytes(response.bodySizeBytes)],
+    ['Content-Type', responseContentType.value],
+    ['Заголовков', responseHeaders.value.length.toLocaleString('ru-RU')],
+    ['Cookies', responseCookies.value.length.toLocaleString('ru-RU')],
+    ['Перенаправление', response.redirected ? 'Да' : 'Нет'],
+    ['Получен', responseReceivedAt.value ? new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(responseReceivedAt.value)) : '—'],
+  ];
 });
 const manualHeadersError = computed(() => validateHeaders(manualHeaders.value));
 const manualBodyError = computed(() => validateManualBody());
@@ -319,6 +342,8 @@ function executeRequest(request: ApiRequest, source: RequestSource, label: strin
   busy.value = true;
   activeRequest.value = { request, source, label };
   responseTab.value = 'body';
+  responseSearchCount.value = 0;
+  responseReceivedAt.value = undefined;
   if (request.direct) vscode.postMessage({ command: 'executeDirectHttpMethod', ...request.direct });
   else vscode.postMessage({ command: 'executeHttpApiRequest', ...request });
 }
@@ -348,6 +373,32 @@ function sendManualRequest(): void {
 
 function shellQuote(value: string): string { return `'${value.replace(/'/gu, `'"'"'`)}'`; }
 function copyText(text: string, notification: string): void { vscode.postMessage({ command: 'copyHttpApiRequest', text, notification }); }
+
+function formatBytes(value: number): string {
+  if (value < 1024) return `${value.toLocaleString('ru-RU')} байт`;
+  if (value < 1024 * 1024) return `${(value / 1024).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} КБ`;
+  return `${(value / 1024 / 1024).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} МБ`;
+}
+
+function responseFileExtension(contentType: string): string {
+  if (/json/iu.test(contentType)) return 'json';
+  if (/html/iu.test(contentType)) return 'html';
+  if (/xml/iu.test(contentType)) return 'xml';
+  if (/csv/iu.test(contentType)) return 'csv';
+  return 'txt';
+}
+
+function saveResponse(): void {
+  const response = result.value?.response;
+  if (!response) return;
+  const timestamp = new Date().toISOString().replace(/[:.]/gu, '-');
+  vscode.postMessage({
+    command: 'saveHttpApiResponse',
+    text: response.body,
+    fileName: `http-response-${timestamp}.${responseFileExtension(response.contentType)}`,
+    contentType: response.contentType,
+  });
+}
 
 function copyForPostman(request: ApiRequest | undefined): void {
   if (!request) { return; }
@@ -432,6 +483,7 @@ window.addEventListener('message', (event: MessageEvent<SettingsHostMessage>) =>
     result.value = undefined;
   } else if (message.command === 'httpApiRequestFinished') {
     busy.value = false;
+    responseReceivedAt.value = new Date().toISOString();
     result.value = message.success ? { response: message.response } : { error: message.message };
     completeHistory(message.success ? message.response : undefined, message.success ? undefined : message.message);
     flushServerSwitch();
@@ -547,8 +599,45 @@ vscode.postMessage({ command: 'settingsReady' });
 
     <section aria-label="Результат запроса" class="min-w-0 xl:sticky xl:top-6 xl:pt-10">
     <Card class="min-h-96">
-      <CardHeader><CardTitle>Ответ</CardTitle><CardDescription v-if="result?.response">{{ result.response.durationMs }} мс · {{ result.response.body.length.toLocaleString('ru-RU') }} символов · {{ result.response.execution === 'direct' ? 'Прямой вызов, не HTTP' : `${responseHeaders.length} заголовков` }}</CardDescription><CardDescription v-else-if="result?.error" class="text-destructive">Запрос завершился ошибкой</CardDescription><CardDescription v-else>Результат следующего запроса появится здесь.</CardDescription><CardAction v-if="result?.response" class="flex items-center gap-2"><Badge :variant="result.response.status >= 400 ? 'destructive' : 'secondary'">{{ result.response.execution === 'direct' ? '' : result.response.status }} {{ result.response.statusText }}</Badge><Button variant="outline" size="sm" @click="copyText(formattedResponseBody, 'Ответ скопирован.')"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Копировать</Button></CardAction></CardHeader>
-      <CardContent v-if="result?.response"><Tabs v-model="responseTab"><TabsList variant="line"><TabsTrigger value="body">Body</TabsTrigger><TabsTrigger v-if="!result.response.execution" value="headers">Headers <Badge variant="secondary">{{ responseHeaders.length }}</Badge></TabsTrigger><TabsTrigger value="raw">Raw</TabsTrigger></TabsList><TabsContent value="body"><JsonResponseEditor class="h-[28rem]" :model-value="formattedResponseBody" @open-object="openDatabaseObject" /></TabsContent><TabsContent value="headers"><Table><TableHeader><TableRow><TableHead class="w-64">Заголовок</TableHead><TableHead>Значение</TableHead></TableRow></TableHeader><TableBody><TableRow v-for="([name, value]) in responseHeaders" :key="name"><TableCell class="font-medium">{{ name }}</TableCell><TableCell class="break-all font-mono">{{ value }}</TableCell></TableRow></TableBody></Table></TabsContent><TabsContent value="raw"><Textarea :model-value="result.response.body" readonly class="min-h-64 resize-y font-mono" aria-label="Ответ без форматирования" /></TabsContent></Tabs></CardContent>
+      <CardHeader>
+        <CardTitle>Ответ</CardTitle>
+        <CardDescription v-if="result?.response">{{ result.response.durationMs }} мс · {{ formatBytes(result.response.bodySizeBytes) }} · {{ responseContentType }}</CardDescription>
+        <CardDescription v-else-if="result?.error" class="text-destructive">Запрос завершился ошибкой</CardDescription>
+        <CardDescription v-else>Результат следующего запроса появится здесь.</CardDescription>
+        <CardAction v-if="result?.response" class="flex flex-wrap items-center justify-end gap-2">
+          <Badge :variant="result.response.status >= 400 ? 'destructive' : 'secondary'">{{ result.response.execution === 'direct' ? '' : result.response.status }} {{ result.response.statusText }}</Badge>
+          <Button variant="outline" size="sm" @click="copyText(formattedResponseBody, 'Ответ скопирован.')"><HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />Копировать</Button>
+          <Button variant="outline" size="sm" @click="saveResponse"><HugeiconsIcon :icon="Download04Icon" data-icon="inline-start" />Сохранить</Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent v-if="result?.response" class="flex flex-col gap-3">
+        <Field class="gap-1.5">
+          <FieldLabel for="response-search" class="sr-only">Поиск по ответу</FieldLabel>
+          <InputGroup>
+            <InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon>
+            <InputGroupInput id="response-search" v-model="responseSearch" type="search" placeholder="Поиск по ответу…" />
+            <InputGroupAddon align="inline-end">
+              <span class="tabular-nums">{{ responseSearch ? responseSearchCount : 0 }}</span>
+              <InputGroupButton size="icon-xs" variant="ghost" aria-label="Предыдущее совпадение" :disabled="!responseSearchCount" @click="responseEditor?.findPreviousMatch()"><HugeiconsIcon :icon="ArrowUp01Icon" /></InputGroupButton>
+              <InputGroupButton size="icon-xs" variant="ghost" aria-label="Следующее совпадение" :disabled="!responseSearchCount" @click="responseEditor?.findNextMatch()"><HugeiconsIcon :icon="ArrowDown01Icon" /></InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+        </Field>
+        <Tabs v-model="responseTab">
+          <TabsList variant="line" class="h-auto flex-wrap">
+            <TabsTrigger value="body">Body</TabsTrigger>
+            <TabsTrigger v-if="!result.response.execution" value="headers">Headers <Badge variant="secondary">{{ responseHeaders.length }}</Badge></TabsTrigger>
+            <TabsTrigger v-if="!result.response.execution" value="cookies">Cookies <Badge variant="secondary">{{ responseCookies.length }}</Badge></TabsTrigger>
+            <TabsTrigger value="raw">Raw</TabsTrigger>
+            <TabsTrigger value="info">Info</TabsTrigger>
+          </TabsList>
+          <TabsContent value="body"><JsonResponseEditor ref="responseEditor" class="h-[28rem]" :model-value="formattedResponseBody" :search-query="responseSearch" @search-count="responseSearchCount = $event" @open-object="openDatabaseObject" /></TabsContent>
+          <TabsContent value="headers"><Table><TableHeader><TableRow><TableHead class="w-64">Заголовок</TableHead><TableHead>Значение</TableHead></TableRow></TableHeader><TableBody><TableRow v-for="([name, value]) in responseHeaders" :key="name"><TableCell class="font-medium">{{ name }}</TableCell><TableCell class="break-all font-mono">{{ value }}</TableCell></TableRow></TableBody></Table></TabsContent>
+          <TabsContent value="cookies"><Table v-if="responseCookies.length"><TableHeader><TableRow><TableHead class="w-12">#</TableHead><TableHead>Set-Cookie</TableHead></TableRow></TableHeader><TableBody><TableRow v-for="(cookie, index) in responseCookies" :key="`${index}-${cookie}`"><TableCell>{{ index + 1 }}</TableCell><TableCell class="break-all font-mono">{{ cookie }}</TableCell></TableRow></TableBody></Table><Empty v-else><EmptyHeader><EmptyTitle>Cookies нет</EmptyTitle><EmptyDescription>Ответ не содержит заголовков Set-Cookie.</EmptyDescription></EmptyHeader></Empty></TabsContent>
+          <TabsContent value="raw"><Textarea :model-value="result.response.body" readonly class="min-h-64 resize-y font-mono" aria-label="Ответ без форматирования" /></TabsContent>
+          <TabsContent value="info"><Table><TableBody><TableRow v-for="([name, value]) in responseInfo" :key="name"><TableCell class="w-52 font-medium">{{ name }}</TableCell><TableCell class="break-all font-mono">{{ value }}</TableCell></TableRow></TableBody></Table></TabsContent>
+        </Tabs>
+      </CardContent>
       <CardContent v-else-if="result?.error"><Alert variant="destructive"><HugeiconsIcon :icon="AlertCircleIcon" /><AlertTitle>Не удалось выполнить запрос</AlertTitle><AlertDescription>{{ result.error }}</AlertDescription></Alert></CardContent>
       <CardContent v-else-if="busy" class="flex flex-col gap-3"><p class="text-xs text-muted-foreground" role="status">Ожидаем результат выполнения…</p><Skeleton class="h-5 w-2/3" /><Skeleton class="h-5 w-full" /><Skeleton class="h-5 w-4/5" /></CardContent>
       <CardContent v-else class="flex flex-1 items-center justify-center"><Empty><EmptyHeader><EmptyMedia variant="icon"><HugeiconsIcon :icon="ApiIcon" /></EmptyMedia><EmptyTitle>Готов к первому запросу</EmptyTitle><EmptyDescription>Здесь появятся статус, время выполнения и содержимое ответа.</EmptyDescription></EmptyHeader></Empty></CardContent>

@@ -9,6 +9,9 @@ suite('Navigation bridge', () => {
 		let openedMethod: number | undefined;
 		let revealedMethod: { classId: number; methodId: number } | undefined;
 		let updatedMethod: { methodId: number; code: string } | undefined;
+		let updatedModule: { moduleId: number; code: string; expectedDatabase: string; expectedHost: string; expectedPort: number } | undefined;
+		let packageBinding: { objectIds: number[]; templateObjectId?: number; expectedDatabase: string;
+			expectedHost: string; expectedPort: number } | undefined;
 		let updatedDatabase: 'main' | 'test' | undefined;
 		let startedClient: 'main' | 'test' | undefined;
 		let productionTaskQuery: { query?: string; limit: number } | undefined;
@@ -27,6 +30,14 @@ suite('Navigation bridge', () => {
 			updateMethodSource: async (methodId, code) => {
 				updatedMethod = { methodId, code };
 				return { methodId, changed: true };
+			},
+			updateModuleSource: async (moduleId, code, expectedDatabase, expectedHost, expectedPort) => {
+				updatedModule = { moduleId, code, expectedDatabase, expectedHost, expectedPort };
+				return { moduleId, changed: true };
+			},
+			bindObjectsToPackage: async request => {
+				packageBinding = request;
+				return { database: request.expectedDatabase, changedObjectIds: request.objectIds };
 			},
 			createClassAttribute: async draft => {
 				createdAttributeName = draft.name;
@@ -84,6 +95,27 @@ suite('Navigation bridge', () => {
 			});
 			assert.equal(updateResponse.status, 200);
 			assert.deepEqual(updatedMethod, { methodId: 3200110, code: 'begin\r\nend' });
+			const updateModuleResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'update_module_source', id: 11894888, code: 'unit Report;\r\nend.',
+					expectedDatabase: 'oetrunk', expectedHost: 'localhost', expectedPort: 5432 }),
+			});
+			assert.equal(updateModuleResponse.status, 200);
+			assert.deepEqual(updatedModule, { moduleId: 11894888, code: 'unit Report;\r\nend.',
+				expectedDatabase: 'oetrunk', expectedHost: 'localhost', expectedPort: 5432 });
+			const bindingResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'bind_objects_to_package', objectIds: [3200234, 10826482],
+					templateObjectId: 10826480, expectedDatabase: 'oetrunk', expectedHost: 'localhost', expectedPort: 5432 }),
+			});
+			assert.equal(bindingResponse.status, 200);
+			assert.deepEqual(packageBinding, {
+				objectIds: [3200234, 10826482], templateObjectId: 10826480, sysFileId: undefined,
+				expectedDatabase: 'oetrunk', expectedHost: 'localhost', expectedPort: 5432,
+			});
+			assert.deepEqual((await bindingResponse.json() as { changedObjectIds: number[] }).changedObjectIds, [3200234, 10826482]);
 			const attributeResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

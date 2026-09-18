@@ -1,8 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.metaPkfOwnerQuery = void 0;
 exports.requireSingleMetaOwner = requireSingleMetaOwner;
 exports.serializePkfMetaFile = serializePkfMetaFile;
+exports.replacePkfMetaSection = replacePkfMetaSection;
+exports.appendPkfMetaMembers = appendPkfMetaMembers;
 const visibilityOrder = ['private', 'protected', 'public', 'published'];
+exports.metaPkfOwnerQuery = `SELECT DISTINCT OwnerID AS id FROM (
+	 SELECT C.ID AS OwnerID FROM Abstract A JOIN Classes C ON C.ID = A.ID WHERE A.SysFile = $1
+	 UNION ALL SELECT Attr.SeniorID AS OwnerID FROM Abstract A JOIN Attributes Attr ON Attr.ID = A.ID WHERE A.SysFile = $1
+	 UNION ALL SELECT M.SeniorID AS OwnerID FROM Abstract A JOIN Methods M ON M.ID = A.ID WHERE A.SysFile = $1
+	 UNION ALL SELECT D.SeniorID AS OwnerID FROM Abstract A JOIN DfltValues D ON D.ID = A.ID WHERE A.SysFile = $1
+) Owners WHERE OwnerID IS NOT NULL ORDER BY OwnerID`;
 function requireSingleMetaOwner(ownerIds, fileId) {
     const unique = [...new Set(ownerIds.filter(Number.isSafeInteger))];
     if (unique.length === 1) {
@@ -45,6 +54,89 @@ function serializePkfMetaFile(metaClass, members, newline = '\r\n') {
     }
     lines.push('  end;', 'end.', '');
     return lines.join(newline);
+}
+/** Replaces only the meta section of a mixed Meta/Data PKF. */
+function replacePkfMetaSection(source, serializedMetaFile) {
+    const sourceMeta = findSectionMarker(source, 'meta');
+    const sourceData = findSectionMarker(source, 'data', sourceMeta.end);
+    const generatedMeta = findSectionMarker(serializedMetaFile, 'meta');
+    const generatedEnd = findSectionMarker(serializedMetaFile, 'end.', generatedMeta.end);
+    if (findSectionMarkerOptional(serializedMetaFile, 'data', generatedMeta.end)) {
+        throw new Error('Сериализованная meta-секция неожиданно содержит секцию data.');
+    }
+    const newline = source.includes('\r\n') ? '\r\n' : '\n';
+    const generatedSection = serializedMetaFile
+        .slice(generatedMeta.start, generatedEnd.start)
+        .replace(/\r\n|\r|\n/g, newline);
+    return `${source.slice(0, sourceMeta.start)}${generatedSection}${source.slice(sourceData.start)}`;
+}
+/** Adds members to one existing class without rebuilding other classes in the same meta section. */
+function appendPkfMetaMembers(source, ownerId, members) {
+    if (!members.length) {
+        return source;
+    }
+    const ownerPattern = new RegExp(`^  .*\\bclass\\([^\\r\\n]*\\)[^\\r\\n]*\\[_Ид\\s*=\\s*'${ownerId}'(?:,|\\])`, 'gmu');
+    const owners = [...source.matchAll(ownerPattern)];
+    if (owners.length !== 1 || owners[0]?.index === undefined) {
+        throw new Error(`В смешанном Meta/Data-PKF ожидался один блок класса-владельца ${ownerId}, найдено: ${owners.length}.`);
+    }
+    const classEnd = findMetaClassEnd(source, owners[0].index + owners[0][0].length);
+    const existingIds = extractMetaIds(source);
+    const duplicates = members.filter(member => existingIds.has(member.id));
+    if (duplicates.length) {
+        throw new Error(`Meta-объекты уже присутствуют в PKF: ${duplicates.map(member => member.id).join(', ')}.`);
+    }
+    const newline = source.includes('\r\n') ? '\r\n' : '\n';
+    const lines = [];
+    for (const visibility of visibilityOrder) {
+        const sectionMembers = members.filter(member => member.visibility === visibility).sort((left, right) => left.id - right.id);
+        if (!sectionMembers.length) {
+            continue;
+        }
+        lines.push(`  ${visibility}`);
+        for (const member of sectionMembers) {
+            if (lines.length > 1) {
+                lines.push('');
+            }
+            lines.push(...serializeMember(member, newline));
+        }
+    }
+    const insertion = `${lines.join(newline)}${newline}`;
+    return `${source.slice(0, classEnd)}${insertion}${source.slice(classEnd)}`;
+}
+function findMetaClassEnd(source, from) {
+    let blockDepth = 0;
+    for (const match of source.slice(from).matchAll(/\{\{|\}\}|^  end;[ \t]*$/gmu)) {
+        if (match[0] === '{{') {
+            blockDepth++;
+            continue;
+        }
+        if (match[0] === '}}') {
+            blockDepth = Math.max(0, blockDepth - 1);
+            continue;
+        }
+        if (blockDepth === 0 && match.index !== undefined) {
+            return from + match.index;
+        }
+    }
+    throw new Error('Не найдена граница класса в смешанном Meta/Data-PKF.');
+}
+function extractMetaIds(source) {
+    return new Set([...source.matchAll(/(?:^|[.\[\s])_Ид\s*=\s*'(\d+)'/gmu)].map(match => Number(match[1])));
+}
+function findSectionMarker(source, marker, from = 0) {
+    const found = findSectionMarkerOptional(source, marker, from);
+    if (!found) {
+        throw new Error(`В PKF не найдена секция ${marker}.`);
+    }
+    return found;
+}
+function findSectionMarkerOptional(source, marker, from = 0) {
+    const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escapedMarker}[ \\t]*$`, 'gmu');
+    pattern.lastIndex = from;
+    const match = pattern.exec(source);
+    return match?.index === undefined ? undefined : { start: match.index, end: pattern.lastIndex };
 }
 function serializeMember(member, newline) {
     if (member.kind === 'attribute') {

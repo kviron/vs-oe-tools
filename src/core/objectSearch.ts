@@ -1,4 +1,4 @@
-export type DatabaseObjectKind = 'class' | 'method' | 'attribute' | 'lifecycle' | 'journal' | 'list' | 'object';
+export type DatabaseObjectKind = 'class' | 'method' | 'module' | 'attribute' | 'lifecycle' | 'journal' | 'list' | 'object';
 
 export interface DatabaseObjectSearchRow extends Record<string, unknown> {
 	id: number | string;
@@ -70,6 +70,9 @@ export function mapDatabaseObject(row: DatabaseObjectSearchRow): DatabaseObjectS
 
 function domainObjectKind(metaClassName: string): DatabaseObjectKind {
 	const normalized = metaClassName.toLocaleLowerCase('ru').replace(/\s/g, '');
+	if (normalized === 'модуль') {
+		return 'module';
+	}
 	if (normalized.includes('жизненныйцикл')) {
 		return 'lifecycle';
 	}

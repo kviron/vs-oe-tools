@@ -22,7 +22,7 @@ function openSpecialized(): void { vscode.postMessage({ command: 'openPackageCon
         <Button variant="ghost" size="icon-xs" :disabled="!hasChildren" :aria-label="open ? 'Свернуть' : 'Развернуть'" class="shrink-0 disabled:opacity-0" data-copy-ignore @click.stop="open = !open">
           <HugeiconsIcon :icon="ArrowRight01Icon" class="transition-transform" :class="{ 'rotate-90': open }" aria-hidden="true" />
         </Button>
-        <HugeiconsIcon :icon="node.kind === 'method' ? CodeIcon : DatabaseIcon" class="mr-1 shrink-0" aria-hidden="true" data-copy-ignore />
+        <HugeiconsIcon :icon="node.kind === 'method' || node.kind === 'module' ? CodeIcon : DatabaseIcon" class="mr-1 shrink-0" aria-hidden="true" data-copy-ignore />
         <span>{{ node.name }}</span>
       </div>
     </TableCell>

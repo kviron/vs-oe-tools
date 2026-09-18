@@ -76,6 +76,13 @@ suite('OENP protocol', () => {
         assert.match(sql, /LIMIT 250$/);
         assert.throws(() => (0, productionTasksRepository_1.productionTaskAttachmentsSql)(0), /положительным целым/);
     });
+    test('loads native rich text only for the exact opened task', () => {
+        const sql = (0, productionTasksRepository_1.productionTaskRichDescriptionSql)(932868211);
+        assert.match(sql, /T0\.Comment_Rich/);
+        assert.match(sql, /WHERE T0\.ID = 932868211/);
+        assert.match(sql, /LIMIT 1/);
+        assert.throws(() => (0, productionTasksRepository_1.productionTaskRichDescriptionSql)(0), /положительным целым/);
+    });
     test('builds a bounded read-only lifecycle history query', () => {
         const sql = (0, productionTasksRepository_1.productionTaskHistorySql)(934593105);
         assert.match(sql, /FROM HistoryLC H/);
@@ -167,6 +174,21 @@ suite('OENP protocol', () => {
         assert.deepEqual((0, oenpProtocol_1.parseMemoryDataPacket)(packet), [
             { id: 8928159, asql: 'T0.respperson = %CurrentPerson', cond: null, condint: null, classid: 40035 },
             { id: 10128376, asql: 'T0.executor = %CurrentPerson', cond: null, condint: null, classid: 40035 },
+        ]);
+    });
+    test('decodes Delphi Smallint fields used by attachment flags', () => {
+        const packet = Buffer.concat([
+            Buffer.from('MemoryDataPacket', 'ascii'),
+            Buffer.alloc(9), Buffer.from([2]),
+            Buffer.from([2]), Buffer.from('id', 'ascii'), Buffer.from([3, 0, 0, 0]),
+            Buffer.from([9]), Buffer.from('important', 'ascii'), Buffer.from([2, 0, 0, 0]),
+            Buffer.alloc(2), Buffer.from([2, 0, 0, 0]),
+            Buffer.from([1, 3, 0]), Buffer.from([42, 0, 0, 0]), Buffer.from([1, 0]),
+            Buffer.from([1, 3, 0]), Buffer.from([43, 0, 0, 0]), Buffer.from([0xff, 0xff]),
+        ]);
+        assert.deepEqual((0, oenpProtocol_1.parseMemoryDataPacket)(packet), [
+            { id: 42, important: 1 },
+            { id: 43, important: -1 },
         ]);
     });
     test('decodes Delphi WideString fields', () => {

@@ -6,7 +6,8 @@ import { buildHttpTestServerArguments, type OeMethodCredentials } from '../lifec
 export interface DirectHttpMethodRequest { methodName: string; parameters: Record<string, string> }
 export interface DirectHttpMethodResponse {
 	execution: 'direct'; status: number; statusText: string; durationMs: number;
-	headers: Record<string, string>; body: string;
+	headers: Record<string, string>; cookies: string[]; body: string; bodySizeBytes: number;
+	contentType: string; url: string; redirected: boolean;
 }
 const maximumRequestBytes = 1024 * 1024;
 const maximumResponseBytes = 16 * 1024 * 1024;
@@ -56,7 +57,11 @@ export function parseDirectHttpMethodResponse(bytes: Buffer, durationMs: number)
 	if (!envelope.ok) { throw new Error(typeof envelope.error === 'string' ? envelope.error : 'Ошибка выполнения метода.'); }
 	if (typeof envelope.body !== 'string') { throw new Error('Исполнитель не вернул тело результата.'); }
 	JSON.parse(envelope.body); // The transport must not silently turn broken serialization into success.
-	return { execution: 'direct', status: 0, statusText: 'Выполнено', durationMs, headers: {}, body: envelope.body };
+	return {
+		execution: 'direct', status: 0, statusText: 'Выполнено', durationMs, headers: {}, cookies: [], body: envelope.body,
+		bodySizeBytes: Buffer.byteLength(envelope.body, 'utf8'), contentType: 'application/json; charset=utf-8',
+		url: '', redirected: false,
+	};
 }
 
 export async function executeDirectHttpMethod(workspacePath: string, request: DirectHttpMethodRequest,
@@ -76,7 +81,8 @@ export async function executeDirectHttpMethod(workspacePath: string, request: Di
 		const info = await stat(responseFile).catch(() => undefined);
 		if (!info) { throw new Error('Исполнитель не создал результат. Обновите нативный метод 3200176 в выбранной базе. Повторный вызов автоматически не выполнялся.'); }
 		if (info.size > maximumResponseBytes) { throw new Error('Результат метода превышает 16 МБ.'); }
-		return parseDirectHttpMethodResponse(await readFile(responseFile), Math.round(performance.now() - started));
+		const response = parseDirectHttpMethodResponse(await readFile(responseFile), Math.round(performance.now() - started));
+		return { ...response, url: `oe-method:${request.methodName}` };
 	} finally {
 		// Only remove our exact mkdtemp child, never a workspace or shared temp root.
 		if (path.dirname(directory) === bin && path.basename(directory).startsWith('vcve-direct-')) {

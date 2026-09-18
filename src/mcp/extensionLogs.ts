@@ -1,9 +1,11 @@
 import { readOptionalArgument } from './arguments';
 import { readFile } from 'node:fs/promises';
+import { readMcpRuntimeStateSync } from '../core/mcpRuntimeState';
 
-const logsPath = readOptionalArgument('--logs');
+const explicitLogsPath = readOptionalArgument('--logs');
 
 export async function logToolResult(level: string | undefined, limit: number) {
+	const logsPath = explicitLogsPath ?? readMcpRuntimeStateSync()?.logsPath;
 	if (!logsPath) {
 		return { content: [{ type: 'text' as const, text: 'Extension log path is not configured.' }], isError: true };
 	}

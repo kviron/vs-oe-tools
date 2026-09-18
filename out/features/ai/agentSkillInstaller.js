@@ -36,7 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerAgentSkillInstaller = registerAgentSkillInstaller;
 const node_crypto_1 = require("node:crypto");
 const vscode = __importStar(require("vscode"));
-const bundledSkill = { name: 'east-express', version: 2 };
+const bundledSkill = { name: 'east-express', version: 3 };
 function registerAgentSkillInstaller(context) {
     const command = vscode.commands.registerCommand('vc-ve-tools.installAgentSkills', async () => {
         try {

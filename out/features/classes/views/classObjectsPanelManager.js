@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.configureClassObjectsActions = configureClassObjectsActions;
 exports.openClassObjects = openClassObjects;
 exports.closeClassObjectPanels = closeClassObjectPanels;
 const vscode = __importStar(require("vscode"));
@@ -42,7 +43,13 @@ const objectViewPanelManager_1 = require("./objectViewPanelManager");
 const entityPropertiesPanelManager_1 = require("./entityPropertiesPanelManager");
 const spuEditorPanel_1 = require("../../spu/spuEditorPanel");
 const classObjectColumnSettings_1 = require("../classObjectColumnSettings");
+const moduleRepository_1 = require("../../../infrastructure/database/moduleRepository");
 const panels = new Map();
+let openModuleCode;
+function configureClassObjectsActions(actions) {
+    openModuleCode = actions.openModuleCode;
+    return new vscode.Disposable(() => { openModuleCode = undefined; });
+}
 async function openClassObjects(context, classId, objectId) {
     const existing = panels.get(classId);
     if (existing) {
@@ -108,6 +115,10 @@ async function openClassObjects(context, classId, objectId) {
         if (message.command === 'viewObject') {
             if (classId === 12609684) {
                 await (0, spuEditorPanel_1.openSpuEditor)(context, { spuId: message.id }, () => load(0));
+                return;
+            }
+            if (classId === moduleRepository_1.moduleClassId && openModuleCode) {
+                await openModuleCode(message.id);
                 return;
             }
             await (0, objectViewPanelManager_1.openObjectView)(context, message.id);

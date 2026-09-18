@@ -4,6 +4,33 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.6.0] - 2026-09-18
+
+### Added
+
+- Added Windows-1251 report-module editing with audit history and package synchronization, plus guarded MCP tools for reading and replacing complete module source.
+- Added an atomic MCP workflow for binding newly created metadata objects to a verified package file, with database identity checks, synchronization-state updates, and post-commit verification.
+- Added zero-flag MCP runtime discovery for the active workspace, database profile, logs, SQL history, navigation bridge, and native-client endpoint while retaining explicit argument overrides.
+- Added status-bar controls for the active database, quick client launch, and database updates. The client now starts `fme.exe` directly with validated optional arguments instead of relying on BAT wrappers.
+- Added richer quick navigation across database objects, production tasks, packages, class-object views, source history, methods, and report modules.
+- Added a scalable external Knowledge Platform contract, JSON Schema, validated example record, and package-time schema checks.
+
+### Changed
+
+- Redesigned SQL Monitor with compact cards, searchable multi-category filters, semantic states, sortable results, and clearer query details.
+- Expanded the HTTP API response workbench with Body, Headers, Cookies, Raw, and Info views, formatted copying, response search, redirect metadata, and safe save-to-file handling.
+- Extended code history to report modules and method-specific PKF revisions, with task references in comments and bounded concurrent SVN loading.
+- Refined class-object, object, method-property, settings, Explorer, SQL, and package views around the shared responsive shadcn-vue table and detail patterns.
+- Refactored the native HTTP executor so direct and listener modes share validation, parameter conversion, handler execution, and JSON serialization paths.
+
+### Fixed
+
+- Preserved ordinary browser text selection and copying outside the actively focused shared table, including `Ctrl+C` on Russian keyboard layouts.
+- Made task-description ID references selectable and added a shared copy-ID action to task and object preview popovers without triggering navigation after text selection.
+- Added a guarded temporary-file transport for oversized native `class_method_change` requests when the client advertises the required capability.
+- Fixed mixed Meta/Data PKF reconstruction and default-value owner resolution without replacing unrelated owner sections.
+- Prevented eager native-client MCP catalog refresh from destabilizing Extension Development Host startup; catalog refresh remains explicit.
+
 ## [0.5.0] - 2026-09-15
 
 ### Added

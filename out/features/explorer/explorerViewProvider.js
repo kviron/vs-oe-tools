@@ -45,6 +45,7 @@ class ExplorerViewProvider {
     openDfmPreview;
     searchObjects;
     openMethod;
+    openModule;
     openAttribute;
     openClassObjects;
     viewObject;
@@ -56,7 +57,7 @@ class ExplorerViewProvider {
     view;
     selectedEntityId;
     output = vscode.window.createOutputChannel('Восточный Экспресс: Проводник');
-    constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview, searchObjects, openMethod, openAttribute, openClassObjects, viewObject, viewEntityProperties, getPackages, getPackageTree, getPackageFileContent, openPackageContent) {
+    constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview, searchObjects, openMethod, openModule, openAttribute, openClassObjects, viewObject, viewEntityProperties, getPackages, getPackageTree, getPackageFileContent, openPackageContent) {
         this.workspaceState = workspaceState;
         this.extensionUri = extensionUri;
         this.getClasses = getClasses;
@@ -65,6 +66,7 @@ class ExplorerViewProvider {
         this.openDfmPreview = openDfmPreview;
         this.searchObjects = searchObjects;
         this.openMethod = openMethod;
+        this.openModule = openModule;
         this.openAttribute = openAttribute;
         this.openClassObjects = openClassObjects;
         this.viewObject = viewObject;
@@ -183,6 +185,10 @@ class ExplorerViewProvider {
         await vscode.commands.executeCommand('workbench.view.extension.vc-ve-tools');
         await this.postMessage({ command: 'revealClass', id });
     }
+    async revealPackage(id) {
+        await vscode.commands.executeCommand('workbench.view.extension.vc-ve-tools');
+        await this.postMessage({ command: 'revealPackage', id });
+    }
     async copySelectedEntityId() {
         this.log(`Вызвана команда VS Code copySelectedEntityId; ID=${this.selectedEntityId ?? 'нет'}.`);
         if (this.selectedEntityId === undefined) {
@@ -249,6 +255,9 @@ class ExplorerViewProvider {
             }
             else if (kind === 'method') {
                 await this.openMethod(id);
+            }
+            else if (kind === 'module') {
+                await this.openModule(id);
             }
             else if (kind === 'attribute') {
                 await this.openAttribute(id);

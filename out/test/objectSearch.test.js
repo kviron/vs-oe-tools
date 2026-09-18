@@ -48,6 +48,7 @@ suite('Database object search', () => {
         assert.equal(result.packageName, '_System');
     });
     test('recognizes lifecycle objects by meta-class', () => {
+        assert.equal((0, objectSearch_1.mapDatabaseObject)(row({ metaclassname: 'Модуль' })).kind, 'module');
         assert.equal((0, objectSearch_1.mapDatabaseObject)(row({ metaclassname: 'ЖизненныйЦикл' })).kind, 'lifecycle');
         assert.equal((0, objectSearch_1.mapDatabaseObject)(row({ metaclassname: 'Журнал документов' })).kind, 'journal');
         assert.equal((0, objectSearch_1.mapDatabaseObject)(row({ metaclassname: 'Список' })).kind, 'list');

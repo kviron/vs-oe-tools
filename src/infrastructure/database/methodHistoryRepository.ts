@@ -28,31 +28,39 @@ interface UserTableInfo {
 }
 
 export async function getMethodHistory(methodId: number): Promise<MethodHistoryEntry[]> {
+	return getCodeObjectHistory(methodId, 5, 127, `метода ${methodId}`);
+}
+
+export async function getModuleHistory(moduleId: number): Promise<MethodHistoryEntry[]> {
+	return getCodeObjectHistory(moduleId, 33, 180, `модуля ${moduleId}`);
+}
+
+async function getCodeObjectHistory(objectId: number, objectClassId: number, codeAttributeId: number, sourceLabel: string): Promise<MethodHistoryEntry[]> {
 	return withProjectDatabaseSession(async ({ client, options }) => {
 		const userTable = await findUserTable(client, options.database).catch(() => undefined);
 		const userJoin = userTable ? buildUserJoin(userTable) : '';
 		const userColumns = userTable ? ', to_jsonb(users) AS userdata' : '';
-		const result = await executeMonitoredQuery<MethodHistoryRow, [number]>(client, {
+		const result = await executeMonitoredQuery<MethodHistoryRow, [number, number]>(client, {
 			text: `SELECT to_jsonb(log_entry) AS data${userColumns}
 			 FROM logcchangedobject AS log_entry
 			 ${userJoin}
-			 WHERE log_entry.objid = $1 AND log_entry.objclassid = 5
+			 WHERE log_entry.objid = $1 AND log_entry.objclassid = $2
 			 ORDER BY log_entry.changedate DESC`,
-			values: [methodId],
-			source: `История изменений метода ${methodId}`,
+			values: [objectId, objectClassId],
+			source: `История изменений ${sourceLabel}`,
 			database: options.database,
 		});
 		return result.rows
-			.map((row, index) => toHistoryEntry(row.data, index, row.userdata))
+			.map((row, index) => toHistoryEntry(row.data, index, row.userdata, codeAttributeId))
 			.filter((entry): entry is MethodHistoryEntry => entry !== undefined);
 	});
 }
 
-function toHistoryEntry(data: Record<string, unknown>, index: number, userData?: Record<string, unknown> | null): MethodHistoryEntry | undefined {
+function toHistoryEntry(data: Record<string, unknown>, index: number, userData: Record<string, unknown> | null | undefined, codeAttributeId: number): MethodHistoryEntry | undefined {
 	const oldValues = decodeText(readValue(data, 'oldvalues'));
 	const newValues = decodeText(readValue(data, 'newvalues'));
-	const oldCode = extractCodeFromChangeValues(oldValues);
-	const newCode = extractCodeFromChangeValues(newValues);
+	const oldCode = extractCodeFromChangeValues(oldValues, codeAttributeId);
+	const newCode = extractCodeFromChangeValues(newValues, codeAttributeId);
 	if (oldCode === undefined && newCode === undefined) {
 		return undefined;
 	}

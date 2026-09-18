@@ -38,6 +38,7 @@ const error = ref('');
 const selectedClassId = ref<number>();
 const explorerActive = ref(document.hasFocus());
 const revealClassId = ref<number>();
+const revealPackageId = ref<number>();
 const debouncedSearchQuery = ref('');
 const classSearchInput = ref<{ $el?: HTMLInputElement }>();
 const objectSearchQuery = ref('');
@@ -204,6 +205,7 @@ function searchDatabaseObjects(query = objectSearchQuery.value.trim()): void {
 function objectKindLabel(kind: DatabaseObjectSearchResult['kind']): string {
   if (kind === 'class') return 'Класс';
   if (kind === 'method') return 'Метод';
+  if (kind === 'module') return 'Модуль';
   if (kind === 'attribute') return 'Атрибут';
   if (kind === 'lifecycle') return 'Жизненный цикл';
   if (kind === 'journal') return 'Журнал';
@@ -316,10 +318,23 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
     packages.value = message.packages;
     packagesLoading.value = false;
     packagesLoaded.value = true;
-    if (!selectedPackageId.value && packages.value.length) {
+    if (revealPackageId.value !== undefined && packages.value.some(item => item.id === revealPackageId.value)) {
+      selectedPackageId.value = String(revealPackageId.value);
+      revealPackageId.value = undefined;
+    } else if (!selectedPackageId.value && packages.value.length) {
       selectedPackageId.value = String(packages.value.find(item => item.name.toLocaleLowerCase('ru') === 'консультант')?.id ?? packages.value[0]?.id ?? '');
     }
     if (selectedPackageId.value) loadSelectedPackage();
+	} else if (message.command === 'revealPackage') {
+		activeTab.value = 'packages';
+		revealPackageId.value = message.id;
+		persistExplorerState();
+		if (packagesLoaded.value && packages.value.some(item => item.id === message.id)) {
+			selectPackage(message.id);
+			revealPackageId.value = undefined;
+		} else {
+			loadPackages();
+		}
   } else if (message.command === 'packagesLoadFailed') {
     packagesLoading.value = false;
     packagesError.value = message.message;

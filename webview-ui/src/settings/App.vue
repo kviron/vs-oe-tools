@@ -25,6 +25,8 @@ const state = ref<SettingsState>();
 const userIdInput = ref('0');
 const clientUsernameInput = ref('');
 const clientPasswordInput = ref('');
+const clientLaunchArgumentsInput = ref('');
+const clientLaunchArgumentsDirty = ref(false);
 const databaseFields = ref<Array<{ key: string; value: string }>>([]);
 const testingConnection = ref(false);
 const connectionResult = ref<{ success: boolean; message: string }>();
@@ -48,8 +50,8 @@ const databaseGroups = computed(() => [
 ]);
 const commandGroups = [
   { title: 'Файлы проекта', description: 'Исходники пакетов и исполняемые файлы.', icon: Home01Icon, commands: [{ label: 'Обновить пакеты', action: 'updatePackages', script: 'svn update · packages' }, { label: 'Обновить бинарники', action: 'updateBinaries', script: 'BinUpdate.bat' }] },
-  { title: 'Основная база', description: 'Рабочее окружение проекта.', icon: Database01Icon, role: 'main', commands: [{ label: 'Обновить базу', action: 'updateDatabase', script: 'DBUpdate_main.bat' }, { label: 'Запустить клиент', action: 'startClient', script: 'start.bat' }] },
-  { title: 'Тестовая база', description: 'Окружение для проверки изменений.', icon: Database01Icon, role: 'test', commands: [{ label: 'Обновить базу', action: 'updateDatabase', script: 'DBUpdate_test.bat' }, { label: 'Запустить клиент', action: 'startClient', script: 'start_test.bat' }] },
+  { title: 'Основная база', description: 'Рабочее окружение проекта.', icon: Database01Icon, role: 'main', commands: [{ label: 'Обновить базу', action: 'updateDatabase', script: 'DBUpdate_main.bat' }, { label: 'Запустить клиент', action: 'startClient', script: 'bin\\fme.exe · основная' }] },
+  { title: 'Тестовая база', description: 'Окружение для проверки изменений.', icon: Database01Icon, role: 'test', commands: [{ label: 'Обновить базу', action: 'updateDatabase', script: 'DBUpdate_test.bat' }, { label: 'Запустить клиент', action: 'startClient', script: 'bin\\fme.exe · тестовая' }] },
 ] as const;
 const selectedDatabase = computed(() => state.value?.databaseProfiles.find(item => item.id === state.value?.databaseProfile));
 const databaseFieldDescriptions: Record<string, string> = {
@@ -93,6 +95,10 @@ window.addEventListener('message', (event: MessageEvent<SettingsHostMessage>) =>
 		userIdInput.value = String(message.state.userId);
 		clientUsernameInput.value = message.state.clientUsername;
 		clientPasswordInput.value = '';
+		if (!clientLaunchArgumentsDirty.value || clientLaunchArgumentsInput.value === message.state.clientLaunchArguments) {
+			clientLaunchArgumentsInput.value = message.state.clientLaunchArguments;
+			clientLaunchArgumentsDirty.value = false;
+		}
 		databaseFields.value = message.state.databaseProfiles.find(item => item.id === message.state.databaseProfile)?.fields.map(field => ({ ...field })) ?? [];
 	} else if (message.command === 'databaseConnectionTestStarted') {
 		testingConnection.value = true;
@@ -134,6 +140,9 @@ function saveClientCredentials(): void {
 		...(clientPasswordInput.value ? { password: clientPasswordInput.value } : {}),
 	});
 	clientPasswordInput.value = '';
+}
+function saveClientLaunchArguments(): void {
+	vscode.postMessage({ command: 'setClientLaunchArguments', value: clientLaunchArgumentsInput.value });
 }
 vscode.postMessage({ command: 'settingsReady' });
 </script>
@@ -188,6 +197,7 @@ vscode.postMessage({ command: 'settingsReady' });
 
           <section v-else-if="activeSection === 'commands'" aria-label="Команды проекта" class="flex flex-col gap-5">
             <div class="grid items-start gap-4 xl:grid-cols-3"><Card v-for="group in commandGroups" :key="group.title"><CardHeader><CardTitle>{{ group.title }}</CardTitle><CardDescription>{{ group.description }}</CardDescription><CardAction><HugeiconsIcon :icon="group.icon" class="size-5 text-muted-foreground" /></CardAction></CardHeader><CardContent><FieldGroup><Field v-for="command in group.commands" :key="command.action"><FieldDescription>{{ command.script }}</FieldDescription><Button :variant="command.action === 'startClient' ? 'default' : 'outline'" @click="runCommand(command.action, 'role' in group ? group.role : undefined)"><HugeiconsIcon v-if="command.action === 'startClient'" :icon="PlayIcon" data-icon="inline-start" />{{ command.label }}</Button></Field></FieldGroup></CardContent></Card></div>
+            <Card><CardHeader><CardTitle>Параметры запуска клиента</CardTitle><CardDescription>Аргументы будут добавлены к каждому запуску fme.exe после -NoSelfUpdate.</CardDescription></CardHeader><CardContent><Field><FieldLabel for="client-launch-arguments">Дополнительные аргументы</FieldLabel><Input id="client-launch-arguments" v-model="clientLaunchArgumentsInput" placeholder="-BeautifyPGQueries" autocomplete="off" spellcheck="false" class="font-mono" @input="clientLaunchArgumentsDirty = true" @keydown.enter="saveClientLaunchArguments" /><FieldDescription>Значения с пробелами заключайте в двойные кавычки. Параметры подключения формируются расширением.</FieldDescription></Field></CardContent><CardFooter class="justify-end border-t"><Button :disabled="!clientLaunchArgumentsDirty" @click="saveClientLaunchArguments">Сохранить параметры</Button></CardFooter></Card>
             <Alert><AlertTitle>Обновление проекта</AlertTitle><AlertDescription>Перед обновлением появится подтверждение. Ход выполнения будет показан в терминале.</AlertDescription></Alert>
           </section>
 

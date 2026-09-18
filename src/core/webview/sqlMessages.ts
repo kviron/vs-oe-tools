@@ -34,6 +34,7 @@ export type SqlExecutorWebviewMessage =
 	| { command: 'executeSql'; text: string }
 	| { command: 'copySqlResult'; format: 'markdown' | 'json' }
 	| { command: 'copySqlError'; text: string }
+	| { command: 'openQuickNavigation'; id: number }
 	| { command: 'exportSqlResult' }
 	| TableSelectionDebugMessage
 	| CopyTableCellsMessage;
@@ -68,6 +69,9 @@ export function isSqlExecutorWebviewMessage(message: unknown): message is SqlExe
 	}
 	if (message.command === 'copySqlError') {
 		return 'text' in message && typeof message.text === 'string';
+	}
+	if (message.command === 'openQuickNavigation') {
+		return 'id' in message && typeof message.id === 'number' && Number.isSafeInteger(message.id) && message.id > 0;
 	}
 	return message.command === 'exportSqlResult';
 }

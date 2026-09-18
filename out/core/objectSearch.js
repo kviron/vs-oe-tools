@@ -40,6 +40,9 @@ function mapDatabaseObject(row) {
 }
 function domainObjectKind(metaClassName) {
     const normalized = metaClassName.toLocaleLowerCase('ru').replace(/\s/g, '');
+    if (normalized === 'модуль') {
+        return 'module';
+    }
     if (normalized.includes('жизненныйцикл')) {
         return 'lifecycle';
     }

@@ -33,9 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.parseClientLaunchArguments = parseClientLaunchArguments;
 exports.extractBatchCommand = extractBatchCommand;
-exports.applyClientCredentials = applyClientCredentials;
-exports.applyClientOpenUri = applyClientOpenUri;
+exports.createClientLaunchCommand = createClientLaunchCommand;
 exports.createBatchFileCommand = createBatchFileCommand;
 exports.updateProjectDatabase = updateProjectDatabase;
 exports.updateProjectPackages = updateProjectPackages;
@@ -46,6 +46,48 @@ const promises_1 = require("node:fs/promises");
 const path = __importStar(require("node:path"));
 const iconv = __importStar(require("iconv-lite"));
 const vscode = __importStar(require("vscode"));
+const constants_1 = require("../../core/constants");
+const projectDatabaseOptions_1 = require("../../infrastructure/configuration/projectDatabaseOptions");
+function parseClientLaunchArguments(value) {
+    if (value.length > 2000) {
+        throw new Error('Дополнительные параметры запуска не должны превышать 2000 символов.');
+    }
+    if (/[&|<>^%!\r\n]/u.test(value)) {
+        throw new Error('Дополнительные параметры содержат недопустимые для командной строки символы.');
+    }
+    const result = [];
+    let token = '';
+    let quoted = false;
+    let tokenStarted = false;
+    for (const character of value.trim()) {
+        if (character === '"') {
+            quoted = !quoted;
+            tokenStarted = true;
+        }
+        else if (/\s/u.test(character) && !quoted) {
+            if (tokenStarted) {
+                result.push(token);
+                token = '';
+                tokenStarted = false;
+            }
+        }
+        else {
+            token += character;
+            tokenStarted = true;
+        }
+    }
+    if (quoted) {
+        throw new Error('В дополнительных параметрах не закрыта двойная кавычка.');
+    }
+    if (tokenStarted) {
+        result.push(token);
+    }
+    const reserved = result.find(argument => /^(?:-noselfupdate|-ok|-l(?:=|$))/iu.test(argument));
+    if (reserved) {
+        throw new Error(`Параметр ${reserved} задаётся расширением автоматически.`);
+    }
+    return result;
+}
 function extractBatchCommand(content, sourcePath) {
     const line = content.split(/\r?\n/).map(value => value.trim()).find(value => /^@?call\s+/i.test(value));
     if (!line) {
@@ -56,30 +98,37 @@ function extractBatchCommand(content, sourcePath) {
         .replace(/%~dp0[\\/]?/gi, sourceDirectory)
         .replace(/%~0/gi, sourcePath);
 }
-function applyClientCredentials(command, credentials) {
-    for (const value of [credentials.username, credentials.password]) {
-        if (value?.includes(',') || value?.includes('"')) {
-            throw new Error('Логин и пароль клиента не должны содержать запятую или кавычку.');
+function createClientLaunchCommand(workspacePath, role, target, credentials, openUri, extraArguments = '') {
+    const username = credentials.username?.trim();
+    const password = credentials.password;
+    if (!username || !password) {
+        throw new Error('Укажите логин и пароль клиента ВЭ в настройках расширения.');
+    }
+    for (const [label, value] of [['Логин', username], ['Пароль', password], ['Host', target.host], ['База', target.database]]) {
+        if (!value.trim() || /[,"\r\n]/.test(value)) {
+            throw new Error(`${label} содержит недопустимые символы.`);
         }
     }
-    let result = command;
-    if (credentials.username) {
-        result = result.replace(/username=[^,\"]*/i, `username=${credentials.username}`);
-    }
-    if (credentials.password) {
-        result = result.replace(/password=[^,\"]*/i, `password=${credentials.password}`);
-    }
-    return result;
-}
-function applyClientOpenUri(command, openUri) {
-    if (!/^oe-[a-z0-9_-]+:\/open\/[^/]+\/[1-9]\d*$/iu.test(openUri) || /["\r\n]/.test(openUri)) {
+    if (openUri && (!/^oe-[a-z0-9_-]+:\/open\/[^/]+\/[1-9]\d*$/iu.test(openUri) || /["\r\n]/.test(openUri))) {
         throw new Error(`Некорректная ссылка открытия объекта ВЭ: ${openUri}`);
     }
-    const call = command.match(/^call\s+(?:"[^"]+"|\S+)/i)?.[0];
-    if (!call) {
-        throw new Error('Не удалось добавить ссылку объекта в команду запуска клиента.');
+    if (/["\r\n]/.test(workspacePath)) {
+        throw new Error('Путь проекта содержит недопустимые символы.');
     }
-    return `${call} "${openUri}"${command.slice(call.length)}`;
+    const binPath = path.join(workspacePath, 'bin');
+    const executablePath = path.join(binPath, 'fme.exe');
+    const login = [
+        `host=${target.host.trim()}`,
+        `db=${target.database.trim()}`,
+        `username=${username}`,
+        `password=${password}`,
+        ...(role === 'main' ? ['MultiLogin=True'] : []),
+    ].join(',');
+    const openArgument = openUri ? ` "${openUri}"` : '';
+    const extraArgumentList = parseClientLaunchArguments(extraArguments)
+        .map(argument => ` "${argument}"`)
+        .join('');
+    return `start "" /D "${binPath}" "${executablePath}" -NoSelfUpdate${extraArgumentList}${openArgument} -l "${login}" -ok`;
 }
 function createBatchFileCommand(filePath) {
     if (filePath.includes('"') || filePath.includes('\r') || filePath.includes('\n')) {
@@ -154,11 +203,20 @@ async function updateProjectBinaries() {
 }
 async function startProjectClient(role, credentials = {}, openUri) {
     const workspacePath = requireWorkspacePath();
-    const fileName = role === 'test' ? 'start_test.bat' : 'start.bat';
-    let command = applyClientCredentials(await readProjectCommand(workspacePath, fileName, 'cp866'), credentials);
-    if (openUri) {
-        command = applyClientOpenUri(command, openUri);
+    const varsPath = path.join(workspacePath, 'Vars.bat');
+    const variables = (0, projectDatabaseOptions_1.parseVarsFile)(iconv.decode(await (0, promises_1.readFile)(varsPath), 'win1251'));
+    const database = variables.get(`devdbname_${role}`);
+    if (!database) {
+        throw new Error(`В Vars.bat не указано devDBName_${role}.`);
     }
+    const host = variables.get(`oedbmshost_${role}`) ?? variables.get('oedbmshost') ?? 'localhost';
+    const executablePath = path.join(workspacePath, 'bin', 'fme.exe');
+    const executableStat = await (0, promises_1.stat)(executablePath).catch(() => undefined);
+    if (!executableStat?.isFile()) {
+        throw new Error(`Не найден клиент Восточного Экспресса: ${executablePath}.`);
+    }
+    const extraArguments = vscode.workspace.getConfiguration('vcVeTools').get(constants_1.clientLaunchArgumentsSetting, '');
+    const command = createClientLaunchCommand(workspacePath, role, { host, database }, credentials, openUri, extraArguments);
     const terminal = vscode.window.createTerminal({
         name: `ВЭ: запуск клиента (${role})`,
         cwd: workspacePath,

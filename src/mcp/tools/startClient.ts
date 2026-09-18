@@ -4,7 +4,7 @@ import type { McpToolServer } from '../toolTypes';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('start_client', {
-		description: 'Launch the original East Express client for the main or test database using start.bat or start_test.bat and the client credentials saved in VS Code settings.',
+		description: 'Launch bin/fme.exe directly for the main or test database using Vars.bat connection names and the client credentials saved in VS Code settings.',
 		inputSchema: {
 			role: z.enum(['main', 'test']).describe('Database role whose client should be launched'),
 		},

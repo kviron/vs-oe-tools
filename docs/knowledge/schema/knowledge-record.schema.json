@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vc-ve-tools.local/schemas/knowledge-record.schema.json",
+  "title": "East Express knowledge record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "type",
+    "title",
+    "status",
+    "summary",
+    "content",
+    "applicability",
+    "entities",
+    "relations",
+    "sources",
+    "verification",
+    "owner",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "type": {
+      "enum": ["business-rule", "technical-note", "runbook", "decision", "investigation"]
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "status": {
+      "enum": ["draft", "proposed", "verified", "disputed", "deprecated", "expired"]
+    },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "content": { "type": "string", "minLength": 1 },
+    "applicability": { "$ref": "#/$defs/applicability" },
+    "entities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entityReference" },
+      "uniqueItems": true
+    },
+    "relations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/relation" },
+      "uniqueItems": true
+    },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/source" },
+      "uniqueItems": true
+    },
+    "verification": { "$ref": "#/$defs/verification" },
+    "owner": { "type": ["string", "null"], "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "verified" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "applicability": {
+            "type": "object",
+            "properties": { "scope": { "enum": ["specific", "global"] } }
+          },
+          "sources": { "type": "array", "minItems": 1 },
+          "verification": { "$ref": "#/$defs/completedVerification" },
+          "owner": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "releases", "databaseProfiles", "validFrom", "validTo"],
+      "properties": {
+        "scope": { "enum": ["unknown", "specific", "global"] },
+        "releases": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "databaseProfiles": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "validFrom": { "type": ["string", "null"], "format": "date-time" },
+        "validTo": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "scope": { "const": "specific" } },
+            "required": ["scope"]
+          },
+          "then": {
+            "anyOf": [
+              { "properties": { "releases": { "type": "array", "minItems": 1 } } },
+              { "properties": { "databaseProfiles": { "type": "array", "minItems": 1 } } }
+            ]
+          }
+        }
+      ]
+    },
+    "entityReference": {
+      "oneOf": [
+        { "$ref": "#/$defs/classReference" },
+        { "$ref": "#/$defs/methodReference" },
+        { "$ref": "#/$defs/taskReference" }
+      ]
+    },
+    "classReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "externalId"],
+      "properties": {
+        "type": { "const": "class" },
+        "externalId": { "$ref": "#/$defs/numericExternalId" }
+      }
+    },
+    "methodReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "externalId"],
+      "properties": {
+        "type": { "const": "method" },
+        "externalId": { "$ref": "#/$defs/numericExternalId" }
+      }
+    },
+    "taskReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "externalId"],
+      "properties": {
+        "type": { "const": "task" },
+        "externalId": { "$ref": "#/$defs/numericExternalId" }
+      }
+    },
+    "numericExternalId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "type", "to", "sourceLocator"],
+      "properties": {
+        "from": { "$ref": "#/$defs/canonicalEntityId" },
+        "type": { "enum": ["belongs_to", "implements", "references", "changed_by", "applies_to", "supersedes"] },
+        "to": { "$ref": "#/$defs/canonicalEntityId" },
+        "sourceLocator": { "type": "string", "minLength": 1 }
+      }
+    },
+    "canonicalEntityId": {
+      "type": "string",
+      "pattern": "^(class|method|task):[1-9][0-9]*$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "locator", "revision", "capturedAt"],
+      "properties": {
+        "type": {
+          "enum": ["database", "source-code", "svn", "production-task", "documentation", "agent-observation"]
+        },
+        "locator": { "type": "string", "minLength": 1 },
+        "revision": { "type": ["string", "null"], "minLength": 1 },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "verifiedAt", "verifiedBy"],
+      "properties": {
+        "method": {
+          "type": ["string", "null"],
+          "enum": [null, "database", "source-code", "runtime", "review", "multiple"]
+        },
+        "verifiedAt": { "type": ["string", "null"], "format": "date-time" },
+        "verifiedBy": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "completedVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "verifiedAt", "verifiedBy"],
+      "properties": {
+        "method": { "enum": ["database", "source-code", "runtime", "review", "multiple"] },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "verifiedBy": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

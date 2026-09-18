@@ -2,9 +2,42 @@ import { readFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as iconv from 'iconv-lite';
 import * as vscode from 'vscode';
+import { clientLaunchArgumentsSetting } from '../../core/constants';
+import { parseVarsFile } from '../../infrastructure/configuration/projectDatabaseOptions';
 
 export type ProjectDatabaseRole = 'main' | 'test';
 export interface ClientCredentials { username?: string; password?: string }
+
+export function parseClientLaunchArguments(value: string): string[] {
+	if (value.length > 2000) { throw new Error('Дополнительные параметры запуска не должны превышать 2000 символов.'); }
+	if (/[&|<>^%!\r\n]/u.test(value)) {
+		throw new Error('Дополнительные параметры содержат недопустимые для командной строки символы.');
+	}
+	const result: string[] = [];
+	let token = '';
+	let quoted = false;
+	let tokenStarted = false;
+	for (const character of value.trim()) {
+		if (character === '"') {
+			quoted = !quoted;
+			tokenStarted = true;
+		} else if (/\s/u.test(character) && !quoted) {
+			if (tokenStarted) {
+				result.push(token);
+				token = '';
+				tokenStarted = false;
+			}
+		} else {
+			token += character;
+			tokenStarted = true;
+		}
+	}
+	if (quoted) { throw new Error('В дополнительных параметрах не закрыта двойная кавычка.'); }
+	if (tokenStarted) { result.push(token); }
+	const reserved = result.find(argument => /^(?:-noselfupdate|-ok|-l(?:=|$))/iu.test(argument));
+	if (reserved) { throw new Error(`Параметр ${reserved} задаётся расширением автоматически.`); }
+	return result;
+}
 
 export function extractBatchCommand(content: string, sourcePath: string): string {
 	const line = content.split(/\r?\n/).map(value => value.trim()).find(value => /^@?call\s+/i.test(value));
@@ -15,23 +48,39 @@ export function extractBatchCommand(content: string, sourcePath: string): string
 		.replace(/%~0/gi, sourcePath);
 }
 
-export function applyClientCredentials(command: string, credentials: ClientCredentials): string {
-	for (const value of [credentials.username, credentials.password]) {
-		if (value?.includes(',') || value?.includes('"')) { throw new Error('Логин и пароль клиента не должны содержать запятую или кавычку.'); }
+export function createClientLaunchCommand(
+	workspacePath: string,
+	role: ProjectDatabaseRole,
+	target: { host: string; database: string },
+	credentials: ClientCredentials,
+	openUri?: string,
+	extraArguments = '',
+): string {
+	const username = credentials.username?.trim();
+	const password = credentials.password;
+	if (!username || !password) { throw new Error('Укажите логин и пароль клиента ВЭ в настройках расширения.'); }
+	for (const [label, value] of [['Логин', username], ['Пароль', password], ['Host', target.host], ['База', target.database]] as const) {
+		if (!value.trim() || /[,"\r\n]/.test(value)) { throw new Error(`${label} содержит недопустимые символы.`); }
 	}
-	let result = command;
-	if (credentials.username) { result = result.replace(/username=[^,\"]*/i, `username=${credentials.username}`); }
-	if (credentials.password) { result = result.replace(/password=[^,\"]*/i, `password=${credentials.password}`); }
-	return result;
-}
-
-export function applyClientOpenUri(command: string, openUri: string): string {
-	if (!/^oe-[a-z0-9_-]+:\/open\/[^/]+\/[1-9]\d*$/iu.test(openUri) || /["\r\n]/.test(openUri)) {
+	if (openUri && (!/^oe-[a-z0-9_-]+:\/open\/[^/]+\/[1-9]\d*$/iu.test(openUri) || /["\r\n]/.test(openUri))) {
 		throw new Error(`Некорректная ссылка открытия объекта ВЭ: ${openUri}`);
 	}
-	const call = command.match(/^call\s+(?:"[^"]+"|\S+)/i)?.[0];
-	if (!call) { throw new Error('Не удалось добавить ссылку объекта в команду запуска клиента.'); }
-	return `${call} "${openUri}"${command.slice(call.length)}`;
+	if (/["\r\n]/.test(workspacePath)) { throw new Error('Путь проекта содержит недопустимые символы.'); }
+
+	const binPath = path.join(workspacePath, 'bin');
+	const executablePath = path.join(binPath, 'fme.exe');
+	const login = [
+		`host=${target.host.trim()}`,
+		`db=${target.database.trim()}`,
+		`username=${username}`,
+		`password=${password}`,
+		...(role === 'main' ? ['MultiLogin=True'] : []),
+	].join(',');
+	const openArgument = openUri ? ` "${openUri}"` : '';
+	const extraArgumentList = parseClientLaunchArguments(extraArguments)
+		.map(argument => ` "${argument}"`)
+		.join('');
+	return `start "" /D "${binPath}" "${executablePath}" -NoSelfUpdate${extraArgumentList}${openArgument} -l "${login}" -ok`;
 }
 
 export function createBatchFileCommand(filePath: string): string {
@@ -114,9 +163,16 @@ export async function updateProjectBinaries(): Promise<boolean> {
 
 export async function startProjectClient(role: ProjectDatabaseRole, credentials: ClientCredentials = {}, openUri?: string): Promise<void> {
 	const workspacePath = requireWorkspacePath();
-	const fileName = role === 'test' ? 'start_test.bat' : 'start.bat';
-	let command = applyClientCredentials(await readProjectCommand(workspacePath, fileName, 'cp866'), credentials);
-	if (openUri) { command = applyClientOpenUri(command, openUri); }
+	const varsPath = path.join(workspacePath, 'Vars.bat');
+	const variables = parseVarsFile(iconv.decode(await readFile(varsPath), 'win1251'));
+	const database = variables.get(`devdbname_${role}`);
+	if (!database) { throw new Error(`В Vars.bat не указано devDBName_${role}.`); }
+	const host = variables.get(`oedbmshost_${role}`) ?? variables.get('oedbmshost') ?? 'localhost';
+	const executablePath = path.join(workspacePath, 'bin', 'fme.exe');
+	const executableStat = await stat(executablePath).catch(() => undefined);
+	if (!executableStat?.isFile()) { throw new Error(`Не найден клиент Восточного Экспресса: ${executablePath}.`); }
+	const extraArguments = vscode.workspace.getConfiguration('vcVeTools').get<string>(clientLaunchArgumentsSetting, '');
+	const command = createClientLaunchCommand(workspacePath, role, { host, database }, credentials, openUri, extraArguments);
 	const terminal = vscode.window.createTerminal({
 		name: `ВЭ: запуск клиента (${role})`,
 		cwd: workspacePath,

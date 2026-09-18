@@ -52,8 +52,6 @@ class SettingsViewProvider {
     extensionUri;
     setProjectRootEnabled;
     logger;
-    getNavigationConnection;
-    databaseSelectionPath;
     getClientCredentials;
     setClientCredentials;
     workspaceState;
@@ -73,12 +71,10 @@ class SettingsViewProvider {
     get httpTestServer() { return this.httpServerLifecycle.server; }
     set httpTestServer(server) { this.httpServerLifecycle.server = server; }
     disposables = [];
-    constructor(extensionUri, setProjectRootEnabled, logger, getNavigationConnection, databaseSelectionPath, getClientCredentials = async () => ({}), setClientCredentials = async () => undefined, workspaceState) {
+    constructor(extensionUri, setProjectRootEnabled, logger, getClientCredentials = async () => ({}), setClientCredentials = async () => undefined, workspaceState) {
         this.extensionUri = extensionUri;
         this.setProjectRootEnabled = setProjectRootEnabled;
         this.logger = logger;
-        this.getNavigationConnection = getNavigationConnection;
-        this.databaseSelectionPath = databaseSelectionPath;
         this.getClientCredentials = getClientCredentials;
         this.setClientCredentials = setClientCredentials;
         this.workspaceState = workspaceState;
@@ -97,13 +93,6 @@ class SettingsViewProvider {
                 this.scheduleClientMcpDatabaseSync();
             }
         }), vscode.workspace.onDidChangeWorkspaceFolders(() => void this.postState()));
-    }
-    refreshClientMcpToolsOnActivation() {
-        void this.refreshClientMcpTools(true).catch(error => {
-            this.clientMcpToolsError = error instanceof Error ? error.message : String(error);
-            this.logger.warning('MCP client', 'Не удалось обновить каталог инструментов при активации расширения.', error);
-            void this.postState();
-        });
     }
     show() {
         if (this.panel) {
@@ -329,6 +318,17 @@ class SettingsViewProvider {
             void vscode.window.showInformationMessage('Данные входа клиента ВЭ сохранены.');
             await this.postState();
         }
+        else if (message.command === 'setClientLaunchArguments') {
+            try {
+                (0, projectCommandService_1.parseClientLaunchArguments)(message.value);
+                await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.clientLaunchArgumentsSetting, message.value.trim(), vscode.ConfigurationTarget.Workspace);
+                void vscode.window.showInformationMessage('Дополнительные параметры запуска клиента сохранены.');
+                await this.postState();
+            }
+            catch (error) {
+                void vscode.window.showErrorMessage(`Не удалось сохранить параметры запуска: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
         else if (message.command === 'setMcpEnabled') {
             await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.mcpEnabledSetting, message.enabled, vscode.ConfigurationTarget.Workspace);
         }
@@ -379,6 +379,23 @@ class SettingsViewProvider {
         else if (message.command === 'copyHttpApiRequest') {
             await vscode.env.clipboard.writeText(message.text);
             vscode.window.setStatusBarMessage(message.notification ?? 'Запрос cURL скопирован — вставьте его в Import → Raw text в Postman', 5000);
+        }
+        else if (message.command === 'saveHttpApiResponse') {
+            const extension = message.fileName.split('.').pop()?.toLocaleLowerCase('en') ?? 'txt';
+            const uri = await vscode.window.showSaveDialog({
+                defaultUri: vscode.Uri.file(message.fileName),
+                filters: { 'Ответ HTTP API': [extension] },
+                saveLabel: 'Сохранить ответ',
+            });
+            if (uri) {
+                try {
+                    await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(message.text));
+                    void vscode.window.showInformationMessage(`Ответ HTTP API сохранён: ${uri.fsPath}`);
+                }
+                catch (error) {
+                    void vscode.window.showErrorMessage(`Не удалось сохранить ответ HTTP API: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
         }
         else if (message.command === 'openDatabaseObjectById') {
             await vscode.commands.executeCommand('vc-ve-tools.openClipboardObject', message.id, message.target ?? 'object');
@@ -683,6 +700,7 @@ class SettingsViewProvider {
             userId: configuration.get('userId', 0),
             clientUsername: clientCredentials.username ?? '',
             clientPasswordSet: Boolean(clientCredentials.password),
+            clientLaunchArguments: configuration.get(constants_1.clientLaunchArgumentsSetting, ''),
             mcpEnabled: enabled,
             mcpStatus: status,
             mcpStatusText: statusText,
@@ -698,7 +716,7 @@ class SettingsViewProvider {
             clientMcpToolsDatabase: this.clientMcpToolsDatabase,
             clientMcpToolsUpdatedAt: this.clientMcpToolsUpdatedAt,
             clientMcpToolsError: this.clientMcpToolsError,
-            mcpConnectionCode: this.connectionCode(workspace?.uri.fsPath, role, databaseProfile, clientMcpUrl),
+            mcpConnectionCode: this.connectionCode(),
             lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
             httpMethods: this.httpMethods,
             httpMethodsError: this.httpMethodsError,
@@ -710,22 +728,12 @@ class SettingsViewProvider {
             },
         };
     }
-    connectionCode(workspacePath, role, profile, clientMcpUrl) {
-        const navigation = this.getNavigationConnection();
+    connectionCode() {
         return JSON.stringify({
             mcpServers: {
                 'vc-ve-tools': {
                     command: 'node',
-                    args: [
-                        vscode.Uri.joinPath(this.extensionUri, 'dist', 'mcp-server.js').fsPath,
-                        '--workspace', workspacePath ?? '<PROJECT_PATH>',
-                        '--database-role', role,
-                        ...(profile ? ['--database-profile', profile] : []),
-                        ...(this.databaseSelectionPath ? ['--database-selection', this.databaseSelectionPath] : []),
-                        '--client-mcp-url', clientMcpUrl,
-                        '--logs', this.logger.logUri.fsPath,
-                        ...(navigation ? ['--navigation-info', navigation.infoPath] : []),
-                    ],
+                    args: [vscode.Uri.joinPath(this.extensionUri, 'dist', 'mcp-server.js').fsPath],
                 },
             },
         }, null, 2);

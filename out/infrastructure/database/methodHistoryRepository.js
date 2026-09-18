@@ -34,11 +34,18 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMethodHistory = getMethodHistory;
+exports.getModuleHistory = getModuleHistory;
 const iconv = __importStar(require("iconv-lite"));
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
 const methodHistoryParsing_1 = require("./methodHistoryParsing");
 const projectDatabaseSession_1 = require("./projectDatabaseSession");
 async function getMethodHistory(methodId) {
+    return getCodeObjectHistory(methodId, 5, 127, `метода ${methodId}`);
+}
+async function getModuleHistory(moduleId) {
+    return getCodeObjectHistory(moduleId, 33, 180, `модуля ${moduleId}`);
+}
+async function getCodeObjectHistory(objectId, objectClassId, codeAttributeId, sourceLabel) {
     return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
         const userTable = await findUserTable(client, options.database).catch(() => undefined);
         const userJoin = userTable ? buildUserJoin(userTable) : '';
@@ -47,22 +54,22 @@ async function getMethodHistory(methodId) {
             text: `SELECT to_jsonb(log_entry) AS data${userColumns}
 			 FROM logcchangedobject AS log_entry
 			 ${userJoin}
-			 WHERE log_entry.objid = $1 AND log_entry.objclassid = 5
+			 WHERE log_entry.objid = $1 AND log_entry.objclassid = $2
 			 ORDER BY log_entry.changedate DESC`,
-            values: [methodId],
-            source: `История изменений метода ${methodId}`,
+            values: [objectId, objectClassId],
+            source: `История изменений ${sourceLabel}`,
             database: options.database,
         });
         return result.rows
-            .map((row, index) => toHistoryEntry(row.data, index, row.userdata))
+            .map((row, index) => toHistoryEntry(row.data, index, row.userdata, codeAttributeId))
             .filter((entry) => entry !== undefined);
     });
 }
-function toHistoryEntry(data, index, userData) {
+function toHistoryEntry(data, index, userData, codeAttributeId) {
     const oldValues = decodeText(readValue(data, 'oldvalues'));
     const newValues = decodeText(readValue(data, 'newvalues'));
-    const oldCode = (0, methodHistoryParsing_1.extractCodeFromChangeValues)(oldValues);
-    const newCode = (0, methodHistoryParsing_1.extractCodeFromChangeValues)(newValues);
+    const oldCode = (0, methodHistoryParsing_1.extractCodeFromChangeValues)(oldValues, codeAttributeId);
+    const newCode = (0, methodHistoryParsing_1.extractCodeFromChangeValues)(newValues, codeAttributeId);
     if (oldCode === undefined && newCode === undefined) {
         return undefined;
     }

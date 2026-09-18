@@ -23,7 +23,7 @@ export function openProductionTaskDetails(
 	if (existing) { existing.reveal(vscode.ViewColumn.Active); return; }
 	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
 	const panel = vscode.window.createWebviewPanel('vc-ve-tools.productionTaskDetails', `Задача ${task.number || task.id}`, vscode.ViewColumn.Active, {
-		enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
+		enableScripts: true, enableFindWidget: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
 	});
 	panels.set(task.id, panel);
 	const attachments = new Map<number, ProductionTaskAttachment>();
