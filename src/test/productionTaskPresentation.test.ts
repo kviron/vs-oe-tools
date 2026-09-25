@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { parseProductionDate, productionDeadlineInfo, productionTaskMarkdown, productionTaskPublicUrl } from '../features/production-tasks/productionTaskPresentation';
+import { parseProductionDate, productionDeadlineInfo, productionTaskClientUri, productionTaskMarkdown, productionTaskPublicUrl } from '../features/production-tasks/productionTaskPresentation';
 
 suite('Production task presentation', () => {
 	test('parses East Express dates strictly', () => {
@@ -21,5 +21,9 @@ suite('Production task presentation', () => {
 			productionTaskMarkdown('88605', 'Массовое подтверждение переноса флага Бесплатный при замене', 1),
 			'88605 - Массовое подтверждение переноса флага Бесплатный при замене\n[https://r.oe-it.ru/88605](https://r.oe-it.ru/88605)',
 		);
+	});
+
+	test('builds the client protocol URI from the task number', () => {
+		assert.equal(productionTaskClientUri(88605), 'oe-ric224:/88605');
 	});
 });

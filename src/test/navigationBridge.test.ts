@@ -1,14 +1,54 @@
 import * as assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startNavigationBridge } from '../features/ai/navigationBridge';
+import type { NavigationActions } from '../features/ai/navigationTools';
 
 suite('Navigation bridge', () => {
+	test('removes its own address file on dispose', async () => {
+		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-dispose-${process.pid}-${Date.now()}.json`);
+		const bridge = await startNavigationBridge({} as NavigationActions, infoPath);
+		assert.equal(JSON.parse(await readFile(infoPath, 'utf8')).token, bridge.token);
+		bridge.dispose();
+		for (let attempt = 0; attempt < 20; attempt++) {
+			try { await readFile(infoPath, 'utf8'); }
+			catch (error) {
+				if ((error as NodeJS.ErrnoException).code === 'ENOENT') { return; }
+				throw error;
+			}
+			await new Promise(resolve => setTimeout(resolve, 20));
+		}
+		assert.fail('The bridge address file was not removed.');
+	});
+	test('rejects unauthorized requests and preserves a newer bridge address', async () => {
+		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-security-${process.pid}-${Date.now()}.json`);
+		const bridge = await startNavigationBridge({} as NavigationActions, infoPath);
+		try {
+			const unauthorized = await fetch(bridge.url, {
+				method: 'POST', body: JSON.stringify({ action: 'open_method', id: 1 }),
+			});
+			assert.equal(unauthorized.status, 401);
+			const wrongRoute = await fetch(bridge.url.replace('/navigate', '/other'), {
+				method: 'POST', headers: { authorization: `Bearer ${bridge.token}` },
+			});
+			assert.equal(wrongRoute.status, 404);
+			await writeFile(infoPath, JSON.stringify({ url: 'http://127.0.0.1:1/navigate', token: 'newer' }));
+		} finally {
+			bridge.dispose();
+		}
+		try {
+			await new Promise(resolve => setTimeout(resolve, 50));
+			assert.equal(JSON.parse(await readFile(infoPath, 'utf8')).token, 'newer');
+		} finally {
+			await unlink(infoPath).catch(() => undefined);
+		}
+	});
 	test('publishes an authenticated endpoint and invokes the requested action', async () => {
 		let openedMethod: number | undefined;
 		let revealedMethod: { classId: number; methodId: number } | undefined;
-		let updatedMethod: { methodId: number; code: string } | undefined;
+		let updatedMethod: { methodId: number; code: string; expectedDatabase: string; expectedHost: string; expectedPort: number } | undefined;
+		let compiledMethod: { methodId: number; database: string; host: string; port: number } | undefined;
 		let updatedModule: { moduleId: number; code: string; expectedDatabase: string; expectedHost: string; expectedPort: number } | undefined;
 		let packageBinding: { objectIds: number[]; templateObjectId?: number; expectedDatabase: string;
 			expectedHost: string; expectedPort: number } | undefined;
@@ -27,10 +67,19 @@ suite('Navigation bridge', () => {
 			openClass: async () => undefined,
 			openMethod: async id => { openedMethod = id; },
 			revealMethod: async (classId, methodId) => { revealedMethod = { classId, methodId }; },
-			updateMethodSource: async (methodId, code) => {
-				updatedMethod = { methodId, code };
-				return { methodId, changed: true };
+			updateMethodSource: async (methodId, code, expectedDatabase, expectedHost, expectedPort) => {
+				updatedMethod = { methodId, code, expectedDatabase, expectedHost, expectedPort };
+				return { methodId, changed: true, compilation: { passed: true, diagnostics: [] } };
 			},
+			compileMethod: async (methodId, database, host, port) => {
+				compiledMethod = { methodId, database, host, port };
+				return { timestamp: '2026-09-23T00:00:00.000Z', methodId, database, host,
+					source: 'agent', status: 'ok', passed: true, errorCount: 0, warningCount: 0, diagnostics: [] };
+			},
+			getMethodCompilationHistory: async (methodId, limit) => ({ records: [{
+				timestamp: '2026-09-23T00:00:00.000Z', methodId: methodId ?? 1, database: 'oetrunk', host: 'localhost',
+				source: 'agent', status: 'ok', passed: true, errorCount: 0, warningCount: 0, diagnostics: [], error: String(limit),
+			}] }),
 			updateModuleSource: async (moduleId, code, expectedDatabase, expectedHost, expectedPort) => {
 				updatedModule = { moduleId, code, expectedDatabase, expectedHost, expectedPort };
 				return { moduleId, changed: true };
@@ -71,6 +120,7 @@ suite('Navigation bridge', () => {
 			updateDatabase: async role => { updatedDatabase = role; },
 			startClient: async role => { startedClient = role; },
 			openClientEntity: async (role, entityType, id) => `oe-${role}:/open/${entityType}/${id}`,
+			confirmSqlMutation: async () => false,
 		}, infoPath);
 		try {
 			const connection = JSON.parse(await readFile(infoPath, 'utf8')) as { url: string; token: string };
@@ -81,6 +131,13 @@ suite('Navigation bridge', () => {
 			});
 			assert.equal(response.status, 200);
 			assert.equal(openedMethod, 3200110);
+			const confirmationResponse = await fetch(connection.url, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'confirm_sql_mutation', sql: 'UPDATE classes SET name = name', database: 'oetrunk' }),
+			});
+			assert.equal(confirmationResponse.status, 200);
+			assert.equal((await confirmationResponse.json() as { approved: boolean }).approved, false);
 			const revealResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
@@ -91,10 +148,27 @@ suite('Navigation bridge', () => {
 			const updateResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
-				body: JSON.stringify({ action: 'update_method_source', id: 3200110, code: 'begin\r\nend' }),
+				body: JSON.stringify({ action: 'update_method_source', id: 3200110, code: 'begin\r\nend',
+					expectedDatabase: 'oetrunk', expectedHost: 'localhost', expectedPort: 5432 }),
 			});
 			assert.equal(updateResponse.status, 200);
-			assert.deepEqual(updatedMethod, { methodId: 3200110, code: 'begin\r\nend' });
+			assert.deepEqual(updatedMethod, { methodId: 3200110, code: 'begin\r\nend',
+				expectedDatabase: 'oetrunk', expectedHost: 'localhost', expectedPort: 5432 });
+			assert.equal((await updateResponse.json() as { compilation: { passed: boolean } }).compilation.passed, true);
+			const compileResponse = await fetch(connection.url, {
+				method: 'POST', headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'compile_method', id: 3200110,
+					expectedDatabase: 'oetrunk', expectedHost: 'localhost', expectedPort: 5432 }),
+			});
+			assert.equal(compileResponse.status, 200);
+			assert.deepEqual(compiledMethod, { methodId: 3200110, database: 'oetrunk', host: 'localhost', port: 5432 });
+			assert.equal((await compileResponse.json() as { result: { status: string } }).result.status, 'ok');
+			const compilationHistoryResponse = await fetch(connection.url, {
+				method: 'POST', headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'get_method_compilation_history', id: 3200110, limit: 5 }),
+			});
+			assert.equal(compilationHistoryResponse.status, 200);
+			assert.equal((await compilationHistoryResponse.json() as { records: Array<{ error: string }> }).records[0].error, '5');
 			const updateModuleResponse = await fetch(connection.url, {
 				method: 'POST',
 				headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

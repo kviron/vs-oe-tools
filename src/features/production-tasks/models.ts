@@ -52,7 +52,7 @@ export interface ProductionTaskAttachment {
 }
 
 export type ProductionTaskDescriptionPart =
-	| { kind: 'text'; text: string }
+	| { kind: 'text'; text: string; bold?: boolean; italic?: boolean; underline?: boolean; strike?: boolean; color?: string }
 	| { kind: 'image'; dataUrl: string; width?: number; height?: number };
 
 export interface ProductionTaskHistoryEntry {

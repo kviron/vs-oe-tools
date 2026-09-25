@@ -1,8 +1,11 @@
 {
   "name": "vc-ve-tools",
+  "imports": {
+    "#app/*": "./out/*.js"
+  },
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
@@ -69,6 +72,20 @@
         "language": "ve-dfm",
         "scopeName": "source.dfm",
         "path": "./syntaxes/dfm.tmLanguage.json"
+      },
+      {
+        "injectTo": [
+          "source.js",
+          "source.js.jsx",
+          "source.jsx",
+          "source.ts",
+          "source.tsx"
+        ],
+        "scopeName": "inline.vc-ve-tools-sql",
+        "path": "./syntaxes/sql-tagged-template.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.sql": "sql"
+        }
       }
     ],
     "configuration": {

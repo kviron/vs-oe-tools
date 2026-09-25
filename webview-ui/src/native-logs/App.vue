@@ -5,7 +5,8 @@ import { computed, ref } from 'vue';
 import type { NativeLogsHostMessage, NativeLogListEntry } from '../../../src/core/webviewProtocol';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import { Input } from '@/components/ui/input';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesSearch, type SearchOptions } from '@/lib/searchMatch';
 import { vscode } from '@/vscode';
 
 const directory = ref('');
@@ -14,10 +15,10 @@ const selectedFile = ref<string>();
 const loading = ref(false);
 const error = ref('');
 const filter = ref('');
+const searchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 
 const displayedFiles = computed(() => {
-	const value = filter.value.trim().toLocaleLowerCase('ru');
-	return value ? files.value.filter(file => file.name.toLocaleLowerCase('ru').includes(value)) : files.value;
+	return files.value.filter(file => matchesSearch(file.name, filter.value, searchOptions.value));
 });
 
 window.addEventListener('message', (event: MessageEvent<NativeLogsHostMessage>) => {
@@ -56,7 +57,7 @@ vscode.postMessage({ command: 'nativeLogsReady' });
     </header>
 
     <div v-if="files.length" class="flex min-h-0 flex-1 flex-col gap-1 p-2">
-      <Input v-model="filter" type="search" placeholder="Фильтр файлов" aria-label="Фильтр файлов логов" />
+      <SearchField v-model="filter" v-model:options="searchOptions" placeholder="Фильтр файлов" aria-label="Фильтр файлов логов" />
       <div class="min-h-0 flex-1 overflow-auto rounded-md border">
         <Button v-for="file in displayedFiles" :key="file.name" type="button" variant="ghost" class="h-auto w-full justify-start rounded-none border-b px-2 py-1.5 text-left last:border-b-0" :class="selectedFile === file.name ? 'bg-accent text-accent-foreground' : undefined" @click="openLog(file)">
           <HugeiconsIcon :icon="File01Icon" class="shrink-0" />

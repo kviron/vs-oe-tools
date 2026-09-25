@@ -1,7 +1,9 @@
 import * as assert from 'node:assert/strict';
 import iconv from 'iconv-lite';
 import { createInitialPacket, createReadonlyQueryPacket, expectedPacketLength, extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId, parseChallenge, parseMemoryDataPacket } from '../features/production-tasks/oenpProtocol';
-import { createLoginParameters, decodeProductionText, normalizeProductionDate, productionTaskActionsSql, productionTaskAttachmentsSql, productionTaskHistorySql, productionTaskReferenceSql, productionTaskRichDescriptionSql, productionTaskSearchSql, productionTaskSql } from '../features/production-tasks/productionTasksRepository';
+import { createLoginParameters } from '../features/production-tasks/auth';
+import { decodeProductionText, normalizeProductionDate } from '../features/production-tasks/mapping';
+import { productionTaskActionsSql, productionTaskAttachmentsSql, productionTaskHistorySql, productionTaskReferenceSql, productionTaskRichDescriptionSql, productionTaskSearchSql, productionTaskSql } from '../features/production-tasks/queries';
 
 suite('OENP protocol', () => {
 	test('builds a framed read-only query', () => {

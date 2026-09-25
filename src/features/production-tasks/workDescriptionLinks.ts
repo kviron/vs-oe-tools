@@ -5,7 +5,7 @@ export interface WorkDescriptionPart {
 	href?: string;
 }
 
-const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{3,}\b/g;
+const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{4,}\b/g;
 
 export function splitWorkDescriptionObjectIds(value: string, unqualifiedNumericKind?: 'object' | 'task'): WorkDescriptionPart[] {
 	const parts: WorkDescriptionPart[] = [];
@@ -24,8 +24,6 @@ export function splitWorkDescriptionObjectIds(value: string, unqualifiedNumericK
 		const prefix = value.slice(Math.max(0, matchOffset - 40), matchOffset);
 		const contextualTask = /задач\p{L}*\s*(?:№|#|id)?\s*$/ui.test(prefix);
 		const isTask = unqualifiedNumericKind === 'task' || contextualTask;
-		if (unqualifiedNumericKind === 'task' && !contextualTask && text.length < 5) { continue; }
-		if (!isTask && text.length < 7) { continue; }
 		if (matchOffset > offset) { parts.push({ text: value.slice(offset, matchOffset) }); }
 		parts.push({ text, id, kind: isTask ? 'task' : 'object' });
 		offset = matchOffset + text.length;

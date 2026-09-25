@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { Calendar03Icon, Clock01Icon, ColumnsThreeCogIcon, Copy01Icon, ExternalLinkIcon, FileImportIcon, Folder01Icon, RefreshIcon, Search01Icon, Task01Icon, ViewIcon } from '@hugeicons/core-free-icons';
+import { Calendar03Icon, Clock01Icon, ColumnsThreeCogIcon, Copy01Icon, ExternalLinkIcon, FileImportIcon, Folder01Icon, RefreshIcon, Task01Icon, ViewIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, ref, watch } from 'vue';
 import type { ProductionTasksHostMessage } from '../../../src/core/webviewProtocol';
 import type { ProductionTaskListItem } from '../../../src/features/production-tasks/models';
 import { productionDeadlineInfo, productionTaskMarkdown, productionTaskPublicUrl } from '../../../src/features/production-tasks/productionTaskPresentation';
 import ProductionTaskBadge from '@/components/ProductionTaskBadge.vue';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesAnySearch, type SearchOptions } from '@/lib/searchMatch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +15,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ContextMenu, ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import TaskFilter from './TaskFilter.vue';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +44,7 @@ const loading = ref(true);
 const error = ref('');
 const loadedAt = ref('');
 const searchQuery = ref(saved.search ?? '');
+const searchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 const userFilter = ref('current');
 const currentUserId = ref('');
 let appliedUserFilter: string | undefined;
@@ -75,8 +77,7 @@ const userOptions = computed(() => {
   return options;
 });
 const filteredTasks = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase('ru-RU');
-  return tasks.value.filter(task => (!query || [task.id, task.number, task.title, task.state, task.project, task.responsibleUser, task.executor, task.appeal, task.packageName, task.releasePlan].join(' ').toLocaleLowerCase('ru-RU').includes(query))
+  return tasks.value.filter(task => matchesAnySearch([task.id, task.number, task.title, task.state, task.project, task.responsibleUser, task.executor, task.appeal, task.packageName, task.releasePlan], searchQuery.value, searchOptions.value)
     && (!userFilter.value || String(task.responsibleUserId) === userFilter.value)
     && (!statusFilter.value || task.state === statusFilter.value) && (!projectFilter.value || task.project === projectFilter.value)
     && (!priorityFilter.value || task.priority === priorityFilter.value) && (!workTypeFilter.value || task.workType === workTypeFilter.value)
@@ -164,7 +165,7 @@ vscode.postMessage({ command: 'productionTasksReady' });
     <CardHeader class="shrink-0 gap-3 border-b py-3">
       <div class="flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-2"><CardTitle>Рабочий список</CardTitle><Badge variant="secondary">{{ countLabel }}</Badge></div>
-        <Field class="min-w-48 flex-1 sm:ml-auto sm:max-w-sm"><FieldLabel for="task-search" class="sr-only">Поиск задач</FieldLabel><InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput id="task-search" v-model="searchQuery" type="search" placeholder="Номер, название или параметр…" /></InputGroup></Field>
+        <Field class="min-w-48 flex-1 sm:ml-auto sm:max-w-sm"><FieldLabel for="task-search" class="sr-only">Поиск задач</FieldLabel><SearchField id="task-search" v-model="searchQuery" v-model:options="searchOptions" placeholder="Номер, название или параметр…" /></Field>
         <Popover><PopoverTrigger as-child><Button variant="outline" size="sm"><HugeiconsIcon :icon="ColumnsThreeCogIcon" data-icon="inline-start" />Колонки</Button></PopoverTrigger><PopoverContent class="w-80" align="end">
           <div class="flex items-center justify-between"><p class="font-semibold">Отображение таблицы</p><Button size="xs" variant="ghost" @click="resetColumns">Сбросить</Button></div>
           <FieldGroup class="max-h-80 gap-1 overflow-auto"><Field v-for="column in columnOrder.map(key => columns.find(item => item.key === key)!)" :key="column.key" orientation="horizontal"><Checkbox :id="`column-${column.key}`" :model-value="visibleColumns.includes(column.key)" @update:model-value="toggleColumn(column.key, $event)" /><FieldLabel class="min-w-0 flex-1 truncate" :for="`column-${column.key}`">{{ column.label }}</FieldLabel><Button size="icon-xs" variant="ghost" title="Сдвинуть влево" @click="moveColumn(column.key, -1)">←</Button><Button size="icon-xs" variant="ghost" title="Сдвинуть вправо" @click="moveColumn(column.key, 1)">→</Button></Field></FieldGroup>

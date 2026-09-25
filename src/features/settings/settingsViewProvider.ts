@@ -5,7 +5,7 @@ import { isSettingsWebviewMessage } from '../../core/webviewProtocol';
 import { getDatabaseRole, getProjectDatabaseOptions } from '../../infrastructure/configuration/projectDatabaseOptions';
 import { testDatabaseConnection } from '../../infrastructure/database/classRepository';
 import type { ExtensionLogService } from '../../infrastructure/logging/extensionLogService';
-import { getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/clientMcpHttp';
+import { getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/client/http';
 import { clientMcpMethodIds, startClientMcpProcess, startHttpTestServerProcess, type HttpTestServerProcess } from '../lifecycle/oeStaticMethodExecutor';
 import { loadRdboadmDatabases, saveRdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
 import { parseClientLaunchArguments, startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../project/projectCommandService';

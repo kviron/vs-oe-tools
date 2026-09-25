@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { resolveMethodCandidates, signatureArgumentCount, type MethodResolutionCandidate } from '../mcp/methodResolution';
+import { resolveMethodCandidates, signatureArgumentCount, type MethodResolutionCandidate } from '../mcp/queries/methodResolution';
 
 suite('MCP method reference resolution', () => {
 	test('prefers the nearest implementation in the caller inheritance chain', () => {

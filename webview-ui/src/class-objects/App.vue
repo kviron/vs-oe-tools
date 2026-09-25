@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Add01Icon, ColumnsThreeCogIcon, Database02Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons';
+import { Add01Icon, ColumnsThreeCogIcon, Database02Icon, RefreshIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, nextTick, ref } from 'vue';
 import type { ClassObjectsHostMessage } from '../../../src/core/webviewProtocol';
@@ -12,7 +12,6 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,6 +19,9 @@ import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
 import SortableTableHead from '@/components/SortableTableHead.vue';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesAnySearch, type SearchOptions } from '@/lib/searchMatch';
+import CellFilterStatus from '@/components/CellFilterStatus.vue';
 
 const result = ref<ClassObjectsResult>();
 const loading = ref(true);
@@ -28,6 +30,13 @@ const error = ref('');
 const sortKey = ref('');
 const sortDirection = ref<1 | -1>(1);
 const searchQuery = ref('');
+const searchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
+const cellFilter = ref<{ mode: 'include' | 'exclude'; columns: Array<{ index: number; values: string[] }> }>();
+const objectsTable = ref<InstanceType<typeof Table>>();
+function clearObjectCellFilter(): void {
+  if (objectsTable.value) objectsTable.value.clearFilter();
+  else cellFilter.value = undefined;
+}
 const revealedObjectId = ref<string>();
 const visibleColumns = ref<string[]>([]);
 const columnOrder = ref<string[]>([]);
@@ -48,9 +57,7 @@ const rows = computed(() => {
   return [...source].sort((left, right) => compare(left[sortKey.value], right[sortKey.value]) * direction);
 });
 const displayedRows = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase('ru');
-  if (!query) return rows.value;
-  return rows.value.filter(row => activeColumns.value.some(column => display(row[column.key]).toLocaleLowerCase('ru').includes(query)));
+  return rows.value.filter(row => matchesAnySearch(activeColumns.value.map(column => display(row[column.key])), searchQuery.value, searchOptions.value));
 });
 const sortOrder = computed<'asc' | 'desc'>(() => sortDirection.value === 1 ? 'asc' : 'desc');
 
@@ -230,7 +237,7 @@ vscode.postMessage({ command: 'classObjectsReady' });
           <div class="flex min-w-0 items-center gap-2"><CardTitle>Таблица объектов</CardTitle><Badge v-if="result" variant="secondary">{{ result.totalCount }}</Badge></div>
           <Field class="min-w-48 flex-1 sm:ml-auto sm:max-w-sm">
             <FieldLabel for="class-object-search" class="sr-only">Поиск по объектам</FieldLabel>
-            <InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput id="class-object-search" v-model="searchQuery" type="search" placeholder="Поиск по загруженным строкам…" /></InputGroup>
+            <SearchField id="class-object-search" v-model="searchQuery" v-model:options="searchOptions" placeholder="Поиск по загруженным строкам…" />
           </Field>
           <Popover>
             <PopoverTrigger as-child><Button variant="outline" size="sm" :disabled="!result"><HugeiconsIcon :icon="ColumnsThreeCogIcon" data-icon="inline-start" />Колонки</Button></PopoverTrigger>
@@ -250,6 +257,7 @@ vscode.postMessage({ command: 'classObjectsReady' });
             </PopoverContent>
           </Popover>
         </div>
+        <CellFilterStatus :filter="cellFilter" :columns="activeColumns.map(column => column.title)" @reset="clearObjectCellFilter" />
         <CardDescription>Кликните или протяните по ячейкам, чтобы скопировать значения</CardDescription>
       </CardHeader>
 
@@ -259,7 +267,7 @@ vscode.postMessage({ command: 'classObjectsReady' });
         <EntityContextMenu v-else-if="!result?.rows.length" :create="canCreateSpu" @create="createSpu()"><Empty class="min-h-0 flex-1"><EmptyHeader><EmptyTitle>Объектов нет</EmptyTitle><EmptyDescription>В таблице этого класса не найдено записей.</EmptyDescription></EmptyHeader></Empty></EntityContextMenu>
         <Empty v-else-if="!displayedRows.length" class="min-h-0 flex-1"><EmptyHeader><EmptyTitle>Ничего не найдено</EmptyTitle><EmptyDescription>Измените или очистите строку поиска.</EmptyDescription></EmptyHeader></Empty>
         <EntityContextMenu v-else :create="canCreateSpu" :entity-type="result?.className" :view-label="canCreateSpu ? 'Редактировать' : undefined" :view-as-edit="canCreateSpu" @create="createSpuForEntity">
-          <Table container-class="min-h-0 min-w-0 flex-1 overflow-auto" class="min-w-full" @pointerdown="clearRevealedObject" @scroll="handleScroll">
+          <Table ref="objectsTable" external-filter-status container-class="min-h-0 min-w-0 flex-1 overflow-auto" class="min-w-full" @cell-filter-change="cellFilter = $event" @pointerdown="clearRevealedObject" @scroll="handleScroll">
             <TableHeader class="sticky top-0 z-10 bg-card"><TableRow>
               <SortableTableHead v-for="column in activeColumns" :key="column.key" class="h-8 min-w-32 px-3" :title="`${column.attributeName} · ${column.key}`" :active="sortKey === column.key" :direction="sortOrder" @sort="sort(column.key)">{{ column.title }}</SortableTableHead>
             </TableRow></TableHeader>

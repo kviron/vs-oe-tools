@@ -1,15 +1,24 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import { cn } from '@/lib/utils'
 import { vscode } from '@/vscode'
+import CellFilterStatus from '@/components/CellFilterStatus.vue'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']
   containerClass?: HTMLAttributes['class']
+  externalCellFilter?: boolean
+  externalFilterStatus?: boolean
 }>()
-const emit = defineEmits<{ scroll: [event: Event] }>()
+type CellFilter = { mode: 'include' | 'exclude'; columns: Array<{ index: number; values: string[] }> }
+const emit = defineEmits<{ scroll: [event: Event]; cellFilterChange: [filter: CellFilter | undefined] }>()
 const container = ref<HTMLElement>()
+const filter = ref<CellFilter>()
+const filterColumns = ref<string[]>([])
+const selectedCount = ref(0)
+provide('tableSelectedCount', selectedCount)
+let observer: MutationObserver | undefined
 const selectedCells = new Set<HTMLTableCellElement>()
 const selectedRows = new Set<HTMLTableRowElement>()
 let activeCell: HTMLTableCellElement | undefined
@@ -20,20 +29,60 @@ let dragFrame: number | undefined
 let pendingDragCell: HTMLTableCellElement | undefined
 
 function tableRows(): HTMLTableRowElement[] {
-  return Array.from(container.value?.querySelectorAll<HTMLTableRowElement>('tbody tr:not([data-virtual-spacer])') ?? [])
+  return Array.from(container.value?.querySelectorAll<HTMLTableRowElement>('tbody tr:not([data-virtual-spacer])') ?? []).filter(row => !row.hidden)
 }
+
+function updateFilteredRows(): void {
+  if (props.externalCellFilter) return
+  for (const row of container.value?.querySelectorAll<HTMLTableRowElement>('tbody tr:not([data-virtual-spacer])') ?? []) {
+    const matches = filter.value?.columns.every(({ index, values }) => {
+      const cell = row.cells[index]
+      return cell ? values.includes(filterCellText(cell)) : false
+    }) ?? true
+    row.hidden = filter.value ? (filter.value.mode === 'include' ? !matches : matches) : false
+  }
+}
+
+function applyFilter(mode: CellFilter['mode']): void {
+  const columns = new Map<number, Set<string>>()
+  for (const cell of selectedCells) {
+    if (!cell.isConnected) continue
+    const values = columns.get(cell.cellIndex) ?? new Set<string>()
+    values.add(filterCellText(cell))
+    columns.set(cell.cellIndex, values)
+  }
+  if (!columns.size) return
+  filter.value = { mode, columns: [...columns].map(([index, values]) => ({ index, values: [...values] })) }
+  const header = container.value?.querySelector('thead tr')
+  filterColumns.value = Array.from(header?.children ?? []).map(cell => cell.textContent?.trim() ?? '')
+  emit('cellFilterChange', filter.value)
+  clearSelection()
+  activeCell?.removeAttribute('data-active-cell')
+  activeCell = undefined
+  void nextTick(updateFilteredRows)
+}
+
+function clearFilter(): void {
+  filter.value = undefined
+  filterColumns.value = []
+  emit('cellFilterChange', undefined)
+  updateFilteredRows()
+}
+defineExpose({ clearFilter })
 
 function clearSelection(updateRows = true): void {
   for (const cell of selectedCells) {
     cell.removeAttribute('data-selected-cell')
   }
   selectedCells.clear()
+  selectedCount.value = 0
   if (updateRows) updateSelectedRows()
 }
 
 function selectCellElement(cell: HTMLTableCellElement): void {
   selectedCells.add(cell)
   cell.dataset.selectedCell = 'true'
+  selectedCount.value = selectedCells.size
 }
 
 function setActiveCell(cell: HTMLTableCellElement): void {
@@ -60,6 +109,7 @@ function updateSelectedRows(): void {
   }
   selectedRows.clear()
   for (const row of nextSelectedRows) selectedRows.add(row)
+  selectedCount.value = selectedCells.size
 }
 
 function eventCell(event: Event): HTMLTableCellElement | undefined {
@@ -243,6 +293,12 @@ function navigateWithKeyboard(event: KeyboardEvent): void {
 }
 
 function handleKeydown(event: KeyboardEvent): void {
+  if (event.code === 'KeyS' && event.shiftKey && !event.altKey && selectedCells.size) {
+    event.preventDefault()
+    event.stopPropagation()
+    applyFilter(event.ctrlKey || event.metaKey ? 'exclude' : 'include')
+    return
+  }
   copyWithShortcut(event)
   navigateWithKeyboard(event)
 }
@@ -306,16 +362,25 @@ function cellText(cell: HTMLTableCellElement): string {
   return copy.textContent?.trim() ?? ''
 }
 
+function filterCellText(cell: HTMLTableCellElement): string {
+  const copy = cell.cloneNode(true) as HTMLTableCellElement
+  copy.querySelectorAll('[aria-hidden="true"], [data-filter-ignore]').forEach(element => element.remove())
+  return copy.textContent?.trim() ?? ''
+}
+
 function csvValue(value: string): string {
   return /[;"\r\n\s]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
 }
 
 onMounted(() => {
+  observer = new MutationObserver(() => updateFilteredRows())
+  if (container.value) observer.observe(container.value, { childList: true, characterData: true, subtree: true })
   document.addEventListener('keydown', handleDocumentKeydown, true)
   document.addEventListener('copy', handleDocumentCopy, true)
 })
 
 onBeforeUnmount(() => {
+  observer?.disconnect()
   document.removeEventListener('keydown', handleDocumentKeydown, true)
   document.removeEventListener('copy', handleDocumentCopy, true)
   if (dragFrame !== undefined) cancelAnimationFrame(dragFrame)
@@ -337,8 +402,12 @@ onBeforeUnmount(() => {
     @pointerleave="stopSelection"
     @scroll="emit('scroll', $event)"
   >
+    <CellFilterStatus v-if="!externalFilterStatus" class="sticky top-0 z-20 border-b bg-card px-2 py-1" :filter="filter" :columns="filterColumns" @reset="clearFilter" />
     <table data-slot="table" :class="cn('w-full caption-bottom text-xs', props.class)">
       <slot />
+      <tfoot data-selection-fallback class="border-t bg-card text-muted-foreground">
+        <tr><td class="h-5 px-1 py-0 text-[0.625rem]" :style="{ '--table-selection-label': selectedCount ? JSON.stringify(`Выделено: ${selectedCount}`) : 'none' }" /></tr>
+      </tfoot>
     </table>
   </div>
 </template>

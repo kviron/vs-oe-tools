@@ -20,9 +20,20 @@ suite('Production task rich text', () => {
 		assert.equal(parts[1]?.kind, 'image');
 	});
 
-	test('keeps the plain description path when RTF has no supported image', () => {
-		assert.deepEqual(parseProductionTaskRichDescription('{\\rtf1 Только текст}'), []);
+	test('keeps RTF text when no image is present', () => {
+		assert.deepEqual(parseProductionTaskRichDescription('{\\rtf1 Только текст}'), [{ kind: 'text', text: 'Только текст' }]);
 		assert.deepEqual(parseProductionTaskRichDescription('Только текст'), []);
+	});
+
+	test('preserves grouped emphasis and the RTF color table', () => {
+		assert.deepEqual(parseProductionTaskRichDescription('{\\rtf1{\\colortbl ;\\red255\\green0\\blue64;}Обычный {\\b жирный \\i курсив} снова \\cf1 красный\\cf0.}'), [
+			{ kind: 'text', text: 'Обычный ' },
+			{ kind: 'text', text: 'жирный ', bold: true },
+			{ kind: 'text', text: 'курсив', bold: true, italic: true },
+			{ kind: 'text', text: ' снова ' },
+			{ kind: 'text', text: 'красный', color: '#ff0040' },
+			{ kind: 'text', text: '.' },
+		]);
 	});
 
 	test('extracts a Windows Metafile for host-side conversion', () => {

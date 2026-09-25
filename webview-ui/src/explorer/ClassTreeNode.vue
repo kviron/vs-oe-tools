@@ -56,7 +56,7 @@ function openClass(pinned: boolean): void {
       :entity-id="node.entityId"
 	  :entity-type="node.kind === 'class' ? 'Класс' : node.kind === 'comment' ? 'Комментарий' : undefined"
 	  :class-id="node.kind === 'class' && node.hasDfm && typeof node.id === 'number' ? node.id : undefined"
-      :view-objects-class-id="node.kind === 'class' && !node.virtual && node.dbtablename && typeof node.id === 'number' ? node.id : undefined"
+      :view-objects-class-id="node.kind === 'class' && typeof node.id === 'number' ? node.id : undefined"
       copy-shortcut="Ctrl+C"
     >
       <div class="group flex min-h-7 min-w-full items-center whitespace-nowrap rounded-md hover:bg-accent">

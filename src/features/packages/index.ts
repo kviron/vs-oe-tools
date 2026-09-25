@@ -1,0 +1,1 @@
+export { closePackageContentPanels } from './packageContentPanelManager';

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircleIcon, GitCompareIcon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons';
+import { AlertCircleIcon, GitCompareIcon, RefreshIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, ref } from 'vue';
 import type { PackageSyncHostMessage } from '../../../src/core/webviewProtocol';
@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesAnySearch, type SearchOptions } from '@/lib/searchMatch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -24,6 +25,7 @@ const issues = ref<PackageSyncIssue[]>([]);
 const loading = ref(true);
 const error = ref('');
 const query = ref('');
+const searchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 const selected = ref<number>();
 const activeTab = ref<'changes' | 'errors' | 'merge'>('changes');
 const mergeBranch = ref('trunk');
@@ -33,17 +35,11 @@ const mergeError = ref('');
 const mergeResult = ref<SvnMergeResult>();
 
 const visible = computed(() => {
-  const value = query.value.trim().toLocaleLowerCase('ru');
-  if (!value) return items.value;
-  return items.value.filter(item => [item.objectId, item.objectName, item.objectPath, item.packagePath, item.changeState]
-    .some(field => String(field).toLocaleLowerCase('ru').includes(value)));
+  return items.value.filter(item => matchesAnySearch([item.objectId, item.objectName, item.objectPath, item.packagePath, item.changeState], query.value, searchOptions.value));
 });
 
 const visibleIssues = computed(() => {
-  const value = query.value.trim().toLocaleLowerCase('ru');
-  if (!value) return issues.value;
-  return issues.value.filter(issue => issueSearchFields(issue)
-    .some(field => String(field).toLocaleLowerCase('ru').includes(value)));
+  return issues.value.filter(issue => matchesAnySearch(issueSearchFields(issue), query.value, searchOptions.value));
 });
 
 const mergeConflictCount = computed(() => mergeResult.value?.files.filter(file => file.conflicted).length ?? 0);
@@ -168,7 +164,7 @@ vscode.postMessage({ command: 'packageSyncReady' });
       <TabsContent value="changes" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
         <Card size="sm" class="shrink-0">
           <CardHeader class="flex flex-wrap items-center justify-between gap-3"><div class="flex min-w-0 flex-col gap-1"><CardTitle>Изменённые файлы <Badge variant="secondary">{{ loading ? '…' : visible.length }}</Badge></CardTitle><CardDescription>Двойной щелчок по строке открывает сравнение локального PKF с версией из БД</CardDescription></div></CardHeader>
-          <CardContent class="flex flex-wrap items-end gap-3"><Field class="min-w-56 flex-1 gap-1.5"><FieldLabel for="package-sync-search">Поиск</FieldLabel><InputGroup><InputGroupInput id="package-sync-search" v-model="query" type="search" placeholder="Имя, путь или ID…" /><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon></InputGroup></Field><Button variant="outline" size="sm" :disabled="loading" @click="refresh"><Spinner v-if="loading" data-icon="inline-start" /><HugeiconsIcon v-else :icon="RefreshIcon" data-icon="inline-start" />{{ loading ? 'Обновление…' : 'Обновить' }}</Button></CardContent>
+          <CardContent class="flex flex-wrap items-end gap-3"><Field class="min-w-56 flex-1 gap-1.5"><FieldLabel for="package-sync-search">Поиск</FieldLabel><SearchField id="package-sync-search" v-model="query" v-model:options="searchOptions" placeholder="Имя, путь или ID…" /></Field><Button variant="outline" size="sm" :disabled="loading" @click="refresh"><Spinner v-if="loading" data-icon="inline-start" /><HugeiconsIcon v-else :icon="RefreshIcon" data-icon="inline-start" />{{ loading ? 'Обновление…' : 'Обновить' }}</Button></CardContent>
         </Card>
 
         <Table v-if="loading || visible.length" container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" class="min-w-[1100px]">
@@ -187,7 +183,7 @@ vscode.postMessage({ command: 'packageSyncReady' });
       <TabsContent value="errors" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
         <Card size="sm" class="shrink-0">
           <CardHeader class="flex flex-wrap items-center justify-between gap-3"><div class="flex min-w-0 flex-col gap-1"><CardTitle>Проблемы пакетов <Badge :variant="issues.length ? 'destructive' : 'secondary'">{{ loading ? '…' : visibleIssues.length }}</Badge></CardTitle><CardDescription>Проверка #package$ и зависимостей между пакетами для изменённых ссылок</CardDescription></div></CardHeader>
-          <CardContent class="flex flex-wrap items-end gap-3"><Field class="min-w-56 flex-1 gap-1.5"><FieldLabel for="package-issue-search">Поиск</FieldLabel><InputGroup><InputGroupInput id="package-issue-search" v-model="query" type="search" placeholder="Ошибка, объект, пакет или ID…" /><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon></InputGroup></Field><Button variant="outline" size="sm" :disabled="loading" @click="refresh"><Spinner v-if="loading" data-icon="inline-start" /><HugeiconsIcon v-else :icon="RefreshIcon" data-icon="inline-start" />{{ loading ? 'Обновление…' : 'Обновить' }}</Button></CardContent>
+          <CardContent class="flex flex-wrap items-end gap-3"><Field class="min-w-56 flex-1 gap-1.5"><FieldLabel for="package-issue-search">Поиск</FieldLabel><SearchField id="package-issue-search" v-model="query" v-model:options="searchOptions" placeholder="Ошибка, объект, пакет или ID…" /></Field><Button variant="outline" size="sm" :disabled="loading" @click="refresh"><Spinner v-if="loading" data-icon="inline-start" /><HugeiconsIcon v-else :icon="RefreshIcon" data-icon="inline-start" />{{ loading ? 'Обновление…' : 'Обновить' }}</Button></CardContent>
         </Card>
 
         <Table v-if="loading || visibleIssues.length" container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" class="min-w-[1420px]">

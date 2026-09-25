@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import * as iconv from 'iconv-lite';
-import { createSourceExcerpt, decodeSourceValue, maximumSourceLineLimit } from '../mcp/sourceContent';
+import { createSourceExcerpt, decodeSourceValue, maximumSourceLineLimit } from '../mcp/queries/sourceContent';
 
 suite('MCP source content', () => {
 	test('decodes Windows-1251 buffers and PostgreSQL bytea text', () => {

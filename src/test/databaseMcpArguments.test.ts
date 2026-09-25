@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildDatabaseMcpArguments } from '../mcp/databaseMcpArguments';
+import { buildDatabaseMcpArguments } from '../mcp/database/arguments';
 
 suite('Database MCP arguments', () => {
 	test('includes SQL monitor history for generated and registered connections', () => {

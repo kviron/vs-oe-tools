@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { getProjectDatabaseOptions } from '../../infrastructure/configuration/projectDatabaseOptions';
 import { withProjectDatabaseSession } from '../../infrastructure/database/projectDatabaseSession';
 import { getClassAttributeDetails } from '../../infrastructure/database/classRepository';
-import { callClientMcpTool, getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/clientMcpHttp';
+import { callClientMcpTool, getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/client/http';
 import { startClientMcpProcess, type OeMethodCredentials } from '../lifecycle/oeStaticMethodExecutor';
 import { assertAttributeTool, attributeDraft, nativeAttributeArguments, nativeAttributeResult, type NativeAttributeDraft } from './nativeAttributeEditing';
 

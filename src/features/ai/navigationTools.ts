@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { ClassAttributeDraft } from '../classes/models';
 import type { PackageBindingMutationRequest } from '../package-sync/packageBindingMutation';
+import type { MethodCompilationRecord } from '../methods/methodCompilationHistory';
 
 interface ClassInput {
 	classId: number;
@@ -19,7 +20,9 @@ export interface NavigationActions {
 	openClass(classId: number): Promise<void>;
 	openMethod(methodId: number): Promise<void>;
 	revealMethod(classId: number, methodId: number): Promise<void>;
-	updateMethodSource(methodId: number, code: string): Promise<Record<string, unknown>>;
+	updateMethodSource(methodId: number, code: string, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<Record<string, unknown>>;
+	compileMethod(methodId: number, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<MethodCompilationRecord>;
+	getMethodCompilationHistory(methodId: number | undefined, limit: number): Promise<{ records: MethodCompilationRecord[] }>;
 	updateModuleSource(moduleId: number, code: string, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<Record<string, unknown>>;
 	bindObjectsToPackage(request: PackageBindingMutationRequest): Promise<Record<string, unknown>>;
 	createClassAttribute(draft: ClassAttributeDraft): Promise<Record<string, unknown>>;
@@ -39,6 +42,7 @@ export interface NavigationActions {
 	updateDatabase(role: 'main' | 'test'): Promise<void>;
 	startClient(role: 'main' | 'test'): Promise<void>;
 	openClientEntity(role: 'main' | 'test', entityType: string, id: number): Promise<string>;
+	confirmSqlMutation(sql: string, database: string): Promise<boolean>;
 }
 
 export function registerNavigationTools(context: vscode.ExtensionContext, actions: NavigationActions): void {

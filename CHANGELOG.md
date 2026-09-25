@@ -4,6 +4,26 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.7.0] - 2026-09-25
+
+### Added
+
+- Added automatic native compilation after saving a class method, with editor diagnostics and compilation history for editor and agent workflows.
+- Added a shared table value filter for selected cells, including include and exclude shortcuts, visible filter state, and support for virtualized method lists.
+- Added SQL highlighting inside tagged JavaScript and TypeScript template strings.
+- Added package context and copyable class IDs to class details.
+
+### Changed
+
+- Reorganized extension startup, feature APIs, and MCP tools into focused modules while keeping startup stages explicit.
+- Preserved rich text styling and embedded images in production task descriptions.
+- Improved search and navigation across class, task, history, log, package, and settings views.
+
+### Fixed
+
+- Prevented concurrent DFM edits from silently overwriting a changed source.
+- Improved database session and native client request handling, with targeted regression tests.
+
 ## [0.6.0] - 2026-09-18
 
 ### Added

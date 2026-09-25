@@ -21,6 +21,7 @@ import EntityContextMenu from '@/components/EntityContextMenu.vue';
 import SortableTableHead from '@/components/SortableTableHead.vue';
 import MethodSignature from '@/components/MethodSignature.vue';
 import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
+import { defaultSearchOptions, matchesAnySearch, type SearchOptions } from '@/lib/searchMatch';
 
 interface ClassDetailsViewState {
   activeTab?: string;
@@ -57,6 +58,16 @@ const classPropertiesLoaded = ref(false);
 const classPropertiesError = ref('');
 const includeInheritedProperties = ref(restoredState.includeInheritedProperties ?? false);
 const propertySearchQuery = ref('');
+const propertySearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
+const attributeSearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
+const methodSearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
+type CellFilter = { mode: 'include' | 'exclude'; columns: Array<{ index: number; values: string[] }> };
+const attributeCellFilter = ref<CellFilter>();
+const methodCellFilter = ref<CellFilter>();
+const propertyCellFilter = ref<CellFilter>();
+const attributeTable = ref<InstanceType<typeof Table>>();
+const methodTable = ref<InstanceType<typeof Table>>();
+const propertyTable = ref<InstanceType<typeof Table>>();
 const attributeSortKey = ref<string>();
 const attributeSortDirection = ref<SortDirection>('asc');
 const methodSortKey = ref<string>();
@@ -80,19 +91,37 @@ const tableColumns = [
   ['ID', 'id'], ['Видимость', 'visibility'], ['Пакет', 'package'], ['Строка', 'line'],
   ['Дата обновления', 'updatedAt'], ['Создал', 'createdBy'],
 ] as const;
+const memberFilterColumns = tableColumns.map(([label]) => label);
+const propertyFilterColumns = ['Имя', 'Псевдоним', 'Владелец', 'Тип', 'Только чтение', 'ID', 'Видимость', 'Пакет'];
+function matchesCellFilter(row: ClassAttribute | ClassMethod, filter: CellFilter | undefined): boolean {
+  if (!filter) return true;
+  const matches = filter.columns.every(({ index, values }) => {
+    const key = tableColumns[index]?.[1];
+    const value = key === 'id' ? formatId(row.id) : key === 'updatedAt' ? formatDate(row.updatedAt) : key ? String(row[key] ?? '') : '';
+    return values.includes(value.trim());
+  });
+  return filter.mode === 'include' ? matches : !matches;
+}
+function matchesPropertyCellFilter(row: ClassProperty, filter: CellFilter | undefined): boolean {
+  if (!filter) return true;
+  const keys = ['name', 'aliases', 'owner', 'type', 'readOnly', 'id', 'visibility', 'package'] as const;
+  const matches = filter.columns.every(({ index, values }) => {
+    const key = keys[index];
+    const value = key === 'id' ? formatId(row.id) : key === 'readOnly' ? (row.readOnly ? 'Да' : '') : key ? String(row[key] ?? '') : '';
+    return values.includes(value.trim());
+  });
+  return filter.mode === 'include' ? matches : !matches;
+}
 const filteredAttributes = computed(() => {
-  return attributes.value.filter(attribute => matchesFilters(attribute, attributeSearchQuery.value, attributeCreatorQuery.value, attributeDateFrom.value, attributeDateTo.value));
+  return attributes.value.filter(attribute => matchesFilters(attribute, attributeSearchQuery.value, attributeSearchOptions.value, attributeCreatorQuery.value, attributeDateFrom.value, attributeDateTo.value) && matchesCellFilter(attribute, attributeCellFilter.value));
 });
 const sortedAttributes = computed(() => sortedRows(filteredAttributes.value, attributeSortKey.value, attributeSortDirection.value, (row, key) => row[key as keyof ClassAttribute]));
 const filteredMethods = computed(() => {
-  return methods.value.filter(method => matchesFilters(method, methodSearchQuery.value, methodCreatorQuery.value, methodDateFrom.value, methodDateTo.value));
+  return methods.value.filter(method => matchesFilters(method, methodSearchQuery.value, methodSearchOptions.value, methodCreatorQuery.value, methodDateFrom.value, methodDateTo.value) && matchesCellFilter(method, methodCellFilter.value));
 });
 const sortedMethods = computed(() => sortedRows(filteredMethods.value, methodSortKey.value, methodSortDirection.value, (row, key) => row[key as keyof ClassMethod]));
 const filteredProperties = computed(() => {
-  const query = propertySearchQuery.value.trim().toLocaleLowerCase('ru');
-  if (!query) return classProperties.value;
-  return classProperties.value.filter(property => [property.name, property.aliases, property.owner, property.type, property.id, formatId(property.id), property.visibility, property.package]
-    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(query)));
+  return classProperties.value.filter(property => matchesPropertyCellFilter(property, propertyCellFilter.value) && matchesAnySearch([property.name, property.aliases, property.owner, property.type, property.id, formatId(property.id), property.visibility, property.package], propertySearchQuery.value, propertySearchOptions.value));
 });
 const attributeCount = computed(() => attributesLoaded.value
   ? attributes.value.length
@@ -293,11 +322,9 @@ function formatDate(value: string): string {
   return formatted;
 }
 
-function matchesFilters(row: ClassAttribute | ClassMethod, search: string, creator: string, dateFrom: string, dateTo: string): boolean {
-  const searchQuery = search.trim().toLocaleLowerCase('ru');
+function matchesFilters(row: ClassAttribute | ClassMethod, search: string, options: SearchOptions, creator: string, dateFrom: string, dateTo: string): boolean {
   const creatorQuery = creator.trim().toLocaleLowerCase('ru');
-  if (searchQuery && ![row.name, row.signature, row.owner, row.id, formatId(row.id)]
-    .some(value => String(value ?? '').toLocaleLowerCase('ru').includes(searchQuery))) return false;
+  if (!matchesAnySearch([row.name, row.signature, row.owner, row.id, formatId(row.id)], search, options)) return false;
   if (creatorQuery && !row.createdBy.toLocaleLowerCase('ru').includes(creatorQuery)) return false;
   if (!dateFrom && !dateTo) return true;
   const updatedDate = localDateKey(row.updatedAt);
@@ -356,6 +383,10 @@ function createMethod(): void {
   if (details.value) vscode.postMessage({ command: 'createMethod', classId: details.value.id });
 }
 
+function copyClassId(): void {
+  if (details.value) vscode.postMessage({ command: 'copyEntityId', id: String(details.value.id) });
+}
+
 function openProperty(property: ClassProperty): void {
   const id = Number(property.id);
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openProperty', id });
@@ -397,7 +428,12 @@ vscode.postMessage({ command: 'classDetailsReady' });
         <div class="min-w-0"><h1 class="truncate text-lg font-semibold" :title="details.name">{{ details.name }}</h1><p class="truncate text-xs text-muted-foreground">{{ details.title || 'Структура и метаданные класса' }}</p></div>
       </div>
       <EntityContextMenu :entity-id="details.id" entity-type="Класс" :view-objects-class-id="!details.virtual && details.dbtablename ? details.id : undefined">
-        <div class="flex flex-wrap items-center gap-2"><Badge variant="class">Класс</Badge><Badge variant="outline">ID {{ formatId(details.id) }}</Badge><Badge v-if="details.virtual" variant="secondary">Виртуальный</Badge></div>
+        <div class="flex flex-wrap items-center gap-2">
+          <Badge variant="class">Класс</Badge>
+          <Badge v-if="details.packageName" variant="secondary" class="max-w-64 truncate" :title="`Пакет: ${details.packageName}`">Пакет: {{ details.packageName }}</Badge>
+          <Badge as="button" type="button" variant="outline" class="cursor-pointer" :title="`Скопировать ID ${details.id}`" :aria-label="`Скопировать ID класса ${details.id}`" @click="copyClassId">ID {{ formatId(details.id) }}</Badge>
+          <Badge v-if="details.virtual" variant="secondary">Виртуальный</Badge>
+        </div>
       </EntityContextMenu>
     </header>
     <Tabs :model-value="activeTab" class="min-h-0 min-w-0 flex-1 gap-3" @update:model-value="onTabChange">
@@ -432,8 +468,8 @@ vscode.postMessage({ command: 'classDetailsReady' });
       </TabsContent>
 
       <TabsContent value="properties" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
-        <MemberToolbar title="Свойства" description="Скриптовые свойства класса. Бинарные RTTI-свойства доступны в клиенте." :count="filteredProperties.length" :loading="classPropertiesLoading" :inherited="includeInheritedProperties" v-model:search="propertySearchQuery" @inherited-change="toggleInheritedProperties" />
-        <Table v-if="classPropertiesLoading || sortedProperties.length" container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card">
+        <MemberToolbar title="Свойства" description="Скриптовые свойства класса. Бинарные RTTI-свойства доступны в клиенте." :count="filteredProperties.length" :loading="classPropertiesLoading" :inherited="includeInheritedProperties" :cell-filter="propertyCellFilter" :filter-columns="propertyFilterColumns" v-model:search="propertySearchQuery" v-model:search-options="propertySearchOptions" @inherited-change="toggleInheritedProperties" @reset-cell-filter="propertyTable?.clearFilter()" />
+        <Table v-if="classPropertiesLoading || classPropertiesLoaded" ref="propertyTable" external-cell-filter external-filter-status container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" @cell-filter-change="propertyCellFilter = $event">
           <TableHeader class="sticky top-0 z-10 bg-card"><TableRow>
             <SortableTableHead class="h-9 min-w-56 px-1" :active="propertySortKey === 'name'" :direction="propertySortDirection" @sort="sortProperties('name')">Имя</SortableTableHead>
             <SortableTableHead class="h-9 min-w-40 px-1" :active="propertySortKey === 'aliases'" :direction="propertySortDirection" @sort="sortProperties('aliases')">Псевдоним</SortableTableHead>
@@ -448,7 +484,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <template v-if="classPropertiesLoading"><TableRow v-for="row in 8" :key="row"><TableCell v-for="column in 8" :key="column" class="px-3 py-1"><Skeleton class="h-4 w-full" /></TableCell></TableRow></template>
             <EntityContextMenu v-for="property in classPropertiesLoading ? [] : sortedProperties" :key="property.id" :entity-id="property.id" entity-type="Свойство" edit @edit="openProperty(property)" @properties="viewEntityProperties(property.id)">
               <TableRow :data-entity-id="property.id" class="h-8 cursor-default" title="Двойной щелчок — открыть карточку свойства" @dblclick="openProperty(property)">
-                <TableCell class="max-w-64 px-3 py-1" :title="property.name"><span v-if="property.inherited" class="mr-1 text-muted-foreground" title="Наследуемое свойство">↥</span>{{ property.name }}</TableCell>
+                <TableCell class="max-w-64 px-3 py-1" :title="property.name"><span v-if="property.inherited" data-filter-ignore class="mr-1 text-muted-foreground" title="Наследуемое свойство">↥</span>{{ property.name }}</TableCell>
                 <TableCell class="max-w-48 truncate px-3 py-1" :title="property.aliases">{{ property.aliases }}</TableCell>
                 <TableCell class="max-w-48 truncate px-3 py-1" :title="property.owner">{{ property.owner }}</TableCell>
                 <TableCell class="px-3 py-1"><Badge variant="secondary">{{ property.type }}</Badge></TableCell>
@@ -468,10 +504,10 @@ vscode.postMessage({ command: 'classDetailsReady' });
 
       <EntityContextMenu create create-label="Создать атрибут…" @create="createAttribute">
       <TabsContent value="attributes" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
-        <MemberToolbar title="Атрибуты" description="Поля данных, типы и наследование" :count="filteredAttributes.length" :loading="attributesLoading" :inherited="includeInheritedAttributes" advanced v-model:search="attributeSearchQuery" v-model:creator="attributeCreatorQuery" v-model:date-from="attributeDateFrom" v-model:date-to="attributeDateTo" @inherited-change="toggleInheritedAttributes">
+        <MemberToolbar title="Атрибуты" description="Поля данных, типы и наследование" :count="filteredAttributes.length" :loading="attributesLoading" :inherited="includeInheritedAttributes" :cell-filter="attributeCellFilter" :filter-columns="memberFilterColumns" advanced v-model:search="attributeSearchQuery" v-model:search-options="attributeSearchOptions" v-model:creator="attributeCreatorQuery" v-model:date-from="attributeDateFrom" v-model:date-to="attributeDateTo" @inherited-change="toggleInheritedAttributes" @reset-cell-filter="attributeTable?.clearFilter()">
           <Button size="sm" @click="createAttribute"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать атрибут</Button>
         </MemberToolbar>
-        <Table :key="`attributes-${includeInheritedAttributes}`" v-if="attributesLoading || filteredAttributes.length > 0" container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" @scroll="trackVirtualScroll('attributes', $event)">
+        <Table :key="`attributes-${includeInheritedAttributes}`" v-if="attributesLoading || attributesLoaded" ref="attributeTable" external-cell-filter external-filter-status container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" @cell-filter-change="attributeCellFilter = $event" @scroll="trackVirtualScroll('attributes', $event)">
           <TableHeader class="sticky top-0 z-10 bg-card">
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-9 px-3" :active="attributeSortKey === key" :direction="attributeSortDirection" @sort="sortAttributes(key)">{{ label }}</SortableTableHead>
@@ -487,7 +523,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <EntityContextMenu v-for="attribute in attributesLoading ? [] : visibleAttributes" :key="attribute.id" :entity-id="attribute.id" entity-type="Атрибут" edit create create-label="Создать атрибут…" @create="createAttribute" @edit="editAttribute(attribute)" @properties="viewEntityProperties(attribute.id)">
             <TableRow :data-entity-id="attribute.id" class="h-8 cursor-default" title="Двойной щелчок — открыть карточку атрибута" @dblclick="openAttribute(attribute)">
               <TableCell class="max-w-64 px-3 py-1" :title="attribute.name">
-                <span v-if="attribute.inherited" class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
+                <span v-if="attribute.inherited" data-filter-ignore class="mr-1 text-muted-foreground" title="Наследуемый атрибут">↥</span>
                 <span class="truncate">{{ attribute.name }}</span>
               </TableCell>
               <TableCell class="max-w-56 truncate px-3 py-1" :title="attribute.owner">{{ attribute.owner }}</TableCell>
@@ -525,10 +561,10 @@ vscode.postMessage({ command: 'classDetailsReady' });
 
       </EntityContextMenu>
       <TabsContent value="methods" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
-        <MemberToolbar title="Методы" description="Двойной щелчок по строке открывает код метода" :count="filteredMethods.length" :loading="methodsLoading" :inherited="includeInheritedMethods" advanced v-model:search="methodSearchQuery" v-model:creator="methodCreatorQuery" v-model:date-from="methodDateFrom" v-model:date-to="methodDateTo" @inherited-change="toggleInheritedMethods">
+        <MemberToolbar title="Методы" description="Двойной щелчок по строке открывает код метода" :count="filteredMethods.length" :loading="methodsLoading" :inherited="includeInheritedMethods" :cell-filter="methodCellFilter" :filter-columns="memberFilterColumns" advanced v-model:search="methodSearchQuery" v-model:search-options="methodSearchOptions" v-model:creator="methodCreatorQuery" v-model:date-from="methodDateFrom" v-model:date-to="methodDateTo" @inherited-change="toggleInheritedMethods" @reset-cell-filter="methodTable?.clearFilter()">
           <Button size="sm" @click="createMethod"><HugeiconsIcon :icon="Add01Icon" data-icon="inline-start" />Создать метод</Button>
         </MemberToolbar>
-        <Table :key="`methods-${includeInheritedMethods}`" v-if="methodsLoading || filteredMethods.length > 0" data-method-table container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" @scroll="trackVirtualScroll('methods', $event)">
+        <Table :key="`methods-${includeInheritedMethods}`" v-if="methodsLoading || methodsLoaded" ref="methodTable" external-cell-filter external-filter-status data-method-table container-class="min-h-24 min-w-0 flex-1 overflow-auto rounded-lg border bg-card" @cell-filter-change="methodCellFilter = $event" @scroll="trackVirtualScroll('methods', $event)">
           <TableHeader class="sticky top-0 z-10 bg-card">
             <TableRow>
               <SortableTableHead v-for="[label, key] in tableColumns" :key="key" class="h-9 px-3" :active="methodSortKey === key" :direction="methodSortDirection" @sort="sortMethods(key)">{{ label }}</SortableTableHead>
@@ -544,7 +580,7 @@ vscode.postMessage({ command: 'classDetailsReady' });
             <EntityContextMenu v-for="method in methodsLoading ? [] : visibleMethods" :key="method.id" :entity-id="method.id" entity-type="Метод" edit svn @edit="openMethod(method)" @properties="viewEntityProperties(method.id)" @svn-action="methodSvnAction(method, $event)">
             <TableRow :data-entity-id="method.id" class="h-8 cursor-default" :data-row-selected="method.id === revealedMethodId ? '' : undefined" :aria-selected="method.id === revealedMethodId ? 'true' : undefined" title="Двойной щелчок — открыть код метода" @dblclick="openMethod(method)">
               <TableCell class="max-w-64 px-3 py-1" :title="method.name">
-                <span v-if="method.inherited" class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>
+                <span v-if="method.inherited" data-filter-ignore class="mr-1 text-muted-foreground" title="Наследуемый метод">↥</span>
                 <span class="truncate">{{ method.name }}</span>
               </TableCell>
               <TableCell class="max-w-56 truncate px-3 py-1" :title="method.owner">{{ method.owner }}</TableCell>

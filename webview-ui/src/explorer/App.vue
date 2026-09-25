@@ -20,6 +20,8 @@ import EntityContextMenu from '@/components/EntityContextMenu.vue';
 import { Archive01Icon, ArrowDown01Icon, CodeIcon, DatabaseIcon, InformationCircleIcon, Search01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { classAppearance, classAppearances } from './classAppearance';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesSearch, type SearchOptions } from '@/lib/searchMatch';
 
 const activeTab = ref('packages');
 const packages = ref<PackageSummary[]>([]);
@@ -40,7 +42,8 @@ const explorerActive = ref(document.hasFocus());
 const revealClassId = ref<number>();
 const revealPackageId = ref<number>();
 const debouncedSearchQuery = ref('');
-const classSearchInput = ref<{ $el?: HTMLInputElement }>();
+const classSearchQuery = ref('');
+const classSearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 const objectSearchQuery = ref('');
 const objectSearchResults = ref<DatabaseObjectSearchResult[]>([]);
 const objectSearchLoading = ref(false);
@@ -60,9 +63,8 @@ const searchResults = computed(() => {
     const id = Number(query);
     return classes.value.filter(item => item.id === id);
   }
-  const name = query.toLocaleLowerCase('ru');
   return classes.value
-    .filter(item => item.name.toLocaleLowerCase('ru').includes(name))
+    .filter(item => matchesSearch(item.name, query, classSearchOptions.value))
     .sort((left, right) => left.name.localeCompare(right.name, 'ru'));
 });
 
@@ -171,10 +173,9 @@ watch(objectSearchQuery, (value) => {
   objectSearchTimer = window.setTimeout(() => searchDatabaseObjects(query), searchDebounceMs);
 });
 
-function onClassSearchInput(event: Event): void {
-  if (!(event.target instanceof HTMLInputElement)) return;
+function onClassSearchInput(): void {
   window.clearTimeout(classSearchTimer);
-  classSearchInputValue = event.target.value.trim();
+  classSearchInputValue = classSearchQuery.value.trim();
   const query = classSearchInputValue;
   if (!query) {
     debouncedSearchQuery.value = '';
@@ -191,9 +192,8 @@ function searchClasses(): void {
 function clearClassSearch(): void {
   window.clearTimeout(classSearchTimer);
   classSearchInputValue = '';
+  classSearchQuery.value = '';
   debouncedSearchQuery.value = '';
-  const input = classSearchInput.value?.$el;
-  if (input instanceof HTMLInputElement) input.value = '';
 }
 
 function searchDatabaseObjects(query = objectSearchQuery.value.trim()): void {
@@ -495,17 +495,10 @@ vscode.postMessage({ command: 'explorerReady' });
             <span class="text-xs font-medium">Дерево классов <span class="ml-1 text-muted-foreground">{{ classes.length.toLocaleString('ru-RU') }}</span></span>
             <Popover><PopoverTrigger as-child><Button variant="ghost" size="icon-xs" aria-label="Обозначения классов" title="Обозначения классов"><HugeiconsIcon :icon="InformationCircleIcon" /></Button></PopoverTrigger><PopoverContent align="end" class="w-60"><PopoverHeader><PopoverTitle>Обозначения</PopoverTitle><PopoverDescription>Значки одинаковы в дереве и поиске.</PopoverDescription></PopoverHeader><div class="mt-3 flex flex-col gap-2"><div v-for="appearance in classAppearances" :key="appearance.label" class="flex items-center gap-2 text-xs"><HugeiconsIcon :icon="appearance.icon" :class="cn('size-4', appearance.color)" /><span>{{ appearance.label }}</span></div></div></PopoverContent></Popover>
           </div>
-          <InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput
-            ref="classSearchInput"
-            type="search"
-            placeholder="Название или ID класса…"
-            aria-label="Поиск класса по названию или ID"
-            @input="onClassSearchInput"
-            @keydown.enter.prevent="searchClasses"
-          /></InputGroup>
+          <SearchField v-model="classSearchQuery" v-model:options="classSearchOptions" placeholder="Название или ID класса…" aria-label="Поиск класса по названию или ID" @update:model-value="onClassSearchInput" @keydown.enter.prevent="searchClasses" />
         </div>
         <div v-if="normalizedSearchQuery" class="flex min-h-0 flex-1 flex-col overflow-auto p-1">
-		  <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" entity-type="Класс" :class-id="item.hasDfm ? item.id : undefined" :view-objects-class-id="!item.virtual && item.dbtablename ? item.id : undefined" copy-shortcut="Ctrl+C">
+          <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" entity-type="Класс" :class-id="item.hasDfm ? item.id : undefined" :view-objects-class-id="item.id" copy-shortcut="Ctrl+C">
           <Button
             variant="ghost"
             class="min-h-8 w-full justify-start gap-2 px-2"

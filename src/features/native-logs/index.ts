@@ -1,0 +1,1 @@
+export { registerNativeLogs } from './register';

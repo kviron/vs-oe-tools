@@ -19,6 +19,25 @@ interface ParserState {
 	ignorable: boolean;
 	picture?: Picture;
 	pictureOwner: boolean;
+	bold?: boolean;
+	italic?: boolean;
+	underline?: boolean;
+	strike?: boolean;
+	color?: string;
+}
+
+function readColorTable(rtf: string): Array<string | undefined> {
+	const table = rtf.match(/\{\\colortbl\b([^}]*)\}/i)?.[1];
+	if (!table) { return []; }
+	return table.split(';').slice(0, 256).map(entry => {
+		const red = entry.match(/\\red(\d+)/i)?.[1];
+		const green = entry.match(/\\green(\d+)/i)?.[1];
+		const blue = entry.match(/\\blue(\d+)/i)?.[1];
+		if (red === undefined || green === undefined || blue === undefined) { return undefined; }
+		const components = [red, green, blue].map(Number);
+		return components.every(value => value >= 0 && value <= 255)
+			? `#${components.map(value => value.toString(16).padStart(2, '0')).join('')}` : undefined;
+	});
 }
 
 const skippedDestinations = new Set([
@@ -34,19 +53,24 @@ const specialCharacters: Record<string, string> = {
 
 /**
  * Reads the text and supported embedded pictures produced by the
- * native wRichEdit. It deliberately returns no parts when the RTF has no
- * usable image, so the caller can retain the authoritative Comment plain text.
+ * native wRichEdit. Styling is returned as data so the webview can render
+ * escaped text without injecting RTF or HTML into the document.
  */
 export function parseProductionTaskRichDescription(rtf: string): ProductionTaskDescriptionPart[] {
 	if (!/^\s*\{\\rtf\d/i.test(rtf)) { return []; }
 	const parts: ProductionTaskDescriptionPart[] = [];
+	const colors = readColorTable(rtf);
 	let text = '';
 	let imageCount = 0;
 	const root: ParserState = { destination: 'text', uc: 1, unicodeFallback: 0, ignorable: false, pictureOwner: false };
 	const stack: ParserState[] = [root];
 	const state = () => stack[stack.length - 1];
 	const flushText = () => {
-		if (text) { parts.push({ kind: 'text', text }); text = ''; }
+		if (text) {
+			const { bold, italic, underline, strike, color } = state();
+			parts.push({ kind: 'text', text, ...(bold && { bold }), ...(italic && { italic }), ...(underline && { underline }), ...(strike && { strike }), ...(color && { color }) });
+			text = '';
+		}
 	};
 	const appendText = (value: string) => {
 		const current = state();
@@ -79,6 +103,7 @@ export function parseProductionTaskRichDescription(rtf: string): ProductionTaskD
 	for (let offset = 0; offset < rtf.length;) {
 		const char = rtf[offset];
 		if (char === '{') {
+			flushText();
 			const parent = state();
 			stack.push({ ...parent, pictureOwner: false });
 			offset += 1;
@@ -87,6 +112,7 @@ export function parseProductionTaskRichDescription(rtf: string): ProductionTaskD
 		if (char === '}') {
 			const current = state();
 			if (current.pictureOwner) { finishPicture(current.picture); }
+			else { flushText(); }
 			if (stack.length > 1) { stack.pop(); }
 			offset += 1;
 			continue;
@@ -158,15 +184,25 @@ export function parseProductionTaskRichDescription(rtf: string): ProductionTaskD
 		}
 		if (word === 'uc' && parameter !== undefined) { current.uc = Math.max(0, parameter); continue; }
 		if (word === 'u' && parameter !== undefined) {
-			text += String.fromCharCode(parameter < 0 ? parameter + 0x10000 : parameter);
+			appendText(String.fromCharCode(parameter < 0 ? parameter + 0x10000 : parameter));
 			current.unicodeFallback = current.uc;
+			continue;
+		}
+		if (word === 'b' || word === 'i' || word === 'ul' || word === 'ulnone' || word === 'strike' || word === 'cf' || word === 'plain') {
+			flushText();
+			if (word === 'b') { current.bold = parameter !== 0; }
+			else if (word === 'i') { current.italic = parameter !== 0; }
+			else if (word === 'ul') { current.underline = parameter !== 0; }
+			else if (word === 'ulnone') { current.underline = false; }
+			else if (word === 'strike') { current.strike = parameter !== 0; }
+			else if (word === 'cf') { current.color = parameter === undefined ? undefined : colors[parameter]; }
+			else { current.bold = current.italic = current.underline = current.strike = false; current.color = undefined; }
 			continue;
 		}
 		const special = specialCharacters[word];
 		if (special) { appendText(special); }
 	}
 	flushText();
-	if (imageCount === 0) { return []; }
 	return parts.filter(part => part.kind === 'image' || part.text.length > 0);
 }
 

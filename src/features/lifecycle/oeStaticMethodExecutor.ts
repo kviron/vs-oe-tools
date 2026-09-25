@@ -13,6 +13,7 @@ export const clientMcpMethodIds = {
 	stop: 12464782,
 };
 export const httpTestServerMethodId = 3200176;
+export const compileEditorMethodId = 3200240;
 
 export interface HttpTestServerProcess {
 	methodName: string;
@@ -98,6 +99,24 @@ export function buildClientMcpStartArguments(
 	args[1] += ',Shell=Настройка';
 	args.splice(-1, 0, '-MethodParam=1');
 	return args;
+}
+
+export async function compileOeMethod(
+	workspacePath: string,
+	targetMethodId: number,
+	database: string,
+	host: string,
+	credentials: OeMethodCredentials,
+): Promise<string> {
+	if (!Number.isSafeInteger(targetMethodId) || targetMethodId <= 0) { throw new Error('Некорректный ID метода для компиляции.'); }
+	if (!Number.isSafeInteger(compileEditorMethodId) || compileEditorMethodId <= 0) {
+		throw new Error('Метод компиляции для редактора не настроен.');
+	}
+	const executable = path.join(workspacePath, 'bin', 'OEExecTask.exe');
+	if (!(await stat(executable).catch(() => undefined))?.isFile()) { throw new Error(`Не найден ${executable}.`); }
+	const args = buildConnectionArguments(compileEditorMethodId, database, host, credentials);
+	args.splice(-1, 0, `-MethodParam=${targetMethodId}`);
+	return run(executable, args, path.dirname(executable));
 }
 
 export async function startHttpTestServerProcess(

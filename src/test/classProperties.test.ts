@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { selectVisibleProperties, type McpClassProperty } from '../mcp/classProperties';
+import { selectVisibleProperties, type McpClassProperty } from '../mcp/queries/classProperties';
 
 suite('MCP class properties', () => {
 	test('keeps the nearest property unless shadowed definitions are requested', () => {

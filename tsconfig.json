@@ -12,7 +12,7 @@
         "sourceMap": true,
         "rootDir": "src",
         "paths": {
-            "@/*": ["./webview-ui/src/*"]
+            "#app/*": ["./src/*"]
         },
         "strict": true, /* enable all strict type-checking options */
         /* Additional Checks */

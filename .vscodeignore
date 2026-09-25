@@ -3,6 +3,7 @@
 .playwright-cli/**
 output/**
 .tmp-*/**
+.tmp-*.log
 debug.log
 *.vsix
 releases/**

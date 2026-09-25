@@ -1,4 +1,5 @@
 const esbuild = require("esbuild");
+const path = require("node:path");
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -31,6 +32,7 @@ async function main() {
 			'sql-monitor-helper': 'src/features/sql-monitor/oeSqlMonitorHelper.ts',
 		},
 		bundle: true,
+		alias: { '#app': path.resolve(__dirname, 'src') },
 		format: 'cjs',
 		minify: production,
 		sourcemap: !production,

@@ -1,4 +1,4 @@
-import { maximumSourceLineLimit, defaultSourceLineLimit } from './sourceContent';
+import { maximumSourceLineLimit, defaultSourceLineLimit } from './queries/sourceContent';
 
 export const z = require('zod');
 

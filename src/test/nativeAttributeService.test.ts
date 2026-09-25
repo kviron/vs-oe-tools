@@ -26,7 +26,7 @@ function harness() {
 		'../../infrastructure/database/classRepository': { getClassAttributeDetails: async () => current.details },
 		'../lifecycle/oeStaticMethodExecutor': { startClientMcpProcess: async () => { current.starts++; current.online = true; } },
 		'./nativeAttributeEditing': editing,
-		'../../mcp/clientMcpHttp': {
+		'../../mcp/client/http': {
 			getClientMcpHealth: async () => { if (!current.online) { throw new Error('offline'); } return { status: 'ok', database: current.healthDatabase }; },
 			listClientMcpTools: async () => [...tools, { name: 'class_member_get', inputSchema: { properties: { Members: {} } } }],
 			stopClientMcpServer: async () => { current.stops++; },

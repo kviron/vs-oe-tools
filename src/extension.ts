@@ -1,8 +1,8 @@
 import type * as vscode from 'vscode';
-import { activateExtension } from './application/extensionApplication';
+import { activate as activateApplication } from './application/activate';
 
 export function activate(context: vscode.ExtensionContext): Promise<void> {
-	return activateExtension(context);
+	return activateApplication(context);
 }
 
 export function deactivate(): void {}

@@ -3,7 +3,7 @@ import type { ProductionTaskDetailsHostMessage } from '../../core/webviewProtoco
 import { isProductionTaskDetailsWebviewMessage } from '../../core/webviewProtocol';
 import type { DatabaseObjectSearchResult } from '../../core/objectSearch';
 import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from './models';
-import { productionTaskPublicUrl } from './productionTaskPresentation';
+import { productionTaskClientUri } from './productionTaskPresentation';
 import { convertProductionTaskWmfImages, parseProductionTaskRichDescription } from './productionTaskRichText';
 
 const panels = new Map<number, vscode.WebviewPanel>();
@@ -142,8 +142,9 @@ export function openProductionTaskDetails(
 			}
 			return;
 		}
-		const uri = vscode.Uri.parse(productionTaskPublicUrl(message.id));
-		if (!await vscode.env.openExternal(uri)) { void vscode.window.showErrorMessage(`Не удалось открыть задачу ${message.id} в клиенте.`); }
+		const reference = task.number.trim() || task.id;
+		const uri = vscode.Uri.parse(productionTaskClientUri(reference));
+		if (!await vscode.env.openExternal(uri)) { void vscode.window.showErrorMessage(`Не удалось открыть задачу ${reference} в клиенте.`); }
 	});
 	panel.onDidDispose(() => panels.delete(task.id));
 }

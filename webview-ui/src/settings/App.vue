@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SettingsHostMessage, SettingsState } from '../../../src/core/webviewProtocol';
-import { AiBrain01Icon, Copy01Icon, Database01Icon, Home01Icon, PlugSocketIcon, SmartPhone01Icon, Search01Icon, PlayIcon } from '@hugeicons/core-free-icons';
+import { AiBrain01Icon, Copy01Icon, Database01Icon, Home01Icon, PlugSocketIcon, SmartPhone01Icon, PlayIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import { computed, ref } from 'vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -20,6 +20,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { vscode } from '@/vscode';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesAnySearch, type SearchOptions } from '@/lib/searchMatch';
 
 const state = ref<SettingsState>();
 const userIdInput = ref('0');
@@ -35,6 +37,7 @@ const clientMcpActionResult = ref<{ success: boolean; message: string }>();
 const checkingClientMcpTools = ref(false);
 const activeSection = ref('general');
 const toolSearch = ref('');
+const toolSearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 const sectionDetails: Record<string, { title: string; description: string }> = {
   general: { title: 'Рабочее окружение', description: 'Подключение, учётная запись и поведение проекта.' },
   databases: { title: 'Базы данных', description: 'Параметры подключения и профили Восточного Экспресса.' },
@@ -70,7 +73,7 @@ const clientMcpTools = computed(() => [...(state.value?.clientMcpTools ?? [])].s
 const toolGroups = computed(() => [
   { source: 'extension' as const, title: 'Расширение', tools: extensionMcpTools.value },
   { source: 'client' as const, title: 'Клиент', tools: clientMcpTools.value.map(tool => ({ ...tool, deprecated: false })) },
-].map(group => ({ ...group, tools: group.tools.filter(tool => `${tool.name} ${tool.description}`.toLocaleLowerCase('ru').includes(toolSearch.value.trim().toLocaleLowerCase('ru'))) })));
+].map(group => ({ ...group, tools: group.tools.filter(tool => matchesAnySearch([tool.name, tool.description], toolSearch.value, toolSearchOptions.value)) })));
 const selectedToolKey = ref<string>();
 const selectedTool = computed(() => {
 	const [source, name] = selectedToolKey.value?.split(':', 2) ?? [];
@@ -210,7 +213,7 @@ vscode.postMessage({ command: 'settingsReady' });
           </section>
 
           <section v-else-if="activeSection === 'tools'" aria-label="Каталог инструментов" class="flex flex-col gap-4">
-            <div class="flex flex-wrap items-center gap-3"><Field class="min-w-48 flex-1"><FieldLabel for="tool-search" class="sr-only">Поиск инструментов</FieldLabel><InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput id="tool-search" v-model="toolSearch" placeholder="Название или описание инструмента…" /></InputGroup></Field><Button variant="outline" :disabled="Boolean(clientMcpAction) || checkingClientMcpTools" @click="vscode.postMessage({ command: 'checkClientMcpTools' })"><Spinner v-if="checkingClientMcpTools" data-icon="inline-start" />Обновить каталог</Button></div>
+            <div class="flex flex-wrap items-center gap-3"><Field class="min-w-48 flex-1"><FieldLabel for="tool-search" class="sr-only">Поиск инструментов</FieldLabel><SearchField id="tool-search" v-model="toolSearch" v-model:options="toolSearchOptions" placeholder="Название или описание инструмента…" /></Field><Button variant="outline" :disabled="Boolean(clientMcpAction) || checkingClientMcpTools" @click="vscode.postMessage({ command: 'checkClientMcpTools' })"><Spinner v-if="checkingClientMcpTools" data-icon="inline-start" />Обновить каталог</Button></div>
             <p v-if="state.clientMcpToolsDatabase" class="text-xs text-muted-foreground">Клиент: {{ state.clientMcpToolsDatabase }}<template v-if="state.clientMcpToolsUpdatedAt"> · обновлено {{ new Date(state.clientMcpToolsUpdatedAt).toLocaleString() }}</template></p>
             <Alert v-if="checkingClientMcpTools"><Spinner /><AlertTitle>Обновляем каталог</AlertTitle><AlertDescription>Получаем инструменты клиентского MCP.</AlertDescription></Alert><Alert v-else-if="state.clientMcpToolsError" variant="destructive"><AlertTitle>Клиент недоступен</AlertTitle><AlertDescription>{{ state.clientMcpToolsError }}</AlertDescription></Alert>
             <div class="grid items-start gap-4 xl:grid-cols-2"><Card v-for="group in toolGroups" :key="group.source"><CardHeader><CardTitle>{{ group.title }}</CardTitle><CardDescription>{{ group.source === 'extension' ? 'Работа с базой и редактором' : 'Возможности оригинального клиента' }}</CardDescription><CardAction><Badge variant="secondary">{{ group.tools.length }}</Badge></CardAction></CardHeader><CardContent class="flex flex-col gap-2"><Button v-for="tool in group.tools" :key="tool.name" :variant="selectedToolKey === group.source + ':' + tool.name ? 'secondary' : 'outline'" class="h-auto w-full justify-start whitespace-normal py-3 text-left" @click="selectTool(group.source, tool.name)"><span class="flex min-w-0 flex-1 flex-col gap-1"><span class="break-all font-mono">{{ tool.name }}</span><span class="line-clamp-2 text-xs font-normal text-muted-foreground">{{ tool.description || 'Описание не указано' }}</span></span><Badge v-if="tool.deprecated" variant="destructive">Deprecated</Badge></Button><Empty v-if="!group.tools.length"><EmptyHeader><EmptyTitle>{{ toolSearch ? 'Ничего не найдено' : 'Каталог пуст' }}</EmptyTitle><EmptyDescription>{{ toolSearch ? 'Попробуйте другое название.' : 'Обновите каталог, чтобы получить список инструментов.' }}</EmptyDescription></EmptyHeader></Empty></CardContent></Card></div>

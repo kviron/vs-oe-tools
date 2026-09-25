@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getDatabaseRole } from '../infrastructure/configuration/projectDatabaseOptions';
 import { clientMcpUrlSetting, databaseProfileSetting, mcpEnabledSetting } from '../core/constants';
-import { buildDatabaseMcpArguments } from './databaseMcpArguments';
+import { buildDatabaseMcpArguments } from './database/arguments';
 
 export interface McpNavigationConnection {
 	infoPath: string;

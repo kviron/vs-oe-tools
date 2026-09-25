@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { Copy01Icon } from '@hugeicons/core-free-icons';
-import { HugeiconsIcon } from '@hugeicons/vue';
-import { Button } from '@/components/ui/button';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 
 const props = withDefaults(defineProps<{
@@ -10,18 +7,15 @@ const props = withDefaults(defineProps<{
   open: boolean;
   title?: string;
   contentClass?: string;
-  activateOnClick?: boolean;
 }>(), {
   title: undefined,
   contentClass: 'w-80',
-  activateOnClick: false,
 });
 
 const emit = defineEmits<{
   show: [];
   hide: [];
   activate: [];
-  copy: [id: number];
 }>();
 
 function selectionContains(element: HTMLElement): boolean {
@@ -30,11 +24,11 @@ function selectionContains(element: HTMLElement): boolean {
 }
 
 function activateFromPointer(event: MouseEvent): void {
-  if (props.activateOnClick && !selectionContains(event.currentTarget as HTMLElement)) emit('activate');
+  if (!selectionContains(event.currentTarget as HTMLElement)) emit('activate');
 }
 
 function activateFromKeyboard(): void {
-  if (props.activateOnClick) emit('activate');
+  emit('activate');
 }
 </script>
 
@@ -42,7 +36,7 @@ function activateFromKeyboard(): void {
   <Popover :open="open">
     <PopoverAnchor as-child>
       <span
-        class="inline cursor-text select-text text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+        class="inline cursor-text select-text text-link underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
         tabindex="0"
         :title="title"
         @pointerenter="emit('show')"
@@ -61,13 +55,7 @@ function activateFromKeyboard(): void {
       @focusin="emit('show')"
       @focusout="emit('hide')"
     >
-      <div class="flex items-center justify-between gap-2">
-        <span class="select-text font-mono text-muted-foreground">ID {{ id }}</span>
-        <Button size="xs" variant="outline" title="Копировать ID" :aria-label="`Копировать ID ${id}`" @click="emit('copy', id)">
-          <HugeiconsIcon :icon="Copy01Icon" data-icon="inline-start" />
-          Копировать
-        </Button>
-      </div>
+      <div class="select-text font-mono text-muted-foreground">ID {{ id }}</div>
       <slot />
     </PopoverContent>
   </Popover>

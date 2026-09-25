@@ -1,0 +1,1 @@
+export { closeSpuEditorPanels } from './spuEditorPanel';

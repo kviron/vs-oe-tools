@@ -29,6 +29,10 @@ export function productionTaskPublicUrl(reference: string | number): string {
 	return `https://r.oe-it.ru/${String(reference).trim()}`;
 }
 
+export function productionTaskClientUri(reference: string | number): string {
+	return `oe-ric224:/${String(reference).trim()}`;
+}
+
 export function productionTaskMarkdown(number: string, title: string, fallbackId: number): string {
 	const reference = number.trim() || String(fallbackId);
 	const label = title.trim() ? `${reference} - ${title.trim()}` : reference;

@@ -95,6 +95,7 @@ export interface ClassTreeRow extends ClassRow {
 }
 
 export interface ClassDetails extends ClassRow {
+	packageName: string | null;
 	attributeCount: number;
 	inheritedAttributeCount: number;
 	methodCount: number;

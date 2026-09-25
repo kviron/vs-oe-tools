@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { databaseProfileSetting, sqlMonitorCollectorPathSetting } from '../../core/constants';
 import { parseRdboadmIni, type RdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
 import type { SqlOperation } from './models';
-import { getSqlMonitorCollectorCandidates, isProtocolVersionMismatch } from './oeSqlMonitorCollectorPaths';
+import { getSqlMonitorCollectorCandidates, hasCollectorError, isMonitorConnectionError, isProtocolVersionMismatch } from './oeSqlMonitorCollectorPaths';
 import { sqlMonitorService } from './sqlMonitorService';
 
 interface OeQueryRow {
@@ -96,6 +96,7 @@ export class OeSqlMonitorCollector implements vscode.Disposable {
 		const resultPath = path.join(this.storagePath, `sql-monitor-${profile.id}.sqdb`);
 		const executables = await this.findCollectorCandidates(workspacePath);
 		let executableIndex = 0;
+		let reconnectAttempts = 0;
 		this.log('INFO', `Коллектор: ${executables[executableIndex]}`);
 		this.log('INFO', `Файл результата: ${resultPath}`);
 		while (this.running) {
@@ -107,6 +108,16 @@ export class OeSqlMonitorCollector implements vscode.Disposable {
 			try {
 				await this.capture(executables[executableIndex], port, resultPath);
 			} catch (error) {
+				if (isMonitorConnectionError(error) && this.running) {
+					reconnectAttempts += 1;
+					if (reconnectAttempts > 3) {
+						throw new Error(`Не удалось восстановить соединение с OEService на порту ${port} после ${reconnectAttempts} попыток.`, { cause: error });
+					}
+					this.log('WARNING', `Соединение с OEService на порту ${port} потеряно. Повторное подключение.`, error);
+					await new Promise(resolve => setTimeout(resolve, 500));
+					await ensureService(workspacePath, profile.id, port, log);
+					continue;
+				}
 				const fallback = executables[executableIndex + 1];
 				if (!fallback || !isProtocolVersionMismatch(error)) { throw error; }
 				this.log('WARNING', `Коллектор ${executables[executableIndex]} несовместим с протоколом OEService. Переключение на ${fallback}.`);
@@ -114,7 +125,11 @@ export class OeSqlMonitorCollector implements vscode.Disposable {
 				continue;
 			}
 			if (!this.running) { break; }
+			await access(resultPath).catch(error => {
+				throw new Error(`OESQLMonCon завершился без файла результата: ${resultPath}`, { cause: error });
+			});
 			const imported = this.importRows(resultPath, profile.id, userId);
+			reconnectAttempts = 0;
 			this.log('DEBUG', `Цикл завершён: импортировано ${imported}, последний QueryID ${this.lastQueryId}.`);
 		}
 	}
@@ -165,7 +180,7 @@ export class OeSqlMonitorCollector implements vscode.Disposable {
 				clearTimeout(watchdog);
 				this.child = undefined;
 				const cleanOutput = stripTerminalSequences([stdout, stderr].filter(Boolean).join('\n')).trim();
-				const reportedError = /(?:EOSError|System Error|Exception|Ошибка)/i.test(cleanOutput);
+				const reportedError = hasCollectorError(cleanOutput);
 				this.log(exitCode || reportedError ? 'WARNING' : 'DEBUG', `PTY helper завершён: код=${exitCode ?? 'null'}, сигнал=${signal ?? 'нет'}.`, cleanOutput || undefined);
 				if ((exitCode || reportedError) && this.running) { reject(new Error(cleanOutput || `OESQLMonCon завершился с кодом ${exitCode}.`)); }
 				else { resolve(); }

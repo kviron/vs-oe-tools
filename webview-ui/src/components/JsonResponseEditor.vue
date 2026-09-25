@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<{ modelValue?: string; searchQuery?: stri
 const emit = defineEmits<{ openObject: [id: number]; searchCount: [count: number] }>();
 const host = ref<HTMLElement>();
 const nonce = document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')?.content ?? '';
-const objectIdPattern = /\b[1-9]\d{6,}\b/gu;
+const objectIdPattern = /\b[1-9]\d{4,}\b/gu;
 let view: EditorView | undefined;
 
 function applySearch(): void {
@@ -89,7 +89,7 @@ onMounted(() => {
         '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--vscode-editor-font-family)', fontSize: 'var(--vscode-editor-font-size)' },
         '.cm-gutters': { backgroundColor: 'var(--vscode-editorGutter-background, var(--background))', color: 'var(--vscode-editorLineNumber-foreground)', border: 'none' },
         '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'transparent' },
-        '.cm-object-id-link': { color: 'var(--vscode-textLink-foreground)', cursor: 'pointer', textDecoration: 'underline' },
+        '.cm-object-id-link': { color: 'var(--link)', cursor: 'pointer', textDecoration: 'underline' },
         '.cm-object-id-link:hover': { color: 'var(--vscode-textLink-activeForeground)' },
         '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'var(--vscode-editor-selectionBackground) !important' },
       }),

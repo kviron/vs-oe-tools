@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { Search01Icon } from '@hugeicons/core-free-icons';
-import { HugeiconsIcon } from '@hugeicons/vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import SearchField from '@/components/SearchField.vue';
+import type { SearchOptions } from '@/lib/searchMatch';
 import DatePicker from '@/components/DatePicker.vue';
+import CellFilterStatus from '@/components/CellFilterStatus.vue';
 
-defineProps<{ title: string; description: string; count: number; loading: boolean; inherited: boolean; advanced?: boolean }>();
-const emit = defineEmits<{ inheritedChange: [value: boolean | 'indeterminate'] }>();
+defineProps<{ title: string; description: string; count: number; loading: boolean; inherited: boolean; advanced?: boolean; cellFilter?: { mode: 'include' | 'exclude'; columns: Array<{ index: number; values: string[] }> }; filterColumns?: readonly string[] }>();
+const emit = defineEmits<{ inheritedChange: [value: boolean | 'indeterminate']; resetCellFilter: [] }>();
 const search = defineModel<string>('search', { default: '' });
+const searchOptions = defineModel<SearchOptions>('searchOptions', { required: true });
 const creator = defineModel<string>('creator', { default: '' });
 const dateFrom = defineModel<string>('dateFrom', { default: '' });
 const dateTo = defineModel<string>('dateTo', { default: '' });
@@ -25,13 +26,14 @@ const dateTo = defineModel<string>('dateTo', { default: '' });
     </CardHeader>
     <CardContent>
       <FieldGroup class="flex flex-row flex-wrap items-end gap-3">
-        <Field class="min-w-44 flex-1 gap-1.5"><FieldLabel :for="`${title}-search`">Поиск</FieldLabel><InputGroup><InputGroupInput :id="`${title}-search`" v-model="search" placeholder="Имя, владелец или ID…" type="search" /><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon></InputGroup></Field>
+        <Field class="min-w-44 flex-1 gap-1.5"><FieldLabel :for="`${title}-search`">Поиск</FieldLabel><SearchField :id="`${title}-search`" v-model="search" v-model:options="searchOptions" placeholder="Имя, владелец или ID…" /></Field>
         <template v-if="advanced">
           <Field class="w-36 gap-1.5"><FieldLabel :for="`${title}-creator`">Создатель</FieldLabel><Input :id="`${title}-creator`" v-model="creator" placeholder="Все авторы" type="search" /></Field>
           <Field class="w-auto gap-1.5"><FieldLabel>Обновлено с</FieldLabel><DatePicker v-model="dateFrom" :label="`${title}: обновлено с`" /></Field>
           <Field class="w-auto gap-1.5"><FieldLabel>По</FieldLabel><DatePicker v-model="dateTo" :label="`${title}: обновлено по`" /></Field>
         </template>
         <Field orientation="horizontal" class="h-8 w-auto" :data-disabled="loading || undefined"><Checkbox :id="`${title}-inherited`" :model-value="inherited" :disabled="loading" @update:model-value="emit('inheritedChange', $event)" /><FieldLabel :for="`${title}-inherited`">Включая наследуемые</FieldLabel></Field>
+        <CellFilterStatus :filter="cellFilter" :columns="filterColumns" @reset="emit('resetCellFilter')" />
       </FieldGroup>
     </CardContent>
   </Card>

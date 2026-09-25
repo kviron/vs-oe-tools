@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldLabel } from '@/components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesAnySearch, matchesSearch, type SearchOptions } from '@/lib/searchMatch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { nextSort, sortedRows, type SortDirection } from '@/lib/tableSort';
@@ -26,18 +27,18 @@ const error = ref('');
 const textFilter = ref('');
 const userFilter = ref('');
 const commitFilter = ref('');
+const textSearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
+const userSearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
+const commitSearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 const selectedId = ref<string>();
 const sortKey = ref<SortKey>('date');
 const sortDirection = ref<SortDirection>('desc');
 
 const displayedEntries = computed(() => {
-  const text = textFilter.value.trim().toLocaleLowerCase('ru');
-  const user = userFilter.value.trim().toLocaleLowerCase('ru');
-  const commit = commitFilter.value.trim().toLocaleLowerCase('ru');
   const filtered = entries.value.filter(entry =>
-    (!text || `${entry.date}\n${entry.comment}`.toLocaleLowerCase('ru').includes(text))
-    && (!user || `${entry.user}\n${entry.computer}`.toLocaleLowerCase('ru').includes(user))
-    && (!commit || entry.commit.toLocaleLowerCase('ru').includes(commit)),
+    matchesAnySearch([entry.date, entry.comment], textFilter.value, textSearchOptions.value)
+    && matchesAnySearch([entry.user, entry.computer], userFilter.value, userSearchOptions.value)
+    && matchesSearch(entry.commit, commitFilter.value, commitSearchOptions.value),
   );
   return sortedRows(filtered, sortKey.value, sortDirection.value, (entry, key) => {
     if (key === 'date') return entry.timestamp;
@@ -112,9 +113,9 @@ vscode.postMessage({ command: 'codeHistoryReady' });
           <HugeiconsIcon :icon="Search01Icon" />
           <span>Фильтры</span>
         </div>
-        <Field class="gap-0"><FieldLabel for="history-text-filter" class="sr-only">Дата или комментарий</FieldLabel><InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput id="history-text-filter" v-model="textFilter" type="search" placeholder="Дата или комментарий…" /></InputGroup></Field>
-        <Field class="gap-0"><FieldLabel for="history-user-filter" class="sr-only">Пользователь</FieldLabel><InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput id="history-user-filter" v-model="userFilter" type="search" placeholder="Пользователь или компьютер…" /></InputGroup></Field>
-        <Field class="gap-0"><FieldLabel for="history-commit-filter" class="sr-only">Ревизия</FieldLabel><InputGroup><InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon><InputGroupInput id="history-commit-filter" v-model="commitFilter" type="search" placeholder="Ревизия, например r145401…" /></InputGroup></Field>
+        <Field class="gap-0"><FieldLabel for="history-text-filter" class="sr-only">Дата или комментарий</FieldLabel><SearchField id="history-text-filter" v-model="textFilter" v-model:options="textSearchOptions" placeholder="Дата или комментарий…" /></Field>
+        <Field class="gap-0"><FieldLabel for="history-user-filter" class="sr-only">Пользователь</FieldLabel><SearchField id="history-user-filter" v-model="userFilter" v-model:options="userSearchOptions" placeholder="Пользователь или компьютер…" /></Field>
+        <Field class="gap-0"><FieldLabel for="history-commit-filter" class="sr-only">Ревизия</FieldLabel><SearchField id="history-commit-filter" v-model="commitFilter" v-model:options="commitSearchOptions" placeholder="Ревизия, например r145401…" /></Field>
       </CardContent>
     </Card>
 

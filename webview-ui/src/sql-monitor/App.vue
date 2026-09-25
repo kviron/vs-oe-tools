@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Activity01Icon, Delete02Icon, FilterIcon, PauseIcon, PlayIcon, Search01Icon, SqlIcon } from '@hugeicons/core-free-icons';
+import { Activity01Icon, Delete02Icon, FilterIcon, PauseIcon, PlayIcon, SqlIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
 import type { SqlMonitorHostMessage } from '../../../src/core/webviewProtocol';
 import type { SqlOperation, SqlQueryRecord, SqlQueryStatus } from '../../../src/features/sql-monitor/models';
@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesAnySearch, type SearchOptions } from '@/lib/searchMatch';
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,6 +33,7 @@ const records = ref<SqlQueryRecord[]>([]);
 const paused = ref(false);
 const selectedId = ref<number>();
 const search = ref('');
+const searchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 const operationFilters = ref(new Set<SqlOperation>(operations));
 const statusFilters = ref(new Set<SqlQueryStatus>(statuses.map(status => status.value)));
 const categoryFilters = ref(new Set<SqlQueryCategory>(['application']));
@@ -46,11 +48,10 @@ const activeFilterCount = computed(() => Number(operationFilters.value.size !== 
   + Number(statusFilters.value.size !== statuses.length)
   + Number(categoryFilters.value.size !== 1 || !categoryFilters.value.has('application')));
 const filteredRecords = computed(() => {
-  const needle = search.value.trim().toLocaleLowerCase('ru');
   const filtered = records.value
     .filter(record => operationFilters.value.has(record.operation) && statusFilters.value.has(record.status))
     .filter(record => categoryFilters.value.has(classifySqlQuery(record)))
-    .filter(record => !needle || `${record.source}\n${record.userName ?? ''}\n${record.firstTable ?? ''}\n${record.text}`.toLocaleLowerCase('ru').includes(needle))
+    .filter(record => matchesAnySearch([record.source, record.userName, record.firstTable, record.text], search.value, searchOptions.value))
     .slice()
     .reverse();
   return sortedRows(filtered, recordSortKey.value, recordSortDirection.value, (record, key) => record[key as keyof SqlQueryRecord]);
@@ -196,10 +197,7 @@ vscode.postMessage({ command: 'sqlMonitorReady' });
           </div>
           <Field class="min-w-52 flex-1 sm:ml-auto sm:max-w-md">
             <FieldLabel for="sql-monitor-search" class="sr-only">Поиск по журналу SQL</FieldLabel>
-            <InputGroup>
-              <InputGroupAddon><HugeiconsIcon :icon="Search01Icon" /></InputGroupAddon>
-              <InputGroupInput id="sql-monitor-search" v-model="search" type="search" placeholder="SQL, источник, пользователь или таблица…" />
-            </InputGroup>
+            <SearchField id="sql-monitor-search" v-model="search" v-model:options="searchOptions" placeholder="SQL, источник, пользователь или таблица…" />
           </Field>
           <Popover>
             <PopoverTrigger as-child>

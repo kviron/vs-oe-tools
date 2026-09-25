@@ -2,7 +2,8 @@ import * as assert from 'node:assert/strict';
 import * as net from 'node:net';
 import type { ProductionConnectionOptions } from '../features/production-tasks/models';
 import { expectedPacketLength } from '../features/production-tasks/oenpProtocol';
-import { loadProductionTaskById, loadProductionTaskList, productionTaskByIdSql, productionTaskListSql } from '../features/production-tasks/productionTasksRepository';
+import { loadProductionTaskActions, loadProductionTaskById, loadProductionTaskList } from '../features/production-tasks/productionTasksRepository';
+import { productionTaskByIdSql, productionTaskListSql } from '../features/production-tasks/queries';
 import { isProductionTasksWebviewMessage } from '../core/webviewProtocol';
 
 const currentPerson = 938697394;
@@ -67,6 +68,15 @@ suite('Production task list loading', () => {
 			assert.doesNotMatch(requests[7].toString('ascii'), /WHERE T0\.DNumber/);
 		});
 	});
+
+	test('loads actions through one authenticated session', async () => {
+		await withServer(async (options, requests) => {
+			const actions = await loadProductionTaskActions(options, 42);
+			assert.deepEqual(actions.map(action => action.id), [17]);
+			assert.deepEqual(requests.map(packet => packet.readUInt32LE(8)), [1, 2, 3, 4, 5, 6, 7, 8]);
+			assert.match(requests[7].toString('ascii'), /WHERE T0\.ID = 42/);
+		});
+	});
 });
 
 async function withServer(run: (options: ProductionConnectionOptions, requests: Buffer[]) => Promise<void>): Promise<void> {
@@ -86,7 +96,9 @@ async function withServer(run: (options: ProductionConnectionOptions, requests: 
 				const sql = packet.toString('ascii');
 				let body: Buffer = Buffer.alloc(0);
 				if (id === 6) { body = Buffer.from('0123456789ABCDEF0123456789ABCDEF'); }
-				else if (id >= 8 && sql.includes('WHERE EXISTS')) {
+				else if (id >= 8 && sql.includes('JOIN ActionLC A')) {
+					body = dataset(['id', 'name'], [[17, 'Открыть']]);
+				} else if (id >= 8 && sql.includes('WHERE EXISTS')) {
 					body = dataset(['id', 'name'], [[currentPerson, 'Текущий пользователь'], [otherPerson, 'Другой пользователь']]);
 				} else if (id >= 8 && sql.includes('WHERE T0.ID = 42')) {
 					body = dataset(['id', 'workdescription'], [[42, 'Полное описание']]);

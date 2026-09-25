@@ -16,7 +16,8 @@ import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, Dia
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import SearchField from '@/components/SearchField.vue';
+import { defaultSearchOptions, matchesAnySearch, type SearchOptions } from '@/lib/searchMatch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -33,6 +34,7 @@ const attachmentsLoading = ref(false);
 const attachmentsLoaded = ref(false);
 const attachmentsError = ref('');
 const attachmentSearch = ref('');
+const attachmentSearchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 const history = ref<ProductionTaskHistoryEntry[]>([]);
 const historyLoading = ref(false);
 const historyLoaded = ref(false);
@@ -54,11 +56,11 @@ const typeFields = [
   ['Ревизия (trunk)', 'revisionTrunk'], ['Ревизия (branch)', 'revisionBranch'],
 ] as const;
 type WorkDescriptionRenderPart =
-  | ({ renderKind: 'text' } & WorkDescriptionPart)
+  | ({ renderKind: 'text'; bold?: boolean; italic?: boolean; underline?: boolean; strike?: boolean; color?: string } & WorkDescriptionPart)
   | ({ renderKind: 'image' } & Omit<Extract<ProductionTaskDescriptionPart, { kind: 'image' }>, 'kind'>);
 const workDescriptionParts = computed<WorkDescriptionRenderPart[]>(() => {
   const rich = richDescriptionParts.value;
-  if (!rich.some(part => part.kind === 'image')) {
+  if (!rich.length) {
     return splitWorkDescriptionObjectIds(task.value?.workDescription || 'Описание работы не заполнено.').map(part => ({ renderKind: 'text', ...part }));
   }
   const result: WorkDescriptionRenderPart[] = [];
@@ -66,7 +68,8 @@ const workDescriptionParts = computed<WorkDescriptionRenderPart[]>(() => {
     if (part.kind === 'image') {
       result.push({ renderKind: 'image', dataUrl: part.dataUrl, width: part.width, height: part.height });
     } else {
-      result.push(...splitWorkDescriptionObjectIds(part.text).map(textPart => ({ renderKind: 'text' as const, ...textPart })));
+      const { bold, italic, underline, strike, color } = part;
+      result.push(...splitWorkDescriptionObjectIds(part.text).map(textPart => ({ renderKind: 'text' as const, ...textPart, bold, italic, underline, strike, color })));
     }
   }
   return result;
@@ -77,8 +80,7 @@ const detailGroups = [
   { title: 'Поставка', description: 'Релизы и параметры разработки', icon: Folder01Icon, fields: typeFields },
 ] as const;
 const filteredAttachments = computed(() => {
-  const query = attachmentSearch.value.trim().toLocaleLowerCase('ru-RU');
-  return query ? attachments.value.filter(item => [item.name, item.fileName, item.extension, item.comment].join(' ').toLocaleLowerCase('ru-RU').includes(query)) : attachments.value;
+  return attachments.value.filter(item => matchesAnySearch([item.name, item.fileName, item.extension, item.comment], attachmentSearch.value, attachmentSearchOptions.value));
 });
 const textExtensions = new Set(['.txt', '.pas', '.pkf', '.dfm', '.sql', '.json', '.xml', '.csv', '.log', '.md', '.ini', '.yaml', '.yml', '.bat', '.cmd', '.ps1', '.js', '.ts', '.vue']);
 type PreviewState = { status: 'loading' } | { status: 'loaded'; object?: DatabaseObjectSearchResult } | { status: 'failed'; message: string };
@@ -135,8 +137,6 @@ function openHistoryEntry(entry: ProductionTaskHistoryEntry): void { selectedHis
 function setHistoryDialogOpen(open: boolean): void { if (!open) selectedHistoryEntry.value = undefined; }
 function copyText(text: string): void { vscode.postMessage({ command: 'copyTableCells', text }); }
 function openExternalUrl(url: string): void { vscode.postMessage({ command: 'openExternalUrl', url }); }
-function openTaskReference(id: number): void { activePreviewIndex.value = undefined; vscode.postMessage({ command: 'openProductionTaskReference', id }); }
-function openTaskReferenceInClient(id: number): void { activePreviewIndex.value = undefined; vscode.postMessage({ command: 'openProductionTaskInClient', id }); }
 function attachmentAction(attachment: ProductionTaskAttachment, action: 'open' | 'preview' | 'save' | 'reveal'): void { vscode.postMessage({ command: 'productionTaskAttachmentAction', id: attachment.id, action }); }
 function openAttachment(attachment: ProductionTaskAttachment): void { attachmentAction(attachment, isTextAttachment(attachment) ? 'preview' : 'open'); }
 function isTextAttachment(attachment: ProductionTaskAttachment): boolean {
@@ -315,8 +315,8 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
         <CardContent class="break-words whitespace-pre-wrap text-sm leading-relaxed">
           <template v-for="(part, index) in workDescriptionParts" :key="index">
             <img v-if="part.renderKind === 'image'" :src="part.dataUrl" :width="part.width" :height="part.height" alt="Изображение из описания задачи" class="my-3 block h-auto max-w-full rounded-md border object-contain" />
-            <Button v-else-if="part.href" variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :title="part.href" @click="openExternalUrl(part.href)">{{ part.text }}</Button>
-            <IdReferencePopover v-else-if="part.id && part.kind === 'task'" :id="part.id" :label="part.text" :open="activePreviewIndex === index" :title="`Задача ${part.id}`" content-class="w-96" @show="showTaskPreview(part.id, index)" @hide="closeObjectPreviewSoon" @copy="copyText(String($event))">
+            <Button v-else-if="part.href" variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :class="{ 'font-bold': part.bold, italic: part.italic }" :style="{ textDecoration: part.strike ? 'line-through' : part.underline ? 'underline' : undefined }" :title="part.href" @click="openExternalUrl(part.href)">{{ part.text }}</Button>
+            <IdReferencePopover v-else-if="part.id && part.kind === 'task'" :id="part.id" :label="part.text" :open="activePreviewIndex === index" :title="`Задача ${part.id}`" content-class="w-96" @show="showTaskPreview(part.id, index)" @hide="closeObjectPreviewSoon" @activate="openDatabaseObject(part.id)">
                 <div v-if="taskPreviewStatus(part.id) === 'loading'" class="flex flex-col gap-2"><Skeleton class="h-5 w-2/3" /><Skeleton class="h-4 w-full" /><Skeleton class="h-4 w-4/5" /></div>
                 <div v-else-if="taskPreviewStatus(part.id) === 'failed'" class="flex flex-col gap-1"><p class="font-medium">Не удалось загрузить задачу</p><p class="break-words text-muted-foreground">{{ taskPreviewError(part.id) }}</p></div>
                 <div v-else-if="taskPreview(part.id)" class="flex flex-col gap-3">
@@ -326,11 +326,10 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
                     <dt class="text-muted-foreground">Исполнитель</dt><dd class="break-words">{{ taskPreview(part.id)?.executor || '—' }}</dd>
                     <dt class="text-muted-foreground">Срок</dt><dd>{{ taskPreview(part.id)?.deadline || '—' }}</dd>
                   </dl>
-                  <div class="flex flex-wrap gap-2"><Button size="sm" variant="outline" @click="openTaskReference(part.id)"><HugeiconsIcon :icon="ViewIcon" data-icon="inline-start" />Открыть задачу</Button><Button size="sm" @click="openTaskReferenceInClient(part.id)"><HugeiconsIcon :icon="ArrowUpRight01Icon" data-icon="inline-start" />Открыть в клиенте</Button></div>
                 </div>
                 <div v-else class="flex flex-col gap-1"><p class="font-medium">Задача не найдена</p><p class="text-muted-foreground">Номер или ID {{ part.id }} не найден в production.</p></div>
             </IdReferencePopover>
-            <IdReferencePopover v-else-if="part.id" :id="part.id" :label="part.text" :open="activePreviewIndex === index" :title="`Открыть объект ID=${part.id}`" activate-on-click @show="showObjectPreview(part.id, index)" @hide="closeObjectPreviewSoon" @activate="openDatabaseObject(part.id)" @copy="copyText(String($event))">
+            <IdReferencePopover v-else-if="part.id" :id="part.id" :label="part.text" :open="activePreviewIndex === index" :title="`Открыть объект ID=${part.id}`" @show="showObjectPreview(part.id, index)" @hide="closeObjectPreviewSoon" @activate="openDatabaseObject(part.id)">
                 <div v-if="previewStatus(part.id) === 'loading'" class="flex flex-col gap-2">
                   <Skeleton class="h-5 w-2/3" /><Skeleton class="h-4 w-full" /><Skeleton class="h-4 w-4/5" />
                 </div>
@@ -345,14 +344,10 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
                   <dl v-if="previewRows(previewObject(part.id)!).length" class="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
                     <template v-for="row in previewRows(previewObject(part.id)!)" :key="row[0]"><dt class="text-muted-foreground">{{ row[0] }}</dt><dd class="break-words">{{ row[1] }}</dd></template>
                   </dl>
-                  <div class="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" @click="openDatabaseObject(part.id, 'explorer')">Открыть в проводнике</Button>
-                    <Button size="sm" @click="openDatabaseObject(part.id, 'object')">Открыть</Button>
-                  </div>
                 </div>
                 <div v-else class="flex flex-col gap-1"><p class="font-medium">Объект не найден</p><p class="text-muted-foreground">В активной базе нет объекта с ID {{ part.id }}.</p></div>
             </IdReferencePopover>
-            <span v-else>{{ part.text }}</span>
+            <span v-else :class="{ 'font-bold': part.bold, italic: part.italic, underline: part.underline, 'line-through': part.strike }" :style="part.color ? { color: part.color } : undefined">{{ part.text }}</span>
           </template>
           <p v-if="richDescriptionError" class="mt-3 text-xs text-destructive">Не удалось загрузить встроенные изображения: {{ richDescriptionError }}</p>
         </CardContent>
@@ -360,7 +355,7 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
         </TabsContent>
         <TabsContent value="attachments">
           <Card>
-            <CardHeader class="pb-2"><div class="flex items-center gap-3"><CardTitle class="text-sm">Вложения</CardTitle><Field v-if="attachmentsLoaded && attachments.length" class="ml-auto max-w-xs"><FieldLabel for="attachment-search" class="sr-only">Поиск по вложениям</FieldLabel><Input id="attachment-search" v-model="attachmentSearch" type="search" placeholder="Поиск по вложениям" /></Field><Button v-if="attachmentsLoaded" size="xs" variant="outline" @click="loadAttachments(true)">Обновить</Button></div></CardHeader>
+            <CardHeader class="pb-2"><div class="flex items-center gap-3"><CardTitle class="text-sm">Вложения</CardTitle><Field v-if="attachmentsLoaded && attachments.length" class="ml-auto max-w-xs"><FieldLabel for="attachment-search" class="sr-only">Поиск по вложениям</FieldLabel><SearchField id="attachment-search" v-model="attachmentSearch" v-model:options="attachmentSearchOptions" placeholder="Поиск по вложениям" /></Field><Button v-if="attachmentsLoaded" size="xs" variant="outline" @click="loadAttachments(true)">Обновить</Button></div></CardHeader>
             <CardContent>
               <div v-if="attachmentsLoading" class="flex flex-col gap-2"><Skeleton v-for="index in 5" :key="index" class="h-8 w-full" /></div>
               <Empty v-else-if="attachmentsError" class="py-8">

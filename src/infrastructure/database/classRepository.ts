@@ -81,6 +81,7 @@ export async function getClassDetails(id: number): Promise<ClassDetails> {
 				 WHERE NOT parent.id = ANY(chain.path)
 			 )
 			 SELECT class.*, child.name AS childclassname, parent.name AS parentclassname,
+			   package.packagename AS "packageName",
 			   (SELECT COUNT(*)::integer FROM attributes WHERE seniorid = class.id) AS "attributeCount",
 			   (SELECT COUNT(DISTINCT upper(attribute.name))::integer FROM attributes AS attribute JOIN class_chain AS chain ON chain.id = attribute.seniorid) AS "inheritedAttributeCount",
 			   (SELECT COUNT(*)::integer FROM methods WHERE seniorid = class.id) AS "methodCount",
@@ -90,6 +91,10 @@ export async function getClassDetails(id: number): Promise<ClassDetails> {
 			 FROM classes AS class
 			 LEFT JOIN classes AS child ON child.id = class.childclassid
 			 LEFT JOIN classes AS parent ON parent.id = class.parentclassid
+			 LEFT JOIN abstract AS object ON object.id = class.id
+			 LEFT JOIN sysfile AS file ON file.id = object.sysfile
+			 LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			 LEFT JOIN syspackages AS package ON package.id = file_group.package
 			 WHERE class.id = $1`,
 			values: [id],
 			source: 'Данные класса',

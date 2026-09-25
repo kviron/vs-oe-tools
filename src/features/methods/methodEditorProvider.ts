@@ -3,6 +3,8 @@ import * as iconv from 'iconv-lite';
 import { getMethodSource, saveMethodSource, type MethodSource } from '../../infrastructure/database/methodRepository';
 import type { ClassMethodDraft, CreatedClassMethod } from '../classes/models';
 import type { DatabaseConnectionOptions } from '../../core/database';
+import { getProjectDatabaseOptions } from '../../infrastructure/configuration/projectDatabaseOptions';
+import { MethodCompilationService } from './methodCompilationService';
 
 export const methodDocumentScheme = 'vc-ve-method';
 
@@ -12,11 +14,15 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 	private readonly methodDatabases = new Map<string, DatabaseConnectionOptions>();
 	private readonly sessionRevision = Date.now();
 	private readonly output = vscode.window.createOutputChannel('Восточный Экспресс: Методы');
+	private readonly diagnostics = vscode.languages.createDiagnosticCollection('Восточный Экспресс');
+	private readonly compileRevisions = new Map<string, number>();
 	readonly onDidChangeFile = this.changed.event;
 	constructor(private readonly createMethod: (
 		draft: ClassMethodDraft,
 		target?: { database: string; host: string },
-	) => Promise<CreatedClassMethod & { databaseOptions?: DatabaseConnectionOptions }>) {}
+	) => Promise<CreatedClassMethod & { databaseOptions?: DatabaseConnectionOptions }>,
+		private readonly compilation: MethodCompilationService,
+	) {}
 
 	async open(id: number, databaseOptions?: DatabaseConnectionOptions): Promise<void> {
 		this.log(`Открытие метода ID=${id}.`);
@@ -73,7 +79,7 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 	}
 	delete(): void { throw vscode.FileSystemError.NoPermissions('Удаление метода из редактора запрещено.'); }
 	rename(): void { throw vscode.FileSystemError.NoPermissions('Переименование метода из редактора запрещено.'); }
-	dispose(): void { this.changed.dispose(); this.methods.clear(); this.methodDatabases.clear(); this.output.dispose(); }
+	dispose(): void { this.changed.dispose(); this.methods.clear(); this.methodDatabases.clear(); this.compileRevisions.clear(); this.diagnostics.dispose(); this.output.dispose(); }
 
 	private async persistMethod(method: MethodSource, code: string, sourceUri?: vscode.Uri, databaseOptions?: DatabaseConnectionOptions): Promise<void> {
 		try {
@@ -95,6 +101,42 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 			this.changed.fire([{ type: vscode.FileChangeType.Changed, uri: sourceUri }]);
 		}
 		vscode.window.setStatusBarMessage(`Метод ${method.name} сохранён в Windows-1251`, 2500);
+		if (sourceUri) { void this.compile(method, sourceUri, databaseOptions); }
+	}
+
+	private async compile(method: MethodSource, uri: vscode.Uri, databaseOptions?: DatabaseConnectionOptions): Promise<void> {
+		const key = uri.toString();
+		const revision = (this.compileRevisions.get(key) ?? 0) + 1;
+		this.compileRevisions.set(key, revision);
+		this.diagnostics.delete(uri);
+		try {
+			const options = databaseOptions ?? await getProjectDatabaseOptions();
+			this.log(`Компиляция ID=${method.id} в базе ${options.database}.`);
+			const result = await this.compilation.check(method.id, options.database, options.host, 'editor');
+			if (this.compileRevisions.get(key) !== revision) { return; }
+			if (result.status === 'failed') { throw new Error(result.error ?? 'Компиляция не выполнена.'); }
+			const document = vscode.workspace.textDocuments.find(item => item.uri.toString() === key);
+			const diagnostics = result.diagnostics.map(item => {
+				const line = Math.min(Math.max(0, item.line - 1), Math.max(0, (document?.lineCount ?? 1) - 1));
+				const end = document?.lineAt(line).range.end ?? new vscode.Position(line, 1);
+				const diagnostic = new vscode.Diagnostic(
+					new vscode.Range(new vscode.Position(line, 0), end),
+					item.message,
+					item.severity === 'error' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning,
+				);
+				diagnostic.source = 'Компилятор Восточного Экспресса';
+				return diagnostic;
+			});
+			this.diagnostics.set(uri, diagnostics);
+			for (const item of result.diagnostics) {
+				this.log(`${item.severity === 'error' ? 'Ошибка' : 'Предупреждение'} ID=${method.id}, строка ${item.line}: ${item.message}`);
+			}
+			this.log(diagnostics.length ? `Компиляция ID=${method.id}: диагностик ${diagnostics.length}.` : `Компиляция ID=${method.id}: ошибок нет.`);
+		} catch (error) {
+			if (this.compileRevisions.get(key) !== revision) { return; }
+			this.log(`Компиляция ID=${method.id} не выполнена: ${error instanceof Error ? error.message : String(error)}`);
+			void vscode.window.showWarningMessage(`Метод сохранён, но компиляция не выполнена: ${error instanceof Error ? error.message : String(error)}`);
+		}
 	}
 
 	private log(message: string): void {
@@ -119,8 +161,9 @@ export class MethodEditorProvider implements vscode.FileSystemProvider, vscode.D
 export function registerMethodEditor(
 	context: vscode.ExtensionContext,
 	createMethod: (draft: ClassMethodDraft, target?: { database: string; host: string }) => Promise<CreatedClassMethod & { databaseOptions?: DatabaseConnectionOptions }>,
+	compilation: MethodCompilationService,
 ): MethodEditorProvider {
-	const provider = new MethodEditorProvider(createMethod);
+	const provider = new MethodEditorProvider(createMethod, compilation);
 	context.subscriptions.push(provider, vscode.workspace.registerFileSystemProvider(methodDocumentScheme, provider, { isCaseSensitive: true }));
 	return provider;
 }

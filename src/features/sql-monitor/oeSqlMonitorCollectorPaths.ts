@@ -26,3 +26,12 @@ export function isProtocolVersionMismatch(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error);
 	return /Неверная версия протокола данных|invalid data protocol version/i.test(message);
 }
+
+export function isMonitorConnectionError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return /EOENetworkError|ECONN(?:REFUSED|RESET)|(?:подключение не установлено|удаленный хост принудительно разорвал).*(?:10061|10054)|\b1006[14]\b/i.test(message);
+}
+
+export function hasCollectorError(output: string): boolean {
+	return /(?:EOSError|EOENetworkError|System Error|Exception|Ошибка)/i.test(output);
+}

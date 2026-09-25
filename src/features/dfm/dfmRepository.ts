@@ -1,7 +1,7 @@
 import * as iconv from 'iconv-lite';
-import { getSessionContext } from '../../infrastructure/configuration/sessionContext';
 import { executeMonitoredQuery } from '../../infrastructure/database/databaseQueryExecutor';
-import { withProjectDatabaseSession } from '../../infrastructure/database/projectDatabaseSession';
+import type { PoolClient } from 'pg';
+import type { DatabaseConnectionOptions } from '../../core/database';
 
 export interface DfmSource {
 	classId: number;
@@ -43,6 +43,7 @@ LEFT JOIN dfltvalues value ON value.seniorid = class.id AND value.attrid = attri
 WHERE class.id = $1`;
 
 export async function getDfmSource(classId: number): Promise<DfmSource> {
+	const { withProjectDatabaseSession } = await import('../../infrastructure/database/projectDatabaseSession.js');
 	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<DfmRow, [number]>(client, {
 			text: dfmQuery, values: [classId], source: `DFM класса ${classId}`, database: options.database,
@@ -55,6 +56,7 @@ export async function getDfmSource(classId: number): Promise<DfmSource> {
 }
 
 export async function getDfmInheritance(classId: number): Promise<DfmSource[]> {
+	const { withProjectDatabaseSession } = await import('../../infrastructure/database/projectDatabaseSession.js');
 	return withProjectDatabaseSession(async ({ client, options }) => {
 		const result = await executeMonitoredQuery<DfmRow & { depth: number }, [number]>(client, {
 			text: `WITH RECURSIVE class_chain AS (
@@ -83,26 +85,33 @@ export async function getDfmInheritance(classId: number): Promise<DfmSource[]> {
 }
 
 export async function saveDfmSource(source: DfmSource, text: string): Promise<DfmSource> {
-	return withProjectDatabaseSession(async ({ client, options }) => {
+	const { withProjectDatabaseSession } = await import('../../infrastructure/database/projectDatabaseSession.js');
+	return withProjectDatabaseSession(({ client, options }) => saveDfmSourceInSession(client, options, source, text));
+}
+
+/** Shared transaction used by the virtual editor and the standalone MCP server. */
+export async function saveDfmSourceInSession(client: PoolClient, options: DatabaseConnectionOptions, source: DfmSource, text: string): Promise<DfmSource> {
 	try {
 		await client.query('BEGIN');
+		await client.query('SELECT id FROM dfltvalues WHERE id = $1 FOR UPDATE', [source.valueId]);
 		const current = await executeMonitoredQuery<DfmRow, [number]>(client, {
 			text: dfmQuery, values: [source.classId], source: `Проверка DFM класса ${source.classId}`, database: options.database,
 		});
 		const row = current.rows[0];
-		if (!row || row.valueid !== source.valueId || row.attrid !== source.attributeId) {throw new Error('Запись DFM изменилась или была удалена. Откройте её заново.');}
+		if (!row || row.valueid !== source.valueId || row.attrid !== source.attributeId || decodeValue(row.defvalue) !== source.text) {throw new Error('Запись DFM изменилась или была удалена. Откройте её заново.');}
 		if (decodeValue(row.defvalue) === text) { await client.query('ROLLBACK'); return toSource(row); }
-		const session = await getSessionContext(client, options.database);
+		const time = await client.query<{ now: Date }>('SELECT NOW() AS now');
+		const changeDate = time.rows[0]?.now ?? new Date();
 		const value = isBinaryType(row.valuetype) ? encode(text) : text;
 		const updated = await executeMonitoredQuery(client, {
 			text: `UPDATE dfltvalues SET lastchange = $1, seniorid = $2, attrid = $3, defvalue = $4, name = $5 WHERE id = $6`,
-			values: [session.changeDate, source.classId, source.attributeId, value, source.valueName, source.valueId],
+			values: [changeDate, source.classId, source.attributeId, value, source.valueName, source.valueId],
 			source: `Сохранение DFM класса ${source.className}`, database: options.database,
 		});
 		if (updated.rowCount !== 1) {throw new Error('Запись DFM не найдена при сохранении.');}
 		const abstractUpdated = await executeMonitoredQuery(client, {
 			text: `UPDATE abstract SET lastchange = $1, seniorid = $2, name = $3 WHERE id = $4`,
-			values: [session.changeDate, source.classId, source.valueName, source.valueId],
+			values: [changeDate, source.classId, source.valueName, source.valueId],
 			source: `Сохранение abstract DFM ${source.valueId}`, database: options.database,
 		});
 		if (abstractUpdated.rowCount !== 1) {throw new Error('Запись abstract для DFM не найдена.');}
@@ -114,7 +123,15 @@ export async function saveDfmSource(source: DfmSource, text: string): Promise<Df
 		await client.query('COMMIT');
 		return toSource(saved);
 	} catch (error) { await client.query('ROLLBACK').catch(() => undefined); throw error; }
+}
+
+export async function getDfmSourceInSession(client: PoolClient, options: DatabaseConnectionOptions, classId: number): Promise<DfmSource> {
+	const result = await executeMonitoredQuery<DfmRow, [number]>(client, {
+		text: dfmQuery, values: [classId], source: `DFM класса ${classId}`, database: options.database,
 	});
+	const row = result.rows[0];
+	if (!row || row.valueid === null) { throw new Error(`У класса ${classId} нет собственного DFM.`); }
+	return toSource(row);
 }
 
 function toSource(row: DfmRow): DfmSource {

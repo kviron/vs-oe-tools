@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { prepareReadOnlyQuery } from '../mcp/readOnlyQuery';
+import { prepareReadOnlyQuery } from '../mcp/database/readOnly';
 
 suite('MCP read-only query guard', () => {
 	test('accepts SELECT and adds a bounded outer limit', () => {

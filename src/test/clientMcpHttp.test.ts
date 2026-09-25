@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import { readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import { callClientMcpTool, getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../mcp/clientMcpHttp';
+import { callClientMcpTool, getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../mcp/client/http';
 
 suite('East Express client HTTP MCP', () => {
 	let server: Server;

@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { quotePostgresIdentifier, readAttributeValue, selectVisibleAttributes, type McpClassAttribute } from '../mcp/classAttributes';
+import { quotePostgresIdentifier, readAttributeValue, selectVisibleAttributes, type McpClassAttribute } from '../mcp/queries/classAttributes';
 
 suite('MCP class attributes', () => {
 	test('reads fields case-insensitively using aliases', () => {
