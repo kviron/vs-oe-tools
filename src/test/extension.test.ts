@@ -7,7 +7,7 @@ import { formatSqlResult } from '../features/sql-executor/sqlResultExport';
 import { adaptCompositeDateTimeFields } from '../features/sql-executor/sqlDialectAdapter';
 import { parseVarsFile } from '../infrastructure/configuration/projectDatabaseOptions';
 import { parseRdboadmIni, rdboadmDatabaseOptions, resolveRdboadmPath, updateRdboadmSection } from '../infrastructure/configuration/rdboadmIni';
-import { createBatchFileCommand, createClientLaunchCommand, extractBatchCommand, parseClientLaunchArguments } from '../features/project/projectCommandService';
+import { createClientLaunchCommand, parseClientLaunchArguments } from '../features/project/projectCommandService';
 import { activeDatabaseStatusText, projectRoleActions } from '../features/project/projectStatusBar';
 import { getActiveDatabaseSelectionPath } from '../core/databaseSelection';
 // import * as myExtension from '../../extension';
@@ -55,19 +55,6 @@ suite('Extension Test Suite', () => {
 		const content = '; comment\r\n[oetrunk]\r\nDispName = Old name\r\nTCPport = 3060\r\n';
 		const updated = updateRdboadmSection(content, 'oetrunk', [{ key: 'DispName', value: 'Новое имя' }, { key: 'TCPport', value: '4000' }]);
 		assert.strictEqual(updated, '; comment\r\n[oetrunk]\r\nDispName = Новое имя\r\nTCPport = 4000\r\n');
-	});
-
-	test('project batch wrapper expands its own path without executing it', () => {
-		const sourcePath = 'C:\\OE\\trunk\\DBUpdate_test.bat';
-		assert.strictEqual(
-			extractBatchCommand('@call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "%~0" test', sourcePath),
-			'call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "C:\\OE\\trunk\\DBUpdate_test.bat" test',
-		);
-	});
-
-	test('project binary update invokes the wrapper batch file itself', () => {
-		assert.strictEqual(createBatchFileCommand('C:\\OE\\trunk\\BinUpdate.bat'), 'call "C:\\OE\\trunk\\BinUpdate.bat"');
-		assert.throws(() => createBatchFileCommand('C:\\OE\\bad"path\\BinUpdate.bat'), /недопустимые символы/);
 	});
 
 	test('client launch command invokes fme.exe without project batch files', () => {

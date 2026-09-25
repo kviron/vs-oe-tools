@@ -52,9 +52,9 @@ const databaseGroups = computed(() => [
   { title: 'Дополнительные параметры', description: 'Библиотеки и параметры клиентского окружения.', fields: databaseFields.value.filter(field => !['dispname', 'dbpath', 'dbusername', 'dbpassword', 'tcpport'].includes(field.key.toLowerCase())) },
 ]);
 const commandGroups = [
-  { title: 'Файлы проекта', description: 'Исходники пакетов и исполняемые файлы.', icon: Home01Icon, commands: [{ label: 'Обновить пакеты', action: 'updatePackages', script: 'svn update · packages' }, { label: 'Обновить бинарники', action: 'updateBinaries', script: 'BinUpdate.bat' }] },
-  { title: 'Основная база', description: 'Рабочее окружение проекта.', icon: Database01Icon, role: 'main', commands: [{ label: 'Обновить базу', action: 'updateDatabase', script: 'DBUpdate_main.bat' }, { label: 'Запустить клиент', action: 'startClient', script: 'bin\\fme.exe · основная' }] },
-  { title: 'Тестовая база', description: 'Окружение для проверки изменений.', icon: Database01Icon, role: 'test', commands: [{ label: 'Обновить базу', action: 'updateDatabase', script: 'DBUpdate_test.bat' }, { label: 'Запустить клиент', action: 'startClient', script: 'bin\\fme.exe · тестовая' }] },
+  { title: 'Файлы проекта', description: 'Исходники пакетов и исполняемые файлы.', icon: Home01Icon, commands: [{ label: 'Обновить пакеты', action: 'updatePackages', script: 'svn update · packages' }, { label: 'Обновить бинарники', action: 'updateBinaries', script: 'OEUpdater · bin и bin.win64' }] },
+  { title: 'Основная база', description: 'Рабочее окружение проекта.', icon: Database01Icon, role: 'main', commands: [{ label: 'Обновить базу', action: 'updateDatabase', script: 'OEPrjScript → OEPatch' }, { label: 'Запустить клиент', action: 'startClient', script: 'bin\\fme.exe · основная' }] },
+  { title: 'Тестовая база', description: 'Окружение для проверки изменений.', icon: Database01Icon, role: 'test', commands: [{ label: 'Обновить базу', action: 'updateDatabase', script: 'OEPrjScript → OEPatch' }, { label: 'Запустить клиент', action: 'startClient', script: 'bin\\fme.exe · тестовая' }] },
 ] as const;
 const selectedDatabase = computed(() => state.value?.databaseProfiles.find(item => item.id === state.value?.databaseProfile));
 const databaseFieldDescriptions: Record<string, string> = {

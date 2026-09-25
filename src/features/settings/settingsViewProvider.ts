@@ -8,7 +8,8 @@ import type { ExtensionLogService } from '../../infrastructure/logging/extension
 import { getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/client/http';
 import { clientMcpMethodIds, startClientMcpProcess, startHttpTestServerProcess, type HttpTestServerProcess } from '../lifecycle/oeStaticMethodExecutor';
 import { loadRdboadmDatabases, saveRdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
-import { parseClientLaunchArguments, startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from '../project/projectCommandService';
+import { parseClientLaunchArguments, startProjectClient, updateProjectPackages } from '../project/projectCommandService';
+import { updateProjectBinaries, updateProjectDatabase } from '../project';
 import type { ClientCredentials } from '../project/projectCommandService';
 import { getRegisteredToolCatalog } from '../../mcp/tools';
 import { executeHttpApiRequest, type HttpApiRequest } from '../http-api/httpApiRequest';

@@ -1,3 +1,5 @@
+export { updateProjectDatabase } from './databaseUpdate';
+export { updateProjectBinaries } from './binaryUpdate';
 export { createClientCredentials } from './credentials';
 export { createDatabaseSelection } from './selection';
 export { registerProject } from './register';

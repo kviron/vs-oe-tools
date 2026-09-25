@@ -39,15 +39,6 @@ export function parseClientLaunchArguments(value: string): string[] {
 	return result;
 }
 
-export function extractBatchCommand(content: string, sourcePath: string): string {
-	const line = content.split(/\r?\n/).map(value => value.trim()).find(value => /^@?call\s+/i.test(value));
-	if (!line) { throw new Error(`В ${path.basename(sourcePath)} не найдена команда call.`); }
-	const sourceDirectory = `${path.dirname(sourcePath)}${path.sep}`;
-	return line.replace(/^@?call\s+/i, 'call ')
-		.replace(/%~dp0[\\/]?/gi, sourceDirectory)
-		.replace(/%~0/gi, sourcePath);
-}
-
 export function createClientLaunchCommand(
 	workspacePath: string,
 	role: ProjectDatabaseRole,
@@ -83,39 +74,6 @@ export function createClientLaunchCommand(
 	return `start "" /D "${binPath}" "${executablePath}" -NoSelfUpdate${extraArgumentList}${openArgument} -l "${login}" -ok`;
 }
 
-export function createBatchFileCommand(filePath: string): string {
-	if (filePath.includes('"') || filePath.includes('\r') || filePath.includes('\n')) {
-		throw new Error('Путь к BAT-файлу содержит недопустимые символы.');
-	}
-	return `call "${filePath}"`;
-}
-
-async function readProjectCommand(workspacePath: string, fileName: string, encoding: 'win1251' | 'cp866'): Promise<string> {
-	const sourcePath = path.join(workspacePath, fileName);
-	const content = iconv.decode(await readFile(sourcePath), encoding);
-	return extractBatchCommand(content, sourcePath);
-}
-
-export async function updateProjectDatabase(role: ProjectDatabaseRole): Promise<void> {
-	const workspacePath = requireWorkspacePath();
-	const fileName = `DBUpdate_${role}.bat`;
-	const command = await readProjectCommand(workspacePath, fileName, 'win1251');
-	const answer = await vscode.window.showWarningMessage(
-		`Запустить обновление ${role === 'test' ? 'тестовой' : 'основной'} базы?`,
-		{ modal: true, detail: `Будет выполнена команда из ${fileName}.` },
-		'Обновить',
-	);
-	if (answer !== 'Обновить') { return; }
-	const terminal = vscode.window.createTerminal({
-		name: `ВЭ: обновление базы (${role})`,
-		cwd: workspacePath,
-		shellPath: process.env.ComSpec ?? 'cmd.exe',
-		shellArgs: ['/d'],
-	});
-	terminal.show();
-	terminal.sendText(command, true);
-}
-
 export async function updateProjectPackages(): Promise<boolean> {
 	const workspacePath = requireWorkspacePath();
 	const packagesPath = path.join(workspacePath, 'packages');
@@ -135,29 +93,6 @@ export async function updateProjectPackages(): Promise<boolean> {
 	});
 	terminal.show();
 	terminal.sendText('svn update', true);
-	return true;
-}
-
-export async function updateProjectBinaries(): Promise<boolean> {
-	const workspacePath = requireWorkspacePath();
-	const fileName = 'BinUpdate.bat';
-	const batchPath = path.join(workspacePath, fileName);
-	const batchStat = await stat(batchPath).catch(() => undefined);
-	if (!batchStat?.isFile()) { throw new Error(`Не найден файл ${batchPath}.`); }
-	const answer = await vscode.window.showWarningMessage(
-		'Обновить бинарники проекта?',
-		{ modal: true, detail: `Будет запущен ${batchPath}.` },
-		'Обновить',
-	);
-	if (answer !== 'Обновить') { return false; }
-	const terminal = vscode.window.createTerminal({
-		name: 'ВЭ: обновление бинарников',
-		cwd: workspacePath,
-		shellPath: process.env.ComSpec ?? 'cmd.exe',
-		shellArgs: ['/d'],
-	});
-	terminal.show();
-	terminal.sendText(createBatchFileCommand(batchPath), true);
 	return true;
 }
 

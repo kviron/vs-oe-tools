@@ -1,4 +1,6 @@
-import { openProjectClientEntity, startProjectClient, updateProjectBinaries, updateProjectDatabase, updateProjectPackages } from './projectCommandService';
+import { openProjectClientEntity, startProjectClient, updateProjectPackages } from './projectCommandService';
+import { updateProjectDatabase } from './databaseUpdate';
+import { updateProjectBinaries } from './binaryUpdate';
 
 export function createProjectAgentActions(getCredentials: () => Promise<{ username: string; password: string | undefined }>) {
 	return {
