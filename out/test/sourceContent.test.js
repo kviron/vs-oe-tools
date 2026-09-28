@@ -35,7 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("node:assert/strict"));
 const iconv = __importStar(require("iconv-lite"));
-const sourceContent_1 = require("../mcp/sourceContent");
+const sourceContent_1 = require("../mcp/queries/sourceContent");
 suite('MCP source content', () => {
     test('decodes Windows-1251 buffers and PostgreSQL bytea text', () => {
         const source = 'процедура Проверка';

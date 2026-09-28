@@ -4,6 +4,25 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.8.0] - 2026-09-28
+
+### Added
+
+- Added local SQLite task history with progress, changes, checks, decisions, linked objects, knowledge candidates, and MCP tools for reading and updating those records.
+- Added a searchable knowledge and task-history view with Markdown, highlighted code, clickable method IDs, and links to articles in the Git knowledge repository.
+- Added task-specific SVN commit lists to local history and production task cards, including commit-change navigation and MCP access to the shared commit cache.
+- Added automatic installation of the East Express agent skill and a unified MCP gateway for extension, native-client, and configured knowledge-base tools.
+
+### Changed
+
+- Moved package synchronization to the `Функции_IDE.packageSyncChanges` method when available, while retaining the previous SQL query as a fallback.
+- Resolved IDE helper methods by name in the selected database and reorganized Explorer and MCP feature wiring into smaller modules.
+
+### Fixed
+
+- Rebuilt changed methods in mixed Meta/Data PKFs from the database for package comparisons, preserving unrelated declarations and source line endings.
+- Improved production-task links, method references, and the display of task descriptions and SVN commit details.
+
 ## [0.7.0] - 2026-09-25
 
 ### Added

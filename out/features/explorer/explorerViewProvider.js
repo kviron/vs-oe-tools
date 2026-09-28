@@ -36,142 +36,45 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExplorerViewProvider = void 0;
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
+const messageHandler_1 = require("./messageHandler");
+const dataResponses_1 = require("./dataResponses");
+const objectNavigation_1 = require("./objectNavigation");
 class ExplorerViewProvider {
-    workspaceState;
-    extensionUri;
-    getClasses;
-    openClass;
-    openDfmEditor;
-    openDfmPreview;
-    searchObjects;
-    openMethod;
-    openModule;
-    openAttribute;
-    openClassObjects;
-    viewObject;
-    viewEntityProperties;
-    getPackages;
-    getPackageTree;
-    getPackageFileContent;
-    openPackageContent;
+    dependencies;
     view;
     selectedEntityId;
     output = vscode.window.createOutputChannel('Восточный Экспресс: Проводник');
-    constructor(workspaceState, extensionUri, getClasses, openClass, openDfmEditor, openDfmPreview, searchObjects, openMethod, openModule, openAttribute, openClassObjects, viewObject, viewEntityProperties, getPackages, getPackageTree, getPackageFileContent, openPackageContent) {
-        this.workspaceState = workspaceState;
-        this.extensionUri = extensionUri;
-        this.getClasses = getClasses;
-        this.openClass = openClass;
-        this.openDfmEditor = openDfmEditor;
-        this.openDfmPreview = openDfmPreview;
-        this.searchObjects = searchObjects;
-        this.openMethod = openMethod;
-        this.openModule = openModule;
-        this.openAttribute = openAttribute;
-        this.openClassObjects = openClassObjects;
-        this.viewObject = viewObject;
-        this.viewEntityProperties = viewEntityProperties;
-        this.getPackages = getPackages;
-        this.getPackageTree = getPackageTree;
-        this.getPackageFileContent = getPackageFileContent;
-        this.openPackageContent = openPackageContent;
+    messageActions = {
+        log: message => this.log(message),
+        postMessage: message => this.postMessage(message),
+        setSelectedEntityId: id => { this.selectedEntityId = id; },
+        sendClasses: () => this.dataResponses.sendClasses(),
+        sendPackages: () => this.dataResponses.sendPackages(),
+        sendPackageTree: id => this.dataResponses.sendPackageTree(id),
+        sendPackageFileObjects: id => this.dataResponses.sendPackageFileObjects(id),
+        sendObjectSearch: query => this.dataResponses.sendObjectSearch(query),
+        openDatabaseObject: (id, kind, pinned) => this.openDatabaseObject(id, kind, pinned),
+    };
+    dataResponses;
+    openDatabaseObject;
+    constructor(dependencies) {
+        this.dependencies = dependencies;
+        this.dataResponses = (0, dataResponses_1.createExplorerDataResponses)(dependencies, message => this.postMessage(message));
+        this.openDatabaseObject = (0, objectNavigation_1.createObjectNavigator)(dependencies);
     }
     resolveWebviewView(webviewView) {
         this.view = webviewView;
         this.log('Webview проводника создан.');
-        const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+        const assetsRoot = vscode.Uri.joinPath(this.dependencies.extensionUri, 'dist', 'webview');
         webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
         webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
+        const handleMessage = (0, messageHandler_1.createExplorerMessageHandler)(this.dependencies, this.messageActions);
         webviewView.webview.onDidReceiveMessage((message) => {
             if (!(0, webviewProtocol_1.isExplorerWebviewMessage)(message)) {
                 this.log(`Отклонено неизвестное сообщение: ${safeJson(message)}`);
                 return;
             }
-            if (message.command === 'explorerDebugLog') {
-                this.log(`[webview] ${message.message}`);
-                return;
-            }
-            if (message.command === 'explorerReady') {
-                const state = this.workspaceState.get('explorer.state', { activeTab: 'packages' });
-                void this.postMessage({ command: 'restoreExplorerState', ...state });
-                return;
-            }
-            if (message.command === 'explorerStateChanged') {
-                this.selectedEntityId = message.selectedClassId;
-                void this.workspaceState.update('explorer.state', { activeTab: message.activeTab, selectedClassId: message.selectedClassId, selectedPackageId: message.selectedPackageId });
-                return;
-            }
-            if (message.command === 'setExplorerCopyContext') {
-                void vscode.commands.executeCommand('setContext', 'vcVeTools.explorerCopyContext', message.active);
-                this.log(`Контекст Ctrl+C: active=${message.active}.`);
-                return;
-            }
-            if (message.command === 'loadClasses') {
-                void this.sendClasses();
-                return;
-            }
-            if (message.command === 'loadPackages') {
-                void this.sendPackages();
-                return;
-            }
-            if (message.command === 'loadPackageTree') {
-                void this.sendPackageTree(message.packageId);
-                return;
-            }
-            if (message.command === 'loadPackageFileObjects') {
-                void this.sendPackageFileObjects(message.fileId);
-                return;
-            }
-            if (message.command === 'openPackageContent') {
-                void this.openPackageContent(message.fileId, message.objectId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть содержимое пакета: ${error instanceof Error ? error.message : String(error)}`));
-                return;
-            }
-            if (message.command === 'searchDatabaseObjects') {
-                void this.sendObjectSearch(message.query);
-                return;
-            }
-            if (message.command === 'openDatabaseObject') {
-                void this.openDatabaseObject(message.id, message.kind, message.pinned);
-                return;
-            }
-            if (message.command === 'copyEntityId') {
-                this.log(`Получена команда копирования ID=${message.id}.`);
-                void vscode.env.clipboard.writeText(String(message.id));
-                vscode.window.setStatusBarMessage(`ID ${message.id} скопирован`, 1500);
-                return;
-            }
-            if (message.command === 'openClientEntity') {
-                void vscode.commands.executeCommand('vc-ve-tools.openClientEntity', message.role, message.entityType, message.id);
-                return;
-            }
-            if (message.command === 'selectExplorerEntity') {
-                this.selectedEntityId = message.id;
-                this.log(`Выделение изменено: ID=${message.id ?? 'нет'}.`);
-                return;
-            }
-            if (message.command === 'openDfmEditor' || message.command === 'openDfmPreview') {
-                const action = message.command === 'openDfmEditor' ? this.openDfmEditor : this.openDfmPreview;
-                void action(message.classId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть DFM: ${error instanceof Error ? error.message : String(error)}`));
-                return;
-            }
-            if (message.command === 'openClassObjects') {
-                void this.openClassObjects(message.classId).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть объекты класса: ${error instanceof Error ? error.message : String(error)}`));
-                return;
-            }
-            if (message.command === 'viewObject') {
-                void this.viewObject(message.id).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть объект: ${error instanceof Error ? error.message : String(error)}`));
-                return;
-            }
-            if (message.command === 'viewEntityProperties') {
-                void this.viewEntityProperties(message.id).catch(error => void vscode.window.showErrorMessage(`Не удалось открыть свойства: ${error instanceof Error ? error.message : String(error)}`));
-                return;
-            }
-            if (message.command === 'openClass') {
-                void this.openClass(message.id, message.pinned).catch((error) => {
-                    const detail = error instanceof Error ? error.message : String(error);
-                    void vscode.window.showErrorMessage(`Не удалось открыть класс: ${detail}`);
-                });
-            }
+            handleMessage(message);
         });
     }
     dispose() {
@@ -199,76 +102,6 @@ class ExplorerViewProvider {
     }
     log(message) {
         this.output.appendLine(`[${new Date().toISOString()}] ${message}`);
-    }
-    async sendClasses() {
-        try {
-            await this.postMessage({ command: 'classesLoaded', classes: await this.getClasses() });
-        }
-        catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            await this.postMessage({ command: 'classesLoadFailed', message });
-        }
-    }
-    async sendPackages() {
-        try {
-            await this.postMessage({ command: 'packagesLoaded', packages: await this.getPackages() });
-        }
-        catch (error) {
-            await this.postMessage({ command: 'packagesLoadFailed', message: error instanceof Error ? error.message : String(error) });
-        }
-    }
-    async sendPackageTree(packageId) {
-        await this.postMessage({ command: 'packageTreeLoading', packageId });
-        try {
-            await this.postMessage({ command: 'packageTreeLoaded', packageId, tree: await this.getPackageTree(packageId) });
-        }
-        catch (error) {
-            await this.postMessage({ command: 'packageTreeLoadFailed', packageId, message: error instanceof Error ? error.message : String(error) });
-        }
-    }
-    async sendPackageFileObjects(fileId) {
-        try {
-            await this.postMessage({ command: 'packageFileObjectsLoaded', fileId, objects: (await this.getPackageFileContent(fileId)).objects });
-        }
-        catch (error) {
-            await this.postMessage({ command: 'packageFileObjectsLoadFailed', fileId, message: error instanceof Error ? error.message : String(error) });
-        }
-    }
-    async sendObjectSearch(query) {
-        const normalized = query.trim();
-        if (!normalized) {
-            await this.postMessage({ command: 'databaseObjectsLoaded', query: normalized, objects: [] });
-            return;
-        }
-        await this.postMessage({ command: 'databaseObjectsLoading', query: normalized });
-        try {
-            await this.postMessage({ command: 'databaseObjectsLoaded', query: normalized, objects: await this.searchObjects(normalized) });
-        }
-        catch (error) {
-            await this.postMessage({ command: 'databaseObjectsLoadFailed', query: normalized, message: error instanceof Error ? error.message : String(error) });
-        }
-    }
-    async openDatabaseObject(id, kind, pinned) {
-        try {
-            if (kind === 'class') {
-                await this.openClass(id, pinned);
-            }
-            else if (kind === 'method') {
-                await this.openMethod(id);
-            }
-            else if (kind === 'module') {
-                await this.openModule(id);
-            }
-            else if (kind === 'attribute') {
-                await this.openAttribute(id);
-            }
-            else {
-                void vscode.window.showInformationMessage(`Для объекта ID=${id} пока нет специализированного редактора.`);
-            }
-        }
-        catch (error) {
-            void vscode.window.showErrorMessage(`Не удалось открыть объект ${id}: ${error instanceof Error ? error.message : String(error)}`);
-        }
     }
     async postMessage(message) {
         await this.view?.webview.postMessage(message);

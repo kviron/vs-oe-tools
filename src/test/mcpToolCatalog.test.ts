@@ -14,6 +14,7 @@ suite('MCP tool catalog', () => {
 		]);
 		assert.ok(tools.some(tool => tool.name === 'get_active_database'));
 		assert.ok(tools.some(tool => tool.name === 'create_class_method_checked' && !tool.deprecated));
+		assert.ok(tools.some(tool => tool.name === 'create_local_tool_class' && !tool.deprecated));
 		assert.ok(tools.some(tool => tool.name === 'update_method_source' && !tool.deprecated));
 		assert.ok(tools.some(tool => tool.name === 'bind_objects_to_package'));
 		assert.ok(tools.some(tool => tool.name === 'get_module_source'));

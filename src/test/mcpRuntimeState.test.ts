@@ -12,11 +12,13 @@ suite('MCP runtime state', () => {
 			sqlMonitorHistoryPath: 'C:\\storage\\sql-monitor\\recent-queries.json',
 			navigationInfoPath: 'C:\\Temp\\vc-ve-tools\\navigation.json',
 			clientMcpUrl: 'http://localhost:8080',
+			workHistoryPath: 'C:\\storage\\work-history.sqlite',
 			updatedAt: '2026-09-17T07:00:00.000Z',
 		});
 
 		assert.equal(state?.workspacePath, 'C:\\OE\\trunk');
 		assert.equal(state?.sqlMonitorHistoryPath, 'C:\\storage\\sql-monitor\\recent-queries.json');
+		assert.equal(state?.workHistoryPath, 'C:\\storage\\work-history.sqlite');
 	});
 
 	test('rejects incomplete or relative state', () => {

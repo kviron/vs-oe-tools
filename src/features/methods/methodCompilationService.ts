@@ -1,4 +1,4 @@
-import { compileOeMethod, type OeMethodCredentials } from '../lifecycle/oeStaticMethodExecutor';
+import { compileOeMethod, ideMethodNames, type OeMethodCredentials } from '../lifecycle/oeStaticMethodExecutor';
 import { hasMethodCompilationResult, parseMethodCompilationOutput } from './methodCompilation';
 import { MethodCompilationHistory, type MethodCompilationRecord } from './methodCompilationHistory';
 
@@ -18,7 +18,7 @@ export class MethodCompilationService {
 			if (!this.workspacePath) { throw new Error('Откройте папку проекта Восточного Экспресса.'); }
 			const output = await compileOeMethod(this.workspacePath, methodId, database, host, await this.getCredentials());
 			if (!hasMethodCompilationResult(output)) {
-				throw new Error('OEExecTask не вернул результат компиляции из метода СообщенияКомпиляцииДляРедактора (ID 3200240). Проверьте его код и доступность в выбранной базе.');
+				throw new Error(`OEExecTask не вернул результат компиляции из метода Функции_IDE.${ideMethodNames.compilationMethod}. Проверьте его код и доступность в выбранной базе.`);
 			}
 			record.diagnostics = parseMethodCompilationOutput(output);
 			record.errorCount = record.diagnostics.filter(item => item.severity === 'error').length;

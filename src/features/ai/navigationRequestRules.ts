@@ -57,6 +57,8 @@ export const navigationRequestRules = {
 	] },
 	create_class_attribute: { rules: [valid(input => Boolean(input.draft) && typeof input.draft === 'object',
 		'draft is required for create_class_attribute.')] },
+	create_local_tool_class: { rules: [valid(input => nonempty(input.name), 'Name is required for create_local_tool_class.'),
+		expectedConnection('create_local_tool_class')] },
 	execute_lifecycle_method: { requiresId: true, rules: [
 		valid(input => nonempty(input.methodParameter), 'methodParameter is required for execute_lifecycle_method.'),
 		input => input.id === createLifecycleParameterMethodId ? undefined

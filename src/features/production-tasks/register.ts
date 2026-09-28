@@ -38,6 +38,8 @@ export function registerProductionTasks(
 		async () => loadProductionTaskAttachments(await session.getOptions(), task.id, logger),
 		async () => loadProductionTaskHistory(await session.getOptions(), task.id, logger),
 		async () => loadProductionTaskRichDescription(await session.getOptions(), task.id, logger),
+		workspacePath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+		vscode.Uri.joinPath(context.globalStorageUri, 'work-history.sqlite').fsPath,
 	);
 	const provider = new ProductionTasksPanelManager(
 		context.extensionUri,
@@ -47,10 +49,12 @@ export function registerProductionTasks(
 		session.setPassword,
 		logger,
 		() => extensionLogger.show(),
+		vscode.Uri.joinPath(context.globalStorageUri, 'work-history.sqlite').fsPath,
 	);
 	context.subscriptions.push(
 		provider,
 		vscode.commands.registerCommand('vc-ve-tools.openProductionTasks', () => provider.show()),
+		vscode.commands.registerCommand('vc-ve-tools.openKnowledgeHistory', () => provider.showKnowledgeHistory()),
 		registerProductionTasksActivityLauncher(provider),
 		vscode.workspace.onDidChangeConfiguration(event => {
 			if (event.affectsConfiguration('vcVeTools.productionHost') || event.affectsConfiguration('vcVeTools.productionPort')

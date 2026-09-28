@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.splitWorkDescriptionObjectIds = splitWorkDescriptionObjectIds;
-const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{3,}\b/g;
+const linkPattern = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)]|\b[1-9]\d{4,}\b/g;
 function splitWorkDescriptionObjectIds(value, unqualifiedNumericKind) {
     const parts = [];
     let offset = 0;
@@ -23,12 +23,6 @@ function splitWorkDescriptionObjectIds(value, unqualifiedNumericKind) {
         const prefix = value.slice(Math.max(0, matchOffset - 40), matchOffset);
         const contextualTask = /задач\p{L}*\s*(?:№|#|id)?\s*$/ui.test(prefix);
         const isTask = unqualifiedNumericKind === 'task' || contextualTask;
-        if (unqualifiedNumericKind === 'task' && !contextualTask && text.length < 5) {
-            continue;
-        }
-        if (!isTask && text.length < 7) {
-            continue;
-        }
         if (matchOffset > offset) {
             parts.push({ text: value.slice(offset, matchOffset) });
         }

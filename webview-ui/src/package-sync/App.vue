@@ -163,7 +163,7 @@ vscode.postMessage({ command: 'packageSyncReady' });
 
       <TabsContent value="changes" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-0.5">
         <Card size="sm" class="shrink-0">
-          <CardHeader class="flex flex-wrap items-center justify-between gap-3"><div class="flex min-w-0 flex-col gap-1"><CardTitle>Изменённые файлы <Badge variant="secondary">{{ loading ? '…' : visible.length }}</Badge></CardTitle><CardDescription>Двойной щелчок по строке открывает сравнение локального PKF с версией из БД</CardDescription></div></CardHeader>
+          <CardHeader class="flex flex-wrap items-center justify-between gap-3"><div class="flex min-w-0 flex-col gap-1"><CardTitle>Изменённые файлы <Badge variant="secondary">{{ loading ? '…' : visible.length }}</Badge></CardTitle><CardDescription>Двойной щелчок сравнивает базовую версию PKF с текущим содержимым БД</CardDescription></div></CardHeader>
           <CardContent class="flex flex-wrap items-end gap-3"><Field class="min-w-56 flex-1 gap-1.5"><FieldLabel for="package-sync-search">Поиск</FieldLabel><SearchField id="package-sync-search" v-model="query" v-model:options="searchOptions" placeholder="Имя, путь или ID…" /></Field><Button variant="outline" size="sm" :disabled="loading" @click="refresh"><Spinner v-if="loading" data-icon="inline-start" /><HugeiconsIcon v-else :icon="RefreshIcon" data-icon="inline-start" />{{ loading ? 'Обновление…' : 'Обновить' }}</Button></CardContent>
         </Card>
 

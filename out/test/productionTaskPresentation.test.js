@@ -51,5 +51,8 @@ suite('Production task presentation', () => {
         assert.equal((0, productionTaskPresentation_1.productionTaskPublicUrl)(88605), 'https://r.oe-it.ru/88605');
         assert.equal((0, productionTaskPresentation_1.productionTaskMarkdown)('88605', 'Массовое подтверждение переноса флага Бесплатный при замене', 1), '88605 - Массовое подтверждение переноса флага Бесплатный при замене\n[https://r.oe-it.ru/88605](https://r.oe-it.ru/88605)');
     });
+    test('builds the client protocol URI from the task number', () => {
+        assert.equal((0, productionTaskPresentation_1.productionTaskClientUri)(88605), 'oe-ric224:/88605');
+    });
 });
 //# sourceMappingURL=productionTaskPresentation.test.js.map

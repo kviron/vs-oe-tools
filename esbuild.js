@@ -29,6 +29,7 @@ async function main() {
 		entryPoints: {
 			extension: 'src/extension.ts',
 			'mcp-server': 'src/mcp/server.ts',
+			'knowledge-mcp-proxy': 'src/mcp/knowledge/proxyServer.ts',
 			'sql-monitor-helper': 'src/features/sql-monitor/oeSqlMonitorHelper.ts',
 		},
 		bundle: true,

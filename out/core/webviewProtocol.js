@@ -67,6 +67,12 @@ function isProductionTaskDetailsWebviewMessage(message) {
     if (message.command === 'openExternalUrl') {
         return 'url' in message && typeof message.url === 'string' && /^https?:\/\//i.test(message.url);
     }
+    if (message.command === 'loadProductionTaskSvn') {
+        return !('force' in message) || typeof message.force === 'boolean';
+    }
+    if (message.command === 'openProductionTaskSvnCommit') {
+        return 'id' in message && typeof message.id === 'string' && message.id.length > 0;
+    }
     return message.command === 'productionTaskDetailsReady'
         || message.command === 'loadProductionTaskAttachments'
         || message.command === 'loadProductionTaskActions'
@@ -80,7 +86,7 @@ function isSettingsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
     }
-    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'checkClientMcpTools' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'stopHttpTestServer' || message.command === 'clearExtensionLogs') {
+    if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'refreshKnowledgeMcpStatus' || message.command === 'selectKnowledgeMcpEnvFile' || message.command === 'checkClientMcpTools' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'stopHttpTestServer' || message.command === 'clearExtensionLogs') {
         return true;
     }
     if (message.command === 'openDatabaseObjectById') {

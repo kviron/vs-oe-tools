@@ -25,6 +25,13 @@ export function extractPkfMethodChange(beforeFile: string, afterFile: string, me
 	return normalizeNewlines(before) === normalizeNewlines(after) ? undefined : { before, after };
 }
 
+/** Shows the database method as the new version of the local PKF method. */
+export function extractLocalPkfMethodDiff(databaseCode: string, localFile: string, methodId: number): { before: string; after: string } {
+	const before = extractPkfMethodSource(localFile, methodId);
+	if (before === undefined) { throw new Error(`Код метода ${methodId} не найден в локальном файле.`); }
+	return { before, after: databaseCode };
+}
+
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }

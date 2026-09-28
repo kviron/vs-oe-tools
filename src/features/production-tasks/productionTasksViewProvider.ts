@@ -4,6 +4,7 @@ import { isProductionTasksWebviewMessage } from '../../core/webviewProtocol';
 import type { ProductionConnectionOptions, ProductionTaskListItem, ProductionTasksLogger, ProductionTaskSummary } from './models';
 import { loadProductionTaskById, loadProductionTaskList } from './productionTasksRepository';
 import { productionTaskPublicUrl } from './productionTaskPresentation';
+import { KnowledgeHistoryPanel } from '../knowledge-history/view';
 
 export class ProductionTasksPanelManager implements vscode.Disposable {
 	static readonly viewType = 'vc-ve-tools.productionTasks';
@@ -14,6 +15,8 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 	private refreshRevision = 0;
 	private tasksPublished = false;
 	private openingTasks = new Set<number>();
+	private openLocalHistoryOnReady = false;
+	private readonly knowledgeHistory: KnowledgeHistoryPanel;
 	constructor(
 		private readonly extensionUri: vscode.Uri,
 		private readonly getOptions: () => Promise<ProductionConnectionOptions>,
@@ -22,7 +25,8 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 		private readonly setPassword: () => Promise<boolean>,
 		private readonly logger: ProductionTasksLogger,
 		private readonly openLog: () => void,
-	) {}
+		historyPath: string,
+	) { this.knowledgeHistory = new KnowledgeHistoryPanel(extensionUri, historyPath); }
 	show(): void {
 		if (this.panel) { this.panel.reveal(vscode.ViewColumn.Active, false); return; }
 		const panel = vscode.window.createWebviewPanel(
@@ -32,10 +36,12 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 			{ enableScripts: true, retainContextWhenHidden: true },
 		);
 		this.panel = panel;
+		this.knowledgeHistory.attach(panel.webview);
 		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
 		panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 		panel.webview.html = shell(panel.webview, assetsRoot);
 		panel.webview.onDidReceiveMessage((message: unknown) => {
+			if (this.knowledgeHistory.handleEmbeddedMessage(message)) { return; }
 			if (!isProductionTasksWebviewMessage(message)) { return; }
 			if (message.command === 'copyTableCells') { void vscode.env.clipboard.writeText(message.text); return; }
 			if (message.command === 'tableSelectionDebug') { return; }
@@ -49,6 +55,10 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 			if (message.command === 'setProductionTasksPassword') { void this.setPassword().then(changed => { if (changed) { void this.refresh(this.userFilter, true); } }); return; }
 			if (message.command === 'openProductionTasksLog') { this.openLog(); return; }
 			if (message.command === 'productionTasksReady') {
+				if (this.openLocalHistoryOnReady) {
+					this.openLocalHistoryOnReady = false;
+					void panel.webview.postMessage({ command: 'showKnowledgeHistory' });
+				}
 				// Opening or restoring the panel always starts with the signed-in user,
 				// including older webviews that send a saved all-users filter.
 				this.userFilter = undefined;
@@ -57,7 +67,13 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 			}
 			void this.refresh(message.userFilter);
 		});
-		panel.onDidDispose(() => { this.panel = undefined; this.userFilter = undefined; this.refreshRevision++; this.tasks.clear(); });
+		panel.onDidDispose(() => { this.knowledgeHistory.detach(); this.panel = undefined; this.userFilter = undefined; this.refreshRevision++; this.tasks.clear(); });
+	}
+	showKnowledgeHistory(): void {
+		const opening = !this.panel;
+		this.show();
+		if (opening) { this.openLocalHistoryOnReady = true; }
+		else { void this.panel?.webview.postMessage({ command: 'showKnowledgeHistory' }); }
 	}
 	refresh(userFilter = this.userFilter, force = false): Promise<void> {
 		if (this.refreshPromise && userFilter === this.userFilter && !force && !this.tasksPublished) { return this.refreshPromise; }
@@ -107,7 +123,7 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 			void vscode.window.showErrorMessage(`Не удалось открыть задачу ${id}: ${error instanceof Error ? error.message : String(error)}`);
 		} finally { this.openingTasks.delete(id); }
 	}
-	dispose(): void { this.panel?.dispose(); this.tasks.clear(); }
+	dispose(): void { this.panel?.dispose(); this.knowledgeHistory.dispose(); this.tasks.clear(); }
 	private async post(message: ProductionTasksHostMessage): Promise<void> { await this.panel?.webview.postMessage(message); }
 }
 
@@ -135,5 +151,5 @@ function shell(webview: vscode.Webview, assetsRoot: vscode.Uri): string {
 	const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'production-tasks.js'));
 	const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
 	const nonce = Array.from({ length: 32 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join('');
-	return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Задачи</title></head><body><div id="app">Загрузка…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+	return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}'; worker-src blob:;"><link rel="stylesheet" href="${styleUri}"><title>Задачи</title></head><body><div id="app">Загрузка…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }

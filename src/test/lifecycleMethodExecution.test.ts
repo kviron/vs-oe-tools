@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { buildLifecycleMethodParameter } from '../features/lifecycle/lifecycleMethodExecution';
-import { buildClientMcpStartArguments, buildHttpTestServerArguments, buildHttpTestServerMethodParameter, buildOeExecTaskArguments, httpTestServerMethodId } from '../features/lifecycle/oeStaticMethodExecutor';
+import { buildClientMcpStartArguments, buildHttpTestServerArguments, buildHttpTestServerMethodParameter, buildOeExecTaskArguments } from '../features/lifecycle/oeStaticMethodExecutor';
 
 suite('Lifecycle method execution', () => {
 	test('builds the native MethodParam value', () => {
@@ -18,30 +18,30 @@ suite('Lifecycle method execution', () => {
 	});
 
 	test('builds OEExecTask arguments without a shell', () => {
-		assert.deepEqual(buildOeExecTaskArguments(3143815, 'paramName=A,paramKind=8927425', 'oetest', 'localhost', { username: 'dev', password: 'secret' }), [
-			'-l', 'host=localhost,db=oetest,MultiLogin=True,Username=dev,password=secret', '-MethodID=3143815',
+		assert.deepEqual(buildOeExecTaskArguments(3143815, 'paramName=A,paramKind=8927425', 'oetest', 'localhost', { username: 'dev', password: 'secret' }, 754321), [
+			'-l', 'host=localhost,db=oetest,MultiLogin=True,Username=dev,password=secret', '-MethodID=754321',
 			'-MethodParam=paramName=A,paramKind=8927425', '-ForceOutputOEM',
 		]);
 	});
 
-	test('builds aiMCP.http_Start arguments in configuration mode without an empty method parameter', () => {
-		assert.deepEqual(buildClientMcpStartArguments('oetrunk', 'localhost', { username: 'dev', password: 'secret' }), [
+	test('builds the Функции_IDE MCP startup arguments in configuration mode', () => {
+		assert.deepEqual(buildClientMcpStartArguments('oetrunk', 'localhost', { username: 'dev', password: 'secret' }, 754322), [
 			'-l', 'host=localhost,db=oetrunk,MultiLogin=True,Username=dev,password=secret,Shell=Настройка',
-			'-MethodID=12464780',
+			'-MethodID=754322',
 			'-MethodParam=1',
 			'-ForceOutputOEM',
 		]);
 	});
 
 	test('builds native HTTP method test server arguments', () => {
-		assert.deepEqual(buildHttpTestServerArguments('ПолучитьФайл', 'oetrunk', 'localhost', { username: 'dev', password: 'secret' }), [
+		assert.deepEqual(buildHttpTestServerArguments('ПолучитьФайл', 'oetrunk', 'localhost', { username: 'dev', password: 'secret' }, 754323), [
 			'-l', 'host=localhost,db=oetrunk,MultiLogin=True,Username=dev,password=secret,Shell=Настройка',
-			`-MethodID=${httpTestServerMethodId}`,
+			'-MethodID=754323',
 			'-MethodParam=method=ПолучитьФайл,username=dev',
 			'-ForceOutputOEM',
 		]);
 		assert.throws(
-			() => buildHttpTestServerArguments('*', 'oetrunk', 'localhost', { username: 'dev', password: 'secret' }),
+			() => buildHttpTestServerArguments('*', 'oetrunk', 'localhost', { username: 'dev', password: 'secret' }, 754323),
 			/Выберите конкретный HTTP-метод/u,
 		);
 	});
@@ -58,6 +58,6 @@ suite('Lifecycle method execution', () => {
 	});
 
 	test('rejects non-allowlisted method IDs', () => {
-		assert.throws(() => buildOeExecTaskArguments(12958243, 'value', 'oetest', 'localhost', { username: 'dev', password: 'secret' }), /не разрешён/);
+		assert.throws(() => buildOeExecTaskArguments(12958243, 'value', 'oetest', 'localhost', { username: 'dev', password: 'secret' }, 754321), /не разрешён/);
 	});
 });

@@ -37,7 +37,7 @@ exports.registerDatabaseMcpServer = registerDatabaseMcpServer;
 const vscode = __importStar(require("vscode"));
 const projectDatabaseOptions_1 = require("../infrastructure/configuration/projectDatabaseOptions");
 const constants_1 = require("../core/constants");
-const databaseMcpArguments_1 = require("./databaseMcpArguments");
+const arguments_1 = require("./database/arguments");
 function registerDatabaseMcpServer(context, logsPath, navigation, databaseSelectionPath, sqlMonitorHistoryPath) {
     const changeEmitter = new vscode.EventEmitter();
     const registration = vscode.lm.registerMcpServerDefinitionProvider('vc-ve-tools.database', {
@@ -50,7 +50,7 @@ function registerDatabaseMcpServer(context, logsPath, navigation, databaseSelect
             if (!workspaceFolder) {
                 return [];
             }
-            const server = new vscode.McpStdioServerDefinition('East Express Database and Tools', process.execPath, (0, databaseMcpArguments_1.buildDatabaseMcpArguments)({
+            const server = new vscode.McpStdioServerDefinition('East Express Database and Tools', process.execPath, (0, arguments_1.buildDatabaseMcpArguments)({
                 serverPath: vscode.Uri.joinPath(context.extensionUri, 'dist', 'mcp-server.js').fsPath,
                 workspacePath: workspaceFolder.uri.fsPath,
                 databaseRole: (0, projectDatabaseOptions_1.getDatabaseRole)(),
@@ -60,13 +60,15 @@ function registerDatabaseMcpServer(context, logsPath, navigation, databaseSelect
                 sqlMonitorHistoryPath,
                 navigationInfoPath: navigation.infoPath,
                 clientMcpUrl: vscode.workspace.getConfiguration('vcVeTools').get(constants_1.clientMcpUrlSetting, 'http://localhost:8080'),
+                knowledgeEnvFile: vscode.workspace.getConfiguration('vcVeTools').get(constants_1.knowledgeMcpEnvFileSetting, ''),
+                workHistoryPath: vscode.Uri.joinPath(context.globalStorageUri, 'work-history.sqlite').fsPath,
             }), {}, '0.22.0');
             server.cwd = workspaceFolder.uri;
             return [server];
         },
     });
     const configurationListener = vscode.workspace.onDidChangeConfiguration((event) => {
-        if (event.affectsConfiguration('vcVeTools.databaseRole') || event.affectsConfiguration(`vcVeTools.${constants_1.databaseProfileSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.mcpEnabledSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.clientMcpUrlSetting}`)) {
+        if (event.affectsConfiguration('vcVeTools.databaseRole') || event.affectsConfiguration(`vcVeTools.${constants_1.databaseProfileSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.mcpEnabledSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.clientMcpUrlSetting}`) || event.affectsConfiguration(`vcVeTools.${constants_1.knowledgeMcpEnvFileSetting}`)) {
             changeEmitter.fire();
         }
     });

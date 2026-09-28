@@ -34,23 +34,23 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("node:assert/strict"));
-const readOnlyQuery_1 = require("../mcp/readOnlyQuery");
+const readOnly_1 = require("../mcp/database/readOnly");
 suite('MCP read-only query guard', () => {
     test('accepts SELECT and adds a bounded outer limit', () => {
-        const query = (0, readOnlyQuery_1.prepareReadOnlyQuery)('-- inspect\nSELECT id FROM classes;', 25);
+        const query = (0, readOnly_1.prepareReadOnlyQuery)('-- inspect\nSELECT id FROM classes;', 25);
         assert.match(query, /SELECT id FROM classes/);
         assert.match(query, /LIMIT 26$/);
     });
     test('accepts WITH queries', () => {
-        assert.match((0, readOnlyQuery_1.prepareReadOnlyQuery)('WITH data AS (SELECT 1 AS id) SELECT * FROM data'), /WITH data/);
+        assert.match((0, readOnly_1.prepareReadOnlyQuery)('WITH data AS (SELECT 1 AS id) SELECT * FROM data'), /WITH data/);
     });
     test('rejects mutation statements', () => {
         for (const sql of ['UPDATE classes SET name = name', 'DELETE FROM classes', 'INSERT INTO classes DEFAULT VALUES', 'DROP TABLE classes']) {
-            assert.throws(() => (0, readOnlyQuery_1.prepareReadOnlyQuery)(sql), /Only SELECT/);
+            assert.throws(() => (0, readOnly_1.prepareReadOnlyQuery)(sql), /Only SELECT/);
         }
     });
     test('caps the requested row limit', () => {
-        assert.match((0, readOnlyQuery_1.prepareReadOnlyQuery)('VALUES (1)', 9999), /LIMIT 501$/);
+        assert.match((0, readOnly_1.prepareReadOnlyQuery)('VALUES (1)', 9999), /LIMIT 501$/);
     });
 });
 //# sourceMappingURL=readOnlyQuery.test.js.map

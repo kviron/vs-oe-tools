@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseProductionDate = parseProductionDate;
 exports.productionDeadlineInfo = productionDeadlineInfo;
 exports.productionTaskPublicUrl = productionTaskPublicUrl;
+exports.productionTaskClientUri = productionTaskClientUri;
 exports.productionTaskMarkdown = productionTaskMarkdown;
 function parseProductionDate(value) {
     const match = value.trim().match(/^(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
@@ -31,6 +32,9 @@ function productionDeadlineInfo(value, now = new Date()) {
 }
 function productionTaskPublicUrl(reference) {
     return `https://r.oe-it.ru/${String(reference).trim()}`;
+}
+function productionTaskClientUri(reference) {
+    return `oe-ric224:/${String(reference).trim()}`;
 }
 function productionTaskMarkdown(number, title, fallbackId) {
     const reference = number.trim() || String(fallbackId);

@@ -37,6 +37,8 @@ const handlers = {
 		expectedHost: input.expectedHost!, expectedPort: input.expectedPort!,
 	}),
 	create_class_attribute: async (input, actions) => actions.createClassAttribute(input.draft as ClassAttributeDraft),
+	create_local_tool_class: async (input, actions) => actions.createLocalToolClass(input.name!, input.expectedDatabase!,
+		input.expectedHost!, input.expectedPort!),
 	execute_lifecycle_method: async (input, actions) => actions.executeLifecycleMethod(input.id!, input.methodParameter!,
 		input.database!, input.host!),
 	start_client_mcp: async (input, actions) => actions.startClientMcp(input.database!, input.host!),

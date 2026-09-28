@@ -54,5 +54,12 @@ suite('OESQLMonCon collector paths', () => {
         assert.equal((0, oeSqlMonitorCollectorPaths_1.isProtocolVersionMismatch)(new Error('Exception: Неверная версия протокола данных 157.0, ожидается 154.0')), true);
         assert.equal((0, oeSqlMonitorCollectorPaths_1.isProtocolVersionMismatch)(new Error('ECONNREFUSED')), false);
     });
+    test('recognizes OEService disconnects reported by the native collector', () => {
+        assert.equal((0, oeSqlMonitorCollectorPaths_1.hasCollectorError)('EOENetworkError: Подключение не установлено (10061)'), true);
+        assert.equal((0, oeSqlMonitorCollectorPaths_1.hasCollectorError)('Отключение от базы данных...'), false);
+        assert.equal((0, oeSqlMonitorCollectorPaths_1.isMonitorConnectionError)(new Error('EOENetworkError: Удаленный хост принудительно разорвал существующее подключение(10054)')), true);
+        assert.equal((0, oeSqlMonitorCollectorPaths_1.isMonitorConnectionError)(new Error('EOENetworkError: Подключение не установлено, т.к. конечный компьютер отверг запрос на подключение(10061)')), true);
+        assert.equal((0, oeSqlMonitorCollectorPaths_1.isMonitorConnectionError)(new Error('Неверная версия протокола данных 157.0, ожидается 154.0')), false);
+    });
 });
 //# sourceMappingURL=oeSqlMonitorCollectorPaths.test.js.map

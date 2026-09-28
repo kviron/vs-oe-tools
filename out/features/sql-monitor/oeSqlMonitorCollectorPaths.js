@@ -35,6 +35,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSqlMonitorCollectorCandidates = getSqlMonitorCollectorCandidates;
 exports.isProtocolVersionMismatch = isProtocolVersionMismatch;
+exports.isMonitorConnectionError = isMonitorConnectionError;
+exports.hasCollectorError = hasCollectorError;
 const path = __importStar(require("node:path"));
 function getSqlMonitorCollectorCandidates(workspacePath, configuredPath) {
     const candidates = [
@@ -63,5 +65,12 @@ function normalizeConfiguredPath(workspacePath, configuredPath) {
 function isProtocolVersionMismatch(error) {
     const message = error instanceof Error ? error.message : String(error);
     return /Неверная версия протокола данных|invalid data protocol version/i.test(message);
+}
+function isMonitorConnectionError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return /EOENetworkError|ECONN(?:REFUSED|RESET)|(?:подключение не установлено|удаленный хост принудительно разорвал).*(?:10061|10054)|\b1006[14]\b/i.test(message);
+}
+function hasCollectorError(output) {
+    return /(?:EOSError|EOENetworkError|System Error|Exception|Ошибка)/i.test(output);
 }
 //# sourceMappingURL=oeSqlMonitorCollectorPaths.js.map

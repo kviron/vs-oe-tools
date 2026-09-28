@@ -34,7 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("node:assert/strict"));
-const methodResolution_1 = require("../mcp/methodResolution");
+const methodResolution_1 = require("../mcp/queries/methodResolution");
 suite('MCP method reference resolution', () => {
     test('prefers the nearest implementation in the caller inheritance chain', () => {
         const result = (0, methodResolution_1.resolveMethodCandidates)([candidate('1', '10'), candidate('2', '20')], new Map([['10', 0], ['20', 1]]), new Map(), false);

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as iconv from 'iconv-lite';
 import type { PoolClient } from 'pg';
+import { svnCatBase } from '../../features/code-history/svnClient';
 import type { PackageSyncItem } from '../../features/package-sync/models';
 import {
 	appendPkfObjects,
@@ -10,7 +11,7 @@ import {
 	extractPkfObjectIds,
 	type PkfDatabaseObject,
 } from '../../features/package-sync/pkfDatabaseReconstruction';
-import { appendPkfMetaMembers, metaPkfOwnerQuery, requireSingleMetaOwner, serializePkfMetaFile, type MetaVisibility, type PkfMetaMember } from '../../features/package-sync/pkfMetaReconstruction';
+import { appendPkfMetaMembers, metaPkfOwnerQuery, replacePkfMetaMethods, requireSingleMetaOwner, serializePkfMetaFile, type MetaVisibility, type PkfMetaMember, type PkfMetaMethod } from '../../features/package-sync/pkfMetaReconstruction';
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 import { withProjectDatabaseSession } from './projectDatabaseSession';
 
@@ -49,13 +50,13 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 		let source: string;
 		let localContent: string | undefined;
 		if (bytes) {
-			const localMd5 = createHash('md5').update(bytes).digest('hex').toUpperCase();
 			if (!databaseMd5) {
 				// The package editor keeps the previous working-copy file when the database file is deleted.
 				// Show that file on the left and an empty database version on the right.
 				return { content: '', addedObjectIds: [] };
 			}
-			if (databaseMd5 !== localMd5) {throw new Error(`Локальный PKF не совпадает с базовой версией БД (MD5 ${localMd5}, ожидался ${databaseMd5}).`);}
+			// Only mixed Meta/Data files reuse local declarations to build the DB side.
+			// Other PKFs are reconstructed entirely from current database rows.
 			source = iconv.decode(bytes, 'win1251');
 		} else {
 			if (databaseMd5) {throw new Error(`Локальный файл не найден, хотя в БД присутствует базовый MD5 ${databaseMd5}.`);}
@@ -72,8 +73,24 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 		const hasMetaObjects = abstractResult.rows.some(row => META_CLASS_IDS.has(Number(row.classid)));
 		if (hasMetaObjects) {
 			if (abstractResult.rows.some(row => !META_CLASS_IDS.has(Number(row.classid)))) {
+				if (bytes) {
+					const localMd5 = createHash('md5').update(bytes).digest('hex').toUpperCase();
+					if (databaseMd5 !== localMd5) {
+						const svnBase = await svnCatBase(fileName);
+						const svnBaseMd5 = createHash('md5').update(iconv.encode(svnBase, 'win1251')).digest('hex').toUpperCase();
+						if (databaseMd5 !== svnBaseMd5) {
+							throw new Error(`Не найдена базовая версия смешанного PKF: MD5 файла ${localMd5}, SVN BASE ${svnBaseMd5}, ожидался ${databaseMd5}.`);
+						}
+						source = svnBase;
+						localContent = svnBase;
+					}
+				}
 				const missingMetaRows = missingRows.filter(row => META_CLASS_IDS.has(Number(row.classid)));
-				const sourceWithCurrentMeta = await appendMissingMetaMembers(client, options.database, source, missingMetaRows);
+				const existingMethodIds = abstractResult.rows.filter(row => Number(row.classid) === 5 && localIds.has(Number(row.id)))
+					.map(row => Number(row.id));
+				const sourceWithUpdatedMethods = replacePkfMetaMethods(source,
+					await loadMetaMethods(client, options.database, existingMethodIds));
+				const sourceWithCurrentMeta = await appendMissingMetaMembers(client, options.database, sourceWithUpdatedMethods, missingMetaRows);
 				const missingDataRows = missingRows.filter(row => !META_CLASS_IDS.has(Number(row.classid)));
 				const objects = await buildDatabaseObjects(client, options.database, missingDataRows);
 				return { content: appendPkfObjects(sourceWithCurrentMeta, objects), addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
@@ -85,6 +102,21 @@ export async function loadPackageDatabaseVersion(item: PackageSyncItem, fileName
 		const databaseSource = createEmptyPkf(Number(fileRow.isautogroup) !== 0 ? fileRow.autogroup : undefined);
 		return { content: appendPkfObjects(databaseSource, objects), addedObjectIds: missingRows.map(row => Number(row.id)), localContent };
 	}, undefined, 'vc-ve-tools-package-diff');
+}
+
+async function loadMetaMethods(client: PoolClient, database: string, ids: readonly number[]): Promise<PkfMetaMethod[]> {
+	if (!ids.length) {return [];}
+	const result = await executeMonitoredQuery<MetaMethodRow>(client, {
+		text: `SELECT ID AS id, Name AS name, Aliases AS aliases, Visibility AS visibility,
+		 MethKind AS methkind, Signature AS signature, Code AS code
+		 FROM Methods WHERE ID = ANY($1::integer[]) ORDER BY ID`,
+		values: [ids], source: 'Синхронизация пакетов: существующие методы смешанного PKF', database,
+	});
+	if (result.rows.length !== ids.length) {throw new Error('Не удалось прочитать все существующие методы смешанного PKF.');}
+	return result.rows.map(row => ({
+		kind: 'method', id: Number(row.id), name: row.name, aliases: row.aliases ?? '', visibility: metaVisibility(row.visibility),
+		methodKind: Number(row.methkind), signature: decodeAuditText(row.signature), code: decodeAuditText(row.code),
+	}));
 }
 
 async function appendMissingMetaMembers(client: PoolClient, database: string, source: string, rows: readonly AbstractRow[]): Promise<string> {

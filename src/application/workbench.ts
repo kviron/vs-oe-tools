@@ -6,13 +6,15 @@ import { registerSqlExecutor } from '../features/sql-executor';
 import { registerNativeLogs } from '../features/native-logs';
 import type { registerEditors } from './editors';
 import type { registerFeatures } from './features';
+import type { bootstrap } from './bootstrap';
 
 export function registerWorkbench(
 	context: vscode.ExtensionContext,
+	app: Awaited<ReturnType<typeof bootstrap>>,
 	editors: ReturnType<typeof registerEditors>,
 	features: ReturnType<typeof registerFeatures>,
 ) {
-	const packageSyncProvider = registerPackageSync(context);
+	const packageSyncProvider = registerPackageSync(context, app.workspacePath, app.credentials.get);
 	registerMethodLanguageFeatures(context, editors.methodEditor, async id => {
 		await features.explorerProvider.revealClass(id);
 		await openClassDetails(context, editors.methodEditor, id, true);

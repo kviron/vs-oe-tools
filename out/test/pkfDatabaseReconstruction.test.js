@@ -214,5 +214,36 @@ suite('PKF database reconstruction', () => {
         assert.match(result, /Second = class\(BaseClass\) \[_Ид='2122235'\]\r\n  end;/u);
         assert.equal((result.match(/\[_Ид='3200180'\]/gu) ?? []).length, 1);
     });
+    test('replaces an existing mixed PKF method from the database and preserves other blocks', () => {
+        const source = [
+            'file', 'meta', "  Demo = class(Abstract) [_Ид='100']", '  public',
+            "    procedure OldName '()' [_Ид='101']", '    {{', '    proc();', '    begin', '      OldCall;', '    end;}};',
+            "    procedure Untouched '()' [_Ид='102']", '    {{', '    proc();', '    begin', '    end;}};',
+            '  end;', 'data', "  object $: Demo", "    _Ид = '200';", '  end;', 'end.', '',
+        ].join('\r\n');
+        const result = (0, pkfMetaReconstruction_1.replacePkfMetaMethods)(source, [{
+                kind: 'method', id: 101, name: 'NewName', aliases: '', visibility: 'public', methodKind: 0,
+                signature: '()', code: 'proc();\nbegin\n  NewCall;\nend;',
+            }]);
+        assert.match(result, /procedure NewName '\(\)' \[_Ид='101'\][\s\S]*NewCall;/u);
+        assert.doesNotMatch(result, /OldName|OldCall/u);
+        assert.ok(result.includes(source.slice(source.indexOf("    procedure Untouched"))));
+    });
+    test('keeps unchanged class methods byte-for-byte', () => {
+        const source = "file\r\nmeta\r\n  Demo = class(Abstract) [_Ид='100']\r\n  public\r\n    class function Check '(a: string): string' [_Ид='101']\r\n    {{\r\n    func(a: string): string;\r\n    begin\r\n      Result := a;\r\n    end;}};\r\n  end;\r\ndata\r\nend.\r\n";
+        const result = (0, pkfMetaReconstruction_1.replacePkfMetaMethods)(source, [{
+                kind: 'method', id: 101, name: 'Check', aliases: '', visibility: 'public', methodKind: 0,
+                signature: '(a: string): string', code: 'func(a: string): string;\r\nbegin\r\n  Result := a;\r\nend;',
+            }]);
+        assert.equal(result, source);
+    });
+    test('preserves LF inside a method when the PKF header uses CRLF', () => {
+        const source = "file\r\nmeta\r\n  Demo = class(Abstract) [_Ид='100']\r\n  public\r\n    procedure Old '()' [_Ид='101']\r\n    {{\r\n    proc();\n    begin\n      OldCall;\n    end;}};\r\n  end;\r\ndata\r\nend.\r\n";
+        const result = (0, pkfMetaReconstruction_1.replacePkfMetaMethods)(source, [{
+                kind: 'method', id: 101, name: 'New', aliases: '', visibility: 'public', methodKind: 0,
+                signature: '()', code: 'proc();\nbegin\n  NewCall;\nend;',
+            }]);
+        assert.match(result, /procedure New '\(\)' \[_Ид='101'\]\r\n    \{\{\r\n    proc\(\);\n    begin\n      NewCall;\n    end;\}\};/u);
+    });
 });
 //# sourceMappingURL=pkfDatabaseReconstruction.test.js.map

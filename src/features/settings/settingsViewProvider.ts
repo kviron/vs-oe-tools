@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
-import { clientLaunchArgumentsSetting, clientMcpUrlSetting, databaseProfileSetting, databaseRoleSetting, mcpEnabledSetting, projectRootSetting } from '../../core/constants';
+import { clientLaunchArgumentsSetting, clientMcpUrlSetting, databaseProfileSetting, databaseRoleSetting, knowledgeMcpEnvFileSetting, mcpEnabledSetting, projectRootSetting } from '../../core/constants';
 import type { SettingsHostMessage, SettingsState } from '../../core/webviewProtocol';
 import { isSettingsWebviewMessage } from '../../core/webviewProtocol';
 import { getDatabaseRole, getProjectDatabaseOptions } from '../../infrastructure/configuration/projectDatabaseOptions';
 import { testDatabaseConnection } from '../../infrastructure/database/classRepository';
 import type { ExtensionLogService } from '../../infrastructure/logging/extensionLogService';
 import { getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/client/http';
-import { clientMcpMethodIds, startClientMcpProcess, startHttpTestServerProcess, type HttpTestServerProcess } from '../lifecycle/oeStaticMethodExecutor';
+import { checkKnowledgeMcpStatus, type KnowledgeMcpStatus } from '../../mcp/knowledge/connectionStatus';
+import { startClientMcpProcess, startHttpTestServerProcess, type HttpTestServerProcess } from '../lifecycle/oeStaticMethodExecutor';
 import { loadRdboadmDatabases, saveRdboadmDatabase } from '../../infrastructure/configuration/rdboadmIni';
 import { parseClientLaunchArguments, startProjectClient, updateProjectPackages } from '../project/projectCommandService';
 import { updateProjectBinaries, updateProjectDatabase } from '../project';
@@ -27,6 +28,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 	private clientMcpToolsDatabase?: string;
 	private clientMcpToolsUpdatedAt?: string;
 	private clientMcpToolsError?: string;
+	private knowledgeMcpStatusCache?: { checkedAt: number; value: KnowledgeMcpStatus };
 	private httpMethods: HttpMethodDefinition[] = [];
 	private httpMethodsError?: string;
 	private readonly httpServerLifecycle = new HttpServerLifecycle<HttpTestServerProcess>();
@@ -274,6 +276,19 @@ export class SettingsViewProvider implements vscode.Disposable {
 			await vscode.workspace.getConfiguration('vcVeTools').update(mcpEnabledSetting, message.enabled, vscode.ConfigurationTarget.Workspace);
 		} else if (message.command === 'refreshClientMcpStatus') {
 			await this.postState();
+		} else if (message.command === 'refreshKnowledgeMcpStatus') {
+			this.knowledgeMcpStatusCache = undefined;
+			await this.postState();
+		} else if (message.command === 'selectKnowledgeMcpEnvFile') {
+			const selected = await vscode.window.showOpenDialog({
+				canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
+				openLabel: 'Выбрать .env базы знаний',
+			});
+			if (selected?.[0]) {
+				await vscode.workspace.getConfiguration('vcVeTools').update(knowledgeMcpEnvFileSetting, selected[0].fsPath, vscode.ConfigurationTarget.Global);
+				this.knowledgeMcpStatusCache = undefined;
+				await this.postState();
+			}
 		} else if (message.command === 'checkClientMcpTools') {
 			await this.checkClientMcpTools();
 		} else if (message.command === 'startClientMcpServer') {
@@ -353,17 +368,19 @@ export class SettingsViewProvider implements vscode.Disposable {
 		this.post({ command: 'clientMcpActionStarted', action });
 		try {
 			let database = '';
+			let startedMethodId: number | undefined;
 			if (action === 'start') {
 				const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 				if (!workspacePath) { throw new Error('Сначала откройте папку проекта Восточного Экспресса.'); }
 				const databaseOptions = await getProjectDatabaseOptions();
 				database = databaseOptions.database;
-				await startClientMcpProcess(
+				const started = await startClientMcpProcess(
 					workspacePath,
 					databaseOptions.database,
 					databaseOptions.host,
 					await this.getClientCredentials(),
 				);
+				startedMethodId = started.methodId;
 			} else {
 				await stopClientMcpServer(clientMcpUrl);
 			}
@@ -395,11 +412,10 @@ export class SettingsViewProvider implements vscode.Disposable {
 				this.clientMcpTools = undefined;
 				this.clientMcpToolsError = undefined;
 			}
-			const methodName = action === 'start' ? 'aiMCP.http_Start' : 'aiMCP.http_Stop';
-			const methodId = clientMcpMethodIds[action];
 			const actionText = action === 'start' ? 'запущен' : 'остановлен';
 			const toolsText = action === 'start' && this.clientMcpToolsError ? ' Проверка списка инструментов завершилась ошибкой.' : '';
-			const message = `Клиентский MCP ${actionText} через ${methodName} (ID ${methodId})${database ? ' в базе ' + database : ''}.${toolsText}`;
+			const route = action === 'start' ? `через Функции_IDE.startClientMcp (ID ${startedMethodId})` : 'через HTTP /stop';
+			const message = `Клиентский MCP ${actionText} ${route}${database ? ' в базе ' + database : ''}.${toolsText}`;
 			this.post({ command: 'clientMcpActionFinished', action, success: true, message });
 			void vscode.window.showInformationMessage(message);
 		} catch (error) {
@@ -412,6 +428,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 
 	private async checkClientMcpTools(): Promise<void> {
 		this.post({ command: 'clientMcpToolsCheckStarted' });
+		this.knowledgeMcpStatusCache = undefined;
 		try {
 			await this.refreshClientMcpTools(true);
 			this.post({ command: 'clientMcpToolsCheckFinished', success: true });
@@ -524,6 +541,8 @@ export class SettingsViewProvider implements vscode.Disposable {
 		const workspace = vscode.workspace.workspaceFolders?.[0];
 		const enabled = configuration.get<boolean>(mcpEnabledSetting, true);
 		const clientMcpUrl = getConfiguredClientMcpUrl(configuration);
+		const knowledgeMcpEnvFile = configuration.get<string>(knowledgeMcpEnvFileSetting, '');
+		const knowledgeMcpStatus = await this.getKnowledgeMcpStatus(workspace?.uri.fsPath, knowledgeMcpEnvFile);
 		const role = getDatabaseRole();
 		const clientCredentials = await this.getClientCredentials();
 		let databaseProfiles: SettingsState['databaseProfiles'] = [];
@@ -597,6 +616,8 @@ export class SettingsViewProvider implements vscode.Disposable {
 			mcpEnabled: enabled,
 			mcpStatus: status,
 			mcpStatusText: statusText,
+			knowledgeMcpStatus,
+			knowledgeMcpEnvFile,
 			clientMcpUrl,
 			clientMcpStatus,
 			clientMcpStatusText,
@@ -606,6 +627,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 				: undefined,
 			extensionMcpTools: getRegisteredToolCatalog(),
 			clientMcpTools: this.clientMcpTools,
+			knowledgeMcpTools: knowledgeMcpStatus.tools,
 			clientMcpToolsDatabase: this.clientMcpToolsDatabase,
 			clientMcpToolsUpdatedAt: this.clientMcpToolsUpdatedAt,
 			clientMcpToolsError: this.clientMcpToolsError,
@@ -622,12 +644,24 @@ export class SettingsViewProvider implements vscode.Disposable {
 		};
 	}
 
+	private async getKnowledgeMcpStatus(workspacePath?: string, configuredFile?: string): Promise<KnowledgeMcpStatus> {
+		const cached = this.knowledgeMcpStatusCache;
+		if (cached && Date.now() - cached.checkedAt < 30_000) { return cached.value; }
+		const value = await checkKnowledgeMcpStatus(this.extensionUri.fsPath, workspacePath, configuredFile);
+		this.knowledgeMcpStatusCache = { checkedAt: Date.now(), value };
+		return value;
+	}
+
 	private connectionCode(): string {
+		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+		const configuredFile = vscode.workspace.getConfiguration('vcVeTools').get<string>(knowledgeMcpEnvFileSetting, '').trim();
 		return JSON.stringify({
 			mcpServers: {
 				'vc-ve-tools': {
 					command: 'node',
-					args: [vscode.Uri.joinPath(this.extensionUri, 'dist', 'mcp-server.js').fsPath],
+					args: [vscode.Uri.joinPath(this.extensionUri, 'dist', 'mcp-server.js').fsPath,
+						...(workspacePath ? ['--workspace', workspacePath] : []),
+						...(configuredFile ? ['--knowledge-env-file', configuredFile] : [])],
 				},
 			},
 		}, null, 2);

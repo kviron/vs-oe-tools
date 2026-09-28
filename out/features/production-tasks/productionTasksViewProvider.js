@@ -39,6 +39,7 @@ const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const productionTasksRepository_1 = require("./productionTasksRepository");
 const productionTaskPresentation_1 = require("./productionTaskPresentation");
+const view_1 = require("../knowledge-history/view");
 class ProductionTasksPanelManager {
     extensionUri;
     getOptions;
@@ -55,7 +56,9 @@ class ProductionTasksPanelManager {
     refreshRevision = 0;
     tasksPublished = false;
     openingTasks = new Set();
-    constructor(extensionUri, getOptions, openTask, importSessionKey, setPassword, logger, openLog) {
+    openLocalHistoryOnReady = false;
+    knowledgeHistory;
+    constructor(extensionUri, getOptions, openTask, importSessionKey, setPassword, logger, openLog, historyPath) {
         this.extensionUri = extensionUri;
         this.getOptions = getOptions;
         this.openTask = openTask;
@@ -63,6 +66,7 @@ class ProductionTasksPanelManager {
         this.setPassword = setPassword;
         this.logger = logger;
         this.openLog = openLog;
+        this.knowledgeHistory = new view_1.KnowledgeHistoryPanel(extensionUri, historyPath);
     }
     show() {
         if (this.panel) {
@@ -71,10 +75,14 @@ class ProductionTasksPanelManager {
         }
         const panel = vscode.window.createWebviewPanel(ProductionTasksPanelManager.viewType, 'Задачи', vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
         this.panel = panel;
+        this.knowledgeHistory.attach(panel.webview);
         const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
         panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
         panel.webview.html = shell(panel.webview, assetsRoot);
         panel.webview.onDidReceiveMessage((message) => {
+            if (this.knowledgeHistory.handleEmbeddedMessage(message)) {
+                return;
+            }
             if (!(0, webviewProtocol_1.isProductionTasksWebviewMessage)(message)) {
                 return;
             }
@@ -111,6 +119,10 @@ class ProductionTasksPanelManager {
                 return;
             }
             if (message.command === 'productionTasksReady') {
+                if (this.openLocalHistoryOnReady) {
+                    this.openLocalHistoryOnReady = false;
+                    void panel.webview.postMessage({ command: 'showKnowledgeHistory' });
+                }
                 // Opening or restoring the panel always starts with the signed-in user,
                 // including older webviews that send a saved all-users filter.
                 this.userFilter = undefined;
@@ -119,7 +131,17 @@ class ProductionTasksPanelManager {
             }
             void this.refresh(message.userFilter);
         });
-        panel.onDidDispose(() => { this.panel = undefined; this.userFilter = undefined; this.refreshRevision++; this.tasks.clear(); });
+        panel.onDidDispose(() => { this.knowledgeHistory.detach(); this.panel = undefined; this.userFilter = undefined; this.refreshRevision++; this.tasks.clear(); });
+    }
+    showKnowledgeHistory() {
+        const opening = !this.panel;
+        this.show();
+        if (opening) {
+            this.openLocalHistoryOnReady = true;
+        }
+        else {
+            void this.panel?.webview.postMessage({ command: 'showKnowledgeHistory' });
+        }
     }
     refresh(userFilter = this.userFilter, force = false) {
         if (this.refreshPromise && userFilter === this.userFilter && !force && !this.tasksPublished) {
@@ -192,7 +214,7 @@ class ProductionTasksPanelManager {
             this.openingTasks.delete(id);
         }
     }
-    dispose() { this.panel?.dispose(); this.tasks.clear(); }
+    dispose() { this.panel?.dispose(); this.knowledgeHistory.dispose(); this.tasks.clear(); }
     async post(message) { await this.panel?.webview.postMessage(message); }
 }
 exports.ProductionTasksPanelManager = ProductionTasksPanelManager;
@@ -223,6 +245,6 @@ function shell(webview, assetsRoot) {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'production-tasks.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
     const nonce = Array.from({ length: 32 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join('');
-    return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';"><link rel="stylesheet" href="${styleUri}"><title>Задачи</title></head><body><div id="app">Загрузка…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
+    return `<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}'; worker-src blob:;"><link rel="stylesheet" href="${styleUri}"><title>Задачи</title></head><body><div id="app">Загрузка…</div><script type="module" nonce="${nonce}" src="${scriptUri}"></script></body></html>`;
 }
 //# sourceMappingURL=productionTasksViewProvider.js.map

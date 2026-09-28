@@ -33,11 +33,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.httpTestServerMethodId = exports.clientMcpMethodIds = void 0;
+exports.ideMethodNames = void 0;
 exports.buildOeExecTaskArguments = buildOeExecTaskArguments;
 exports.executeOeStaticMethod = executeOeStaticMethod;
 exports.startClientMcpProcess = startClientMcpProcess;
 exports.buildClientMcpStartArguments = buildClientMcpStartArguments;
+exports.compileOeMethod = compileOeMethod;
+exports.executePackageSyncMethod = executePackageSyncMethod;
 exports.startHttpTestServerProcess = startHttpTestServerProcess;
 exports.buildHttpTestServerArguments = buildHttpTestServerArguments;
 exports.buildHttpTestServerMethodParameter = buildHttpTestServerMethodParameter;
@@ -46,20 +48,23 @@ const promises_1 = require("node:fs/promises");
 const path = __importStar(require("node:path"));
 const iconv = __importStar(require("iconv-lite"));
 const lifecycleMethodExecution_1 = require("./lifecycleMethodExecution");
+const ideMethodResolver_1 = require("./ideMethodResolver");
 const outputLimit = 1024 * 1024;
-exports.clientMcpMethodIds = {
-    start: 12464780,
-    stop: 12464782,
+exports.ideMethodNames = {
+    startClientMcp: 'startClientMcp',
+    runHttpTestServer: 'runHttpTestServer',
+    compilationMethod: 'compilationMethod',
+    createLifecycleParameter: 'createLifecycleParameter',
+    packageSyncChanges: 'packageSyncChanges',
 };
-exports.httpTestServerMethodId = 3200176;
-function buildOeExecTaskArguments(methodId, methodParameter, database, host, credentials) {
+function buildOeExecTaskArguments(methodId, methodParameter, database, host, credentials, executorMethodId) {
     if (methodId !== lifecycleMethodExecution_1.createLifecycleParameterMethodId) {
         throw new Error(`Метод ${methodId} не разрешён для прямого выполнения через MCP.`);
     }
     if (!methodParameter.trim() || /[;\r\n]/u.test(methodParameter)) {
         throw new Error('Параметр метода не должен быть пустым, многострочным или содержать точку с запятой.');
     }
-    const args = buildConnectionArguments(methodId, database, host, credentials);
+    const args = buildConnectionArguments(executorMethodId, database, host, credentials);
     args.splice(-1, 0, `-MethodParam=${methodParameter}`);
     return args;
 }
@@ -68,12 +73,14 @@ async function executeOeStaticMethod(workspacePath, methodId, methodParameter, d
     if (!(await (0, promises_1.stat)(executable).catch(() => undefined))?.isFile()) {
         throw new Error(`Не найден ${executable}.`);
     }
-    const args = buildOeExecTaskArguments(methodId, methodParameter, database, host, credentials);
+    const executorMethodId = await (0, ideMethodResolver_1.resolveIdeMethodId)(workspacePath, database, host, exports.ideMethodNames.createLifecycleParameter);
+    const args = buildOeExecTaskArguments(methodId, methodParameter, database, host, credentials, executorMethodId);
     const output = await run(executable, args, path.dirname(executable));
     return { methodId, database, output };
 }
 async function startClientMcpProcess(workspacePath, database, host, credentials) {
-    return startDetachedMethodProcess(workspacePath, exports.clientMcpMethodIds.start, buildClientMcpStartArguments(database, host, credentials), database);
+    const methodId = await (0, ideMethodResolver_1.resolveIdeMethodId)(workspacePath, database, host, exports.ideMethodNames.startClientMcp);
+    return startDetachedMethodProcess(workspacePath, methodId, buildClientMcpStartArguments(database, host, credentials, methodId), database);
 }
 async function startDetachedMethodProcess(workspacePath, methodId, args, database) {
     const executable = path.join(workspacePath, 'bin', 'OEExecTask.exe');
@@ -94,11 +101,33 @@ async function startDetachedMethodProcess(workspacePath, methodId, args, databas
     child.unref();
     return { methodId, database, processId: child.pid };
 }
-function buildClientMcpStartArguments(database, host, credentials) {
-    const args = buildConnectionArguments(exports.clientMcpMethodIds.start, database, host, credentials);
+function buildClientMcpStartArguments(database, host, credentials, methodId) {
+    const args = buildConnectionArguments(methodId, database, host, credentials);
     args[1] += ',Shell=Настройка';
     args.splice(-1, 0, '-MethodParam=1');
     return args;
+}
+async function compileOeMethod(workspacePath, targetMethodId, database, host, credentials) {
+    if (!Number.isSafeInteger(targetMethodId) || targetMethodId <= 0) {
+        throw new Error('Некорректный ID метода для компиляции.');
+    }
+    const executable = path.join(workspacePath, 'bin', 'OEExecTask.exe');
+    if (!(await (0, promises_1.stat)(executable).catch(() => undefined))?.isFile()) {
+        throw new Error(`Не найден ${executable}.`);
+    }
+    const methodId = await (0, ideMethodResolver_1.resolveIdeMethodId)(workspacePath, database, host, exports.ideMethodNames.compilationMethod);
+    const args = buildConnectionArguments(methodId, database, host, credentials);
+    args.splice(-1, 0, `-MethodParam=${targetMethodId}`);
+    return run(executable, args, path.dirname(executable));
+}
+/** Runs the read-only package synchronization wrapper in the selected OE database. */
+async function executePackageSyncMethod(workspacePath, database, host, credentials) {
+    const executable = path.join(workspacePath, 'bin', 'OEExecTask.exe');
+    if (!(await (0, promises_1.stat)(executable).catch(() => undefined))?.isFile()) {
+        throw new Error(`Не найден ${executable}.`);
+    }
+    const methodId = await (0, ideMethodResolver_1.resolveIdeMethodId)(workspacePath, database, host, exports.ideMethodNames.packageSyncChanges);
+    return run(executable, buildConnectionArguments(methodId, database, host, credentials), path.dirname(executable));
 }
 async function startHttpTestServerProcess(workspacePath, methodName, database, host, credentials) {
     const normalizedMethodName = methodName.trim();
@@ -111,7 +140,8 @@ async function startHttpTestServerProcess(workspacePath, methodName, database, h
     }
     const urlFile = path.join(path.dirname(executable), 'vcve_http_url.txt');
     await (0, promises_1.unlink)(urlFile).catch(() => undefined);
-    const args = buildHttpTestServerArguments(normalizedMethodName, database, host, credentials);
+    const methodId = await (0, ideMethodResolver_1.resolveIdeMethodId)(workspacePath, database, host, exports.ideMethodNames.runHttpTestServer);
+    const args = buildHttpTestServerArguments(normalizedMethodName, database, host, credentials, methodId);
     const child = (0, node_child_process_1.spawn)(executable, args, { cwd: path.dirname(executable), windowsHide: true, shell: false });
     let url;
     try {
@@ -130,7 +160,7 @@ async function startHttpTestServerProcess(workspacePath, methodName, database, h
         stop: () => stopChildProcess(child),
     };
 }
-function buildHttpTestServerArguments(methodName, database, host, credentials) {
+function buildHttpTestServerArguments(methodName, database, host, credentials, methodId) {
     const normalizedMethodName = methodName.trim();
     if (!normalizedMethodName || /[,;"\r\n]/u.test(normalizedMethodName)) {
         throw new Error('Имя HTTP-метода содержит недопустимые символы.');
@@ -138,7 +168,7 @@ function buildHttpTestServerArguments(methodName, database, host, credentials) {
     if (normalizedMethodName === '*') {
         throw new Error('Выберите конкретный HTTP-метод.');
     }
-    const args = buildConnectionArguments(exports.httpTestServerMethodId, database, host, credentials);
+    const args = buildConnectionArguments(methodId, database, host, credentials);
     args[1] += ',Shell=Настройка';
     args.splice(-1, 0, `-MethodParam=${buildHttpTestServerMethodParameter(normalizedMethodName, credentials.username)}`);
     return args;
@@ -158,6 +188,9 @@ function buildHttpTestServerMethodParameter(methodName, username) {
     return `method=${normalizedMethodName},username=${normalizedUsername}`;
 }
 function buildConnectionArguments(methodId, database, host, credentials) {
+    if (!Number.isSafeInteger(methodId) || methodId <= 0) {
+        throw new Error('Некорректный ID метода Функции_IDE.');
+    }
     for (const [label, value] of [['database', database], ['host', host], ['username', credentials.username], ['password', credentials.password]]) {
         if (value && /[,"\r\n]/u.test(value)) {
             throw new Error(`${label} содержит символ, недопустимый в параметрах подключения OEExecTask.`);

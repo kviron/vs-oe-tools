@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
-import { buildHttpTestServerArguments, type OeMethodCredentials } from '../lifecycle/oeStaticMethodExecutor';
+import { buildHttpTestServerArguments, ideMethodNames, type OeMethodCredentials } from '../lifecycle/oeStaticMethodExecutor';
+import { resolveIdeMethodId } from '../lifecycle/ideMethodResolver';
 
 export interface DirectHttpMethodRequest { methodName: string; parameters: Record<string, string> }
 export interface DirectHttpMethodResponse {
@@ -36,11 +37,11 @@ export function encodeDirectHttpMethodRequest(request: DirectHttpMethodRequest):
 }
 
 export function buildDirectHttpMethodArguments(request: DirectHttpMethodRequest, database: string, host: string,
-	credentials: OeMethodCredentials, requestFile: string, responseFile: string): string[] {
+	credentials: OeMethodCredentials, requestFile: string, responseFile: string, methodId: number): string[] {
 	for (const file of [requestFile, responseFile]) {
 		if (!path.isAbsolute(file) || /[,;="\r\n]/u.test(file)) { throw new Error('Путь временного файла содержит недопустимые символы.'); }
 	}
-	const args = buildHttpTestServerArguments(validateDirectHttpMethodRequest(request).methodName, database, host, credentials);
+	const args = buildHttpTestServerArguments(validateDirectHttpMethodRequest(request).methodName, database, host, credentials, methodId);
 	const index = args.findIndex(arg => arg.startsWith('-MethodParam='));
 	args[index] += `,requestFile=${requestFile},responseFile=${responseFile}`;
 	return args;
@@ -50,9 +51,9 @@ export function parseDirectHttpMethodResponse(bytes: Buffer, durationMs: number)
 	if (bytes.length > maximumResponseBytes) { throw new Error('Результат метода превышает 16 МБ.'); }
 	let envelope: { protocol?: unknown; ok?: unknown; body?: unknown; error?: unknown };
 	try { envelope = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes).replace(/^\uFEFF/u, '')); }
-	catch { throw new Error('Исполнитель не вернул корректный UTF-8 JSON. Проверьте версию метода 3200176 в выбранной базе.'); }
+	catch { throw new Error(`Исполнитель ${ideMethodNames.runHttpTestServer} не вернул корректный UTF-8 JSON в выбранной базе.`); }
 	if (!envelope || envelope.protocol !== 'vcve-direct-v1' || typeof envelope.ok !== 'boolean') {
-		throw new Error('Несовместимая версия нативного исполнителя метода 3200176.');
+		throw new Error(`Несовместимая версия нативного исполнителя ${ideMethodNames.runHttpTestServer}.`);
 	}
 	if (!envelope.ok) { throw new Error(typeof envelope.error === 'string' ? envelope.error : 'Ошибка выполнения метода.'); }
 	if (typeof envelope.body !== 'string') { throw new Error('Исполнитель не вернул тело результата.'); }
@@ -75,11 +76,12 @@ export async function executeDirectHttpMethod(workspacePath: string, request: Di
 	const responseFile = path.join(directory, 'response.json');
 	const started = performance.now();
 	try {
-		const args = buildDirectHttpMethodArguments(request, database, host, credentials, requestFile, responseFile);
+		const methodId = await resolveIdeMethodId(workspacePath, database, host, ideMethodNames.runHttpTestServer);
+		const args = buildDirectHttpMethodArguments(request, database, host, credentials, requestFile, responseFile, methodId);
 		await writeFile(requestFile, encoded, { encoding: 'ascii', mode: 0o600 });
 		await runDirectProcess(executable, args, bin, signal);
 		const info = await stat(responseFile).catch(() => undefined);
-		if (!info) { throw new Error('Исполнитель не создал результат. Обновите нативный метод 3200176 в выбранной базе. Повторный вызов автоматически не выполнялся.'); }
+		if (!info) { throw new Error(`Исполнитель не создал результат. Проверьте метод ${ideMethodNames.runHttpTestServer} в выбранной базе. Повторный вызов автоматически не выполнялся.`); }
 		if (info.size > maximumResponseBytes) { throw new Error('Результат метода превышает 16 МБ.'); }
 		const response = parseDirectHttpMethodResponse(await readFile(responseFile), Math.round(performance.now() - started));
 		return { ...response, url: `oe-method:${request.methodName}` };

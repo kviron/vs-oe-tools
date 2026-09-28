@@ -3,6 +3,7 @@ import { createClassAttribute } from '../../infrastructure/database/attributeRep
 import type { MethodEditorProvider } from '../methods/methodEditorProvider';
 import { openAttributeDetails } from './views/attributeDetailsPanelManager';
 import { openClassDetails, revealClassMethod } from './views/classDetailsPanelManager';
+import { createLocalToolClass } from '../../infrastructure/database/localToolClassRepository';
 
 export function createClassAgentActions(
 	context: vscode.ExtensionContext,
@@ -12,6 +13,8 @@ export function createClassAgentActions(
 	return {
 		revealClass,
 		openClass: (id: number) => openClassDetails(context, methodEditor, id, true),
+		createLocalToolClass: async (name: string, expectedDatabase: string, expectedHost: string, expectedPort: number) =>
+			({ ...await createLocalToolClass(name, expectedDatabase, expectedHost, expectedPort) }),
 		revealMethod: (classId: number, methodId: number) => revealClassMethod(context, methodEditor, classId, methodId),
 		createClassAttribute: async (draft: Parameters<typeof createClassAttribute>[0]) => {
 			const created = await createClassAttribute(draft);

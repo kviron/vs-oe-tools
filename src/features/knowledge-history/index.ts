@@ -1,0 +1,1 @@
+export { registerKnowledgeHistory } from './register';

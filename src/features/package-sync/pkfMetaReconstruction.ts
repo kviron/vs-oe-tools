@@ -132,6 +132,43 @@ export function appendPkfMetaMembers(source: string, ownerId: number, members: r
 	return `${source.slice(0, classEnd)}${insertion}${source.slice(classEnd)}`;
 }
 
+/** Updates existing methods in a mixed PKF while leaving unrelated meta and data blocks intact. */
+export function replacePkfMetaMethods(source: string, methods: readonly PkfMetaMethod[]): string {
+	let result = source;
+	for (const method of methods) {
+		const headerPattern = new RegExp(`^    [^\\r\\n]*\\[_Ид\\s*=\\s*'${method.id}'\\][ \\t]*$`, 'gmu');
+		const matches = [...result.matchAll(headerPattern)];
+		if (matches.length !== 1 || matches[0]?.index === undefined) {
+			throw new Error(`В смешанном PKF ожидался один блок метода ${method.id}, найдено: ${matches.length}.`);
+		}
+		const start = matches[0].index;
+		const header = matches[0][0];
+		const afterHeader = start + header.length;
+		const opening = result.slice(afterHeader).match(/^\r?\n    \{\{\r?\n/u);
+		if (!opening) {throw new Error(`Не найдено начало кода метода ${method.id}.`);}
+		const bodyStart = afterHeader + opening[0].length;
+		const closing = /\}\};(?=\r?\n|$)/gu;
+		closing.lastIndex = bodyStart;
+		const close = closing.exec(result);
+		if (!close) {throw new Error(`Не найден конец кода метода ${method.id}.`);}
+		const oldBody = result.slice(bodyStart, close.index);
+		const oldCode = oldBody.trimEnd().split(/\r?\n/u)
+			.map(line => line.startsWith('    ') ? line.slice(4) : line).join('\n');
+		const currentCode = method.code.replace(/\r\n|\r/g, '\n').trimEnd();
+		const declaration = header.match(/^(    (?:class\s+)?(?:procedure|function|constructor|destructor)\s+)(\S+)/iu);
+		const name = declaration?.[2];
+		if (oldCode === currentCode && name === withAlias(method.name, method.aliases)) {continue;}
+		if (!declaration) {throw new Error(`Не удалось прочитать объявление метода ${method.id}.`);}
+		const updatedHeader = `${declaration[1]}${withAlias(method.name, method.aliases)}${header.slice(declaration[0].length)}`;
+		const bodyNewline = oldBody.includes('\r\n') ? '\r\n' : '\n';
+		const updatedBody = currentCode.split('\n').map(line => `    ${line}`).join(bodyNewline);
+		const closingPrefix = oldBody.match(/(?:\r?\n[ \t]*)$/u)?.[0] ?? '';
+		const replacement = `${updatedHeader}${opening[0]}${updatedBody}${closingPrefix}}};`;
+		result = `${result.slice(0, start)}${replacement}${result.slice(close.index + close[0].length)}`;
+	}
+	return result;
+}
+
 function findMetaClassEnd(source: string, from: number): number {
 	let blockDepth = 0;
 	for (const match of source.slice(from).matchAll(/\{\{|\}\}|^  end;[ \t]*$/gmu)) {

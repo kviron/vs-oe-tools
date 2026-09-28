@@ -82,14 +82,6 @@ suite('Extension Test Suite', () => {
         const updated = (0, rdboadmIni_1.updateRdboadmSection)(content, 'oetrunk', [{ key: 'DispName', value: 'Новое имя' }, { key: 'TCPport', value: '4000' }]);
         assert.strictEqual(updated, '; comment\r\n[oetrunk]\r\nDispName = Новое имя\r\nTCPport = 4000\r\n');
     });
-    test('project batch wrapper expands its own path without executing it', () => {
-        const sourcePath = 'C:\\OE\\trunk\\DBUpdate_test.bat';
-        assert.strictEqual((0, projectCommandService_1.extractBatchCommand)('@call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "%~0" test', sourcePath), 'call \\\\dev\\oedistr\\dev.bat\\int\\devUpdateDB.bat "C:\\OE\\trunk\\DBUpdate_test.bat" test');
-    });
-    test('project binary update invokes the wrapper batch file itself', () => {
-        assert.strictEqual((0, projectCommandService_1.createBatchFileCommand)('C:\\OE\\trunk\\BinUpdate.bat'), 'call "C:\\OE\\trunk\\BinUpdate.bat"');
-        assert.throws(() => (0, projectCommandService_1.createBatchFileCommand)('C:\\OE\\bad"path\\BinUpdate.bat'), /недопустимые символы/);
-    });
     test('client launch command invokes fme.exe without project batch files', () => {
         const command = (0, projectCommandService_1.createClientLaunchCommand)('C:\\OE\\trunk', 'main', { host: 'localhost', database: 'oetrunk' }, { username: 'ВЭ_Пользователь', password: 'secret' }, 'oe-oetrunk:/open/Метод/11158589');
         assert.strictEqual(command, 'start "" /D "C:\\OE\\trunk\\bin" "C:\\OE\\trunk\\bin\\fme.exe" -NoSelfUpdate "oe-oetrunk:/open/Метод/11158589" -l "host=localhost,db=oetrunk,username=ВЭ_Пользователь,password=secret,MultiLogin=True" -ok');

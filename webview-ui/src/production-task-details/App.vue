@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field';
 import SearchField from '@/components/SearchField.vue';
+import TaskSvnCommits, { type TaskSvnCommitRow } from '@/components/TaskSvnCommits.vue';
 import { defaultSearchOptions, matchesAnySearch, type SearchOptions } from '@/lib/searchMatch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -39,6 +40,11 @@ const history = ref<ProductionTaskHistoryEntry[]>([]);
 const historyLoading = ref(false);
 const historyLoaded = ref(false);
 const historyError = ref('');
+const svnCommits = ref<TaskSvnCommitRow[]>([]);
+const svnScannedAt = ref<string | null>(null);
+const svnLoading = ref(false);
+const svnLoaded = ref(false);
+const svnError = ref('');
 const selectedHistoryEntry = ref<ProductionTaskHistoryEntry>();
 const richDescriptionParts = ref<ProductionTaskDescriptionPart[]>([]);
 const richDescriptionError = ref('');
@@ -127,7 +133,15 @@ function selectDetailsTab(value: string | number): void {
   detailsTab.value = String(value);
   if (detailsTab.value === 'attachments') loadAttachments();
   if (detailsTab.value === 'history') loadHistory();
+  if (detailsTab.value === 'svn') loadSvn();
 }
+function loadSvn(force = false): void {
+  if (svnLoading.value || svnLoaded.value && !force) return;
+  svnLoading.value = true;
+  svnError.value = '';
+  vscode.postMessage({ command: 'loadProductionTaskSvn', force });
+}
+function openSvnCommit(commit: TaskSvnCommitRow): void { vscode.postMessage({ command: 'openProductionTaskSvnCommit', id: String(commit.id) }); }
 function loadHistory(force = false): void {
   if (historyLoading.value || historyLoaded.value && !force) return;
   historyLoading.value = true; historyError.value = '';
@@ -231,6 +245,9 @@ window.addEventListener('message', (event: MessageEvent<ProductionTaskDetailsHos
   if (message.command === 'productionTaskHistoryLoading') { historyLoading.value = true; historyError.value = ''; return; }
   if (message.command === 'productionTaskHistoryLoaded') { history.value = message.history; historyLoading.value = false; historyLoaded.value = true; historyError.value = ''; return; }
   if (message.command === 'productionTaskHistoryFailed') { historyLoading.value = false; historyLoaded.value = false; historyError.value = message.message; return; }
+  if (message.command === 'productionTaskSvnLoading') { svnLoading.value = true; svnError.value = ''; return; }
+  if (message.command === 'productionTaskSvnLoaded') { svnCommits.value = message.commits; svnScannedAt.value = message.scannedAt; svnLoading.value = false; svnLoaded.value = true; svnError.value = ''; return; }
+  if (message.command === 'productionTaskSvnFailed') { svnLoading.value = false; svnError.value = message.message; return; }
   if (message.command === 'databaseObjectPreviewLoaded') {
     objectPreviews.set(message.id, { status: 'loaded', object: message.object });
     return;
@@ -308,6 +325,7 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
           <TabsTrigger value="description">Описание</TabsTrigger>
           <TabsTrigger value="attachments">Вложения<template v-if="attachmentsLoaded"> ({{ attachments.length }})</template><template v-else-if="task.attachmentCount"> ({{ task.attachmentCount }})</template></TabsTrigger>
           <TabsTrigger value="history">История<template v-if="historyLoaded"> ({{ history.length }})</template></TabsTrigger>
+          <TabsTrigger value="svn">SVN-коммиты<template v-if="svnLoaded"> ({{ svnCommits.length }})</template></TabsTrigger>
         </TabsList>
         <TabsContent value="description">
           <Card class="min-h-72">
@@ -388,6 +406,7 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
             <Table v-else container-class="max-h-[32rem] overflow-auto" class="min-w-[900px] whitespace-nowrap"><TableHeader class="sticky top-0 z-10 bg-background"><TableRow><TableHead class="w-44">Дата</TableHead><TableHead class="w-48">Действие</TableHead><TableHead class="w-48">Состояние</TableHead><TableHead class="w-56">Автор</TableHead><TableHead class="min-w-72">Комментарий</TableHead></TableRow></TableHeader><TableBody><TableRow v-for="entry in history" :key="entry.id" tabindex="0" class="h-8 cursor-default" title="Двойной щелчок — открыть запись истории" @dblclick="openHistoryEntry(entry)" @keydown.enter.prevent="openHistoryEntry(entry)"><TableCell class="whitespace-nowrap">{{ entry.createdAt || '—' }}</TableCell><TableCell class="max-w-48 truncate whitespace-nowrap" :title="entry.action">{{ entry.action || '—' }}</TableCell><TableCell class="whitespace-nowrap"><ProductionTaskBadge kind="status" :value="entry.state" /></TableCell><TableCell class="max-w-56 truncate whitespace-nowrap" :title="entry.person">{{ entry.person || '—' }}</TableCell><TableCell class="max-w-96 truncate whitespace-nowrap" :title="entry.comment">{{ entry.comment || '—' }}</TableCell></TableRow></TableBody></Table>
           </CardContent></Card>
         </TabsContent>
+        <TabsContent value="svn"><Card><CardHeader class="pb-2"><CardTitle class="text-sm">SVN-коммиты задачи</CardTitle><CardDescription>Ревизии, комментарий которых начинается с номера задачи.</CardDescription></CardHeader><CardContent><TaskSvnCommits :task-number="task.number" :commits="svnCommits" :scanned-at="svnScannedAt" :loading="svnLoading" :error="svnError" @refresh="loadSvn(true)" @open="openSvnCommit" /></CardContent></Card></TabsContent>
       </Tabs>
 
       <Card v-if="task.stateComment">

@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.svnChangedPaths = svnChangedPaths;
 exports.svnLog = svnLog;
 exports.svnBlameRevisions = svnBlameRevisions;
 exports.svnBlame = svnBlame;
@@ -41,6 +42,14 @@ exports.svnCatBase = svnCatBase;
 const node_child_process_1 = require("node:child_process");
 const path = __importStar(require("node:path"));
 const iconv = __importStar(require("iconv-lite"));
+async function svnChangedPaths(repositoryRoot, revision) {
+    const xml = (await runSvn(['log', '--xml', '-v', '-r', String(revision), repositoryRoot], repositoryRoot)).toString('utf8');
+    return [...xml.matchAll(/<path\s+([^>]*)>([\s\S]*?)<\/path>/g)].map(match => ({
+        path: xmlDecode(match[2]),
+        action: /\baction="([^"]*)"/.exec(match[1])?.[1] ?? '',
+        kind: /\bkind="([^"]*)"/.exec(match[1])?.[1] ?? '',
+    }));
+}
 async function svnLog(fileName, limit) {
     const args = ['log', '--xml'];
     if (limit !== undefined) {
@@ -81,7 +90,7 @@ async function svnCat(fileName, revision) {
     if (revision < 0) {
         return '';
     }
-    const bytes = await runSvn(['cat', '-r', String(revision), fileName], fileName);
+    const bytes = await runSvn(['cat', '-r', String(revision), /^https?:\/\//i.test(fileName) ? `${fileName}@${revision}` : fileName], fileName);
     return legacyExtension(fileName) ? iconv.decode(bytes, 'win1251') : bytes.toString('utf8');
 }
 async function svnCatBase(fileName) {
@@ -90,7 +99,7 @@ async function svnCatBase(fileName) {
 }
 async function runSvn(args, fileName) {
     return new Promise((resolve, reject) => {
-        const process = (0, node_child_process_1.spawn)('svn', args, { cwd: path.dirname(fileName), windowsHide: true });
+        const process = (0, node_child_process_1.spawn)('svn', args, { cwd: /^https?:\/\//i.test(fileName) ? undefined : path.dirname(fileName), windowsHide: true });
         const stdout = [];
         const stderr = [];
         process.stdout.on('data', (chunk) => stdout.push(chunk));
@@ -108,6 +117,9 @@ async function runSvn(args, fileName) {
 }
 function xmlValue(xml, tag) {
     const value = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1] ?? '';
+    return xmlDecode(value);
+}
+function xmlDecode(value) {
     return value.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 }
 function legacyExtension(fileName) {

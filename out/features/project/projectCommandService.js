@@ -34,12 +34,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseClientLaunchArguments = parseClientLaunchArguments;
-exports.extractBatchCommand = extractBatchCommand;
 exports.createClientLaunchCommand = createClientLaunchCommand;
-exports.createBatchFileCommand = createBatchFileCommand;
-exports.updateProjectDatabase = updateProjectDatabase;
 exports.updateProjectPackages = updateProjectPackages;
-exports.updateProjectBinaries = updateProjectBinaries;
 exports.startProjectClient = startProjectClient;
 exports.openProjectClientEntity = openProjectClientEntity;
 const promises_1 = require("node:fs/promises");
@@ -88,16 +84,6 @@ function parseClientLaunchArguments(value) {
     }
     return result;
 }
-function extractBatchCommand(content, sourcePath) {
-    const line = content.split(/\r?\n/).map(value => value.trim()).find(value => /^@?call\s+/i.test(value));
-    if (!line) {
-        throw new Error(`В ${path.basename(sourcePath)} не найдена команда call.`);
-    }
-    const sourceDirectory = `${path.dirname(sourcePath)}${path.sep}`;
-    return line.replace(/^@?call\s+/i, 'call ')
-        .replace(/%~dp0[\\/]?/gi, sourceDirectory)
-        .replace(/%~0/gi, sourcePath);
-}
 function createClientLaunchCommand(workspacePath, role, target, credentials, openUri, extraArguments = '') {
     const username = credentials.username?.trim();
     const password = credentials.password;
@@ -130,34 +116,6 @@ function createClientLaunchCommand(workspacePath, role, target, credentials, ope
         .join('');
     return `start "" /D "${binPath}" "${executablePath}" -NoSelfUpdate${extraArgumentList}${openArgument} -l "${login}" -ok`;
 }
-function createBatchFileCommand(filePath) {
-    if (filePath.includes('"') || filePath.includes('\r') || filePath.includes('\n')) {
-        throw new Error('Путь к BAT-файлу содержит недопустимые символы.');
-    }
-    return `call "${filePath}"`;
-}
-async function readProjectCommand(workspacePath, fileName, encoding) {
-    const sourcePath = path.join(workspacePath, fileName);
-    const content = iconv.decode(await (0, promises_1.readFile)(sourcePath), encoding);
-    return extractBatchCommand(content, sourcePath);
-}
-async function updateProjectDatabase(role) {
-    const workspacePath = requireWorkspacePath();
-    const fileName = `DBUpdate_${role}.bat`;
-    const command = await readProjectCommand(workspacePath, fileName, 'win1251');
-    const answer = await vscode.window.showWarningMessage(`Запустить обновление ${role === 'test' ? 'тестовой' : 'основной'} базы?`, { modal: true, detail: `Будет выполнена команда из ${fileName}.` }, 'Обновить');
-    if (answer !== 'Обновить') {
-        return;
-    }
-    const terminal = vscode.window.createTerminal({
-        name: `ВЭ: обновление базы (${role})`,
-        cwd: workspacePath,
-        shellPath: process.env.ComSpec ?? 'cmd.exe',
-        shellArgs: ['/d'],
-    });
-    terminal.show();
-    terminal.sendText(command, true);
-}
 async function updateProjectPackages() {
     const workspacePath = requireWorkspacePath();
     const packagesPath = path.join(workspacePath, 'packages');
@@ -177,28 +135,6 @@ async function updateProjectPackages() {
     });
     terminal.show();
     terminal.sendText('svn update', true);
-    return true;
-}
-async function updateProjectBinaries() {
-    const workspacePath = requireWorkspacePath();
-    const fileName = 'BinUpdate.bat';
-    const batchPath = path.join(workspacePath, fileName);
-    const batchStat = await (0, promises_1.stat)(batchPath).catch(() => undefined);
-    if (!batchStat?.isFile()) {
-        throw new Error(`Не найден файл ${batchPath}.`);
-    }
-    const answer = await vscode.window.showWarningMessage('Обновить бинарники проекта?', { modal: true, detail: `Будет запущен ${batchPath}.` }, 'Обновить');
-    if (answer !== 'Обновить') {
-        return false;
-    }
-    const terminal = vscode.window.createTerminal({
-        name: 'ВЭ: обновление бинарников',
-        cwd: workspacePath,
-        shellPath: process.env.ComSpec ?? 'cmd.exe',
-        shellArgs: ['/d'],
-    });
-    terminal.show();
-    terminal.sendText(createBatchFileCommand(batchPath), true);
     return true;
 }
 async function startProjectClient(role, credentials = {}, openUri) {

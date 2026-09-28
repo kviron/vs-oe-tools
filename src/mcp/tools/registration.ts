@@ -1,4 +1,5 @@
 import type { McpToolServer } from '../toolTypes';
+import { registerWorkHistoryTools } from '../workHistory/tools';
 import { registerTool as listDatabases } from './database/listDatabases';
 import { registerTool as getActiveDatabase } from './database/getActiveDatabase';
 import { registerTool as switchDatabase } from './database/switchDatabase';
@@ -8,6 +9,7 @@ import { registerTool as bindObjectsToPackage } from './packages/bindObjectsToPa
 import { registerTool as searchDatabaseObjects } from './database/searchDatabaseObjects';
 import { registerTool as searchClasses } from './classes/searchClasses';
 import { registerTool as getClassDetails } from './classes/getClassDetails';
+import { registerTool as createLocalToolClass } from './classes/createLocalToolClass';
 import { registerTool as getClassDictionary } from './classes/getClassDictionary';
 import { registerTool as searchClassDictionary } from './classes/searchClassDictionary';
 import { registerTool as getClassAttributes } from './classes/getClassAttributes';
@@ -63,6 +65,7 @@ import { registerTool as listHttpMethods } from './http/listHttpMethods';
 
 /** Register the public MCP tools in a stable order. */
 export function registerTools(server: McpToolServer): void {
+	registerWorkHistoryTools(server);
 	listDatabases(server);
 	getActiveDatabase(server);
 	switchDatabase(server);
@@ -72,6 +75,7 @@ export function registerTools(server: McpToolServer): void {
 	searchDatabaseObjects(server);
 	searchClasses(server);
 	getClassDetails(server);
+	createLocalToolClass(server);
 	getClassDictionary(server);
 	searchClassDictionary(server);
 	getClassAttributes(server);

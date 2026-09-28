@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Calendar03Icon, Clock01Icon, ColumnsThreeCogIcon, Copy01Icon, ExternalLinkIcon, FileImportIcon, Folder01Icon, RefreshIcon, Task01Icon, ViewIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
-import { computed, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, ref, watch } from 'vue';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ProductionTasksHostMessage } from '../../../src/core/webviewProtocol';
 import type { ProductionTaskListItem } from '../../../src/features/production-tasks/models';
 import { productionDeadlineInfo, productionTaskMarkdown, productionTaskPublicUrl } from '../../../src/features/production-tasks/productionTaskPresentation';
@@ -22,6 +23,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 
+const KnowledgeHistory = defineAsyncComponent(() => import('../knowledge-history/App.vue'));
+
 type ColumnKey = 'id' | 'number' | 'title' | 'state' | 'createdAt' | 'deadline' | 'priority' | 'workType' | 'project' | 'releasePlan' | 'responsibleUser' | 'executor' | 'attachmentCount';
 type SortDirection = 'asc' | 'desc';
 interface Column { key: ColumnKey; label: string; width: string }
@@ -40,6 +43,7 @@ const defaultOrder = columns.map(column => column.key);
 const saved = (vscode.getState() as SavedState | undefined) ?? {};
 const collator = new Intl.Collator('ru-RU', { numeric: true, sensitivity: 'base' });
 const tasks = ref<ProductionTaskListItem[]>([]);
+const activeSection = ref('production');
 const loading = ref(true);
 const error = ref('');
 const loadedAt = ref('');
@@ -123,8 +127,10 @@ function isColumnKey(value: unknown): value is ColumnKey { return typeof value =
 function normalizeOrder(order?: ColumnKey[]): ColumnKey[] { return [...(order ?? []).filter(isColumnKey), ...defaultOrder.filter(key => !order?.includes(key))]; }
 function deadlineVariant(task: ProductionTaskListItem): 'destructive' | 'secondary' | 'outline' { const tone = productionDeadlineInfo(task.deadline).tone; return tone === 'overdue' ? 'destructive' : tone === 'today' ? 'secondary' : 'outline'; }
 
-window.addEventListener('message', (event: MessageEvent<ProductionTasksHostMessage>) => {
-  const message = event.data;
+window.addEventListener('message', (event: MessageEvent<ProductionTasksHostMessage | { command: string }>) => {
+  if (event.data.command === 'showKnowledgeHistory') { activeSection.value = 'local'; return; }
+  if (!event.data.command.startsWith('productionTask')) { return; }
+  const message = event.data as ProductionTasksHostMessage;
   if (message.command === 'productionTasksLoading') { loading.value = true; error.value = ''; return; }
   if (message.command === 'productionTasksFailed') { loading.value = false; error.value = message.message; return; }
   if (message.command === 'productionTaskUsersLoaded') {
@@ -143,7 +149,13 @@ vscode.postMessage({ command: 'productionTasksReady' });
 </script>
 
 <template>
-  <main class="flex h-screen flex-col gap-4 overflow-auto bg-background p-4 text-foreground lg:p-6">
+  <Tabs v-model="activeSection" class="flex h-screen min-h-0 flex-col gap-0 bg-background text-foreground">
+    <TabsList variant="line" class="w-full shrink-0 justify-start border-b px-4" aria-label="Разделы задач">
+      <TabsTrigger value="production">Задачи production</TabsTrigger>
+      <TabsTrigger value="local">Локальная история SQLite</TabsTrigger>
+    </TabsList>
+    <TabsContent value="production" class="min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden">
+  <main class="flex h-full flex-col gap-4 overflow-auto bg-background p-4 text-foreground lg:p-6">
     <header class="flex shrink-0 flex-wrap items-center justify-between gap-3">
       <div class="flex min-w-0 flex-col gap-1">
         <p class="text-xs text-muted-foreground">Восточный Экспресс / Продакшен</p>
@@ -195,4 +207,7 @@ vscode.postMessage({ command: 'productionTasksReady' });
     <footer class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-4 py-2 text-xs text-muted-foreground"><span>Двойной щелчок — открыть · Название — скопировать ссылку</span><span v-if="loadedAt && !loading">Обновлено {{ new Date(loadedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }}</span></footer>
     </Card>
   </main>
+    </TabsContent>
+    <TabsContent value="local" class="min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"><KnowledgeHistory /></TabsContent>
+  </Tabs>
 </template>

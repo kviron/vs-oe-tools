@@ -8,6 +8,8 @@ export interface DatabaseMcpArgumentsOptions {
 	sqlMonitorHistoryPath?: string;
 	navigationInfoPath?: string;
 	clientMcpUrl: string;
+	knowledgeEnvFile?: string;
+	workHistoryPath?: string;
 }
 
 export function buildDatabaseMcpArguments(options: DatabaseMcpArgumentsOptions): string[] {
@@ -21,5 +23,7 @@ export function buildDatabaseMcpArguments(options: DatabaseMcpArgumentsOptions):
 		...(options.sqlMonitorHistoryPath ? ['--sql-monitor-history', options.sqlMonitorHistoryPath] : []),
 		...(options.navigationInfoPath ? ['--navigation-info', options.navigationInfoPath] : []),
 		'--client-mcp-url', options.clientMcpUrl,
+		...(options.knowledgeEnvFile ? ['--knowledge-env-file', options.knowledgeEnvFile] : []),
+		...(options.workHistoryPath ? ['--work-history', options.workHistoryPath] : []),
 	];
 }

@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { extractPkfMethodChange, extractPkfMethodSource } from '../features/code-history/pkfMethodExtraction';
+import { extractLocalPkfMethodDiff, extractPkfMethodChange, extractPkfMethodSource } from '../features/code-history/pkfMethodExtraction';
 
 suite('PKF method extraction', () => {
 	test('extracts and dedents the requested method body', () => {
@@ -45,6 +45,13 @@ suite('PKF method extraction', () => {
 		assert.deepEqual(extractPkfMethodChange(method(10, 'old'), method(10, 'new'), 10), { before: 'old', after: 'new' });
 		assert.deepEqual(extractPkfMethodChange('', method(10, 'created'), 10), { before: '', after: 'created' });
 		assert.deepEqual(extractPkfMethodChange(method(10, 'removed'), '', 10), { before: 'removed', after: '' });
+	});
+
+	test('shows the database method as added code on the right', () => {
+		const method = (id: number, code: string) => `procedure Demo '' [_Ид='${id}']\n{{\n${code}\n}};`;
+		const localFile = `${method(10, 'new code')}\n${method(20, 'new unrelated code')}`;
+		assert.deepEqual(extractLocalPkfMethodDiff('added condition', localFile, 10), { before: 'new code', after: 'added condition' });
+		assert.throws(() => extractLocalPkfMethodDiff('old code', localFile, 30), /не найден в локальном файле/);
 	});
 
 	test('extracts code from a nested module object by its id', () => {

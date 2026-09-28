@@ -63,6 +63,7 @@ suite('Navigation bridge', () => {
 		let startedClientMcp: { database: string; host: string } | undefined;
 		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
 		const bridge = await startNavigationBridge({
+			createLocalToolClass: async (name, database) => ({ id: 20000001, name, database }),
 			revealClass: async () => undefined,
 			openClass: async () => undefined,
 			openMethod: async id => { openedMethod = id; },

@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import * as vscode from 'vscode';
 
-export const bundledSkill = { name: 'east-express', version: 3 } as const;
+export const bundledSkill = { name: 'east-express', version: 9 } as const;
+export type SkillLocation = 'agents' | 'claude';
+export const skillLocations: readonly SkillLocation[] = ['agents', 'claude'];
 
 export interface InstalledSkillState {
 	version: number;
@@ -13,16 +15,17 @@ export function bundledSkillSource(context: vscode.ExtensionContext): vscode.Uri
 	return vscode.Uri.joinPath(context.extensionUri, 'resources', 'agent-skills', bundledSkill.name, 'SKILL.md');
 }
 
-export function skillTarget(workspaceFolder: vscode.WorkspaceFolder): vscode.Uri {
-	return vscode.Uri.joinPath(skillTargetDirectory(workspaceFolder), 'SKILL.md');
+export function skillTarget(workspaceFolder: vscode.WorkspaceFolder, location: SkillLocation = 'agents'): vscode.Uri {
+	return vscode.Uri.joinPath(skillTargetDirectory(workspaceFolder, location), 'SKILL.md');
 }
 
-function skillTargetDirectory(workspaceFolder: vscode.WorkspaceFolder): vscode.Uri {
-	return vscode.Uri.joinPath(workspaceFolder.uri, '.agents', 'skills', bundledSkill.name);
+function skillTargetDirectory(workspaceFolder: vscode.WorkspaceFolder, location: SkillLocation): vscode.Uri {
+	return vscode.Uri.joinPath(workspaceFolder.uri, `.${location}`, 'skills', bundledSkill.name);
 }
 
-export function stateKey(workspaceFolder: vscode.WorkspaceFolder): string {
-	return `agentSkill.${bundledSkill.name}.${contentHash(Buffer.from(workspaceFolder.uri.toString()))}`;
+export function stateKey(workspaceFolder: vscode.WorkspaceFolder, location: SkillLocation = 'agents'): string {
+	const suffix = contentHash(Buffer.from(workspaceFolder.uri.toString()));
+	return location === 'agents' ? `agentSkill.${bundledSkill.name}.${suffix}` : `agentSkill.${bundledSkill.name}.${location}.${suffix}`;
 }
 
 export async function readFileIfExists(uri: vscode.Uri): Promise<Uint8Array | undefined> {
@@ -36,15 +39,15 @@ export async function readFileIfExists(uri: vscode.Uri): Promise<Uint8Array | un
 	}
 }
 
-export async function writeBundledSkill(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, content: Uint8Array): Promise<void> {
-	const target = skillTarget(workspaceFolder);
-	await vscode.workspace.fs.createDirectory(skillTargetDirectory(workspaceFolder));
+export async function writeBundledSkill(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, content: Uint8Array, location: SkillLocation = 'agents'): Promise<void> {
+	const target = skillTarget(workspaceFolder, location);
+	await vscode.workspace.fs.createDirectory(skillTargetDirectory(workspaceFolder, location));
 	await vscode.workspace.fs.writeFile(target, content);
-	await saveInstalledState(context, workspaceFolder, content);
+	await saveInstalledState(context, workspaceFolder, content, location);
 }
 
-export async function saveInstalledState(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, content: Uint8Array): Promise<void> {
-	await context.workspaceState.update(stateKey(workspaceFolder), {
+export async function saveInstalledState(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, content: Uint8Array, location: SkillLocation = 'agents'): Promise<void> {
+	await context.workspaceState.update(stateKey(workspaceFolder, location), {
 		version: bundledSkill.version,
 		installedHash: contentHash(content),
 	} satisfies InstalledSkillState);

@@ -3,6 +3,7 @@ import { validateNativeAttributeDraft, type NativeAttributeDraft } from '../feat
 import type { PackageSyncIssue, PackageSyncItem, SvnConflictContent, SvnMergeResult } from '../features/package-sync/models';
 import type { DatabaseObjectKind, DatabaseObjectSearchResult } from './objectSearch';
 import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskDescriptionPart, ProductionTaskHistoryEntry, ProductionTaskListItem, ProductionTaskSummary, ProductionTaskUser } from '../features/production-tasks/models';
+import type { ProductionTaskSvnRow } from '../features/production-tasks/productionTaskSvnModels';
 import type { CreatedSpu, SpuDraft, SpuEditorOptions } from '../features/spu/models';
 import type { SqlCompletionSchema } from '../features/sql-executor/sqlCompletionSchema';
 import type { PackageExplorerNode, PackageFileContent, PackageSummary } from '../features/packages/models';
@@ -54,6 +55,8 @@ export type ProductionTaskDetailsWebviewMessage =
 	| { command: 'openDatabaseObjectById'; id: number; target?: 'explorer' | 'object' }
 	| { command: 'loadDatabaseObjectPreview'; id: number }
 	| { command: 'loadProductionTaskHistory' }
+	| { command: 'loadProductionTaskSvn'; force?: boolean }
+	| { command: 'openProductionTaskSvnCommit'; id: string }
 	| { command: 'productionTaskAttachmentAction'; id: number; action: 'open' | 'preview' | 'save' | 'reveal' }
 	| { command: 'openExternalUrl'; url: string }
 	| CopyTableCellsMessage
@@ -72,6 +75,9 @@ export type ProductionTaskDetailsHostMessage =
 	| { command: 'productionTaskHistoryLoading' }
 	| { command: 'productionTaskHistoryLoaded'; history: ProductionTaskHistoryEntry[] }
 	| { command: 'productionTaskHistoryFailed'; message: string }
+	| { command: 'productionTaskSvnLoading' }
+	| { command: 'productionTaskSvnLoaded'; commits: ProductionTaskSvnRow[]; scannedAt: string | null }
+	| { command: 'productionTaskSvnFailed'; message: string }
 	| { command: 'databaseObjectPreviewLoaded'; id: number; object?: DatabaseObjectSearchResult }
 	| { command: 'databaseObjectPreviewFailed'; id: number; message: string }
 	| { command: 'productionTaskPreviewLoaded'; id: number; task?: ProductionTaskSummary }
@@ -243,6 +249,8 @@ export interface SettingsState {
 	mcpEnabled: boolean;
 	mcpStatus: 'ready' | 'disabled' | 'unavailable';
 	mcpStatusText: string;
+	knowledgeMcpStatus: { state: 'missing' | 'invalid' | 'offline' | 'online'; text: string; collection?: string; toolCount?: number };
+	knowledgeMcpEnvFile: string;
 	clientMcpUrl: string;
 	clientMcpStatus: 'online' | 'offline';
 	clientMcpStatusText: string;
@@ -250,6 +258,7 @@ export interface SettingsState {
 	clientMcpDatabaseMatchesSelection?: boolean;
 	extensionMcpTools: Array<{ name: string; description: string; deprecated: boolean }>;
 	clientMcpTools?: Array<{ name: string; description: string }>;
+	knowledgeMcpTools?: Array<{ name: string; description: string }>;
 	clientMcpToolsDatabase?: string;
 	clientMcpToolsUpdatedAt?: string;
 	clientMcpToolsError?: string;
@@ -272,6 +281,8 @@ export type SettingsWebviewMessage =
 	| { command: 'setClientLaunchArguments'; value: string }
 	| { command: 'setMcpEnabled'; enabled: boolean }
 	| { command: 'refreshClientMcpStatus' }
+	| { command: 'refreshKnowledgeMcpStatus' }
+	| { command: 'selectKnowledgeMcpEnvFile' }
 	| { command: 'checkClientMcpTools' }
 	| { command: 'startClientMcpServer' }
 	| { command: 'stopClientMcpServer' }
@@ -300,7 +311,18 @@ export type SettingsHostMessage =
 	| { command: 'httpTestServerActionStarted'; action: 'start' | 'stop' }
 	| { command: 'httpTestServerActionFinished'; action: 'start' | 'stop'; success: boolean; message: string }
 	| { command: 'httpParameterValuesLoaded'; parameter: string; query: string; values: Array<{ id: number; name: string }> };
-export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | NativeLogsWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SvnConflictWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage;
+export type KnowledgeHistoryWebviewMessage =
+	| { command: 'knowledgeHistoryReady' }
+	| { command: 'knowledgeHistorySearch'; search: string }
+	| { command: 'knowledgeHistorySelectTask'; taskNumber: string; workspace: string }
+	| { command: 'knowledgeHistoryRefreshSvn'; taskNumber: string; workspace: string }
+	| { command: 'knowledgeHistoryOpenSvnCommit'; taskNumber: string; workspace: string; commitId: number }
+	| { command: 'knowledgeHistoryChooseRepository' }
+	| { command: 'knowledgeHistoryOpenArticle'; id: string }
+	| { command: 'knowledgeHistoryOpenObject'; id: number }
+	| { command: 'knowledgeHistoryRefresh' };
+
+export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage | AttributeDetailsWebviewMessage | PropertyDetailsWebviewMessage | EntityPropertiesWebviewMessage | ClassObjectsWebviewMessage | SpuEditorWebviewMessage | ObjectViewWebviewMessage | PackageContentWebviewMessage | SqlMonitorWebviewMessage | SqlExecutorWebviewMessage | NativeLogsWebviewMessage | CodeHistoryWebviewMessage | PackageSyncWebviewMessage | SvnConflictWebviewMessage | SettingsWebviewMessage | ProductionTasksWebviewMessage | ProductionTaskDetailsWebviewMessage | KnowledgeHistoryWebviewMessage;
 
 export function isNativeLogsWebviewMessage(message: unknown): message is NativeLogsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
@@ -335,6 +357,12 @@ export function isProductionTaskDetailsWebviewMessage(message: unknown): message
 			&& 'action' in message && (message.action === 'open' || message.action === 'preview' || message.action === 'save' || message.action === 'reveal');
 	}
 	if (message.command === 'openExternalUrl') { return 'url' in message && typeof message.url === 'string' && /^https?:\/\//i.test(message.url); }
+	if (message.command === 'loadProductionTaskSvn') {
+		return !('force' in message) || typeof message.force === 'boolean';
+	}
+	if (message.command === 'openProductionTaskSvnCommit') {
+		return 'id' in message && typeof message.id === 'string' && message.id.length > 0;
+	}
 	return message.command === 'productionTaskDetailsReady'
 		|| message.command === 'loadProductionTaskAttachments'
 		|| message.command === 'loadProductionTaskActions'
@@ -349,7 +377,7 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	if (typeof message !== 'object' || message === null || !('command' in message)) {
 		return false;
 	}
-	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'checkClientMcpTools' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'stopHttpTestServer' || message.command === 'clearExtensionLogs') {
+	if (message.command === 'settingsReady' || message.command === 'testSettingsDatabaseConnection' || message.command === 'refreshClientMcpStatus' || message.command === 'refreshKnowledgeMcpStatus' || message.command === 'selectKnowledgeMcpEnvFile' || message.command === 'checkClientMcpTools' || message.command === 'startClientMcpServer' || message.command === 'stopClientMcpServer' || message.command === 'stopHttpTestServer' || message.command === 'clearExtensionLogs') {
 		return true;
 	}
 	if (message.command === 'openDatabaseObjectById') {

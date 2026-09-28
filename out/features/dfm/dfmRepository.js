@@ -36,10 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDfmSource = getDfmSource;
 exports.getDfmInheritance = getDfmInheritance;
 exports.saveDfmSource = saveDfmSource;
+exports.saveDfmSourceInSession = saveDfmSourceInSession;
+exports.getDfmSourceInSession = getDfmSourceInSession;
 const iconv = __importStar(require("iconv-lite"));
-const sessionContext_1 = require("../../infrastructure/configuration/sessionContext");
 const databaseQueryExecutor_1 = require("../../infrastructure/database/databaseQueryExecutor");
-const projectDatabaseSession_1 = require("../../infrastructure/database/projectDatabaseSession");
 const dfmQuery = `WITH RECURSIVE class_chain AS (
 	SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
 	UNION ALL
@@ -59,7 +59,8 @@ FROM classes class CROSS JOIN dfm_attribute attribute
 LEFT JOIN dfltvalues value ON value.seniorid = class.id AND value.attrid = attribute.id
 WHERE class.id = $1`;
 async function getDfmSource(classId) {
-    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
+    const { withProjectDatabaseSession } = await import('../../infrastructure/database/projectDatabaseSession.js');
+    return withProjectDatabaseSession(async ({ client, options }) => {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: dfmQuery, values: [classId], source: `DFM класса ${classId}`, database: options.database,
         });
@@ -74,7 +75,8 @@ async function getDfmSource(classId) {
     });
 }
 async function getDfmInheritance(classId) {
-    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
+    const { withProjectDatabaseSession } = await import('../../infrastructure/database/projectDatabaseSession.js');
+    return withProjectDatabaseSession(async ({ client, options }) => {
         const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `WITH RECURSIVE class_chain AS (
 			  SELECT id, name, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
@@ -103,53 +105,68 @@ async function getDfmInheritance(classId) {
     });
 }
 async function saveDfmSource(source, text) {
-    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
-        try {
-            await client.query('BEGIN');
-            const current = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-                text: dfmQuery, values: [source.classId], source: `Проверка DFM класса ${source.classId}`, database: options.database,
-            });
-            const row = current.rows[0];
-            if (!row || row.valueid !== source.valueId || row.attrid !== source.attributeId) {
-                throw new Error('Запись DFM изменилась или была удалена. Откройте её заново.');
-            }
-            if (decodeValue(row.defvalue) === text) {
-                await client.query('ROLLBACK');
-                return toSource(row);
-            }
-            const session = await (0, sessionContext_1.getSessionContext)(client, options.database);
-            const value = isBinaryType(row.valuetype) ? encode(text) : text;
-            const updated = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-                text: `UPDATE dfltvalues SET lastchange = $1, seniorid = $2, attrid = $3, defvalue = $4, name = $5 WHERE id = $6`,
-                values: [session.changeDate, source.classId, source.attributeId, value, source.valueName, source.valueId],
-                source: `Сохранение DFM класса ${source.className}`, database: options.database,
-            });
-            if (updated.rowCount !== 1) {
-                throw new Error('Запись DFM не найдена при сохранении.');
-            }
-            const abstractUpdated = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-                text: `UPDATE abstract SET lastchange = $1, seniorid = $2, name = $3 WHERE id = $4`,
-                values: [session.changeDate, source.classId, source.valueName, source.valueId],
-                source: `Сохранение abstract DFM ${source.valueId}`, database: options.database,
-            });
-            if (abstractUpdated.rowCount !== 1) {
-                throw new Error('Запись abstract для DFM не найдена.');
-            }
-            const reread = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
-                text: dfmQuery, values: [source.classId], source: `Повторное чтение DFM класса ${source.classId}`, database: options.database,
-            });
-            const saved = reread.rows[0];
-            if (!saved || decodeValue(saved.defvalue) !== text) {
-                throw new Error('Проверка сохранённого DFM не пройдена.');
-            }
-            await client.query('COMMIT');
-            return toSource(saved);
+    const { withProjectDatabaseSession } = await import('../../infrastructure/database/projectDatabaseSession.js');
+    return withProjectDatabaseSession(({ client, options }) => saveDfmSourceInSession(client, options, source, text));
+}
+/** Shared transaction used by the virtual editor and the standalone MCP server. */
+async function saveDfmSourceInSession(client, options, source, text) {
+    try {
+        await client.query('BEGIN');
+        await client.query('SELECT id FROM dfltvalues WHERE id = $1 FOR UPDATE', [source.valueId]);
+        const current = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: dfmQuery, values: [source.classId], source: `Проверка DFM класса ${source.classId}`, database: options.database,
+        });
+        const row = current.rows[0];
+        if (!row || row.valueid !== source.valueId || row.attrid !== source.attributeId || decodeValue(row.defvalue) !== source.text) {
+            throw new Error('Запись DFM изменилась или была удалена. Откройте её заново.');
         }
-        catch (error) {
-            await client.query('ROLLBACK').catch(() => undefined);
-            throw error;
+        if (decodeValue(row.defvalue) === text) {
+            await client.query('ROLLBACK');
+            return toSource(row);
         }
+        const time = await client.query('SELECT NOW() AS now');
+        const changeDate = time.rows[0]?.now ?? new Date();
+        const value = isBinaryType(row.valuetype) ? encode(text) : text;
+        const updated = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `UPDATE dfltvalues SET lastchange = $1, seniorid = $2, attrid = $3, defvalue = $4, name = $5 WHERE id = $6`,
+            values: [changeDate, source.classId, source.attributeId, value, source.valueName, source.valueId],
+            source: `Сохранение DFM класса ${source.className}`, database: options.database,
+        });
+        if (updated.rowCount !== 1) {
+            throw new Error('Запись DFM не найдена при сохранении.');
+        }
+        const abstractUpdated = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `UPDATE abstract SET lastchange = $1, seniorid = $2, name = $3 WHERE id = $4`,
+            values: [changeDate, source.classId, source.valueName, source.valueId],
+            source: `Сохранение abstract DFM ${source.valueId}`, database: options.database,
+        });
+        if (abstractUpdated.rowCount !== 1) {
+            throw new Error('Запись abstract для DFM не найдена.');
+        }
+        const reread = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: dfmQuery, values: [source.classId], source: `Повторное чтение DFM класса ${source.classId}`, database: options.database,
+        });
+        const saved = reread.rows[0];
+        if (!saved || decodeValue(saved.defvalue) !== text) {
+            throw new Error('Проверка сохранённого DFM не пройдена.');
+        }
+        await client.query('COMMIT');
+        return toSource(saved);
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+}
+async function getDfmSourceInSession(client, options, classId) {
+    const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+        text: dfmQuery, values: [classId], source: `DFM класса ${classId}`, database: options.database,
     });
+    const row = result.rows[0];
+    if (!row || row.valueid === null) {
+        throw new Error(`У класса ${classId} нет собственного DFM.`);
+    }
+    return toSource(row);
 }
 function toSource(row) {
     return { classId: row.classid, className: row.classname, attributeId: row.attrid, valueId: row.valueid, valueName: row.valuename ?? 'DFM', text: decodeValue(row.defvalue), valueType: row.valuetype };

@@ -16,6 +16,17 @@ export interface SvnBlameLine {
 	date: Date;
 }
 
+export interface SvnChangedPath { path: string; action: string; kind: string }
+
+export async function svnChangedPaths(repositoryRoot: string, revision: number): Promise<SvnChangedPath[]> {
+	const xml = (await runSvn(['log', '--xml', '-v', '-r', String(revision), repositoryRoot], repositoryRoot)).toString('utf8');
+	return [...xml.matchAll(/<path\s+([^>]*)>([\s\S]*?)<\/path>/g)].map(match => ({
+		path: xmlDecode(match[2]),
+		action: /\baction="([^"]*)"/.exec(match[1])?.[1] ?? '',
+		kind: /\bkind="([^"]*)"/.exec(match[1])?.[1] ?? '',
+	}));
+}
+
 export async function svnLog(fileName: string, limit?: number): Promise<SvnLogEntry[]> {
 	const args = ['log', '--xml'];
 	if (limit !== undefined) {
@@ -59,7 +70,7 @@ export async function svnCat(fileName: string, revision: number): Promise<string
 	if (revision < 0) {
 		return '';
 	}
-	const bytes = await runSvn(['cat', '-r', String(revision), fileName], fileName);
+	const bytes = await runSvn(['cat', '-r', String(revision), /^https?:\/\//i.test(fileName) ? `${fileName}@${revision}` : fileName], fileName);
 	return legacyExtension(fileName) ? iconv.decode(bytes, 'win1251') : bytes.toString('utf8');
 }
 
@@ -70,7 +81,7 @@ export async function svnCatBase(fileName: string): Promise<string> {
 
 async function runSvn(args: string[], fileName: string): Promise<Buffer> {
 	return new Promise((resolve, reject) => {
-		const process = spawn('svn', args, { cwd: path.dirname(fileName), windowsHide: true });
+		const process = spawn('svn', args, { cwd: /^https?:\/\//i.test(fileName) ? undefined : path.dirname(fileName), windowsHide: true });
 		const stdout: Buffer[] = [];
 		const stderr: Buffer[] = [];
 		process.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
@@ -89,6 +100,10 @@ async function runSvn(args: string[], fileName: string): Promise<Buffer> {
 
 function xmlValue(xml: string, tag: string): string {
 	const value = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1] ?? '';
+	return xmlDecode(value);
+}
+
+function xmlDecode(value: string): string {
 	return value.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 }
 

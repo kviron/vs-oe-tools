@@ -26,6 +26,7 @@ export interface NavigationActions {
 	updateModuleSource(moduleId: number, code: string, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<Record<string, unknown>>;
 	bindObjectsToPackage(request: PackageBindingMutationRequest): Promise<Record<string, unknown>>;
 	createClassAttribute(draft: ClassAttributeDraft): Promise<Record<string, unknown>>;
+	createLocalToolClass(name: string, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<Record<string, unknown>>;
 	executeLifecycleMethod(methodId: number, methodParameter: string, database: string, host: string): Promise<Record<string, unknown>>;
 	startClientMcp(database: string, host: string): Promise<Record<string, unknown>>;
 	startHttpTestServer(methodName: string): Promise<Record<string, unknown>>;

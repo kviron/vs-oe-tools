@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getDatabaseRole } from '../infrastructure/configuration/projectDatabaseOptions';
-import { clientMcpUrlSetting, databaseProfileSetting, mcpEnabledSetting } from '../core/constants';
+import { clientMcpUrlSetting, databaseProfileSetting, knowledgeMcpEnvFileSetting, mcpEnabledSetting } from '../core/constants';
 import { buildDatabaseMcpArguments } from './database/arguments';
 
 export interface McpNavigationConnection {
@@ -32,6 +32,8 @@ export function registerDatabaseMcpServer(context: vscode.ExtensionContext, logs
 					sqlMonitorHistoryPath,
 					navigationInfoPath: navigation.infoPath,
 					clientMcpUrl: vscode.workspace.getConfiguration('vcVeTools').get<string>(clientMcpUrlSetting, 'http://localhost:8080'),
+					knowledgeEnvFile: vscode.workspace.getConfiguration('vcVeTools').get<string>(knowledgeMcpEnvFileSetting, ''),
+					workHistoryPath: vscode.Uri.joinPath(context.globalStorageUri, 'work-history.sqlite').fsPath,
 				}),
 				{},
 				'0.22.0',
@@ -41,7 +43,7 @@ export function registerDatabaseMcpServer(context: vscode.ExtensionContext, logs
 		},
 	});
 	const configurationListener = vscode.workspace.onDidChangeConfiguration((event) => {
-		if (event.affectsConfiguration('vcVeTools.databaseRole') || event.affectsConfiguration(`vcVeTools.${databaseProfileSetting}`) || event.affectsConfiguration(`vcVeTools.${mcpEnabledSetting}`) || event.affectsConfiguration(`vcVeTools.${clientMcpUrlSetting}`)) {
+		if (event.affectsConfiguration('vcVeTools.databaseRole') || event.affectsConfiguration(`vcVeTools.${databaseProfileSetting}`) || event.affectsConfiguration(`vcVeTools.${mcpEnabledSetting}`) || event.affectsConfiguration(`vcVeTools.${clientMcpUrlSetting}`) || event.affectsConfiguration(`vcVeTools.${knowledgeMcpEnvFileSetting}`)) {
 			changeEmitter.fire();
 		}
 	});

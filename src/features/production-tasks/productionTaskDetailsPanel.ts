@@ -5,8 +5,10 @@ import type { DatabaseObjectSearchResult } from '../../core/objectSearch';
 import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskSummary } from './models';
 import { productionTaskClientUri } from './productionTaskPresentation';
 import { convertProductionTaskWmfImages, parseProductionTaskRichDescription } from './productionTaskRichText';
+import { ProductionTaskSvnHistory } from './productionTaskSvn';
 
 const panels = new Map<number, vscode.WebviewPanel>();
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 
 export function openProductionTaskDetails(
 	context: vscode.ExtensionContext,
@@ -18,6 +20,8 @@ export function openProductionTaskDetails(
 	loadAttachments: () => Promise<ProductionTaskAttachment[]>,
 	loadHistory: () => Promise<ProductionTaskHistoryEntry[]>,
 	loadRichDescription: () => Promise<string>,
+	workspacePath: string | undefined,
+	historyPath: string,
 ): void {
 	const existing = panels.get(task.id);
 	if (existing) { existing.reveal(vscode.ViewColumn.Active); return; }
@@ -28,6 +32,10 @@ export function openProductionTaskDetails(
 	panels.set(task.id, panel);
 	const attachments = new Map<number, ProductionTaskAttachment>();
 	const taskPreviews = new Map<number, ProductionTaskSummary | undefined>();
+	const svnTaskNumber = task.number.trim();
+	const svnHistory = workspacePath && /^\d+$/.test(svnTaskNumber)
+		? new ProductionTaskSvnHistory(historyPath, workspacePath, svnTaskNumber) : undefined;
+	let svnRefresh: Promise<void> | undefined;
 	panel.webview.html = shell(panel.webview, assetsRoot);
 	panel.webview.onDidReceiveMessage(async (message: unknown) => {
 		if (!isProductionTaskDetailsWebviewMessage(message)) { return; }
@@ -47,6 +55,40 @@ export function openProductionTaskDetails(
 		}
 		if (message.command === 'copyTableCells') {
 			await vscode.env.clipboard.writeText(message.text);
+			return;
+		}
+		if (message.command === 'loadProductionTaskSvn') {
+			if (!svnHistory) {
+				await panel.webview.postMessage({ command: 'productionTaskSvnFailed',
+					message: !workspacePath ? 'Не найдено рабочее пространство для поиска SVN.' : 'У задачи нет числового номера для поиска SVN.' } satisfies ProductionTaskDetailsHostMessage);
+				return;
+			}
+			if (svnRefresh) { return; }
+			try {
+				const cached = svnHistory.cached();
+				await panel.webview.postMessage({ command: 'productionTaskSvnLoaded', ...cached } satisfies ProductionTaskDetailsHostMessage);
+				const fresh = cached.scannedAt && Date.now() - Date.parse(cached.scannedAt.replace(' ', 'T') + (cached.scannedAt.includes('Z') ? '' : 'Z')) < 3600000;
+				if (fresh && !message.force) { return; }
+				svnRefresh = (async () => {
+					await panel.webview.postMessage({ command: 'productionTaskSvnLoading' } satisfies ProductionTaskDetailsHostMessage);
+					try {
+						const found = await svnHistory.refresh();
+						await panel.webview.postMessage({ command: 'productionTaskSvnLoaded', ...found } satisfies ProductionTaskDetailsHostMessage);
+					} catch (error) {
+						await panel.webview.postMessage({ command: 'productionTaskSvnFailed', message: errorMessage(error) } satisfies ProductionTaskDetailsHostMessage);
+					}
+				})();
+				await svnRefresh;
+			} catch (error) {
+				await panel.webview.postMessage({ command: 'productionTaskSvnFailed', message: errorMessage(error) } satisfies ProductionTaskDetailsHostMessage);
+			} finally { svnRefresh = undefined; }
+			return;
+		}
+		if (message.command === 'openProductionTaskSvnCommit') {
+			const commit = svnHistory?.commit(message.id);
+			if (!commit) { return; }
+			try { await vscode.commands.executeCommand('vc-ve-tools.openSvnCommitChanges', commit.repository_root, commit.revision); }
+			catch (error) { await panel.webview.postMessage({ command: 'productionTaskSvnFailed', message: errorMessage(error) } satisfies ProductionTaskDetailsHostMessage); }
 			return;
 		}
 		if (message.command === 'loadProductionTaskActions') {

@@ -12,8 +12,8 @@ suite('Direct HTTP method execution', () => {
 		assert.deepEqual(Object.fromEntries(decoded.parameters.map((p: {name: string; value: string}) => [p.name, p.value])), request.parameters);
 	});
 	test('uses shell-free argv and puts parameter values in files, not the command line', () => {
-		const args = buildDirectHttpMethodArguments({ methodName: 'АнкетыСписок', parameters: { secret: 'not-on-command-line' } }, 'test', 'localhost', { username: 'dev', password: 'pwd' }, 'C:\\Project Space\\request.json', 'C:\\Project Space\\response.json');
-		assert.ok(args.includes('-MethodID=3200176'));
+		const args = buildDirectHttpMethodArguments({ methodName: 'АнкетыСписок', parameters: { secret: 'not-on-command-line' } }, 'test', 'localhost', { username: 'dev', password: 'pwd' }, 'C:\\Project Space\\request.json', 'C:\\Project Space\\response.json', 754323);
+		assert.ok(args.includes('-MethodID=754323'));
 		assert.ok(args.some(arg => arg.includes('requestFile=C:\\Project Space\\request.json')));
 		assert.equal(args.join(' ').includes('not-on-command-line'), false);
 	});

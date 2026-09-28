@@ -39,7 +39,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("node:assert/strict"));
 const iconv_lite_1 = __importDefault(require("iconv-lite"));
 const oenpProtocol_1 = require("../features/production-tasks/oenpProtocol");
-const productionTasksRepository_1 = require("../features/production-tasks/productionTasksRepository");
+const auth_1 = require("../features/production-tasks/auth");
+const mapping_1 = require("../features/production-tasks/mapping");
+const queries_1 = require("../features/production-tasks/queries");
 suite('OENP protocol', () => {
     test('builds a framed read-only query', () => {
         const packet = (0, oenpProtocol_1.createReadonlyQueryPacket)(25, 'SELECT ID FROM WorkDoc', 123456789);
@@ -53,86 +55,86 @@ suite('OENP protocol', () => {
         assert.throws(() => (0, oenpProtocol_1.createReadonlyQueryPacket)(1, 'UPDATE WorkDoc SET ID=ID', 123456789), /только один SELECT/);
     });
     test('uses casts accepted by the East Express SQL parser', () => {
-        assert.equal(productionTasksRepository_1.productionTaskSql.includes('::'), false);
-        assert.equal(productionTasksRepository_1.productionTaskSql.toLowerCase().includes('to_char('), false);
-        assert.match(productionTasksRepository_1.productionTaskSql, /CAST\(T0\.DNumber AS VARCHAR\(64\)\)/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /DateToStrFmt\(T0\.CreDate, 'dd\.mm\.yyyy hh:mm:ss'\)/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /DateToStrFmt\(T0\.Deadline, 'dd\.mm\.yyyy hh:mm:ss'\)/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /FROM StructureActivity SA WHERE SA\.ID = T0\.KindActivity/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /FROM HistoryLC H WHERE H\.ID = T0\.LCLastActionID/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /CAST\(\(SELECT COUNT\(SF\.ID\)[\s\S]+AS VARCHAR\(64\)\), '0'\) AS attachmentcount/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /P\.ID = T0\.RespPerson\), ''\) AS responsibleuser/);
-        assert.match(productionTasksRepository_1.productionTaskSql, /T0\.RespPerson, 0\) AS responsibleuserid/);
-        assert.equal(productionTasksRepository_1.productionTaskSql.includes('%CurPerson'), false);
-        assert.equal(productionTasksRepository_1.productionTaskSql.includes('LIMIT 250'), false);
-        assert.match(productionTasksRepository_1.productionTaskSql, /ORDER BY T0\.CreDate DESC, T0\.ID DESC$/);
+        assert.equal(queries_1.productionTaskSql.includes('::'), false);
+        assert.equal(queries_1.productionTaskSql.toLowerCase().includes('to_char('), false);
+        assert.match(queries_1.productionTaskSql, /CAST\(T0\.DNumber AS VARCHAR\(64\)\)/);
+        assert.match(queries_1.productionTaskSql, /DateToStrFmt\(T0\.CreDate, 'dd\.mm\.yyyy hh:mm:ss'\)/);
+        assert.match(queries_1.productionTaskSql, /DateToStrFmt\(T0\.Deadline, 'dd\.mm\.yyyy hh:mm:ss'\)/);
+        assert.match(queries_1.productionTaskSql, /FROM StructureActivity SA WHERE SA\.ID = T0\.KindActivity/);
+        assert.match(queries_1.productionTaskSql, /FROM HistoryLC H WHERE H\.ID = T0\.LCLastActionID/);
+        assert.match(queries_1.productionTaskSql, /CAST\(\(SELECT COUNT\(SF\.ID\)[\s\S]+AS VARCHAR\(64\)\), '0'\) AS attachmentcount/);
+        assert.match(queries_1.productionTaskSql, /P\.ID = T0\.RespPerson\), ''\) AS responsibleuser/);
+        assert.match(queries_1.productionTaskSql, /T0\.RespPerson, 0\) AS responsibleuserid/);
+        assert.equal(queries_1.productionTaskSql.includes('%CurPerson'), false);
+        assert.equal(queries_1.productionTaskSql.includes('LIMIT 250'), false);
+        assert.match(queries_1.productionTaskSql, /ORDER BY T0\.CreDate DESC, T0\.ID DESC$/);
     });
     test('builds a bounded attachment query for the exact task', () => {
-        const sql = (0, productionTasksRepository_1.productionTaskAttachmentsSql)(85008);
+        const sql = (0, queries_1.productionTaskAttachmentsSql)(85008);
         assert.match(sql, /FROM StoredFiles SF/);
         assert.match(sql, /WHERE SF\.SeniorID = 85008/);
         assert.match(sql, /SF\.RootObj = 85008/);
         assert.match(sql, /SF\.MainStoredFile IN/);
         assert.match(sql, /LIMIT 250$/);
-        assert.throws(() => (0, productionTasksRepository_1.productionTaskAttachmentsSql)(0), /положительным целым/);
+        assert.throws(() => (0, queries_1.productionTaskAttachmentsSql)(0), /положительным целым/);
     });
     test('loads native rich text only for the exact opened task', () => {
-        const sql = (0, productionTasksRepository_1.productionTaskRichDescriptionSql)(932868211);
+        const sql = (0, queries_1.productionTaskRichDescriptionSql)(932868211);
         assert.match(sql, /T0\.Comment_Rich/);
         assert.match(sql, /WHERE T0\.ID = 932868211/);
         assert.match(sql, /LIMIT 1/);
-        assert.throws(() => (0, productionTasksRepository_1.productionTaskRichDescriptionSql)(0), /положительным целым/);
+        assert.throws(() => (0, queries_1.productionTaskRichDescriptionSql)(0), /положительным целым/);
     });
     test('builds a bounded read-only lifecycle history query', () => {
-        const sql = (0, productionTasksRepository_1.productionTaskHistorySql)(934593105);
+        const sql = (0, queries_1.productionTaskHistorySql)(934593105);
         assert.match(sql, /FROM HistoryLC H/);
         assert.match(sql, /LEFT JOIN ActionLC A ON A\.ID = H\.ActionID/);
         assert.match(sql, /LEFT JOIN StateLC S ON S\.ID = H\.EndState/);
         assert.match(sql, /WHERE H\.SeniorID = 934593105/);
         assert.match(sql, /LIMIT 250$/);
-        assert.throws(() => (0, productionTasksRepository_1.productionTaskHistorySql)(-1), /положительным целым/);
+        assert.throws(() => (0, queries_1.productionTaskHistorySql)(-1), /положительным целым/);
     });
     test('builds a bounded read-only action query for the current task state', () => {
-        const sql = (0, productionTasksRepository_1.productionTaskActionsSql)(934593105);
+        const sql = (0, queries_1.productionTaskActionsSql)(934593105);
         assert.match(sql, /FROM WorkDoc T0/);
         assert.match(sql, /R\.ObjID = T0\.LCStateID AND R\.AttrID = 12956168/);
         assert.match(sql, /JOIN ActionLC A ON A\.ID = R\.SeniorID/);
         assert.match(sql, /WHERE T0\.ID = 934593105/);
         assert.match(sql, /LIMIT 100$/);
-        assert.throws(() => (0, productionTasksRepository_1.productionTaskActionsSql)(0), /положительным целым/);
+        assert.throws(() => (0, queries_1.productionTaskActionsSql)(0), /положительным целым/);
     });
     test('builds a bounded task preview query by number or ID', () => {
-        const sql = (0, productionTasksRepository_1.productionTaskReferenceSql)(88605);
+        const sql = (0, queries_1.productionTaskReferenceSql)(88605);
         assert.match(sql, /FROM WorkDoc T0/);
         assert.match(sql, /WHERE T0\.DNumber = 88605 OR T0\.ID = 88605/);
         assert.match(sql, /LIMIT 1$/);
-        assert.throws(() => (0, productionTasksRepository_1.productionTaskReferenceSql)(0), /положительным целым/);
+        assert.throws(() => (0, queries_1.productionTaskReferenceSql)(0), /положительным целым/);
     });
     test('searches the complete production task table by exact ID or number', () => {
-        const sql = (0, productionTasksRepository_1.productionTaskSearchSql)('934593105', 5);
+        const sql = (0, queries_1.productionTaskSearchSql)('934593105', 5);
         assert.match(sql, /FROM WorkDoc T0/);
         assert.match(sql, /WHERE T0\.ID = 934593105 OR T0\.DNumber = 934593105/);
         assert.match(sql, /LIMIT 5$/);
         assert.equal(sql.includes('RespPerson = %CurPerson'), false);
     });
     test('searches production tasks by partial title and escapes quotes', () => {
-        const sql = (0, productionTasksRepository_1.productionTaskSearchSql)("  Связанные объекты client's  ");
+        const sql = (0, queries_1.productionTaskSearchSql)("  Связанные объекты client's  ");
         assert.match(sql, /T0\.Description ILIKE '%Связанные объекты client''s%'/);
         assert.match(sql, /LIMIT 10$/);
-        assert.throws(() => (0, productionTasksRepository_1.productionTaskSearchSql)('   '), /Укажите ID/);
-        assert.throws(() => (0, productionTasksRepository_1.productionTaskSearchSql)('test', 26), /от 1 до 25/);
+        assert.throws(() => (0, queries_1.productionTaskSearchSql)('   '), /Укажите ID/);
+        assert.throws(() => (0, queries_1.productionTaskSearchSql)('test', 26), /от 1 до 25/);
     });
     test('hides the zero Delphi date', () => {
-        assert.equal((0, productionTasksRepository_1.normalizeProductionDate)('30.12.1899 00:00'), '');
-        assert.equal((0, productionTasksRepository_1.normalizeProductionDate)('30.12.1899 00:00:00'), '');
-        assert.equal((0, productionTasksRepository_1.normalizeProductionDate)('09.10.2025 09:56:20'), '09.10.2025 09:56:20');
+        assert.equal((0, mapping_1.normalizeProductionDate)('30.12.1899 00:00'), '');
+        assert.equal((0, mapping_1.normalizeProductionDate)('30.12.1899 00:00:00'), '');
+        assert.equal((0, mapping_1.normalizeProductionDate)('09.10.2025 09:56:20'), '09.10.2025 09:56:20');
     });
     test('decodes a bytea project name from Windows-1251', () => {
         const project = 'Отразить в аудите';
         const encoded = `\\x${iconv_lite_1.default.encode(project, 'win1251').toString('hex')}`;
-        assert.equal((0, productionTasksRepository_1.decodeProductionText)(encoded), project);
-        assert.equal((0, productionTasksRepository_1.decodeProductionText)('Обычный проект'), 'Обычный проект');
-        assert.equal((0, productionTasksRepository_1.decodeProductionText)('\\x123'), '\\x123');
+        assert.equal((0, mapping_1.decodeProductionText)(encoded), project);
+        assert.equal((0, mapping_1.decodeProductionText)('Обычный проект'), 'Обычный проект');
+        assert.equal((0, mapping_1.decodeProductionText)('\\x123'), '\\x123');
     });
     test('builds the registered-session packet and reads an authorization challenge', () => {
         const packet = (0, oenpProtocol_1.createInitialPacket)('00112233445566778899AABBCCDDEEFF');
@@ -148,7 +150,7 @@ suite('OENP protocol', () => {
         assert.equal((0, oenpProtocol_1.extractCurrentPersonId)(personRecord), 123456789);
     });
     test('derives current and legacy challenge-response passwords', () => {
-        const parameters = (0, productionTasksRepository_1.createLoginParameters)({
+        const parameters = (0, auth_1.createLoginParameters)({
             host: 'server', port: 3060, database: 'db', clientSessionKey: '0'.repeat(32),
             username: 'tester', password: 'secret', personId: 123456789,
         }, '0123456789ABCDEF0123456789ABCDEF');

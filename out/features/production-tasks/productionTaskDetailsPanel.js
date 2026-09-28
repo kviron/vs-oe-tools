@@ -39,8 +39,10 @@ const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const productionTaskPresentation_1 = require("./productionTaskPresentation");
 const productionTaskRichText_1 = require("./productionTaskRichText");
+const productionTaskSvn_1 = require("./productionTaskSvn");
 const panels = new Map();
-function openProductionTaskDetails(context, task, findObjectById, loadTaskReference, openTaskReference, loadActions, loadAttachments, loadHistory, loadRichDescription) {
+function errorMessage(error) { return error instanceof Error ? error.message : String(error); }
+function openProductionTaskDetails(context, task, findObjectById, loadTaskReference, openTaskReference, loadActions, loadAttachments, loadHistory, loadRichDescription, workspacePath, historyPath) {
     const existing = panels.get(task.id);
     if (existing) {
         existing.reveal(vscode.ViewColumn.Active);
@@ -53,6 +55,10 @@ function openProductionTaskDetails(context, task, findObjectById, loadTaskRefere
     panels.set(task.id, panel);
     const attachments = new Map();
     const taskPreviews = new Map();
+    const svnTaskNumber = task.number.trim();
+    const svnHistory = workspacePath && /^\d+$/.test(svnTaskNumber)
+        ? new productionTaskSvn_1.ProductionTaskSvnHistory(historyPath, workspacePath, svnTaskNumber) : undefined;
+    let svnRefresh;
     panel.webview.html = shell(panel.webview, assetsRoot);
     panel.webview.onDidReceiveMessage(async (message) => {
         if (!(0, webviewProtocol_1.isProductionTaskDetailsWebviewMessage)(message)) {
@@ -75,6 +81,55 @@ function openProductionTaskDetails(context, task, findObjectById, loadTaskRefere
         }
         if (message.command === 'copyTableCells') {
             await vscode.env.clipboard.writeText(message.text);
+            return;
+        }
+        if (message.command === 'loadProductionTaskSvn') {
+            if (!svnHistory) {
+                await panel.webview.postMessage({ command: 'productionTaskSvnFailed',
+                    message: !workspacePath ? 'Не найдено рабочее пространство для поиска SVN.' : 'У задачи нет числового номера для поиска SVN.' });
+                return;
+            }
+            if (svnRefresh) {
+                return;
+            }
+            try {
+                const cached = svnHistory.cached();
+                await panel.webview.postMessage({ command: 'productionTaskSvnLoaded', ...cached });
+                const fresh = cached.scannedAt && Date.now() - Date.parse(cached.scannedAt.replace(' ', 'T') + (cached.scannedAt.includes('Z') ? '' : 'Z')) < 3600000;
+                if (fresh && !message.force) {
+                    return;
+                }
+                svnRefresh = (async () => {
+                    await panel.webview.postMessage({ command: 'productionTaskSvnLoading' });
+                    try {
+                        const found = await svnHistory.refresh();
+                        await panel.webview.postMessage({ command: 'productionTaskSvnLoaded', ...found });
+                    }
+                    catch (error) {
+                        await panel.webview.postMessage({ command: 'productionTaskSvnFailed', message: errorMessage(error) });
+                    }
+                })();
+                await svnRefresh;
+            }
+            catch (error) {
+                await panel.webview.postMessage({ command: 'productionTaskSvnFailed', message: errorMessage(error) });
+            }
+            finally {
+                svnRefresh = undefined;
+            }
+            return;
+        }
+        if (message.command === 'openProductionTaskSvnCommit') {
+            const commit = svnHistory?.commit(message.id);
+            if (!commit) {
+                return;
+            }
+            try {
+                await vscode.commands.executeCommand('vc-ve-tools.openSvnCommitChanges', commit.repository_root, commit.revision);
+            }
+            catch (error) {
+                await panel.webview.postMessage({ command: 'productionTaskSvnFailed', message: errorMessage(error) });
+            }
             return;
         }
         if (message.command === 'loadProductionTaskActions') {
@@ -188,9 +243,10 @@ function openProductionTaskDetails(context, task, findObjectById, loadTaskRefere
             }
             return;
         }
-        const uri = vscode.Uri.parse((0, productionTaskPresentation_1.productionTaskPublicUrl)(message.id));
+        const reference = task.number.trim() || task.id;
+        const uri = vscode.Uri.parse((0, productionTaskPresentation_1.productionTaskClientUri)(reference));
         if (!await vscode.env.openExternal(uri)) {
-            void vscode.window.showErrorMessage(`Не удалось открыть задачу ${message.id} в клиенте.`);
+            void vscode.window.showErrorMessage(`Не удалось открыть задачу ${reference} в клиенте.`);
         }
     });
     panel.onDidDispose(() => panels.delete(task.id));

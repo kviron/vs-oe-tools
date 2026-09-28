@@ -20,6 +20,7 @@ const entryNames = [
   'sql-executor',
   'native-logs',
   'code-history',
+  'knowledge-history',
   'settings',
   'http-api',
   'spu-editor',

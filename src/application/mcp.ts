@@ -1,4 +1,4 @@
-import type * as vscode from 'vscode';
+import * as vscode from 'vscode';
 import { clientMcpUrlSetting, databaseProfileSetting, databaseRoleSetting } from '../core/constants';
 import { createMcpRuntimePublisher } from '../features/ai';
 import { registerDatabaseMcpServer } from '../mcp/registerMcpServer';
@@ -14,6 +14,7 @@ export async function registerMcp(
 		bridge: navigation.bridge,
 		activeDatabaseSelectionPath: app.selection.activeDatabaseSelectionPath,
 		sqlMonitorHistoryPath: app.sqlMonitorHistoryPath,
+		workHistoryPath: vscode.Uri.joinPath(context.globalStorageUri, 'work-history.sqlite').fsPath,
 		logger: app.logger,
 	});
 	await publishRuntimeState();

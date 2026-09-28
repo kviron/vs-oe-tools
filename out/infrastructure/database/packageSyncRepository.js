@@ -36,6 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadPackageSyncSnapshot = loadPackageSyncSnapshot;
 exports.loadPackageBoundaryIssues = loadPackageBoundaryIssues;
 exports.loadPackageSyncItems = loadPackageSyncItems;
+exports.mapPackageSyncRows = mapPackageSyncRows;
+exports.loadPackageSyncRoot = loadPackageSyncRoot;
 const path = __importStar(require("node:path"));
 const node_os_1 = require("node:os");
 const promises_1 = require("node:fs/promises");
@@ -44,9 +46,9 @@ const iconv = __importStar(require("iconv-lite"));
 const packageSyncIssues_1 = require("../../features/package-sync/packageSyncIssues");
 const databaseQueryExecutor_1 = require("./databaseQueryExecutor");
 const projectDatabaseSession_1 = require("./projectDatabaseSession");
-async function loadPackageSyncSnapshot() {
+async function loadPackageSyncSnapshot(loadItems = loadPackageSyncItems) {
     const boundaryIssuesPromise = loadPackageBoundaryIssues();
-    const items = await loadPackageSyncItems();
+    const items = await loadItems();
     const [placeholderIssues, boundaryIssues] = await Promise.all([loadPackagePlaceholderIssues(items), boundaryIssuesPromise]);
     return { items, issues: [...placeholderIssues, ...boundaryIssues] };
 }
@@ -182,24 +184,41 @@ async function loadPackageSyncItems() {
             }).catch(() => undefined),
         ]);
         const packagesRoot = tuneResult?.rows[0]?.pathtopackages ?? workspacePackagesRoot();
-        return itemsResult.rows.map(row => {
-            const objectPath = row.objectpath ?? '';
-            const packagePath = row.packagepath ?? '';
-            return {
-                objectId: Number(row.objectid),
-                objectClassId: Number(row.objectclassid),
-                objectSeniorId: row.objectseniorid === null ? null : Number(row.objectseniorid),
-                objectName: row.objectname ?? '',
-                contentMd5: row.objectcontentmd5 ?? '',
-                contentRevision: row.objectcontentrevision === null ? null : Number(row.objectcontentrevision),
-                changeState: row.objectchangestate === null ? '' : String(row.objectchangestate),
-                changedAt: row.objectchangelastdate instanceof Date ? row.objectchangelastdate.toISOString() : String(row.objectchangelastdate ?? ''),
-                changedBy: row.objectchangelastuser === null ? '' : String(row.objectchangelastuser),
-                objectPath,
-                packagePath,
-                localPath: packagesRoot ? resolveLocalPath(packagesRoot, packagePath, objectPath, row.physicalfilename ?? row.objectname ?? '') : undefined,
-            };
-        });
+        return mapPackageSyncRows(itemsResult.rows, packagesRoot);
+    });
+}
+function mapPackageSyncRows(rows, packagesRoot) {
+    return rows.map(row => {
+        const objectPath = row.objectpath ?? '';
+        const packagePath = row.packagepath ?? String(row.objectpathpackage ?? '');
+        return {
+            objectId: Number(row.objectid),
+            objectClassId: Number(row.objectclassid),
+            objectSeniorId: row.objectseniorid === null ? null : Number(row.objectseniorid),
+            objectName: row.objectname ?? '',
+            contentMd5: row.objectcontentmd5 ?? '',
+            contentRevision: row.objectcontentrevision === null ? null : Number(row.objectcontentrevision),
+            changeState: row.objectchangestate === null ? '' : String(row.objectchangestate),
+            changedAt: row.objectchangelastdate instanceof Date ? row.objectchangelastdate.toISOString() : String(row.objectchangelastdate ?? ''),
+            changedBy: row.objectchangelastuser === null ? '' : String(row.objectchangelastuser),
+            objectPath,
+            packagePath,
+            localPath: packagesRoot ? resolveLocalPath(packagesRoot, packagePath, objectPath, row.physicalfilename ?? row.objectname ?? '') : undefined,
+        };
+    });
+}
+async function loadPackageSyncRoot() {
+    return (0, projectDatabaseSession_1.withProjectDatabaseSession)(async ({ client, options }) => {
+        const result = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `SELECT pathtopackages FROM packagestune
+			 WHERE upper(computername) = upper($1)
+			   AND NULLIF(trim(pathtopackages), '') IS NOT NULL
+			 LIMIT 1`,
+            values: [(0, node_os_1.hostname)()],
+            source: 'Синхронизация пакетов: путь к пакетам',
+            database: options.database,
+        }).catch(() => undefined);
+        return result?.rows[0]?.pathtopackages ?? workspacePackagesRoot();
     });
 }
 function resolveLocalPath(root, packagePath, objectPath, name) {

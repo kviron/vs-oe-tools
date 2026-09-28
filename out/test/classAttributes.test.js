@@ -34,7 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("node:assert/strict"));
-const classAttributes_1 = require("../mcp/classAttributes");
+const classAttributes_1 = require("../mcp/queries/classAttributes");
 suite('MCP class attributes', () => {
     test('reads fields case-insensitively using aliases', () => {
         assert.equal((0, classAttributes_1.readAttributeValue)({ AttrType: 7, DBFieldName: 'beginplan_date' }, 'type', 'attrtype'), '7');

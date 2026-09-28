@@ -29,31 +29,31 @@ interface TaskNavigation {
 
 export function registerExplorer(context: vscode.ExtensionContext, editors: Editors): ExplorerViewProvider {
 	const { methodEditor, moduleEditor, dfmEditor } = editors;
-	const provider = new ExplorerViewProvider(
-		context.workspaceState,
-		context.extensionUri,
-		loadClasses,
-		(id, pinned) => openClassDetails(context, methodEditor, id, pinned),
-		id => dfmEditor.open(id),
-		id => openDfmPreview(context, id),
-		searchDatabaseObjects,
-		id => methodEditor.open(id),
-		id => moduleEditor.open(id),
-		id => openAttributeDetails(context, id),
-		id => openClassObjects(context, id),
-		id => openObjectView(context, id),
-		id => openEntityProperties(context, id),
-		loadPackages,
-		loadPackageTree,
-		loadPackageFileContent,
-		(fileId, objectId) => openPackageContent(context, fileId, objectId, async (id, kind) => {
+	const provider = new ExplorerViewProvider({
+		workspaceState: context.workspaceState,
+		extensionUri: context.extensionUri,
+		getClasses: loadClasses,
+		openClass: (id, pinned) => openClassDetails(context, methodEditor, id, pinned),
+		openDfmEditor: id => dfmEditor.open(id),
+		openDfmPreview: id => openDfmPreview(context, id),
+		searchObjects: searchDatabaseObjects,
+		openMethod: id => methodEditor.open(id),
+		openModule: id => moduleEditor.open(id),
+		openAttribute: id => openAttributeDetails(context, id),
+		openClassObjects: id => openClassObjects(context, id),
+		viewObject: id => openObjectView(context, id),
+		viewEntityProperties: id => openEntityProperties(context, id),
+		getPackages: loadPackages,
+		getPackageTree: loadPackageTree,
+		getPackageFileContent: loadPackageFileContent,
+		openPackageContent: (fileId, objectId) => openPackageContent(context, fileId, objectId, async (id, kind) => {
 			if (kind === 'class') { await openClassDetails(context, methodEditor, id, true); }
 			else if (kind === 'method') { await methodEditor.open(id); }
 			else if (kind === 'module') { await moduleEditor.open(id); }
 			else if (kind === 'attribute') { await openAttributeDetails(context, id); }
 			else { await openObjectView(context, id); }
 		}),
-	);
+	});
 	context.subscriptions.push(
 		provider,
 		vscode.window.registerWebviewViewProvider('vc-ve-tools.explorer', provider),

@@ -34,7 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("node:assert/strict"));
-const classProperties_1 = require("../mcp/classProperties");
+const classProperties_1 = require("../mcp/queries/classProperties");
 suite('MCP class properties', () => {
     test('keeps the nearest property unless shadowed definitions are requested', () => {
         const derived = property('Caption', 0);

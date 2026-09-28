@@ -8,11 +8,12 @@ interface Dependencies {
 	bridge: NavigationBridge;
 	activeDatabaseSelectionPath: string;
 	sqlMonitorHistoryPath: string;
+	workHistoryPath: string;
 	logger: ExtensionLogService;
 }
 
 export function createMcpRuntimePublisher(dependencies: Dependencies): () => Promise<void> {
-	const { bridge, activeDatabaseSelectionPath, sqlMonitorHistoryPath, logger } = dependencies;
+	const { bridge, activeDatabaseSelectionPath, sqlMonitorHistoryPath, workHistoryPath, logger } = dependencies;
 	return async () => {
 		const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		if (!workspacePath) { return; }
@@ -27,6 +28,7 @@ export function createMcpRuntimePublisher(dependencies: Dependencies): () => Pro
 				sqlMonitorHistoryPath,
 				navigationInfoPath: bridge.infoPath,
 				clientMcpUrl: configuration.get<string>(clientMcpUrlSetting, 'http://localhost:8080'),
+				workHistoryPath,
 				updatedAt: new Date().toISOString(),
 			});
 		} catch (error) {

@@ -48,12 +48,13 @@ const moduleEditorProvider_1 = require("../modules/moduleEditorProvider");
 const pkfMethodExtraction_1 = require("./pkfMethodExtraction");
 const svnClient_1 = require("./svnClient");
 const historyScheme = 'vc-ve-history';
+const svnCommitScheme = 'vc-ve-svn-commit';
 const svnLoadConcurrency = 8;
 const maximumCachedSvnRevisions = 128;
 const maximumCachedMethodHistories = 50;
 function registerCodeHistory(context, methodEditor, moduleEditor, openTaskReference) {
     const service = new CodeHistoryService(context.extensionUri, methodEditor, moduleEditor, openTaskReference);
-    context.subscriptions.push(service, vscode.workspace.registerTextDocumentContentProvider(historyScheme, service), vscode.window.registerWebviewViewProvider(CodeHistoryService.viewType, service, { webviewOptions: { retainContextWhenHidden: true } }), vscode.commands.registerTextEditorCommand('vc-ve-tools.showCodeHistory', editor => service.show(editor, false)), vscode.commands.registerTextEditorCommand('vc-ve-tools.showSelectionHistory', editor => service.show(editor, true)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiff', (methodId) => service.showLocalDiff(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnHistory', (methodId) => service.showWorkingCopyHistory(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnObjectHistory', (objectId) => service.showWorkingCopyObjectHistory(objectId)), vscode.commands.registerCommand('vc-ve-tools.svnBlame', (methodId) => service.showBlame(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiffFile', (fileName) => service.showFileLocalDiff(fileName)), vscode.commands.registerCommand('vc-ve-tools.openGeneratedPackageDiff', (fileName, generatedFileName) => service.showGeneratedPackageDiff(fileName, generatedFileName)), vscode.commands.registerCommand('vc-ve-tools.openPackageDatabaseDiff', (fileName, databaseContent, localContent) => service.showPackageDatabaseDiff(fileName, databaseContent, localContent)));
+    context.subscriptions.push(service, vscode.workspace.registerTextDocumentContentProvider(historyScheme, service), vscode.workspace.registerTextDocumentContentProvider(svnCommitScheme, service), vscode.window.registerWebviewViewProvider(CodeHistoryService.viewType, service, { webviewOptions: { retainContextWhenHidden: true } }), vscode.commands.registerTextEditorCommand('vc-ve-tools.showCodeHistory', editor => service.show(editor, false)), vscode.commands.registerTextEditorCommand('vc-ve-tools.showSelectionHistory', editor => service.show(editor, true)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiff', (methodId) => service.showLocalDiff(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnHistory', (methodId) => service.showWorkingCopyHistory(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnObjectHistory', (objectId) => service.showWorkingCopyObjectHistory(objectId)), vscode.commands.registerCommand('vc-ve-tools.svnBlame', (methodId) => service.showBlame(methodId)), vscode.commands.registerCommand('vc-ve-tools.svnLocalDiffFile', (fileName) => service.showFileLocalDiff(fileName)), vscode.commands.registerCommand('vc-ve-tools.openSvnCommitChanges', (repositoryRoot, revision) => service.openSvnCommitChanges(repositoryRoot, revision)), vscode.commands.registerCommand('vc-ve-tools.openGeneratedPackageDiff', (fileName, generatedFileName) => service.showGeneratedPackageDiff(fileName, generatedFileName)), vscode.commands.registerCommand('vc-ve-tools.openPackageDatabaseDiff', (fileName, databaseContent, localContent) => service.showPackageDatabaseDiff(fileName, databaseContent, localContent)));
 }
 class CodeHistoryService {
     extensionUri;
@@ -109,7 +110,35 @@ class CodeHistoryService {
             }
         });
     }
-    provideTextDocumentContent(uri) { return this.contents.get(uri.toString()) ?? ''; }
+    provideTextDocumentContent(uri) {
+        if (uri.scheme === svnCommitScheme) {
+            const query = new URLSearchParams(uri.query);
+            const root = query.get('root');
+            const revision = Number(query.get('revision'));
+            if (!root || !/^https?:\/\//i.test(root) || !Number.isSafeInteger(revision) || revision < 0) {
+                throw new Error('Invalid SVN revision resource.');
+            }
+            return (0, svnClient_1.svnCat)(svnFileUrl(root, uri.path), revision);
+        }
+        return this.contents.get(uri.toString()) ?? '';
+    }
+    async openSvnCommitChanges(repositoryRoot, revision) {
+        if (!/^https?:\/\//i.test(repositoryRoot) || !Number.isSafeInteger(revision) || revision < 1) {
+            throw new Error('Invalid SVN repository or revision.');
+        }
+        const changed = (await (0, svnClient_1.svnChangedPaths)(repositoryRoot, revision)).filter(item => item.kind === 'file');
+        if (!changed.length) {
+            throw new Error(`SVN r${revision} has no changed files.`);
+        }
+        const resources = changed.map(item => {
+            const label = vscode.Uri.from({ scheme: svnCommitScheme, path: item.path });
+            const at = (targetRevision) => vscode.Uri.from({ scheme: svnCommitScheme, path: item.path,
+                query: new URLSearchParams({ root: repositoryRoot, revision: String(targetRevision) }).toString() });
+            return [label, item.action === 'A' ? undefined : at(revision - 1),
+                item.action === 'D' ? undefined : at(revision)];
+        });
+        await vscode.commands.executeCommand('vscode.changes', `SVN r${revision} · ${changed.length} файлов`, resources);
+    }
     async show(editor, selectionOnly) {
         const operation = selectionOnly ? 'История выделенного кода' : 'История файла или метода';
         const title = selectionOnly ? 'История выделенного кода' : 'История кода';
@@ -139,6 +168,12 @@ class CodeHistoryService {
     async showLocalDiff(methodId) {
         await this.runSvnAction('Local Diff', methodId, async (fileName, id, sourceScheme) => {
             const local = await vscode.workspace.openTextDocument(vscode.Uri.file(fileName));
+            if (id !== undefined && sourceScheme !== moduleEditorProvider_1.moduleDocumentScheme && path.extname(fileName).toLowerCase() === '.pkf') {
+                const databaseCode = (await (0, methodRepository_1.getMethodSource)(id)).code;
+                const { before, after } = (0, pkfMethodExtraction_1.extractLocalPkfMethodDiff)(databaseCode, local.getText(), id);
+                await this.openDiff(`Код ${id} · локальный файл`, before, `Код ${id} · база данных`, after, '.pas', `Код ${id} · Local Diff`);
+                return;
+            }
             const stored = id === undefined
                 ? await (0, svnClient_1.svnCatBase)(fileName)
                 : sourceScheme === moduleEditorProvider_1.moduleDocumentScheme ? (await (0, moduleRepository_1.getModuleSource)(id)).code : (await (0, methodRepository_1.getMethodSource)(id)).code;
@@ -166,8 +201,8 @@ class CodeHistoryService {
     async showPackageDatabaseDiff(fileName, databaseContent, localContent) {
         const localUri = localContent === undefined
             ? (await vscode.workspace.openTextDocument(vscode.Uri.file(fileName))).uri
-            : this.store(`${path.basename(fileName)} · новый локальный файл`, localContent, path.extname(fileName));
-        await vscode.commands.executeCommand('vscode.diff', localUri, this.store(`${path.basename(fileName)} · версия из БД`, databaseContent, path.extname(fileName)), `${path.basename(fileName)} · БД ↔ файл`, { preview: true });
+            : this.store(`${path.basename(fileName)} · ${localContent ? 'базовая версия пакета' : 'новый локальный файл'}`, localContent, path.extname(fileName));
+        await vscode.commands.executeCommand('vscode.diff', localUri, this.store(`${path.basename(fileName)} · версия из БД`, databaseContent, path.extname(fileName)), `${path.basename(fileName)} · базовая версия ↔ БД`, { preview: true });
     }
     async showWorkingCopyHistory(methodId) {
         await this.runSvnAction('История SVN', methodId, async (fileName, resolvedMethodId) => {
@@ -446,6 +481,13 @@ function webviewHtml(webview, assetsRoot) {
 function formatDate(value) { return Number.isNaN(value.getTime()) ? 'дата неизвестна' : value.toLocaleString('ru-RU'); }
 function firstLine(value) { return value.trim().split(/\r?\n/, 1)[0] ?? ''; }
 function errorMessage(error) { return error instanceof Error ? error.message : String(error); }
+function svnFileUrl(repositoryRoot, repositoryPath) {
+    const segments = repositoryPath.split('/').filter(Boolean);
+    if (!repositoryPath.startsWith('/') || segments.some(segment => segment === '.' || segment === '..')) {
+        throw new Error('Invalid SVN repository path.');
+    }
+    return `${repositoryRoot.replace(/\/+$/, '')}/${segments.map(encodeURIComponent).join('/')}`;
+}
 function formatUser(entry) {
     if (entry.userName && entry.loginName && entry.userName !== entry.loginName) {
         return `${entry.userName} (${entry.loginName})`;

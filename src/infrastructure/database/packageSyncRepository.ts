@@ -8,7 +8,7 @@ import { createPackagePlaceholderIssues, isPackagePlaceholderItem, parsePackageP
 import { executeMonitoredQuery } from './databaseQueryExecutor';
 import { withProjectDatabaseSession } from './projectDatabaseSession';
 
-interface PackageSyncRow {
+export interface PackageSyncRow {
 	objectid: number;
 	objectclassid: number;
 	objectseniorid: number | null;
@@ -20,6 +20,7 @@ interface PackageSyncRow {
 	objectchangelastuser: string | number | null;
 	objectpath: string | null;
 	packagepath: string | null;
+	objectpathpackage?: number | null;
 	physicalfilename: string | null;
 }
 
@@ -39,9 +40,9 @@ interface PackageBoundaryRow {
 	changedby: string | number | null;
 }
 
-export async function loadPackageSyncSnapshot(): Promise<PackageSyncSnapshot> {
+export async function loadPackageSyncSnapshot(loadItems: () => Promise<PackageSyncItem[]> = loadPackageSyncItems): Promise<PackageSyncSnapshot> {
 	const boundaryIssuesPromise = loadPackageBoundaryIssues();
-	const items = await loadPackageSyncItems();
+	const items = await loadItems();
 	const [placeholderIssues, boundaryIssues] = await Promise.all([loadPackagePlaceholderIssues(items), boundaryIssuesPromise]);
 	return { items, issues: [...placeholderIssues, ...boundaryIssues] };
 }
@@ -176,10 +177,15 @@ export async function loadPackageSyncItems(): Promise<PackageSyncItem[]> {
 			}).catch(() => undefined),
 		]);
 		const packagesRoot = tuneResult?.rows[0]?.pathtopackages ?? workspacePackagesRoot();
-		return itemsResult.rows.map(row => {
-			const objectPath = row.objectpath ?? '';
-			const packagePath = row.packagepath ?? '';
-			return {
+		return mapPackageSyncRows(itemsResult.rows, packagesRoot);
+	});
+}
+
+export function mapPackageSyncRows(rows: readonly PackageSyncRow[], packagesRoot: string | undefined): PackageSyncItem[] {
+	return rows.map(row => {
+		const objectPath = row.objectpath ?? '';
+		const packagePath = row.packagepath ?? String(row.objectpathpackage ?? '');
+		return {
 				objectId: Number(row.objectid),
 				objectClassId: Number(row.objectclassid),
 				objectSeniorId: row.objectseniorid === null ? null : Number(row.objectseniorid),
@@ -192,8 +198,22 @@ export async function loadPackageSyncItems(): Promise<PackageSyncItem[]> {
 				objectPath,
 				packagePath,
 				localPath: packagesRoot ? resolveLocalPath(packagesRoot, packagePath, objectPath, row.physicalfilename ?? row.objectname ?? '') : undefined,
-			};
-		});
+		};
+	});
+}
+
+export async function loadPackageSyncRoot(): Promise<string | undefined> {
+	return withProjectDatabaseSession(async ({ client, options }) => {
+		const result = await executeMonitoredQuery<{ pathtopackages: string }>(client, {
+			text: `SELECT pathtopackages FROM packagestune
+			 WHERE upper(computername) = upper($1)
+			   AND NULLIF(trim(pathtopackages), '') IS NOT NULL
+			 LIMIT 1`,
+			values: [hostname()],
+			source: 'Синхронизация пакетов: путь к пакетам',
+			database: options.database,
+		}).catch(() => undefined);
+		return result?.rows[0]?.pathtopackages ?? workspacePackagesRoot();
 	});
 }
 

@@ -14,6 +14,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const features = registerFeatures(context, app, editors);
 	const navigation = await registerNavigation(context, app, editors, features);
 	const mcp = await registerMcp(context, app, navigation);
-	const workbench = registerWorkbench(context, editors, features);
+	const workbench = registerWorkbench(context, app, editors, features);
 	await registerWorkspace(context, app, features, mcp, workbench);
 }

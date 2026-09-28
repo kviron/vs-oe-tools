@@ -23,11 +23,8 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
         if (!classRow) {
             throw new Error(`Класс ${classId} не найден.`);
         }
-        if (classRow.virtual) {
-            throw new Error(`Класс ${classRow.name} является виртуальным и не имеет собственного списка объектов.`);
-        }
-        if (!classRow.dbtablename?.trim()) {
-            throw new Error(`Для класса ${classRow.name} не задана таблица хранения.`);
+        if (classRow.virtual || !classRow.dbtablename?.trim()) {
+            return getAbstractClassObjects(client, options.database, classRow, offset, limit, targetObjectId);
         }
         const physicalResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `SELECT table_schema, table_name, column_name
@@ -45,6 +42,18 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
         const selectedTable = physicalResult.rows[0].table_name;
         const physicalColumns = physicalResult.rows.filter(row => row.table_schema === selectedSchema && row.table_name === selectedTable);
         const physicalByLowerName = new Map(physicalColumns.map(row => [row.column_name.toLowerCase(), row.column_name]));
+        const classIdsResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `WITH RECURSIVE class_tree AS (
+				SELECT id FROM classes WHERE id = $1
+				UNION ALL
+				SELECT child.id FROM classes child JOIN class_tree parent ON child.seniorid = parent.id
+			)
+			SELECT id FROM class_tree`,
+            values: [classId],
+            source: `Классы списка объектов ${classRow.name}`,
+            database: options.database,
+        });
+        const classIds = classIdsResult.rows.map(row => Number(row.id)).filter(Number.isSafeInteger);
         const attributesResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
             text: `WITH RECURSIVE class_chain AS (
 			   SELECT id, seniorid, 0 AS depth, ARRAY[id] AS path FROM classes WHERE id = $1
@@ -86,8 +95,8 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
         }
         const source = `${quoteIdentifier(selectedSchema)}.${quoteIdentifier(selectedTable)}`;
         const classIdColumn = physicalByLowerName.get('classid');
-        const where = classIdColumn ? ` WHERE object_table.${quoteIdentifier(classIdColumn)} = $1` : '';
-        const values = classIdColumn ? [classId] : [];
+        const where = classIdColumn ? ` WHERE object_table.${quoteIdentifier(classIdColumn)} = ANY($1::bigint[])` : '';
+        const values = classIdColumn ? [classIds] : [];
         let effectiveOffset = offset;
         if (targetObjectId !== undefined && idColumn) {
             if (!Number.isSafeInteger(targetObjectId) || targetObjectId <= 0) {
@@ -140,6 +149,72 @@ async function getClassObjects(classId, offset = 0, limit = exports.classObjectP
             hasMore: effectiveOffset + normalizedRows.length < totalCount,
         };
     });
+}
+async function getAbstractClassObjects(client, database, classRow, offset, limit, targetObjectId) {
+    const classTree = `WITH RECURSIVE class_tree AS (
+		SELECT id FROM classes WHERE id = $1
+		UNION ALL
+		SELECT child.id FROM classes child JOIN class_tree parent ON child.seniorid = parent.id
+	)`;
+    const classFilter = `object.classid = ANY(SELECT id FROM class_tree)`;
+    const values = [classRow.id];
+    let effectiveOffset = offset;
+    if (targetObjectId !== undefined) {
+        if (!Number.isSafeInteger(targetObjectId) || targetObjectId <= 0) {
+            throw new Error('ID выделяемого элемента справочника должен быть положительным целым числом.');
+        }
+        const targetParameter = values.length + 1;
+        const positionResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+            text: `${classTree}
+				SELECT COUNT(*) FILTER (WHERE object.id < $${targetParameter})::text AS position,
+				 BOOL_OR(object.id = $${targetParameter}) AS found
+				 FROM abstract AS object WHERE ${classFilter}`,
+            values: [...values, targetObjectId],
+            source: `Позиция объекта ${targetObjectId} в классе ${classRow.name}`,
+            database,
+        });
+        const position = Number(positionResult.rows[0]?.position ?? 0);
+        if (positionResult.rows[0]?.found && Number.isSafeInteger(position) && position >= 0) {
+            effectiveOffset = Math.floor(position / limit) * limit;
+        }
+    }
+    const countResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+        text: `${classTree} SELECT COUNT(*)::text AS count FROM abstract AS object WHERE ${classFilter}`,
+        values, source: `Количество объектов класса ${classRow.name}`, database,
+    });
+    const rowsResult = await (0, databaseQueryExecutor_1.executeMonitoredQuery)(client, {
+        text: `${classTree}
+			SELECT object.id AS "ID", object.name AS "Name", object.seniorid AS "SeniorID",
+			file.filename AS "__file", package.packagename AS "__package"
+			FROM abstract AS object
+			LEFT JOIN sysfile AS file ON file.id = object.sysfile
+			LEFT JOIN sysgroups AS file_group ON file_group.id = file.sysgroup
+			LEFT JOIN syspackages AS package ON package.id = file_group.package
+			WHERE ${classFilter}
+			ORDER BY object.id
+			LIMIT $2 OFFSET $3`,
+        values: [...values, limit, effectiveOffset],
+        source: `Объекты класса ${classRow.name} из метаданных`, database,
+    });
+    const columns = [
+        { attributeId: '', key: 'ID', title: '_Ид', attributeName: '_Ид', reference: false },
+        { attributeId: '', key: 'Name', title: 'Имя', attributeName: 'Имя', reference: false },
+        { attributeId: '', key: 'SeniorID', title: 'Родитель', attributeName: 'Родитель', reference: false },
+        { attributeId: '', key: '__file', title: 'Файл', attributeName: 'Файл', reference: false },
+        { attributeId: '', key: '__package', title: 'Пакет', attributeName: 'Пакет', reference: false },
+    ];
+    const normalizedRows = rowsResult.rows.map(row => normalizeRow(row, columns));
+    const totalCount = Number(countResult.rows[0]?.count ?? normalizedRows.length);
+    return {
+        classId: classRow.id,
+        className: classRow.name,
+        columns,
+        rows: normalizedRows,
+        totalCount,
+        offset: effectiveOffset,
+        limit,
+        hasMore: effectiveOffset + normalizedRows.length < totalCount,
+    };
 }
 function normalizeRow(row, columns) {
     const values = new Map(Object.entries(row).map(([key, value]) => [key.toLowerCase(), serializableValue(value)]));
