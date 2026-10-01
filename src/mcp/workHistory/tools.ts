@@ -123,10 +123,10 @@ export function registerWorkHistoryTools(server: McpToolServer): void {
 	}, async input => run(store => ({ candidates: store.searchKnowledgeCandidates(input.search, input.status, input.limit) })));
 
 	server.registerTool<Omit<TaskProgress, 'workspace'>>('save_task_progress', {
-		description: 'Create a task record when work starts or update its current progress. Status is in_progress or blocked; use save_completed_task after completion.',
+		description: 'Create or update a task. Set agentWorking while actively working; clear it on pause. Blocked tasks are never active. Use save_completed_task after completion.',
 		inputSchema: {
 			taskNumber: z.string().min(1), title: z.string().min(1), progress: z.string().min(1),
-			status: z.enum(['in_progress', 'blocked']), summary: z.string().optional(),
+			status: z.enum(['in_progress', 'blocked']), agentWorking: z.boolean().optional(), summary: z.string().optional(),
 			changes: z.string().optional(), verification: z.string().optional(),
 			limitations: z.string().optional(), databaseProfile: z.string().optional(),
 			sources: z.array(z.string()).optional(),

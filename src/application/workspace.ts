@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import { registerProjectDatabaseCommands, registerUserIdCommand } from '../features/project';
 import { registerSqlMonitorCommand } from '../features/sql-monitor';
 import { registerExplorerCommands } from '../features/explorer';
+import { onClassesDatabaseChanged } from '../features/classes';
+import { onPackagesDatabaseChanged } from '../features/packages';
+import { onSpuDatabaseChanged } from '../features/spu';
 import { registerLifecycle } from './lifecycle';
 import { createDatabaseChangeHandler } from './databaseChange';
 import type { bootstrap } from './bootstrap';
@@ -18,7 +21,14 @@ export async function registerWorkspace(
 ): Promise<void> {
 	context.subscriptions.push(registerLifecycle({
 		onDatabaseConfigurationChange: createDatabaseChangeHandler({
-			selection: app.selection, explorer: features.explorerProvider, packageSync: workbench.packageSyncProvider,
+			selection: app.selection,
+			onDatabaseChanged: [
+				onClassesDatabaseChanged,
+				onPackagesDatabaseChanged,
+				onSpuDatabaseChanged,
+				() => features.explorerProvider.refreshClasses(),
+				() => workbench.packageSyncProvider.refreshForDatabaseChange(),
+			],
 		}),
 		onMcpConfigurationChange: mcp.onConfigurationChange,
 		onProjectConfigurationChange: features.project.onConfigurationChange,
@@ -29,5 +39,5 @@ export async function registerWorkspace(
 	registerProjectDatabaseCommands(context);
 	registerSqlMonitorCommand(context);
 	registerExplorerCommands(context, features.explorerProvider);
-	registerUserIdCommand(context, () => features.project.settingsProvider.refresh());
+	registerUserIdCommand(context, () => features.settingsProvider.refresh());
 }

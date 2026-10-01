@@ -47,7 +47,7 @@ function copyId(): void {
   vscode.postMessage({ command: 'copyEntityId', id: ids?.join(';') ?? currentId });
 }
 function openInClient(role: 'main' | 'test'): void {
-  if (effectiveEntityId.value === undefined || !props.entityType) return;
+  if (effectiveEntityId.value === undefined) return;
   const id = Number(effectiveEntityId.value);
   if (Number.isSafeInteger(id)) vscode.postMessage({ command: 'openClientEntity', role, entityType: props.entityType, id });
 }
@@ -101,7 +101,7 @@ function viewProperties(): void {
         {{ effectiveEntityId !== undefined && selectedIds.includes(effectiveEntityId) && selectedIds.length > 1 ? `Скопировать ID (${selectedIds.length})` : 'Скопировать ID' }}
         <ContextMenuShortcut v-if="copyShortcut">{{ copyShortcut }}</ContextMenuShortcut>
       </ContextMenuItem>
-      <ContextMenuSub v-if="effectiveEntityId !== undefined && entityType">
+      <ContextMenuSub v-if="effectiveEntityId !== undefined">
         <ContextMenuSubTrigger>
           <HugeiconsIcon :icon="ViewIcon" data-icon="inline-start" />
           Открыть в клиенте

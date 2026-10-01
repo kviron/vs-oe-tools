@@ -1,33 +1,21 @@
 import type * as vscode from 'vscode';
 import { databaseProfileSetting, databaseRoleSetting } from '../core/constants';
-import { closeClassDetailPanels, closeAttributeDetailPanels, closePropertyDetailPanels, closeEntityPropertiesPanels, closeClassObjectPanels, closeObjectViewPanels } from '../features/classes';
-import { closePackageContentPanels } from '../features/packages';
-import { closeSpuEditorPanels } from '../features/spu';
-import type { ExplorerViewProvider } from '../features/explorer';
-import type { PackageSyncPanelManager } from '../features/package-sync';
-import type { createDatabaseSelection } from '../features/project';
 
 interface Dependencies {
-	selection: ReturnType<typeof createDatabaseSelection>;
-	explorer: ExplorerViewProvider;
-	packageSync: PackageSyncPanelManager;
+	selection: {
+		publishActive(): Promise<void>;
+		publishWorkspace(): Promise<void>;
+	};
+	onDatabaseChanged: ReadonlyArray<() => void | Promise<void>>;
 }
 
-export function createDatabaseChangeHandler({ selection, explorer, packageSync }: Dependencies) {
+/** Publishes the selection before invalidating feature state in the supplied order. */
+export function createDatabaseChangeHandler({ selection, onDatabaseChanged }: Dependencies) {
 	return async (event: vscode.ConfigurationChangeEvent): Promise<void> => {
 		if (!event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)
 			&& !event.affectsConfiguration(`vcVeTools.${databaseProfileSetting}`)) { return; }
 		await selection.publishActive();
 		await selection.publishWorkspace();
-		closeClassDetailPanels();
-		closeAttributeDetailPanels();
-		closePropertyDetailPanels();
-		closeEntityPropertiesPanels();
-		closeClassObjectPanels();
-		closeObjectViewPanels();
-		closePackageContentPanels();
-		closeSpuEditorPanels();
-		explorer.refreshClasses();
-		packageSync.refreshForDatabaseChange();
+		for (const handler of onDatabaseChanged) { await handler(); }
 	};
 }

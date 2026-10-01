@@ -7,7 +7,7 @@ import { formatSqlResult } from '../features/sql-executor/sqlResultExport';
 import { adaptCompositeDateTimeFields } from '../features/sql-executor/sqlDialectAdapter';
 import { parseVarsFile } from '../infrastructure/configuration/projectDatabaseOptions';
 import { parseRdboadmIni, rdboadmDatabaseOptions, resolveRdboadmPath, updateRdboadmSection } from '../infrastructure/configuration/rdboadmIni';
-import { createClientLaunchCommand, parseClientLaunchArguments } from '../features/project/projectCommandService';
+import { createClientLaunchCommand, parseClientLaunchArguments } from '../features/project/clientLaunchService';
 import { activeDatabaseStatusText, projectRoleActions } from '../features/project/projectStatusBar';
 import { getActiveDatabaseSelectionPath } from '../core/databaseSelection';
 // import * as myExtension from '../../extension';
@@ -22,7 +22,17 @@ suite('Extension Test Suite', () => {
 		assert.equal(extension.isActive, true);
 	});
 
-	test('Vars.bat parser supports quoted and role-specific variables', () => {
+	test('opens the bundled relationship map editor', async () => {
+  const extension = vscode.extensions.getExtension('Kviron.vc-ve-tools');
+  assert.ok(extension);
+  await extension.activate();
+  const result = await vscode.commands.executeCommand<{ opened: boolean; directory: string }>('vc-ve-tools.openRelationshipMap');
+  assert.equal(result?.opened, true);
+  assert.ok(result?.directory);
+  await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+ });
+
+ test('Vars.bat parser supports quoted and role-specific variables', () => {
 		const variables = parseVarsFile([
 			'@set "devDBName_main=production"',
 			'set devDBName_test = test_database',
@@ -63,11 +73,11 @@ suite('Extension Test Suite', () => {
 			'main',
 			{ host: 'localhost', database: 'oetrunk' },
 			{ username: 'ВЭ_Пользователь', password: 'secret' },
-			'oe-oetrunk:/open/Метод/11158589',
+			'oe-oetrunk:/edit/11158589',
 		);
 		assert.strictEqual(
 			command,
-			'start "" /D "C:\\OE\\trunk\\bin" "C:\\OE\\trunk\\bin\\fme.exe" -NoSelfUpdate "oe-oetrunk:/open/Метод/11158589" -l "host=localhost,db=oetrunk,username=ВЭ_Пользователь,password=secret,MultiLogin=True" -ok',
+			'start "" /D "C:\\OE\\trunk\\bin" "C:\\OE\\trunk\\bin\\fme.exe" -NoSelfUpdate "oe-oetrunk:/edit/11158589" -l "host=localhost,db=oetrunk,username=ВЭ_Пользователь,password=secret,MultiLogin=True" -ok',
 		);
 		assert.ok(!/\.bat|\bcall\b/iu.test(command));
 		assert.throws(

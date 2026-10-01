@@ -32,6 +32,7 @@ const connectionRules = (action: NavigationAction): Rule[] => [
 ];
 
 export const navigationRequestRules = {
+	relationship_map: { rules: [valid(input => Boolean(input.mapRequest) && typeof input.mapRequest === "object", "mapRequest is required.")] },
 	confirm_sql_mutation: { rules: [valid(input => nonempty(input.sql) && nonempty(input.database),
 		'SQL and database are required for confirm_sql_mutation.')] },
 	reveal_class: { requiresId: true },
@@ -99,8 +100,8 @@ export const navigationRequestRules = {
 	update_binaries: {},
 	update_database: { rules: [role('update_database')] },
 	start_client: { rules: [role('start_client')] },
-	open_client_entity: { requiresId: true, rules: [role('open_client_entity'),
-		valid(input => nonempty(input.entityType), 'entityType is required for open_client_entity.')] },
+	get_client_status: { rules: [role('get_client_status')] },
+	open_client_entity: { requiresId: true, rules: [role('open_client_entity')] },
 } satisfies Record<NavigationAction, ActionRules>;
 
 export function isNavigationAction(value: unknown): value is NavigationAction {

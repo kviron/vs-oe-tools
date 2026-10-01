@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { clientUsernameSetting } from '../../core/constants';
-import type { ClientCredentials } from './projectCommandService';
+import type { ClientCredentials } from './clientLaunchService';
 
 export function createClientCredentials(context: vscode.ExtensionContext, workspacePath: string | undefined) {
 	const passwordKey = `vcVeTools.clientPassword:${workspacePath?.toLowerCase() ?? 'default'}`;

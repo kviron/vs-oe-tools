@@ -22,6 +22,7 @@ export class KnowledgeHistoryPanel implements vscode.Disposable {
 	}
 
 	private handleMessage(message: KnowledgeHistoryWebviewMessage): void {
+		if (message.command === 'knowledgeHistoryPollTasks') { void this.pollTasks(); return; }
 		if (message.command === 'knowledgeHistoryChooseRepository') { void this.chooseRepository(); return; }
 		if (message.command === 'knowledgeHistoryOpenArticle') { void this.openArticle(message.id); return; }
 		if (message.command === 'knowledgeHistoryOpenObject') {
@@ -45,6 +46,16 @@ export class KnowledgeHistoryPanel implements vscode.Disposable {
 	}
 
 	private webview(): vscode.Webview | undefined { return this.embeddedWebview ?? this.panel?.webview; }
+
+	private async pollTasks(): Promise<void> {
+		try {
+			const store = new WorkHistoryStore(this.historyPath);
+			try { await this.webview()?.postMessage({ command: 'knowledgeHistoryTasksUpdated', tasks: store.searchTasks(this.search, 200, false) }); }
+			finally { store.close(); }
+		} catch (error) {
+			await this.webview()?.postMessage({ command: 'knowledgeHistoryFailed', message: errorMessage(error) });
+		}
+	}
 
 	show(): void {
 		if (this.panel) {
@@ -151,6 +162,7 @@ function isMessage(value: unknown): value is KnowledgeHistoryWebviewMessage {
 	if (!value || typeof value !== 'object' || !('command' in value)) { return false; }
 	const message = value as Record<string, unknown>;
 	if (message.command === 'knowledgeHistoryReady' || message.command === 'knowledgeHistoryRefresh'
+		|| message.command === 'knowledgeHistoryPollTasks'
 		|| message.command === 'knowledgeHistoryChooseRepository') { return true; }
 	if (message.command === 'knowledgeHistorySearch') { return typeof message.search === 'string'; }
 	if (message.command === 'knowledgeHistoryOpenArticle') { return typeof message.id === 'string'; }

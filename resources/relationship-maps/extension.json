@@ -1,0 +1,1854 @@
+{
+  "schemaVersion": 2,
+  "title": "Карта расширения Восточный Экспресс",
+  "sourceRoot": "C:/dev/vc-ve-tools",
+  "edgeTypes": {
+    "calls": "вызывает",
+    "uses": "использует",
+    "event": "реагирует на событие",
+    "process": "запускает процесс",
+    "proposal": "предлагается"
+  },
+  "nodes": [
+    {
+      "id": "entry",
+      "kind": "entry",
+      "title": "VS Code: activate",
+      "description": "Вход расширения; передаёт context приложению.",
+      "x": 40,
+      "y": 250,
+      "file": "src/extension.ts",
+      "line": 4,
+      "symbol": "activate"
+    },
+    {
+      "id": "app",
+      "kind": "stage",
+      "title": "activate: порядок стадий",
+      "description": "Последовательно запускает стадии приложения.",
+      "x": 330,
+      "y": 250,
+      "file": "src/application/activate.ts",
+      "line": 11,
+      "symbol": "activate"
+    },
+    {
+      "id": "bootstrap",
+      "kind": "stage",
+      "title": "bootstrap",
+      "description": "Лог, SQL монитор, рабочая папка, выбор БД и учётные данные.",
+      "x": 701.0703802271144,
+      "y": 323.32731207368266,
+      "file": "src/application/bootstrap.ts",
+      "line": 8,
+      "symbol": "bootstrap"
+    },
+    {
+      "id": "editors",
+      "kind": "stage",
+      "title": "registerEditors",
+      "description": "Редакторы методов, модулей и DFM; история компиляции.",
+      "x": 669.6424539335055,
+      "y": 139.64358291969003,
+      "file": "src/application/editors.ts",
+      "line": 7,
+      "symbol": "registerEditors"
+    },
+    {
+      "id": "features",
+      "kind": "stage",
+      "title": "registerFeatures",
+      "description": "Проект, классы, проводник, задачи и история кода.",
+      "x": 668.3329570046051,
+      "y": -45.34964316320297,
+      "file": "src/application/features.ts",
+      "line": 11,
+      "symbol": "registerFeatures"
+    },
+    {
+      "id": "navigation",
+      "kind": "stage",
+      "title": "registerNavigation",
+      "description": "Действия агента, мост навигации, установка skill.",
+      "x": 650,
+      "y": 465,
+      "file": "src/application/navigation.ts",
+      "line": 8,
+      "symbol": "registerNavigation"
+    },
+    {
+      "id": "mcp",
+      "kind": "stage",
+      "title": "registerMcp",
+      "description": "Публикует состояние и регистрирует отдельный MCP сервер.",
+      "x": 650,
+      "y": 610,
+      "file": "src/application/mcp.ts",
+      "line": 8,
+      "symbol": "registerMcp"
+    },
+    {
+      "id": "workbench",
+      "kind": "stage",
+      "title": "registerWorkbench",
+      "description": "Панели синхронизации, классов, SQL и нативных логов.",
+      "x": 650,
+      "y": 755,
+      "file": "src/application/workbench.ts",
+      "line": 11,
+      "symbol": "registerWorkbench"
+    },
+    {
+      "id": "workspace",
+      "kind": "stage",
+      "title": "registerWorkspace",
+      "description": "События конфигурации и команды рабочего пространства.",
+      "x": 650,
+      "y": 900,
+      "file": "src/application/workspace.ts",
+      "line": 15,
+      "symbol": "registerWorkspace"
+    },
+    {
+      "id": "project",
+      "kind": "feature",
+      "title": "Проект",
+      "description": "Регистрирует команды проекта и status bar; контроллер кодировки владеет настройками и подавлением повторных событий.",
+      "x": 1264.0424042066716,
+      "y": -213.80441649107013,
+      "file": "src/features/project/register.ts",
+      "line": 18,
+      "symbol": "registerProject"
+    },
+    {
+      "id": "classes",
+      "kind": "feature",
+      "title": "Классы и карточки",
+      "description": "Класс, атрибуты, свойства, объекты и панели деталей.",
+      "x": 1011.3094969289002,
+      "y": 117.97766891047974,
+      "file": "src/features/classes/register.ts",
+      "line": 14,
+      "symbol": "registerClasses"
+    },
+    {
+      "id": "explorer",
+      "kind": "feature",
+      "title": "Проводник объектов",
+      "description": "Навигация по объектам и действия из буфера.",
+      "x": 1010,
+      "y": 261.6681719815794,
+      "file": "src/features/explorer/register.ts",
+      "line": 30,
+      "symbol": "registerExplorer"
+    },
+    {
+      "id": "tasks",
+      "kind": "feature",
+      "title": "Производственные задачи",
+      "description": "Сессия OENP, список, карточка и ссылки задач.",
+      "x": 1265.3519011355716,
+      "y": -38.56078384454613,
+      "file": "src/features/production-tasks/register.ts",
+      "line": 18,
+      "symbol": "registerProductionTasks"
+    },
+    {
+      "id": "history",
+      "kind": "feature",
+      "title": "История кода",
+      "description": "История исходников и переходы по ссылкам.",
+      "x": 1010,
+      "y": 625,
+      "file": "src/features/code-history/index.ts"
+    },
+    {
+      "id": "package",
+      "kind": "feature",
+      "title": "Синхронизация пакетов",
+      "description": "Показывает изменения и обновляет состояние при смене БД.",
+      "x": 1010,
+      "y": 770,
+      "file": "src/features/package-sync/register.ts",
+      "line": 8,
+      "symbol": "registerPackageSync"
+    },
+    {
+      "id": "sql",
+      "kind": "feature",
+      "title": "SQL и логи",
+      "description": "SQL редактор, монитор запросов и нативные журналы.",
+      "x": 1010,
+      "y": 915,
+      "file": "src/features/sql-executor/register.ts",
+      "line": 4,
+      "symbol": "registerSqlExecutor"
+    },
+    {
+      "id": "bridge",
+      "kind": "service",
+      "title": "Мост навигации агента",
+      "description": "Связывает MCP действия с редакторами и панелями VS Code.",
+      "x": 1376.1899385780073,
+      "y": 517.3798771560148,
+      "file": "src/features/ai/navigationBridge.ts",
+      "line": 17,
+      "symbol": "startNavigationBridge"
+    },
+    {
+      "id": "mcpProvider",
+      "kind": "service",
+      "title": "MCP provider",
+      "description": "Запускает отдельный stdio процесс с профилем БД.",
+      "x": 1010,
+      "y": 1060,
+      "file": "src/mcp/registerMcpServer.ts",
+      "line": 10,
+      "symbol": "registerDatabaseMcpServer"
+    },
+    {
+      "id": "mcpServer",
+      "kind": "service",
+      "title": "MCP server",
+      "description": "Регистрирует локальные и федеративные инструменты; пишет аудит вызовов.",
+      "x": 1350,
+      "y": 1060,
+      "file": "src/mcp/server.ts",
+      "symbol": "main"
+    },
+    {
+      "id": "tools",
+      "kind": "service",
+      "title": "Каталог MCP инструментов",
+      "description": "Собирает 11 каталогов областей. Стабильные позиции сохраняют прежнюю последовательность публичных MCP-инструментов.",
+      "x": 1690,
+      "y": 1060,
+      "file": "src/mcp/tools/registration.ts",
+      "line": 30,
+      "symbol": "registerTools"
+    },
+    {
+      "id": "settings",
+      "kind": "feature",
+      "title": "Панель настроек",
+      "description": "Обслуживает панели настроек и HTTP API, маршрутизирует сообщения и собирает общий снимок. Аудит выявил повторную загрузку SQL через журнал и гонки обновления.",
+      "x": 1264.7438063057734,
+      "y": -398.8758485481894,
+      "status": "review",
+      "file": "src/features/settings/settingsViewProvider.ts",
+      "line": 17,
+      "symbol": "SettingsViewProvider",
+      "audit": "P1: SQL-ошибка HTTP-каталога через журнал повторно запускает getState. P2: параллельные снимки без защиты от устаревания; void Promise без catch; HTTP-панель зависит от таймера настроек. Подробности: settings-audit.md.",
+      "attributes": {
+        "Ответственность": "Две webview-панели, маршрутизация сообщений, агрегирование состояния",
+        "Зависимости": "SettingsProjectActions; SettingsServices; logger; credentials; configuration/rdboadm; knowledge MCP",
+        "Побочные эффекты": "Запись настроек и rdboadm.ini, операции проекта, HTTP/MCP, clipboard, SQL чтение каталога",
+        "P1 — цикл обновления": "logger.onDidChange → postState → getState → HTTP SQL → ошибка → журнал → postState",
+        "P2 — гонки": "Нет объединения postState и отбрасывания старых снимков; выбор может измениться во время await",
+        "P2 — ошибки UI": "Обработчики void handleMessage без общего catch; поиск параметров может остаться в loading",
+        "P2 — HTTP статус": "Таймер существует только с панелью настроек и проверяет её visible",
+        "Граница проверки": "Статический аудит + изолированный mock повторного входа; live runtime не проверен",
+        "Первый шаг": "Разорвать обновление через журнал, отделить каталог от снимка, объединять обновления",
+        "Дата аудита": "2026-10-01",
+        "Отчёт": "docs/architecture-canvas/settings-audit.md"
+      },
+      "sourceRefs": [
+        {
+          "kind": "documentation",
+          "uri": "file:///C:/dev/vc-ve-tools/docs/architecture-canvas/settings-audit.md",
+          "label": "Подробный аудит настроек"
+        }
+      ]
+    },
+    {
+      "id": "databaseChange",
+      "kind": "stage",
+      "title": "Смена активной БД",
+      "description": "Публикует выбор БД и последовательно вызывает обработчики областей. Порядок задаётся в registerWorkspace.",
+      "x": 1360,
+      "y": 610,
+      "file": "src/application/databaseChange.ts",
+      "line": 13,
+      "symbol": "createDatabaseChangeHandler"
+    },
+    {
+      "id": "lifecycle",
+      "kind": "stage",
+      "title": "События VS Code",
+      "description": "Слушает настройки, папки и фокус окна.",
+      "x": 1360,
+      "y": 755,
+      "file": "src/application/lifecycle.ts",
+      "line": 11,
+      "symbol": "registerLifecycle"
+    },
+    {
+      "id": "workHistory",
+      "kind": "service",
+      "title": "История работы SQLite",
+      "description": "Хранит задачи, события и аудит вызовов MCP.",
+      "x": 1690,
+      "y": 755,
+      "file": "src/mcp/workHistory/store.ts",
+      "line": 34,
+      "symbol": "WorkHistoryStore"
+    },
+    {
+      "id": "federated",
+      "kind": "service",
+      "title": "Федеративные MCP инструменты",
+      "description": "Добавляет инструменты внешних каталогов к локальному серверу.",
+      "x": 1690,
+      "y": 900,
+      "file": "src/mcp/gateway/federatedTools.ts",
+      "line": 60,
+      "symbol": "registerFederatedTools"
+    },
+    {
+      "id": "workHistoryTools",
+      "kind": "service",
+      "title": "MCP инструменты истории",
+      "description": "Регистрируются отдельно от списка локальных инструментов.",
+      "x": 1690,
+      "y": 1180,
+      "file": "src/mcp/workHistory/tools.ts",
+      "line": 24,
+      "symbol": "registerWorkHistoryTools"
+    },
+    {
+      "id": "proposalDomainPorts",
+      "kind": "service",
+      "title": "Контракты настроек",
+      "description": "Контракты отделяют UI от реализации проекта. SettingsServices задаёт Pick конкретных сервисов и объединяет операции с полями состояния.",
+      "x": 1576.0737671856677,
+      "y": -390.5865018926198,
+      "file": "src/features/settings/contracts.ts",
+      "line": 6,
+      "symbol": "SettingsProjectActions",
+      "audit": "P3: узкий проектный контракт полезен; сервисный контракт связан с конкретными классами и широк для одной панели.",
+      "attributes": {
+        "Назначение": "Операции проекта и сервисов, доступные UI",
+        "SettingsProjectActions": "Шесть операций проекта без передачи целого project service",
+        "SettingsServices": "Pick<ClientMcpService> и Pick<HttpApiService>, включая поля состояния",
+        "Рекомендация": "При разделении панелей давать каждой только нужные действия и снимок состояния",
+        "Дата аудита": "2026-10-01",
+        "Отчёт": "docs/architecture-canvas/settings-audit.md"
+      },
+      "sourceRefs": [
+        {
+          "kind": "documentation",
+          "uri": "file:///C:/dev/vc-ve-tools/docs/architecture-canvas/settings-audit.md",
+          "label": "Подробный аудит настроек"
+        }
+      ]
+    },
+    {
+      "id": "proposalDatabaseEvents",
+      "kind": "stage",
+      "title": "Порядок реакций областей",
+      "description": "Реализовано: классы → пакеты → SPU → проводник → синхронизация пакетов.",
+      "x": 1690,
+      "y": 470,
+      "file": "src/application/workspace.ts",
+      "line": 15,
+      "symbol": "registerWorkspace"
+    },
+    {
+      "id": "proposalMcpGroups",
+      "kind": "service",
+      "title": "Позиции инструментов MCP",
+      "description": "Реализовано: каталоги областей содержат пары [позиция, регистрация]. Порядок закреплён тестом совместимости.",
+      "x": 1690,
+      "y": 1320,
+      "file": "src/mcp/tools/registrationTypes.ts",
+      "line": 6,
+      "symbol": "OrderedToolRegistration"
+    },
+    {
+      "id": "tool-listDatabases",
+      "kind": "service",
+      "title": "listDatabases",
+      "description": "MCP инструмент · database. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 30,
+      "file": "src/mcp/tools/database/listDatabases.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getActiveDatabase",
+      "kind": "service",
+      "title": "getActiveDatabase",
+      "description": "MCP инструмент · database. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 150,
+      "file": "src/mcp/tools/database/getActiveDatabase.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-switchDatabase",
+      "kind": "service",
+      "title": "switchDatabase",
+      "description": "MCP инструмент · database. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 270,
+      "file": "src/mcp/tools/database/switchDatabase.ts",
+      "line": 7,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-lookupObjectById",
+      "kind": "service",
+      "title": "lookupObjectById",
+      "description": "MCP инструмент · database. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 390,
+      "file": "src/mcp/tools/database/lookupObjectById.ts",
+      "line": 7,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-checkObjectPackageBinding",
+      "kind": "service",
+      "title": "checkObjectPackageBinding",
+      "description": "MCP инструмент · packages. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 510,
+      "file": "src/mcp/tools/packages/checkObjectPackageBinding.ts",
+      "line": 69,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-bindObjectsToPackage",
+      "kind": "service",
+      "title": "bindObjectsToPackage",
+      "description": "MCP инструмент · packages. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 630,
+      "file": "src/mcp/tools/packages/bindObjectsToPackage.ts",
+      "line": 12,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-searchDatabaseObjects",
+      "kind": "service",
+      "title": "searchDatabaseObjects",
+      "description": "MCP инструмент · database. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 750,
+      "file": "src/mcp/tools/database/searchDatabaseObjects.ts",
+      "line": 7,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-searchClasses",
+      "kind": "service",
+      "title": "searchClasses",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 870,
+      "file": "src/mcp/tools/classes/searchClasses.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getClassDetails",
+      "kind": "service",
+      "title": "getClassDetails",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 990,
+      "file": "src/mcp/tools/classes/getClassDetails.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-createLocalToolClass",
+      "kind": "service",
+      "title": "createLocalToolClass",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 1110,
+      "file": "src/mcp/tools/classes/createLocalToolClass.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getClassDictionary",
+      "kind": "service",
+      "title": "getClassDictionary",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 1230,
+      "file": "src/mcp/tools/classes/getClassDictionary.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-searchClassDictionary",
+      "kind": "service",
+      "title": "searchClassDictionary",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 1350,
+      "file": "src/mcp/tools/classes/searchClassDictionary.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getClassAttributes",
+      "kind": "service",
+      "title": "getClassAttributes",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 1470,
+      "file": "src/mcp/tools/classes/getClassAttributes.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getAttributeDetails",
+      "kind": "service",
+      "title": "getAttributeDetails",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 1590,
+      "file": "src/mcp/tools/classes/getAttributeDetails.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getAttributeCreationOptions",
+      "kind": "service",
+      "title": "getAttributeCreationOptions",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 1710,
+      "file": "src/mcp/tools/classes/getAttributeCreationOptions.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getMethodCreationOptions",
+      "kind": "service",
+      "title": "getMethodCreationOptions",
+      "description": "MCP инструмент · methods. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 1830,
+      "file": "src/mcp/tools/methods/getMethodCreationOptions.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getClassProperties",
+      "kind": "service",
+      "title": "getClassProperties",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 1950,
+      "file": "src/mcp/tools/classes/getClassProperties.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getPropertyDetails",
+      "kind": "service",
+      "title": "getPropertyDetails",
+      "description": "MCP инструмент · classes. Откройте файл для контракта и обработчика.",
+      "x": 2090,
+      "y": 2070,
+      "file": "src/mcp/tools/classes/getPropertyDetails.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-searchMethods",
+      "kind": "service",
+      "title": "searchMethods",
+      "description": "MCP инструмент · methods. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 30,
+      "file": "src/mcp/tools/methods/searchMethods.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-resolveMethodReference",
+      "kind": "service",
+      "title": "resolveMethodReference",
+      "description": "MCP инструмент · methods. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 150,
+      "file": "src/mcp/tools/methods/resolveMethodReference.ts",
+      "line": 10,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getMethodSource",
+      "kind": "service",
+      "title": "getMethodSource",
+      "description": "MCP инструмент · methods. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 270,
+      "file": "src/mcp/tools/methods/getMethodSource.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-updateMethodSource",
+      "kind": "service",
+      "title": "updateMethodSource",
+      "description": "MCP инструмент · methods. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 390,
+      "file": "src/mcp/tools/methods/updateMethodSource.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-compileMethod",
+      "kind": "service",
+      "title": "compileMethod",
+      "description": "MCP инструмент · methods. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 510,
+      "file": "src/mcp/tools/methods/compileMethod.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-createClassMethodChecked",
+      "kind": "service",
+      "title": "createClassMethodChecked",
+      "description": "MCP инструмент · methods. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 630,
+      "file": "src/mcp/tools/methods/createClassMethodChecked.ts",
+      "line": 21,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getMethodCompilationHistory",
+      "kind": "service",
+      "title": "getMethodCompilationHistory",
+      "description": "MCP инструмент · methods. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 750,
+      "file": "src/mcp/tools/methods/getMethodCompilationHistory.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getModuleSource",
+      "kind": "service",
+      "title": "getModuleSource",
+      "description": "MCP инструмент · sources. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 870,
+      "file": "src/mcp/tools/sources/getModuleSource.ts",
+      "line": 18,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-updateModuleSource",
+      "kind": "service",
+      "title": "updateModuleSource",
+      "description": "MCP инструмент · sources. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 990,
+      "file": "src/mcp/tools/sources/updateModuleSource.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getLifecycleFunctionCatalog",
+      "kind": "service",
+      "title": "getLifecycleFunctionCatalog",
+      "description": "MCP инструмент · lifecycle. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 1110,
+      "file": "src/mcp/tools/lifecycle/getLifecycleFunctionCatalog.ts",
+      "line": 7,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-executeLifecycleMethod",
+      "kind": "service",
+      "title": "executeLifecycleMethod",
+      "description": "MCP инструмент · lifecycle. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 1230,
+      "file": "src/mcp/tools/lifecycle/executeLifecycleMethod.ts",
+      "line": 7,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-updateDatabase",
+      "kind": "service",
+      "title": "updateDatabase",
+      "description": "MCP инструмент · project. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 1350,
+      "file": "src/mcp/tools/project/updateDatabase.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-updatePackages",
+      "kind": "service",
+      "title": "updatePackages",
+      "description": "MCP инструмент · project. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 1470,
+      "file": "src/mcp/tools/project/updatePackages.ts",
+      "line": 4,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-updateBinaries",
+      "kind": "service",
+      "title": "updateBinaries",
+      "description": "MCP инструмент · project. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 1590,
+      "file": "src/mcp/tools/project/updateBinaries.ts",
+      "line": 4,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-startClient",
+      "kind": "service",
+      "title": "startClient",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 1710,
+      "file": "src/mcp/tools/client/startClient.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getClientStatus",
+      "kind": "service",
+      "title": "getClientStatus",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 1830,
+      "file": "src/mcp/tools/client/getClientStatus.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-openClientEntity",
+      "kind": "service",
+      "title": "openClientEntity",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 1950,
+      "file": "src/mcp/tools/client/openClientEntity.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getSvnFileHistory",
+      "kind": "service",
+      "title": "getSvnFileHistory",
+      "description": "MCP инструмент · packages. Откройте файл для контракта и обработчика.",
+      "x": 2380,
+      "y": 2070,
+      "file": "src/mcp/tools/packages/getSvnFileHistory.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getPackageSyncChanges",
+      "kind": "service",
+      "title": "getPackageSyncChanges",
+      "description": "MCP инструмент · packages. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 30,
+      "file": "src/mcp/tools/packages/getPackageSyncChanges.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getProductionTasks",
+      "kind": "service",
+      "title": "getProductionTasks",
+      "description": "MCP инструмент · project. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 150,
+      "file": "src/mcp/tools/project/getProductionTasks.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getProductionTask",
+      "kind": "service",
+      "title": "getProductionTask",
+      "description": "MCP инструмент · project. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 270,
+      "file": "src/mcp/tools/project/getProductionTask.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getProductionTasksInProgress",
+      "kind": "service",
+      "title": "getProductionTasksInProgress",
+      "description": "MCP инструмент · project. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 390,
+      "file": "src/mcp/tools/project/getProductionTasksInProgress.ts",
+      "line": 4,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getDfmSource",
+      "kind": "service",
+      "title": "getDfmSource",
+      "description": "MCP инструмент · sources. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 510,
+      "file": "src/mcp/tools/sources/getDfmSource.ts",
+      "line": 7,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getDfmInheritance",
+      "kind": "service",
+      "title": "getDfmInheritance",
+      "description": "MCP инструмент · sources. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 630,
+      "file": "src/mcp/tools/sources/getDfmInheritance.ts",
+      "line": 7,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-updateDfmSource",
+      "kind": "service",
+      "title": "updateDfmSource",
+      "description": "MCP инструмент · sources. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 750,
+      "file": "src/mcp/tools/sources/updateDfmSource.ts",
+      "line": 8,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-revealClass",
+      "kind": "service",
+      "title": "revealClass",
+      "description": "MCP инструмент · navigation. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 870,
+      "file": "src/mcp/tools/navigation/revealClass.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-openClass",
+      "kind": "service",
+      "title": "openClass",
+      "description": "MCP инструмент · navigation. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 990,
+      "file": "src/mcp/tools/navigation/openClass.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-openMethod",
+      "kind": "service",
+      "title": "openMethod",
+      "description": "MCP инструмент · navigation. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 1110,
+      "file": "src/mcp/tools/navigation/openMethod.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-revealMethodInClass",
+      "kind": "service",
+      "title": "revealMethodInClass",
+      "description": "MCP инструмент · navigation. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 1230,
+      "file": "src/mcp/tools/navigation/revealMethodInClass.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-queryReadonly",
+      "kind": "service",
+      "title": "queryReadonly",
+      "description": "MCP инструмент · database. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 1350,
+      "file": "src/mcp/tools/database/queryReadonly.ts",
+      "line": 7,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-queryDatabase",
+      "kind": "service",
+      "title": "queryDatabase",
+      "description": "MCP инструмент · database. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 1470,
+      "file": "src/mcp/tools/database/queryDatabase.ts",
+      "line": 23,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getRecentExtensionErrors",
+      "kind": "service",
+      "title": "getRecentExtensionErrors",
+      "description": "MCP инструмент · diagnostics. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 1590,
+      "file": "src/mcp/tools/diagnostics/getRecentExtensionErrors.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getExtensionLogs",
+      "kind": "service",
+      "title": "getExtensionLogs",
+      "description": "MCP инструмент · diagnostics. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 1710,
+      "file": "src/mcp/tools/diagnostics/getExtensionLogs.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getRecentSqlQueries",
+      "kind": "service",
+      "title": "getRecentSqlQueries",
+      "description": "MCP инструмент · diagnostics. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 1830,
+      "file": "src/mcp/tools/diagnostics/getRecentSqlQueries.ts",
+      "line": 10,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-listClientMcpTools",
+      "kind": "service",
+      "title": "listClientMcpTools",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 1950,
+      "file": "src/mcp/tools/client/listClientMcpTools.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-callClientMcpTool",
+      "kind": "service",
+      "title": "callClientMcpTool",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2670,
+      "y": 2070,
+      "file": "src/mcp/tools/client/callClientMcpTool.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-startClientMcp",
+      "kind": "service",
+      "title": "startClientMcp",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 30,
+      "file": "src/mcp/tools/client/startClientMcp.ts",
+      "line": 4,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-stopClientMcp",
+      "kind": "service",
+      "title": "stopClientMcp",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 150,
+      "file": "src/mcp/tools/client/stopClientMcp.ts",
+      "line": 4,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-listNativeClientLogs",
+      "kind": "service",
+      "title": "listNativeClientLogs",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 270,
+      "file": "src/mcp/tools/client/listNativeClientLogs.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-readNativeClientLog",
+      "kind": "service",
+      "title": "readNativeClientLog",
+      "description": "MCP инструмент · client. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 390,
+      "file": "src/mcp/tools/client/readNativeClientLog.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-startHttpTestServer",
+      "kind": "service",
+      "title": "startHttpTestServer",
+      "description": "MCP инструмент · http. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 510,
+      "file": "src/mcp/tools/http/startHttpTestServer.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-stopHttpTestServer",
+      "kind": "service",
+      "title": "stopHttpTestServer",
+      "description": "MCP инструмент · http. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 630,
+      "file": "src/mcp/tools/http/stopHttpTestServer.ts",
+      "line": 4,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-getHttpTestServerStatus",
+      "kind": "service",
+      "title": "getHttpTestServerStatus",
+      "description": "MCP инструмент · http. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 750,
+      "file": "src/mcp/tools/http/getHttpTestServerStatus.ts",
+      "line": 4,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-callHttpTestServer",
+      "kind": "service",
+      "title": "callHttpTestServer",
+      "description": "MCP инструмент · http. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 870,
+      "file": "src/mcp/tools/http/callHttpTestServer.ts",
+      "line": 5,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "tool-listHttpMethods",
+      "kind": "service",
+      "title": "listHttpMethods",
+      "description": "MCP инструмент · http. Откройте файл для контракта и обработчика.",
+      "x": 2960,
+      "y": 990,
+      "file": "src/mcp/tools/http/listHttpMethods.ts",
+      "line": 6,
+      "symbol": "registerTool",
+      "detail": true
+    },
+    {
+      "id": "settingsRegistration",
+      "kind": "feature",
+      "title": "registerSettings",
+      "description": "Точка сборки настроек: создаёт UI и два сервиса, регистрирует команды открытия и освобождение. Самостоятельного рефакторинга не требует.",
+      "x": 955.8524815765779,
+      "y": -340.9406157402089,
+      "file": "src/features/settings/register.ts",
+      "line": 20,
+      "symbol": "registerSettings",
+      "audit": "2026-10-01: registerSettings выполняет одну связную обязанность; риски находятся в провайдере и координации MCP.",
+      "attributes": {
+        "Ответственность": "Сборка области настроек, регистрация команд и disposal",
+        "Входы": "ExtensionContext, logger, SettingsProjectActions, credentials.get/set",
+        "Создаёт": "SettingsViewProvider, ClientMcpService, HttpApiService",
+        "Выход": "SettingsViewProvider; тип шире потребностей части потребителей",
+        "Команды": "vc-ve-tools.openSettings; vc-ve-tools.openHttpApi",
+        "Решение": "Оставить точку сборки; не добавлять фабрики без самостоятельной обязанности",
+        "Дата аудита": "2026-10-01",
+        "Отчёт": "docs/architecture-canvas/settings-audit.md"
+      },
+      "sourceRefs": [
+        {
+          "kind": "documentation",
+          "uri": "file:///C:/dev/vc-ve-tools/docs/architecture-canvas/settings-audit.md",
+          "label": "Подробный аудит настроек"
+        }
+      ]
+    },
+    {
+      "id": "encodingController",
+      "kind": "service",
+      "title": "Контроллер кодировки",
+      "description": "Начальная кодировка, переключение пользователем и реакция на изменение конфигурации.",
+      "x": 1569.113248095412,
+      "y": -207.26783607547014,
+      "file": "src/features/project/projectEncodingController.ts",
+      "line": 6,
+      "symbol": "createProjectEncodingController"
+    },
+    {
+      "id": "classesDatabaseChange",
+      "kind": "service",
+      "title": "Смена БД: панели классов",
+      "description": "Область классов закрывает все принадлежащие ей панели.",
+      "x": 1690,
+      "y": 610,
+      "file": "src/features/classes/databaseChange.ts",
+      "line": 9,
+      "symbol": "onClassesDatabaseChanged"
+    },
+    {
+      "id": "tools-database",
+      "kind": "service",
+      "title": "MCP · database",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2010,
+      "y": -1050,
+      "file": "src/mcp/tools/database/registration.ts",
+      "line": 11,
+      "symbol": "databaseToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-packages",
+      "kind": "service",
+      "title": "MCP · packages",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2010,
+      "y": -895,
+      "file": "src/mcp/tools/packages/registration.ts",
+      "line": 8,
+      "symbol": "packagesToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-classes",
+      "kind": "service",
+      "title": "MCP · classes",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2010,
+      "y": -740,
+      "file": "src/mcp/tools/classes/registration.ts",
+      "line": 14,
+      "symbol": "classesToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-methods",
+      "kind": "service",
+      "title": "MCP · methods",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2010,
+      "y": -585,
+      "file": "src/mcp/tools/methods/registration.ts",
+      "line": 12,
+      "symbol": "methodsToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-sources",
+      "kind": "service",
+      "title": "MCP · sources",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2010,
+      "y": -430,
+      "file": "src/mcp/tools/sources/registration.ts",
+      "line": 9,
+      "symbol": "sourcesToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-lifecycle",
+      "kind": "service",
+      "title": "MCP · lifecycle",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2010,
+      "y": -275,
+      "file": "src/mcp/tools/lifecycle/registration.ts",
+      "line": 6,
+      "symbol": "lifecycleToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-project",
+      "kind": "service",
+      "title": "MCP · project",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2350,
+      "y": -1050,
+      "file": "src/mcp/tools/project/registration.ts",
+      "line": 10,
+      "symbol": "projectToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-client",
+      "kind": "service",
+      "title": "MCP · client",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2350,
+      "y": -895,
+      "file": "src/mcp/tools/client/registration.ts",
+      "line": 13,
+      "symbol": "clientToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-navigation",
+      "kind": "service",
+      "title": "MCP · navigation",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2350,
+      "y": -740,
+      "file": "src/mcp/tools/navigation/registration.ts",
+      "line": 8,
+      "symbol": "navigationToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-diagnostics",
+      "kind": "service",
+      "title": "MCP · diagnostics",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2350,
+      "y": -585,
+      "file": "src/mcp/tools/diagnostics/registration.ts",
+      "line": 7,
+      "symbol": "diagnosticsToolRegistrations",
+      "detail": true
+    },
+    {
+      "id": "tools-http",
+      "kind": "service",
+      "title": "MCP · http",
+      "description": "Каталог инструментов области; содержит стабильные позиции регистрации.",
+      "x": 2350,
+      "y": -430,
+      "file": "src/mcp/tools/http/registration.ts",
+      "line": 9,
+      "symbol": "httpToolRegistrations",
+      "detail": true
+    }
+  ],
+  "edges": [
+    {
+      "from": "entry",
+      "to": "app",
+      "type": "calls"
+    },
+    {
+      "from": "app",
+      "to": "bootstrap",
+      "type": "calls"
+    },
+    {
+      "from": "features",
+      "to": "project",
+      "type": "calls"
+    },
+    {
+      "from": "features",
+      "to": "classes",
+      "type": "calls"
+    },
+    {
+      "from": "features",
+      "to": "explorer",
+      "type": "calls"
+    },
+    {
+      "from": "features",
+      "to": "tasks",
+      "type": "calls"
+    },
+    {
+      "from": "features",
+      "to": "history",
+      "type": "calls"
+    },
+    {
+      "from": "workbench",
+      "to": "package",
+      "type": "calls"
+    },
+    {
+      "from": "workbench",
+      "to": "sql",
+      "type": "calls"
+    },
+    {
+      "from": "navigation",
+      "to": "bridge",
+      "type": "calls"
+    },
+    {
+      "from": "mcp",
+      "to": "mcpProvider",
+      "type": "calls"
+    },
+    {
+      "from": "mcpProvider",
+      "to": "mcpServer",
+      "type": "process"
+    },
+    {
+      "from": "mcpServer",
+      "to": "tools",
+      "type": "calls"
+    },
+    {
+      "from": "workspace",
+      "to": "databaseChange",
+      "type": "calls"
+    },
+    {
+      "from": "workspace",
+      "to": "lifecycle",
+      "type": "calls"
+    },
+    {
+      "from": "lifecycle",
+      "to": "databaseChange",
+      "type": "event"
+    },
+    {
+      "from": "databaseChange",
+      "to": "explorer",
+      "type": "event"
+    },
+    {
+      "from": "databaseChange",
+      "to": "package",
+      "type": "event"
+    },
+    {
+      "from": "mcpServer",
+      "to": "workHistory",
+      "type": "uses"
+    },
+    {
+      "from": "mcpServer",
+      "to": "federated",
+      "type": "calls"
+    },
+    {
+      "from": "tools",
+      "to": "workHistoryTools",
+      "type": "calls"
+    },
+    {
+      "from": "settings",
+      "to": "proposalDomainPorts",
+      "type": "uses"
+    },
+    {
+      "from": "databaseChange",
+      "to": "proposalDatabaseEvents",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "proposalMcpGroups",
+      "type": "uses"
+    },
+    {
+      "from": "tools-database",
+      "to": "tool-listDatabases",
+      "type": "uses"
+    },
+    {
+      "from": "tools-database",
+      "to": "tool-getActiveDatabase",
+      "type": "uses"
+    },
+    {
+      "from": "tools-database",
+      "to": "tool-switchDatabase",
+      "type": "uses"
+    },
+    {
+      "from": "tools-database",
+      "to": "tool-lookupObjectById",
+      "type": "uses"
+    },
+    {
+      "from": "tools-packages",
+      "to": "tool-checkObjectPackageBinding",
+      "type": "uses"
+    },
+    {
+      "from": "tools-packages",
+      "to": "tool-bindObjectsToPackage",
+      "type": "uses"
+    },
+    {
+      "from": "tools-database",
+      "to": "tool-searchDatabaseObjects",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-searchClasses",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-getClassDetails",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-createLocalToolClass",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-getClassDictionary",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-searchClassDictionary",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-getClassAttributes",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-getAttributeDetails",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-getAttributeCreationOptions",
+      "type": "uses"
+    },
+    {
+      "from": "tools-methods",
+      "to": "tool-getMethodCreationOptions",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-getClassProperties",
+      "type": "uses"
+    },
+    {
+      "from": "tools-classes",
+      "to": "tool-getPropertyDetails",
+      "type": "uses"
+    },
+    {
+      "from": "tools-methods",
+      "to": "tool-searchMethods",
+      "type": "uses"
+    },
+    {
+      "from": "tools-methods",
+      "to": "tool-resolveMethodReference",
+      "type": "uses"
+    },
+    {
+      "from": "tools-methods",
+      "to": "tool-getMethodSource",
+      "type": "uses"
+    },
+    {
+      "from": "tools-methods",
+      "to": "tool-updateMethodSource",
+      "type": "uses"
+    },
+    {
+      "from": "tools-methods",
+      "to": "tool-compileMethod",
+      "type": "uses"
+    },
+    {
+      "from": "tools-methods",
+      "to": "tool-createClassMethodChecked",
+      "type": "uses"
+    },
+    {
+      "from": "tools-methods",
+      "to": "tool-getMethodCompilationHistory",
+      "type": "uses"
+    },
+    {
+      "from": "tools-sources",
+      "to": "tool-getModuleSource",
+      "type": "uses"
+    },
+    {
+      "from": "tools-sources",
+      "to": "tool-updateModuleSource",
+      "type": "uses"
+    },
+    {
+      "from": "tools-lifecycle",
+      "to": "tool-getLifecycleFunctionCatalog",
+      "type": "uses"
+    },
+    {
+      "from": "tools-lifecycle",
+      "to": "tool-executeLifecycleMethod",
+      "type": "uses"
+    },
+    {
+      "from": "tools-project",
+      "to": "tool-updateDatabase",
+      "type": "uses"
+    },
+    {
+      "from": "tools-project",
+      "to": "tool-updatePackages",
+      "type": "uses"
+    },
+    {
+      "from": "tools-project",
+      "to": "tool-updateBinaries",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-startClient",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-getClientStatus",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-openClientEntity",
+      "type": "uses"
+    },
+    {
+      "from": "tools-packages",
+      "to": "tool-getSvnFileHistory",
+      "type": "uses"
+    },
+    {
+      "from": "tools-packages",
+      "to": "tool-getPackageSyncChanges",
+      "type": "uses"
+    },
+    {
+      "from": "tools-project",
+      "to": "tool-getProductionTasks",
+      "type": "uses"
+    },
+    {
+      "from": "tools-project",
+      "to": "tool-getProductionTask",
+      "type": "uses"
+    },
+    {
+      "from": "tools-project",
+      "to": "tool-getProductionTasksInProgress",
+      "type": "uses"
+    },
+    {
+      "from": "tools-sources",
+      "to": "tool-getDfmSource",
+      "type": "uses"
+    },
+    {
+      "from": "tools-sources",
+      "to": "tool-getDfmInheritance",
+      "type": "uses"
+    },
+    {
+      "from": "tools-sources",
+      "to": "tool-updateDfmSource",
+      "type": "uses"
+    },
+    {
+      "from": "tools-navigation",
+      "to": "tool-revealClass",
+      "type": "uses"
+    },
+    {
+      "from": "tools-navigation",
+      "to": "tool-openClass",
+      "type": "uses"
+    },
+    {
+      "from": "tools-navigation",
+      "to": "tool-openMethod",
+      "type": "uses"
+    },
+    {
+      "from": "tools-navigation",
+      "to": "tool-revealMethodInClass",
+      "type": "uses"
+    },
+    {
+      "from": "tools-database",
+      "to": "tool-queryReadonly",
+      "type": "uses"
+    },
+    {
+      "from": "tools-database",
+      "to": "tool-queryDatabase",
+      "type": "uses"
+    },
+    {
+      "from": "tools-diagnostics",
+      "to": "tool-getRecentExtensionErrors",
+      "type": "uses"
+    },
+    {
+      "from": "tools-diagnostics",
+      "to": "tool-getExtensionLogs",
+      "type": "uses"
+    },
+    {
+      "from": "tools-diagnostics",
+      "to": "tool-getRecentSqlQueries",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-listClientMcpTools",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-callClientMcpTool",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-startClientMcp",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-stopClientMcp",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-listNativeClientLogs",
+      "type": "uses"
+    },
+    {
+      "from": "tools-client",
+      "to": "tool-readNativeClientLog",
+      "type": "uses"
+    },
+    {
+      "from": "tools-http",
+      "to": "tool-startHttpTestServer",
+      "type": "uses"
+    },
+    {
+      "from": "tools-http",
+      "to": "tool-stopHttpTestServer",
+      "type": "uses"
+    },
+    {
+      "from": "tools-http",
+      "to": "tool-getHttpTestServerStatus",
+      "type": "uses"
+    },
+    {
+      "from": "tools-http",
+      "to": "tool-callHttpTestServer",
+      "type": "uses"
+    },
+    {
+      "from": "tools-http",
+      "to": "tool-listHttpMethods",
+      "type": "uses"
+    },
+    {
+      "from": "features",
+      "to": "settingsRegistration",
+      "type": "calls"
+    },
+    {
+      "from": "settingsRegistration",
+      "to": "settings",
+      "type": "uses"
+    },
+    {
+      "from": "project",
+      "to": "encodingController",
+      "type": "calls"
+    },
+    {
+      "from": "settingsRegistration",
+      "to": "project",
+      "type": "uses"
+    },
+    {
+      "from": "proposalDatabaseEvents",
+      "to": "classesDatabaseChange",
+      "type": "uses"
+    },
+    {
+      "from": "app",
+      "to": "editors",
+      "type": "calls"
+    },
+    {
+      "from": "app",
+      "to": "features",
+      "type": "calls"
+    },
+    {
+      "from": "app",
+      "to": "navigation",
+      "type": "calls"
+    },
+    {
+      "from": "app",
+      "to": "mcp",
+      "type": "calls"
+    },
+    {
+      "from": "app",
+      "to": "workbench",
+      "type": "calls"
+    },
+    {
+      "from": "app",
+      "to": "workspace",
+      "type": "calls"
+    },
+    {
+      "from": "tools",
+      "to": "tools-database",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-packages",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-classes",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-methods",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-sources",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-lifecycle",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-project",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-client",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-navigation",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-diagnostics",
+      "type": "uses"
+    },
+    {
+      "from": "tools",
+      "to": "tools-http",
+      "type": "uses"
+    }
+  ]
+}

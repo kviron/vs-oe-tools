@@ -1,1 +1,1 @@
-export { closePackageContentPanels } from './packageContentPanelManager';
+export { closePackageContentPanels as onPackagesDatabaseChanged } from './packageContentPanelManager';

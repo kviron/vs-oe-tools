@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "relationship-map",
+  "version": "0.1.0",
+  "description": "Create and compare editable maps of code, database entities, and other relationships.",
+  "license": "MIT",
+  "keywords": ["architecture", "diagram", "mcp", "relationships"]
+}

@@ -162,6 +162,7 @@ async function openMatch(match: ClipboardNavigationMatch, actions: ClipboardObje
 	const targets = [
 		{ label: 'Показать в проводнике', description: explorerDescription(match.object.kind), target: 'explorer' as const },
 		{ label: 'Открыть объект', description: objectDescription(match.object.kind), target: 'object' as const },
+		{ label: 'Открыть в клиенте', description: 'Открыть объект по ID в нативном клиенте ВЭ', target: 'client' as const },
 		{ label: 'Универсальный просмотр', description: 'Компактная таблица всех атрибутов и свойств объекта', target: 'objectView' as const },
 		...(match.object.kind === 'class' ? [{
 			label: 'Открыть просмотр объектов',
@@ -175,6 +176,17 @@ async function openMatch(match: ClipboardNavigationMatch, actions: ClipboardObje
 		title: 'Как открыть объект?',
 	}))?.target;
 	if (!target) { return false; }
+	if (target === 'client') {
+		const selected = await vscode.window.showQuickPick([
+			{ label: 'Основная база', role: 'main' as const },
+			{ label: 'Тестовая база', role: 'test' as const },
+		], { title: 'Открыть в клиенте', placeHolder: `Объект ID=${match.object.id} · выберите базу` });
+		if (!selected) { return false; }
+		const objectId = Number(match.object.id);
+		if (!Number.isSafeInteger(objectId) || objectId <= 0) { throw new Error('Некорректный ID объекта.'); }
+		await actions.openClientEntity(selected.role, objectId);
+		return true;
+	}
 	if (target === 'history') {
 		await actions.openHistory(match.object);
 		return true;

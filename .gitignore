@@ -14,3 +14,5 @@ oesqlmon*.sqdb
 sql-result-*.csv
 /.playwright-cli/
 /output/playwright/
+
+.tmp-*.log

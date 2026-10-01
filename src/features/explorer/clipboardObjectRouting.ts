@@ -1,4 +1,5 @@
 import type { DatabaseObjectSearchResult } from '../../core/objectSearch';
+import type { DatabaseRole } from '../../core/database';
 import type { ProductionTaskSummary } from '../production-tasks/models';
 import type { PackageSummary } from '../packages/models';
 
@@ -17,6 +18,7 @@ export interface ClipboardObjectNavigationActions {
 	openMethod(methodId: number): Promise<void>;
 	openModule(moduleId: number): Promise<void>;
 	openObject(objectId: number): Promise<void>;
+	openClientEntity(role: DatabaseRole, objectId: number): Promise<void>;
 	openHistory(object: DatabaseObjectSearchResult): Promise<void>;
 	openTask(task: ProductionTaskSummary): Promise<void>;
 	revealPackage(id: number): Promise<void>;

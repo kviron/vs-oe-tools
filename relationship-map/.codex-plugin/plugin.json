@@ -1,0 +1,7 @@
+{
+  "name": "relationship-map",
+  "version": "0.1.0",
+  "description": "Editable relationship maps for code and domain entities.",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

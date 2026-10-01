@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import * as vscode from 'vscode';
 
-export const bundledSkill = { name: 'east-express', version: 9 } as const;
+export const bundledSkill = { name: 'east-express', version: 14 } as const;
 export type SkillLocation = 'agents' | 'claude';
 export const skillLocations: readonly SkillLocation[] = ['agents', 'claude'];
 

@@ -1,11 +1,14 @@
 import * as vscode from 'vscode';
+import { logTableSelection } from '../../core/tableSelectionLogger';
 import type { NativeLogsHostMessage } from '../../core/webviewProtocol';
 import { isNativeLogsWebviewMessage } from '../../core/webviewProtocol';
+import type { SearchOptions } from '../../core/searchMatch';
 import { listNativeLogs } from './nativeLogService';
 
 export class NativeLogsViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'vc-ve-tools.nativeLogs';
 	private selectedFile?: string;
+	private refreshId = 0;
 
 	public constructor(private readonly extensionUri: vscode.Uri, private readonly openLog: (fileName: string) => Promise<void>) {}
 
@@ -15,6 +18,15 @@ export class NativeLogsViewProvider implements vscode.WebviewViewProvider {
 		webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
 		webviewView.webview.onDidReceiveMessage(async (message: unknown) => {
 			if (!isNativeLogsWebviewMessage(message)) { return; }
+			if (message.command === 'tableSelectionDebug') {
+				logTableSelection('native-logs', message.message);
+				return;
+			}
+			if (message.command === 'copyTableCells') {
+				await vscode.env.clipboard.writeText(message.text);
+				logTableSelection('native-logs', `Скопировано символов: ${message.text.length}`);
+				return;
+			}
 			if (message.command === 'copyNativeLog') {
 				await vscode.env.clipboard.writeText(message.text);
 				vscode.window.setStatusBarMessage('Лог нативного клиента скопирован', 2500);
@@ -25,16 +37,18 @@ export class NativeLogsViewProvider implements vscode.WebviewViewProvider {
 				await this.openLog(message.fileName);
 				return;
 			}
-			await this.refresh(webviewView.webview);
+			await this.refresh(webviewView.webview, message.command === 'refreshNativeLogs' ? message.query : undefined, message.command === 'refreshNativeLogs' ? message.options : undefined);
 		});
 	}
 
-	private async refresh(webview: vscode.Webview): Promise<void> {
+	private async refresh(webview: vscode.Webview, query = '', options?: SearchOptions): Promise<void> {
+		const refreshId = ++this.refreshId;
 		void webview.postMessage({ command: 'nativeLogsLoading' } satisfies NativeLogsHostMessage);
 		try {
 			const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 			if (!workspacePath) { throw new Error('Откройте папку проекта Восточного Экспресса.'); }
-			const listing = await listNativeLogs(workspacePath, 200);
+			const listing = await listNativeLogs(workspacePath, 500, query, options, () => refreshId !== this.refreshId);
+			if (refreshId !== this.refreshId) { return; }
 			if (!this.selectedFile || !listing.files.some(file => file.name === this.selectedFile)) {
 				this.selectedFile = listing.files[0]?.name;
 			}
@@ -45,6 +59,7 @@ export class NativeLogsViewProvider implements vscode.WebviewViewProvider {
 				selectedFile: this.selectedFile,
 			} satisfies NativeLogsHostMessage);
 		} catch (error) {
+			if (refreshId !== this.refreshId) { return; }
 			void webview.postMessage({ command: 'nativeLogsFailed', message: error instanceof Error ? error.message : String(error) } satisfies NativeLogsHostMessage);
 		}
 	}

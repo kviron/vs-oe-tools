@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { ClassAttributeDraft } from '../classes/models';
 import type { PackageBindingMutationRequest } from '../package-sync/packageBindingMutation';
 import type { MethodCompilationRecord } from '../methods/methodCompilationHistory';
+import type { ClientStatus } from '../project';
 
 interface ClassInput {
 	classId: number;
@@ -16,6 +17,7 @@ interface MethodInClassInput extends MethodInput {
 }
 
 export interface NavigationActions {
+	relationshipMap?(request: unknown): Promise<Record<string, unknown>>;
 	revealClass(classId: number): Promise<void>;
 	openClass(classId: number): Promise<void>;
 	openMethod(methodId: number): Promise<void>;
@@ -42,7 +44,8 @@ export interface NavigationActions {
 	updateBinaries(): Promise<boolean>;
 	updateDatabase(role: 'main' | 'test'): Promise<void>;
 	startClient(role: 'main' | 'test'): Promise<void>;
-	openClientEntity(role: 'main' | 'test', entityType: string, id: number): Promise<string>;
+	getClientStatus(role: 'main' | 'test'): Promise<ClientStatus>;
+	openClientEntity(role: 'main' | 'test', entityType: string | undefined, id: number): Promise<string>;
 	confirmSqlMutation(sql: string, database: string): Promise<boolean>;
 }
 

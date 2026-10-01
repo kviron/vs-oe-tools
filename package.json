@@ -5,7 +5,7 @@
   },
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
@@ -388,6 +388,11 @@
         "command": "vc-ve-tools.svnBlame",
         "title": "Blame",
         "category": "SVN"
+      },
+      {
+        "command": "vc-ve-tools.openRelationshipMap",
+        "title": "Открыть карту взаимосвязей",
+        "category": "Восточный Экспресс"
       }
     ],
     "submenus": [
@@ -597,13 +602,13 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "npm run check:release && npm run check:generated && npm run check:knowledge && npm run check-types && npm run lint && npm run build:webview && node esbuild.js",
+    "compile": "npm run check:release && npm run check:generated && npm run check:knowledge && npm run check-types && npm run lint && npm run build:webview && npm run build:relationship-map && node esbuild.js",
     "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts",
     "watch": "npm-run-all -p watch:*",
     "watch:webview": "vite build --watch --config vite.webview.config.mts",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check:release && npm run check:generated && npm run check:knowledge && npm run check-types && npm run lint && npm run build:webview && node esbuild.js --production",
+    "package": "npm run check:release && npm run check:generated && npm run check:knowledge && npm run check-types && npm run lint && npm run build:webview && npm run build:relationship-map && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
@@ -614,7 +619,8 @@
     "check:release": "node scripts/check-release-version.mjs",
     "setup:hooks": "git config core.hooksPath .githooks",
     "lint": "eslint src --max-warnings 0",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "build:relationship-map": "npm --prefix relationship-map ci --no-audit --no-fund && npm --prefix relationship-map run build:webview"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

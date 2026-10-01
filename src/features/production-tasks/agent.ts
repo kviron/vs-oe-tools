@@ -1,5 +1,5 @@
 import type { ProductionTasksLogger } from './models';
-import { loadProductionTasks, loadProductionTasksByQuery } from './productionTasksRepository';
+import { loadProductionTaskHistory, loadProductionTasks, loadProductionTasksByQuery } from './productionTasksRepository';
 import type { ProductionSession } from './session';
 
 export function createProductionAgentActions(getOptions: ProductionSession['getOptions'], logger: ProductionTasksLogger) {
@@ -29,7 +29,12 @@ export function createProductionAgentActions(getOptions: ProductionSession['getO
 		getProductionTask: async (query: string, limit: number) => {
 			const options = await getOptions();
 			logger.info('MCP запросил полную production-задачу.', { query, limit });
-			const tasks = await loadProductionTasksByQuery(options, query, limit, logger);
+			const foundTasks = await loadProductionTasksByQuery(options, query, limit, logger);
+			const tasks = [];
+			for (const task of foundTasks) {
+				const history = await loadProductionTaskHistory(options, task.id, logger);
+				tasks.push({ ...task, history });
+			}
 			return {
 				database: options.database,
 				query,

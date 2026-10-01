@@ -1,1 +1,1 @@
-export { closeSpuEditorPanels } from './spuEditorPanel';
+export { closeSpuEditorPanels as onSpuDatabaseChanged } from './spuEditorPanel';

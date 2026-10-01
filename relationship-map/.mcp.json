@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "relationship-map": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/dist/server/mcp.js"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

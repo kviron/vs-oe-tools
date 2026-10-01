@@ -1,3 +1,4 @@
+import { registerRelationshipMaps } from '../features/relationship-maps';
 import * as vscode from 'vscode';
 import { registerNavigationTools, createNavigationActions, startNavigationBridge, registerAgentSkillInstaller } from '../features/ai';
 import { getNavigationInfoPath } from '../core/navigationInfo';
@@ -16,8 +17,9 @@ export async function registerNavigation(
 		extensionLogger: app.logger, explorerProvider: features.explorerProvider,
 		methodEditor: editors.methodEditor, methodCompilation: editors.methodCompilation,
 		compilationHistory: editors.compilationHistory, moduleEditor: editors.moduleEditor,
-		settingsProvider: features.project.settingsProvider, productionTasks: features.productionTasks,
+		settingsProvider: features.settingsProvider, productionTasks: features.productionTasks,
 	});
+	navigationActions.relationshipMap = registerRelationshipMaps(context);
 	registerNavigationTools(context, navigationActions);
 	const bridge = await startNavigationBridge(
 		navigationActions,

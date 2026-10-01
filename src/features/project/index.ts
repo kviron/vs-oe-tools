@@ -7,3 +7,7 @@ export { applyProjectEncoding } from './projectEncodingService';
 export { registerProjectDatabaseCommands } from './databaseCommands';
 export { registerUserIdCommand } from './userCommand';
 export { createProjectAgentActions } from './agent';
+export { parseClientLaunchArguments, startProjectClient } from './clientLaunchService';
+export type { ClientCredentials } from './clientLaunchService';
+export { updateProjectPackages } from './packageUpdateService';
+export type { ClientStatus } from './clientStatusService';

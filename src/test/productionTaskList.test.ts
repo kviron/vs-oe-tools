@@ -3,6 +3,7 @@ import * as net from 'node:net';
 import type { ProductionConnectionOptions } from '../features/production-tasks/models';
 import { expectedPacketLength } from '../features/production-tasks/oenpProtocol';
 import { loadProductionTaskActions, loadProductionTaskById, loadProductionTaskList } from '../features/production-tasks/productionTasksRepository';
+import { createProductionAgentActions } from '../features/production-tasks/agent';
 import { productionTaskByIdSql, productionTaskListSql } from '../features/production-tasks/queries';
 import { isProductionTasksWebviewMessage } from '../core/webviewProtocol';
 
@@ -77,6 +78,19 @@ suite('Production task list loading', () => {
 			assert.match(requests[7].toString('ascii'), /WHERE T0\.ID = 42/);
 		});
 	});
+
+	test('returns production comments and actions in the MCP task history', async () => {
+		await withServer(async (options, requests) => {
+			const logger = { info: () => undefined, warning: () => undefined, error: () => undefined };
+			const actions = createProductionAgentActions(async () => options, logger);
+			const result = await actions.getProductionTask('42', 1);
+			assert.equal(result.match?.id, 42);
+			assert.deepEqual(result.match?.history.map(entry => ({ action: entry.action, comment: entry.comment })),
+				[{ action: 'Комментарий', comment: 'Проверить пакет' }]);
+			assert.deepEqual(result.tasks[0].history, result.match?.history);
+			assert.match(requests.at(-1)!.toString('ascii'), /WHERE H\.SeniorID = 42/);
+		});
+	});
 });
 
 async function withServer(run: (options: ProductionConnectionOptions, requests: Buffer[]) => Promise<void>): Promise<void> {
@@ -96,7 +110,9 @@ async function withServer(run: (options: ProductionConnectionOptions, requests: 
 				const sql = packet.toString('ascii');
 				let body: Buffer = Buffer.alloc(0);
 				if (id === 6) { body = Buffer.from('0123456789ABCDEF0123456789ABCDEF'); }
-				else if (id >= 8 && sql.includes('JOIN ActionLC A')) {
+				else if (id >= 8 && sql.includes('SELECT H.ID AS id,')) {
+					body = dataset(['id', 'created', 'action', 'state', 'person', 'comment'], [[19, '28.09.2026 14:00:00', 'Комментарий', 'В работе', 'Тест', 'Проверить пакет']]);
+				} else if (id >= 8 && sql.includes('JOIN ActionLC A')) {
 					body = dataset(['id', 'name'], [[17, 'Открыть']]);
 				} else if (id >= 8 && sql.includes('WHERE EXISTS')) {
 					body = dataset(['id', 'name'], [[currentPerson, 'Текущий пользователь'], [otherPerson, 'Другой пользователь']]);

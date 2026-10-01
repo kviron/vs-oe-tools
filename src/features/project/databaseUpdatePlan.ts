@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import * as iconv from 'iconv-lite';
 import { parseVarsFile } from '../../infrastructure/configuration/projectDatabaseOptions';
 import { loadRdboadmDatabases, rdboadmDatabaseOptions } from '../../infrastructure/configuration/rdboadmIni';
-import type { ProjectDatabaseRole } from './projectCommandService';
+import type { DatabaseRole as ProjectDatabaseRole } from '../../core/database';
 
 export interface DatabaseUpdatePlan {
 	workspacePath: string;

@@ -4,6 +4,28 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.9.0] - 2026-10-01
+
+### Added
+
+- Added an embedded relationship-map Webview editor with arbitrary node and relation types, editable entity context and attributes, source links, JSON import/export, and workspace-persistent maps with revision history.
+- Added `list_maps`, `read_map`, `save_map`, `get_map_changes`, and `open_map` to the existing extension MCP server; map editing does not require a separate Vite or MCP process.
+- Added `get_client_status` and native-client object navigation from clipboard search and entity menus.
+- Added a live agent activity indicator to local task history, with explicit pause/completion handling and expiry for stale activity.
+- Included recent dated actions, states, people, and comments in full production-task MCP results.
+
+### Changed
+
+- Reorganized project commands, encoding, settings, HTTP API, client MCP, database-change invalidation, and MCP registration into focused services and domain catalogs while keeping startup stages explicit.
+- Replaced the native-log list with a sortable table and search across file names and decoded contents, including files beyond the displayed result limit; content search streams logs and ignores superseded requests.
+- **Breaking:** `open_client_entity` dispatches the native `oe-<database>:/edit/<ID>` route and no longer launches the client automatically. Call `get_client_status` and `start_client` when needed; `entityType` remains an optional compatibility field. URI dispatch does not prove that the object opened.
+
+### Fixed
+
+- Protected relationship-map saves against stale revisions and concurrent writers, preserved unsaved editor changes when agent updates arrive, and included map metadata and relation attributes in revision comparisons.
+- Used VS Code dialogs for map names, custom types, attribute fields, and JSON export inside Webviews.
+- Synchronized the bundled East Express skill version with its installer and documented task activity lifecycle.
+
 ## [0.8.0] - 2026-09-28
 
 ### Added

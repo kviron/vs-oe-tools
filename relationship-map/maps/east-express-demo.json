@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "title": "Пример: класс Восточного Экспресса",
+  "description": "Иллюстрация формата. Идентификаторы и вызовы вымышлены; реальные данные нужно прочитать из активной базы.",
+  "nodeKinds": {
+    "oe-class": {
+      "label": "Класс ВЭ",
+      "icon": "boxes",
+      "color": "#38bdf8"
+    },
+    "oe-method": {
+      "label": "Метод ВЭ",
+      "icon": "code",
+      "color": "#a78bfa"
+    }
+  },
+  "nodes": [
+    {
+      "y": 0,
+      "id": "demo-class",
+      "entityRef": {
+        "id": "demo-class",
+        "system": "demo-east-express",
+        "type": "class",
+        "scope": {
+          "database": "demo"
+        }
+      },
+      "description": "Демонстрационный класс",
+      "title": "ПримерКласс",
+      "x": 0,
+      "kind": "oe-class"
+    },
+    {
+      "x": 350,
+      "id": "demo-method-a",
+      "title": "Выполнить",
+      "entityRef": {
+        "id": "demo-method-a",
+        "system": "demo-east-express",
+        "type": "method",
+        "scope": {
+          "classId": "demo-class"
+        }
+      },
+      "attributes": {
+        "visibility": "Published"
+      },
+      "description": "Демонстрационный метод",
+      "y": -100,
+      "kind": "oe-method"
+    },
+    {
+      "y": 100,
+      "id": "demo-method-b",
+      "entityRef": {
+        "id": "demo-method-b",
+        "system": "demo-east-express",
+        "type": "method",
+        "scope": {
+          "classId": "demo-class"
+        }
+      },
+      "description": "Демонстрационный метод",
+      "title": "Проверить",
+      "x": 700,
+      "kind": "oe-method"
+    }
+  ],
+  "edges": [
+    {
+      "to": "demo-method-a",
+      "type": "contains",
+      "from": "demo-class"
+    },
+    {
+      "to": "demo-method-b",
+      "type": "contains",
+      "from": "demo-class"
+    },
+    {
+      "label": "пример вызова",
+      "to": "demo-method-b",
+      "type": "calls",
+      "from": "demo-method-a"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import type { SearchOptions } from './searchMatch';
 import type { AttributeDetails, AttributeEditorOptions, ClassAttribute, ClassDetails, ClassMethod, ClassObjectColumnSettings, ClassObjectsResult, ClassProperty, ClassTreeRow, MethodPropertiesDetails, ObjectViewResult, PropertyDetails } from '../features/classes/models';
 import { validateNativeAttributeDraft, type NativeAttributeDraft } from '../features/classes/nativeAttributeEditing';
 import type { PackageSyncIssue, PackageSyncItem, SvnConflictContent, SvnMergeResult } from '../features/package-sync/models';
@@ -21,8 +22,10 @@ export interface NativeLogListEntry {
 	modifiedAt: string;
 }
 export type NativeLogsWebviewMessage =
+	| CopyTableCellsMessage
+	| TableSelectionDebugMessage
 	| { command: 'nativeLogsReady' }
-	| { command: 'refreshNativeLogs' }
+	| { command: 'refreshNativeLogs'; query?: string; options?: SearchOptions }
 	| { command: 'openNativeLog'; fileName: string }
 	| { command: 'copyNativeLog'; text: string };
 export type NativeLogsHostMessage =
@@ -313,6 +316,7 @@ export type SettingsHostMessage =
 	| { command: 'httpParameterValuesLoaded'; parameter: string; query: string; values: Array<{ id: number; name: string }> };
 export type KnowledgeHistoryWebviewMessage =
 	| { command: 'knowledgeHistoryReady' }
+	| { command: 'knowledgeHistoryPollTasks' }
 	| { command: 'knowledgeHistorySearch'; search: string }
 	| { command: 'knowledgeHistorySelectTask'; taskNumber: string; workspace: string }
 	| { command: 'knowledgeHistoryRefreshSvn'; taskNumber: string; workspace: string }
@@ -326,7 +330,15 @@ export type WebviewMessage = ExplorerWebviewMessage | ClassDetailsWebviewMessage
 
 export function isNativeLogsWebviewMessage(message: unknown): message is NativeLogsWebviewMessage {
 	if (typeof message !== 'object' || message === null || !('command' in message)) { return false; }
-	if (message.command === 'nativeLogsReady' || message.command === 'refreshNativeLogs') { return true; }
+	if (isCopyTableCellsMessage(message) || isTableSelectionDebugMessage(message)) { return true; }
+	if (message.command === 'nativeLogsReady') { return true; }
+	if (message.command === 'refreshNativeLogs') {
+		if ('query' in message && typeof message.query !== 'string') { return false; }
+		if (!('options' in message)) { return true; }
+		const options = message.options;
+		return typeof options === 'object' && options !== null && 'mode' in options && 'caseSensitive' in options
+			&& ['contains', 'starts', 'ends', 'exact', 'word'].includes(String(options.mode)) && typeof options.caseSensitive === 'boolean';
+	}
 	if (message.command === 'openNativeLog') { return 'fileName' in message && typeof message.fileName === 'string'; }
 	return message.command === 'copyNativeLog' && 'text' in message && typeof message.text === 'string';
 }

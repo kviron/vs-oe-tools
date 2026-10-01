@@ -17,7 +17,7 @@ import TaskSvnCommits, { type TaskSvnCommitRow } from '@/components/TaskSvnCommi
 
 interface TaskRow {
   id: number; workspace: string; task_number: string; title: string; summary: string;
-  status: string; progress: string; updated_at: string; database_profile: string | null;
+  status: string; agent_working: number; progress: string; updated_at: string; database_profile: string | null;
   changes: string; verification: string; limitations: string; sources_json: string;
   knowledge_transferred: number; knowledge_reference: string | null;
 }
@@ -35,6 +35,7 @@ interface TaskContext {
 }
 type HostMessage =
   | { command: 'knowledgeHistoryLoaded'; tasks: TaskRow[]; candidates: CandidateRow[]; articles: ArticleRow[]; repository: string | null }
+  | { command: 'knowledgeHistoryTasksUpdated'; tasks: TaskRow[] }
   | { command: 'knowledgeHistoryTask'; context: TaskContext }
   | { command: 'knowledgeHistorySvnLoading'; workspace: string; taskNumber: string }
   | { command: 'knowledgeHistorySvnLoaded'; workspace: string; taskNumber: string; commits: SvnCommit[]; scan: TaskContext['svnScan'] }
@@ -55,6 +56,9 @@ const error = ref('');
 const svnLoading = ref(false);
 const svnError = ref('');
 let timer: ReturnType<typeof setTimeout> | undefined;
+const taskPoll = setInterval(() => {
+  if (tab.value === 'tasks' && document.visibilityState === 'visible') vscode.postMessage({ command: 'knowledgeHistoryPollTasks' });
+}, 5000);
 
 const selectedTaskKey = computed(() => context.value ? `${context.value.task.workspace}:${context.value.task.task_number}` : '');
 
@@ -68,6 +72,8 @@ function onHostMessage(event: MessageEvent<HostMessage>): void {
     if (selectedArticle.value && !message.articles.some(article => article.id === selectedArticle.value?.id)) selectedArticle.value = undefined;
     loading.value = false;
     error.value = '';
+  } else if (message.command === 'knowledgeHistoryTasksUpdated') {
+    tasks.value = message.tasks;
   } else if (message.command === 'knowledgeHistoryTask') {
     context.value = message.context;
     selectedCandidate.value = undefined;
@@ -89,7 +95,7 @@ function onHostMessage(event: MessageEvent<HostMessage>): void {
   }
 }
 window.addEventListener('message', onHostMessage);
-onUnmounted(() => { window.removeEventListener('message', onHostMessage); if (timer) clearTimeout(timer); });
+onUnmounted(() => { window.removeEventListener('message', onHostMessage); clearInterval(taskPoll); if (timer) clearTimeout(timer); });
 
 function searchChanged(): void {
   if (timer) clearTimeout(timer);
@@ -99,6 +105,10 @@ function searchChanged(): void {
   timer = setTimeout(() => vscode.postMessage({ command: 'knowledgeHistorySearch', search: search.value }), 180);
 }
 function refresh(): void { loading.value = true; context.value = undefined; selectedCandidate.value = undefined; selectedArticle.value = undefined; vscode.postMessage({ command: 'knowledgeHistoryRefresh' }); }
+function agentIsWorking(task: TaskRow): boolean {
+  const updatedAt = Date.parse(`${task.updated_at.replace(' ', 'T')}Z`);
+  return task.agent_working === 1 && Number.isFinite(updatedAt) && Date.now() - updatedAt < 15 * 60_000;
+}
 function selectTask(task: TaskRow): void {
   vscode.postMessage({ command: 'knowledgeHistorySelectTask', taskNumber: task.task_number, workspace: task.workspace });
 }
@@ -144,7 +154,7 @@ vscode.postMessage({ command: 'knowledgeHistoryReady' });
               <TableBody><TableRow v-for="task in tasks" :key="`${task.workspace}:${task.task_number}`" tabindex="0" class="cursor-pointer" :data-row-selected="selectedTaskKey === `${task.workspace}:${task.task_number}` ? '' : undefined" @click="selectTask(task)" @keydown.enter.prevent="selectTask(task)">
                 <TableCell class="font-mono text-xs">{{ task.task_number }}</TableCell>
                 <TableCell class="max-w-0"><div class="truncate font-medium" :title="task.title">{{ task.title }}</div><div class="truncate text-xs text-muted-foreground" :title="task.summary || task.progress">{{ task.summary || task.progress }}</div></TableCell>
-                <TableCell><Badge :variant="task.status === 'blocked' ? 'destructive' : 'secondary'">{{ statusLabel(task.status) }}</Badge></TableCell>
+                <TableCell><Badge v-if="agentIsWorking(task)" variant="default">● Агент работает</Badge><Badge v-else :variant="task.status === 'blocked' ? 'destructive' : 'secondary'">{{ statusLabel(task.status) }}</Badge></TableCell>
                 <TableCell class="whitespace-nowrap text-xs text-muted-foreground">{{ date(task.updated_at) }}</TableCell>
               </TableRow></TableBody>
             </Table>

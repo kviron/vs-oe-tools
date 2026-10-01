@@ -6,6 +6,10 @@ import type { NavigationAction, NavigationRequest } from './navigationRequest';
 type Handler = (input: NavigationRequest, actions: NavigationActions) => Promise<Record<string, unknown>>;
 
 const handlers = {
+	relationship_map: async (input, actions) => {
+		if (!actions.relationshipMap) { throw new Error("Relationship maps are unavailable."); }
+		return actions.relationshipMap(input.mapRequest);
+	},
 	confirm_sql_mutation: async (input, actions) => ({ approved: await actions.confirmSqlMutation(input.sql!, input.database!) }),
 	reveal_class: async (input, actions) => {
 		await actions.revealClass(input.id!);
@@ -64,6 +68,7 @@ const handlers = {
 		await actions.startClient(input.role!);
 		return { role: input.role };
 	},
+	get_client_status: async (input, actions) => ({ ...await actions.getClientStatus(input.role!) }),
 	open_client_entity: async (input, actions) => ({
 		role: input.role, entityType: input.entityType, id: input.id,
 		uri: await actions.openClientEntity(input.role!, input.entityType!, input.id!),

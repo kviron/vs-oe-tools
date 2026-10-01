@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import { Client } from 'pg';
 import { assertGeneratedPatchScript, createDatabaseUpdatePlan, parseGeneratedFileList, type DatabaseUpdatePlan } from './databaseUpdatePlan';
 import { runProjectProcess, UpdateLog } from './projectUpdateProcess';
-import type { ProjectDatabaseRole } from './projectCommandService';
+import type { DatabaseRole as ProjectDatabaseRole } from '../../core/database';
 
 const expectedPatchKeys = ['-y', '-nointeractive', '-dontcheckdupfiles', '-dontregpatchfile', '-f', '-renamefinishedfilesfromlistfile'];
 let updateRunning = false;

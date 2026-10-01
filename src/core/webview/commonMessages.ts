@@ -6,7 +6,7 @@ export interface CopyEntityIdMessage {
 export interface OpenClientEntityMessage {
 	command: 'openClientEntity';
 	role: 'main' | 'test';
-	entityType: string;
+	entityType?: string;
 	id: number;
 }
 
@@ -36,9 +36,7 @@ export function isOpenClientEntityMessage(message: unknown): message is OpenClie
 		&& message.command === 'openClientEntity'
 		&& 'role' in message
 		&& (message.role === 'main' || message.role === 'test')
-		&& 'entityType' in message
-		&& typeof message.entityType === 'string'
-		&& message.entityType.trim().length > 0
+		&& (!('entityType' in message) || message.entityType === undefined || typeof message.entityType === 'string')
 		&& 'id' in message
 		&& typeof message.id === 'number'
 		&& Number.isSafeInteger(message.id);

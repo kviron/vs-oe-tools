@@ -28,9 +28,14 @@ suite('Work history', () => {
 			store.saveProgress({ workspace: task.workspace, taskNumber: task.taskNumber,
 				title: task.title, progress: 'Requirements inspected', status: 'in_progress' });
 			assert.equal(store.getTask(task.workspace, task.taskNumber)?.status, 'in_progress');
+			assert.equal(store.getTask(task.workspace, task.taskNumber)?.agent_working, 1);
+			store.saveProgress({ workspace: task.workspace, taskNumber: task.taskNumber,
+				title: task.title, progress: 'Paused', status: 'in_progress', agentWorking: false });
+			assert.equal(store.getTask(task.workspace, task.taskNumber)?.agent_working, 0);
 			store.saveProgress({ workspace: task.workspace, taskNumber: task.taskNumber,
 				title: task.title, progress: 'Waiting for client', status: 'blocked' });
 			assert.equal(store.getTask(task.workspace, task.taskNumber)?.status, 'blocked');
+			assert.equal(store.getTask(task.workspace, task.taskNumber)?.agent_working, 0);
 			store.saveTask(task);
 			store.saveSvnCommits(task.workspace, task.taskNumber, ['https://svn.example/repo'], [
 				{ repositoryRoot: 'https://svn.example/repo', revision: 42, author: 'dev', committedAt: '2026-09-28T09:00:00Z', message: '89315: change', paths: ['/trunk/file'] },
@@ -54,6 +59,7 @@ suite('Work history', () => {
 			assert.equal(store.getTaskSvnCommits(task.workspace, task.taskNumber).length, 0);
 			assert.ok(store.getTaskSvnScan(task.workspace, task.taskNumber)?.scanned_at);
 			assert.equal(store.getTask(task.workspace, task.taskNumber)?.status, 'completed');
+			assert.equal(store.getTask(task.workspace, task.taskNumber)?.agent_working, 0);
 			assert.ok(store.getTask(task.workspace, task.taskNumber)?.completed_at);
 			store.addEvent(task.workspace, 'verification', 'Target rows checked', task.taskNumber);
 			store.logToolCall('query_database', true, 12);
@@ -121,6 +127,7 @@ suite('Work history', () => {
 		const store = new WorkHistoryStore(file);
 		try {
 			assert.equal(store.getTask('C:/OE/trunk', '88405')?.status, 'completed');
+			assert.equal(store.getTask('C:/OE/trunk', '88405')?.agent_working, 0);
 			assert.equal(store.getEvents('C:/OE/trunk', '88405', 10).length, 1);
 			assert.equal(store.getSvnCommits('88405')[0].revision, 66);
 		} finally {

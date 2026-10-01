@@ -42,7 +42,6 @@ suite('Navigation request validation', () => {
 			[{ action: 'bind_objects_to_package', objectIds: [] }, 'objectIds must contain 1 to 100 positive integers for bind_objects_to_package.'],
 			[{ action: 'get_package_sync_changes', offset: -1, limit: 10 }, 'Package synchronization offset must be a non-negative integer.'],
 			[{ action: 'get_production_task', query: ' ', limit: 1 }, 'Production task query must be a non-empty string.'],
-			[{ action: 'open_client_entity', id: 1, role: 'main' }, 'entityType is required for open_client_entity.'],
 			[{ action: 'call_http_test_server', httpMethod: 'GET', headers: { Accept: 1 } }, 'HTTP headers must be an object with string values.'],
 		];
 		for (const [request, message] of cases) {

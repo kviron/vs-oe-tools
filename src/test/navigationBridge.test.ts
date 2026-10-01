@@ -120,6 +120,7 @@ suite('Navigation bridge', () => {
 			updateBinaries: async () => { binariesUpdated = true; return false; },
 			updateDatabase: async role => { updatedDatabase = role; },
 			startClient: async role => { startedClient = role; },
+			getClientStatus: async role => ({ role, database: role === 'test' ? 'oetest' : 'oetrunk', clientProcessDetected: false, serverPort: null, serverReachable: null }),
 			openClientEntity: async (role, entityType, id) => `oe-${role}:/open/${entityType}/${id}`,
 			confirmSqlMutation: async () => false,
 		}, infoPath);

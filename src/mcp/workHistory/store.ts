@@ -28,6 +28,7 @@ export interface TaskProgress {
 	databaseProfile?: string;
 	sources?: string[];
 	status: 'in_progress' | 'blocked';
+	agentWorking?: boolean;
 }
 
 export class WorkHistoryStore {
@@ -133,6 +134,7 @@ export class WorkHistoryStore {
 		if (!columns.has('status')) { this.db.exec("ALTER TABLE tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'"); }
 		if (!columns.has('progress')) { this.db.exec("ALTER TABLE tasks ADD COLUMN progress TEXT NOT NULL DEFAULT ''"); }
 		if (!columns.has('completed_at')) { this.db.exec('ALTER TABLE tasks ADD COLUMN completed_at TEXT'); }
+		if (!columns.has('agent_working')) { this.db.exec('ALTER TABLE tasks ADD COLUMN agent_working INTEGER NOT NULL DEFAULT 0'); }
 	}
 
 	close(): void { this.db.close(); }
@@ -145,19 +147,19 @@ export class WorkHistoryStore {
 				title=excluded.title, summary=excluded.summary, changes=excluded.changes,
 				verification=excluded.verification, limitations=excluded.limitations,
 				database_profile=excluded.database_profile, sources_json=excluded.sources_json,
-				status='completed', completed_at=datetime('now'),
+				status='completed', agent_working=0, completed_at=datetime('now'),
 				knowledge_transferred=0, knowledge_reference=NULL, updated_at=datetime('now')`).run(
 			task.workspace, task.taskNumber, task.title, task.summary, task.changes,
 			task.verification, task.limitations, task.databaseProfile ?? null, JSON.stringify(task.sources ?? []));
-		this.db.prepare("UPDATE tasks SET status='completed', completed_at=COALESCE(completed_at, datetime('now')) WHERE workspace=? AND task_number=?")
+		this.db.prepare("UPDATE tasks SET status='completed', agent_working=0, completed_at=COALESCE(completed_at, datetime('now')) WHERE workspace=? AND task_number=?")
 			.run(task.workspace, task.taskNumber);
 		return this.getTask(task.workspace, task.taskNumber)!;
 	}
 
 	saveProgress(task: TaskProgress): Record<string, unknown> {
 		this.db.prepare(`INSERT INTO tasks
-			(workspace, task_number, title, summary, progress, changes, verification, limitations, database_profile, sources_json, status)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(workspace, task_number, title, summary, progress, changes, verification, limitations, database_profile, sources_json, status, agent_working)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(workspace, task_number) DO UPDATE SET
 				title=excluded.title, summary=COALESCE(NULLIF(excluded.summary, ''), tasks.summary),
 				progress=excluded.progress, changes=COALESCE(NULLIF(excluded.changes, ''), tasks.changes),
@@ -165,11 +167,12 @@ export class WorkHistoryStore {
 				limitations=COALESCE(NULLIF(excluded.limitations, ''), tasks.limitations),
 				database_profile=COALESCE(excluded.database_profile, tasks.database_profile),
 				sources_json=CASE WHEN excluded.sources_json='[]' THEN tasks.sources_json ELSE excluded.sources_json END,
-				status=excluded.status, completed_at=NULL, knowledge_transferred=0,
+				status=excluded.status, agent_working=excluded.agent_working, completed_at=NULL, knowledge_transferred=0,
 				knowledge_reference=NULL, updated_at=datetime('now')`).run(
 			task.workspace, task.taskNumber, task.title, task.summary ?? '', task.progress,
 			task.changes ?? '', task.verification ?? '', task.limitations ?? '',
-			task.databaseProfile ?? null, JSON.stringify(task.sources ?? []), task.status);
+			task.databaseProfile ?? null, JSON.stringify(task.sources ?? []), task.status,
+			task.status === 'in_progress' && task.agentWorking !== false ? 1 : 0);
 		return this.getTask(task.workspace, task.taskNumber)!;
 	}
 

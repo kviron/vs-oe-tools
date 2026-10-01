@@ -86,6 +86,7 @@ export function registerExplorerClipboard(
 		openMethod: id => methodEditor.open(id),
 		openModule: id => moduleEditor.open(id),
 		openObject: id => openObjectView(context, id),
+		openClientEntity: async (role, id) => vscode.commands.executeCommand('vc-ve-tools.openClientEntity', role, undefined, id),
 		openHistory: async object => vscode.commands.executeCommand(
 			object.kind === 'method' || object.kind === 'module' ? 'vc-ve-tools.svnHistory' : 'vc-ve-tools.svnObjectHistory',
 			Number(object.id),

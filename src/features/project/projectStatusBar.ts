@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ProjectDatabaseRole } from './projectCommandService';
+import type { DatabaseRole as ProjectDatabaseRole } from '../../core/database';
 
 interface ProjectRoleAction {
 	label: string;
