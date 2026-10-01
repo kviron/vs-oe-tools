@@ -1,6 +1,7 @@
 import { bridgeToolResult } from '../bridge';
 import { callClientMcpTool, getClientMcpHealth, getClientMcpUrl, listClientMcpTools, stopClientMcpServer, type ClientMcpCallResult, type ClientMcpTool } from './http';
 import { withMcpDatabaseSession } from '../database';
+import { prepareClientMcpStart, waitForClientMcpStop } from './readiness';
 const startupAttempts = 10;
 const startupDelayMs = 500;
 
@@ -22,8 +23,15 @@ async function isClientMcpRunning(): Promise<boolean> {
 	} catch { return false; }
 }
 
-export async function startManagedClientMcp(): Promise<{ url: string; alreadyRunning: boolean }> {
-	if (await isClientMcpRunning()) { return { url: getClientMcpUrl(), alreadyRunning: true }; }
+let starting: Promise<{ url: string; alreadyRunning: boolean }> | undefined;
+
+export function startManagedClientMcp(): Promise<{ url: string; alreadyRunning: boolean }> {
+	starting ??= startClientMcp().finally(() => { starting = undefined; });
+	return starting;
+}
+
+async function startClientMcp(): Promise<{ url: string; alreadyRunning: boolean }> {
+	if (await prepareClientMcpStart()) { return { url: getClientMcpUrl(), alreadyRunning: true }; }
 	await startClientMcpThroughExtension();
 	for (let attempt = 0; attempt < startupAttempts; attempt += 1) {
 		if (await isClientMcpRunning()) { return { url: getClientMcpUrl(), alreadyRunning: false }; }
@@ -34,6 +42,7 @@ export async function startManagedClientMcp(): Promise<{ url: string; alreadyRun
 
 export async function stopManagedClientMcp(): Promise<{ url: string; stopped: true }> {
 	await stopClientMcpServer();
+	await waitForClientMcpStop();
 	return { url: getClientMcpUrl(), stopped: true };
 }
 

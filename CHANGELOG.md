@@ -4,6 +4,14 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.9.1] - 2026-10-01
+
+### Fixed
+
+- Recover client MCP startup from recognized lost native sessions (`neNoSessionKeyOrReconnectUIError` and connection reset `10054`) by stopping the stale listener and waiting for the HTTP address to be released before starting a replacement.
+- Share concurrent MCP startup requests and distinguish connection refusal from timeouts, malformed health responses, and unrelated HTTP errors. Failed tool calls are not automatically retried.
+- Confirm listener shutdown before reporting a managed stop or replacing the server for another database.
+
 ## [0.9.0] - 2026-10-01
 
 ### Added

@@ -31,6 +31,14 @@ const defaultClientMcpUrl = 'http://localhost:8080';
 const requestTimeoutMs = 30_000;
 const maximumResponseLength = 10 * 1024 * 1024;
 
+export class ClientMcpHttpError extends Error {
+	constructor(message: string, public readonly status: number, public readonly body: string) { super(message); }
+}
+
+export class ClientMcpConnectionError extends Error {
+	constructor(message: string, public readonly connectionRefused: boolean) { super(message); }
+}
+
 export function getClientMcpUrl(): string {
 	return normalizeBaseUrl(readOptionalArgument('--client-mcp-url') ?? readMcpRuntimeStateSync()?.clientMcpUrl ?? defaultClientMcpUrl);
 }
@@ -113,7 +121,10 @@ async function requestJson<T>(url: URL, timeoutMs = requestTimeoutMs): Promise<T
 			signal: AbortSignal.timeout(timeoutMs),
 		});
 	} catch (error) {
-		throw new Error(`Клиентский MCP недоступен по адресу ${url.origin}: ${error instanceof Error ? error.message : String(error)}`);
+		const cause = (error as { cause?: { code?: string; errors?: Array<{ code?: string }> } })?.cause;
+		const refused = cause?.code === 'ECONNREFUSED' || (cause?.errors?.length !== undefined && cause.errors.length > 0
+			&& cause.errors.every(item => item.code === 'ECONNREFUSED'));
+		throw new ClientMcpConnectionError(`Клиентский MCP недоступен по адресу ${url.origin}: ${error instanceof Error ? error.message : String(error)}`, refused);
 	}
 
 	const contentLength = Number(response.headers.get('content-length') ?? 0);
@@ -125,7 +136,7 @@ async function requestJson<T>(url: URL, timeoutMs = requestTimeoutMs): Promise<T
 		throw new Error(`Ответ клиентского MCP превышает ${maximumResponseLength} символов.`);
 	}
 	if (!response.ok) {
-		throw new Error(`Клиентский MCP вернул HTTP ${response.status}: ${text.slice(0, 1000)}`);
+		throw new ClientMcpHttpError(`Клиентский MCP вернул HTTP ${response.status}: ${text.slice(0, 1000)}`, response.status, text.slice(0, 1000));
 	}
 	try {
 		return JSON.parse(text) as T;

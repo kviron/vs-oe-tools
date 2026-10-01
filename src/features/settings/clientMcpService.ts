@@ -3,7 +3,8 @@ import { clientMcpUrlSetting } from '../../core/constants';
 import type { SettingsState } from '../../core/webviewProtocol';
 import { getProjectDatabaseOptions } from '../../infrastructure/configuration/projectDatabaseOptions';
 import type { ExtensionLogService } from '../../infrastructure/logging/extensionLogService';
-import { getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/client/http';
+import { ClientMcpConnectionError, getClientMcpHealth, listClientMcpTools, stopClientMcpServer } from '../../mcp/client/http';
+import { prepareClientMcpStart, waitForClientMcpStop } from '../../mcp/client/readiness';
 import { startClientMcpProcess } from '../lifecycle/oeStaticMethodExecutor';
 import type { ClientCredentials } from '../project';
 
@@ -67,10 +68,14 @@ export class ClientMcpService {
 
 	public async changeRunning(action: 'start' | 'stop', onStarted?: () => void): Promise<{ changed: boolean; message?: string }> {
 		const url = configuredClientMcpUrl();
-		let online = false;
-		try { online = (await getClientMcpHealth(url)).status.toLocaleLowerCase('en') === 'ok'; }
-		catch { online = false; }
-		if ((action === 'start' && online) || (action === 'stop' && !online)) { return { changed: false }; }
+		if (action === 'start' && await prepareClientMcpStart(url)) { return { changed: false }; }
+		if (action === 'stop') {
+			try { await getClientMcpHealth(url); }
+			catch (error) {
+				if (error instanceof ClientMcpConnectionError && error.connectionRefused) { return { changed: false }; }
+				// A failed native session can still serve /stop.
+			}
+		}
 		onStarted?.();
 		let database = '';
 		let startedMethodId: number | undefined;
@@ -83,9 +88,11 @@ export class ClientMcpService {
 			startedMethodId = started.methodId;
 		} else {
 			await stopClientMcpServer(url);
+			await waitForClientMcpStop(url);
 		}
-		let reached = false;
+		let reached = action === 'stop';
 		for (let attempt = 0; attempt < 10; attempt += 1) {
+			if (reached) { break; }
 			try {
 				const health = await getClientMcpHealth(url);
 				reached = action === 'start' && health.status.toLocaleLowerCase('en') === 'ok';
@@ -120,11 +127,11 @@ export class ClientMcpService {
 		let startedTemporarily = false;
 		let health: Awaited<ReturnType<typeof getClientMcpHealth>> | undefined;
 		try {
-			try { health = await getClientMcpHealth(url); } catch { health = undefined; }
+			health = await prepareClientMcpStart(url);
 			const wasOnline = health?.status.toLocaleLowerCase('en') === 'ok';
 			const selected = wasOnline && health?.database?.toLocaleLowerCase('en') === options.database.toLocaleLowerCase('en');
 			if (!selected) {
-				if (wasOnline) { await stopClientMcpServer(url); }
+				if (wasOnline) { await stopClientMcpServer(url); await waitForClientMcpStop(url); }
 				startedTemporarily = stopAfterTemporaryStart && !wasOnline;
 				await startClientMcpProcess(workspacePath, options.database, options.host, await this.getCredentials());
 				await this.waitForServer(url, options.database);
