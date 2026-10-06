@@ -22,7 +22,7 @@ export interface DatabaseUpdatePlan {
 	generateOnly: boolean;
 }
 
-export async function createDatabaseUpdatePlan(workspacePath: string, role: ProjectDatabaseRole): Promise<DatabaseUpdatePlan> {
+export async function createDatabaseUpdatePlan(workspacePath: string, role: ProjectDatabaseRole, patchOnly = false): Promise<DatabaseUpdatePlan> {
 	const vars = parseVarsFile(iconv.decode(await readFile(path.join(workspacePath, 'Vars.bat')), 'win1251'));
 	const roleValue = (name: string) => vars.get(`${name}_${role}`) ?? vars.get(name);
 	const database = vars.get(`devdbname_${role}`)?.trim();
@@ -35,11 +35,11 @@ export async function createDatabaseUpdatePlan(workspacePath: string, role: Proj
 	const tempPath = path.join(tempRoot, `${role}-${runId}`);
 	const generatorPath = path.join(workspacePath, 'Bin', 'OEPrjScript.exe');
 	const patchPath = path.join(workspacePath, 'Bin', 'oepatch.exe');
-	for (const file of [generatorPath, patchPath]) {
+	for (const file of patchOnly ? [patchPath] : [generatorPath, patchPath]) {
 		if (!(await stat(file).catch(() => undefined))?.isFile()) { throw new Error(`Не найден ${file}.`); }
 	}
-	if (!(await stat(packagesPath).catch(() => undefined))?.isDirectory()) { throw new Error(`Не найдена папка пакетов: ${packagesPath}.`); }
-	const generatorOptions = parseGeneratorOptions(vars.get(`devprjscriptopts_${role}`) ?? '');
+	if (!patchOnly && !(await stat(packagesPath).catch(() => undefined))?.isDirectory()) { throw new Error(`Не найдена папка пакетов: ${packagesPath}.`); }
+	const generatorOptions = patchOnly ? [] : parseGeneratorOptions(vars.get(`devprjscriptopts_${role}`) ?? '');
 	const { databases } = await loadRdboadmDatabases(workspacePath);
 	const alias = databases.find(item => item.id.toLowerCase() === database.toLowerCase());
 	if (!alias) { throw new Error(`База ${database} отсутствует в bin\\rdboadm.ini.`); }

@@ -30,9 +30,9 @@ suite('Navigation route', () => {
 
 		assert.deepEqual(await invoke({ action: 'open_class', id: 7 }), { ok: true, action: 'open_class', id: 7 });
 		assert.deepEqual(calls, ['reveal:7', 'open:7']);
-		assert.deepEqual(await invoke({ action: 'compile_method', id: 7 }),
+		assert.deepEqual(await invoke({ action: 'compile_method', id: 7,expectedDatabase:'oetrunk',expectedHost:'localhost',expectedPort:5432 }),
 			{ ok: true, action: 'compile_method', result: { passed: true } });
-		assert.deepEqual(await invoke({ action: 'update_method_source', id: 7 }),
+		assert.deepEqual(await invoke({ action: 'update_method_source', id: 7,code:'proc() begin end;',expectedDatabase:'oetrunk',expectedHost:'localhost',expectedPort:5432 }),
 			{ ok: true, action: 'update_method_source', changed: true });
 		assert.deepEqual(await invoke({ action: 'update_packages' }),
 			{ ok: true, action: 'update_packages', launched: false });

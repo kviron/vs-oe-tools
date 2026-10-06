@@ -217,11 +217,11 @@ export async function saveMethodSource(
 				method.id,           // ObjID - ID метода
 				5,                   // ObjClassID - класс метода
 				2,                   // ChangeType - изменение существующего объекта
-				newValues,           // NewValues - сериализованные новые значения
+				iconv.encode(newValues, 'win1251'), // Binary audit must not use PostgreSQL bytea text escaping.
 				sessionContext.userId, // UserID - ID пользователя
 				sessionContext.computerName, // ComputerName - имя компьютера
 				lastChange,          // ChangeDate - дата изменения
-				oldValues,           // OldValues - сериализованные старые значения
+				iconv.encode(oldValues, 'win1251'),
 				'',                  // TransactionComment - пустой комментарий
 				'1899-12-30 00:00:00', // Строка обязательна: JS Date искажает историческую дату часовым поясом.
 				method.seniorId,     // RootObjID - ID родительского класса (SeniorID)

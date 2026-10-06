@@ -4,6 +4,10 @@ import type { MethodEditorProvider } from '../methods/methodEditorProvider';
 import { openAttributeDetails } from './views/attributeDetailsPanelManager';
 import { openClassDetails, revealClassMethod } from './views/classDetailsPanelManager';
 import { createLocalToolClass } from '../../infrastructure/database/localToolClassRepository';
+import { createEnumElement } from '../../infrastructure/database/enumElementRepository';
+import type { EnumElementCreationRequest } from './enumElementCreation';
+import { updateEnumElement } from '../../infrastructure/database/enumElementUpdateRepository';
+import type { EnumElementUpdateRequest } from './enumElementUpdate';
 
 export function createClassAgentActions(
 	context: vscode.ExtensionContext,
@@ -11,6 +15,8 @@ export function createClassAgentActions(
 	revealClass: (id: number) => Promise<void>,
 ) {
 	return {
+		updateEnumElement: async (request: EnumElementUpdateRequest) => ({ ...await updateEnumElement(request) }),
+		createEnumElement: async (request: EnumElementCreationRequest) => ({ ...await createEnumElement(request) }),
 		revealClass,
 		openClass: (id: number) => openClassDetails(context, methodEditor, id, true),
 		createLocalToolClass: async (name: string, expectedDatabase: string, expectedHost: string, expectedPort: number) =>

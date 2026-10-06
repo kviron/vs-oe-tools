@@ -7,6 +7,32 @@ import { WorkHistoryStore } from '../mcp/workHistory/store';
 import { parseTaskSvnLog } from '../mcp/workHistory/svnCommits';
 
 suite('Work history', () => {
+	test('migrates extraction flags and rolls back failed candidate saves', () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'vc-ve-extraction-'));
+		const file = path.join(directory, 'history.sqlite');
+		let store = new WorkHistoryStore(file);
+		const workspace = 'C:/OE/trunk';
+		const task = (taskNumber: string) => ({ workspace, taskNumber, title: 'Rule', summary: 'Rule',
+			changes: 'Change', verification: 'Checked', limitations: '' });
+		try {
+			store.saveTask(task('1')); store.saveTask(task('2'));
+			const candidate = store.addKnowledgeCandidate(workspace, '1', 'Rule', 'Business rule', 'Reuse');
+			store.markKnowledgeCandidate(candidate.id as number, 'dismissed');
+			assert.equal(store.getTask(workspace, '1')?.knowledge_extracted, 1);
+			store.close();
+			const db = new DatabaseSync(file);
+			db.exec('ALTER TABLE tasks DROP COLUMN knowledge_extracted'); db.close();
+			store = new WorkHistoryStore(file);
+			assert.equal(store.getTask(workspace, '1')?.knowledge_extracted, 1);
+			assert.equal(store.getTask(workspace, '2')?.knowledge_extracted, 0);
+			const fault = new DatabaseSync(file);
+			fault.exec(`CREATE TRIGGER fail_extraction BEFORE UPDATE OF knowledge_extracted ON tasks
+				BEGIN SELECT RAISE(ABORT, 'extraction failure'); END`); fault.close();
+			assert.throws(() => store.addKnowledgeCandidate(workspace, '2', 'Rule', 'Rule', 'Reuse'), /extraction failure/);
+			assert.equal(store.searchKnowledgeCandidates('2', undefined, 10).length, 0);
+			assert.equal(store.getTask(workspace, '2')?.knowledge_extracted, 0);
+		} finally { store.close(); rmSync(directory, { recursive: true, force: true }); }
+	});
 	test('matches task number in SVN message, not neighboring digits or path alone', () => {
 		const xml = '<log><logentry revision="1"><msg>88405: change &amp; check</msg><paths><path>/88405/file</path></paths></logentry>'
 			+ '<logentry revision="2"><msg>884050: unrelated</msg></logentry>'
@@ -148,8 +174,17 @@ suite('Work history', () => {
 			store.addChange(workspace, '88405', 'Changed validation', 'method:3200110', 'r145924');
 			store.addVerification(workspace, '88405', 'compile_method', 'Passed', 'passed', 'oetest3_6', '3.6');
 			store.addDecision(workspace, '88405', 'Keep existing signature', 'Caller compatibility', 'New method');
+			assert.equal(store.getTask(workspace, '88405')?.knowledge_extracted, 0);
 			const candidate = store.addKnowledgeCandidate(workspace, '88405', 'Dialog validation',
 				'Reusable validation rule', 'Repeated requirement', 'r145924');
+			assert.equal(store.getTask(workspace, '88405')?.knowledge_extracted, 1);
+			assert.equal(store.getTask(workspace, '88405')?.knowledge_transferred, 0);
+			store.saveTask({ workspace, taskNumber: '88405', title: 'Dialog rule', summary: 'Done',
+				changes: 'Validation', verification: 'Compiled', limitations: '' });
+			assert.equal(store.getTask(workspace, '88405')?.knowledge_extracted, 1);
+			store.saveProgress({ workspace, taskNumber: '88405', title: 'Dialog rule',
+				progress: 'Resumed', status: 'in_progress' });
+			assert.equal(store.getTask(workspace, '88405')?.knowledge_extracted, 1);
 			const context = store.getTaskContext(workspace, '88405');
 			assert.equal((context.entities as unknown[]).length, 1);
 			assert.equal((context.changes as unknown[]).length, 1);

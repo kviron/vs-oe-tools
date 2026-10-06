@@ -3,7 +3,7 @@ import iconv from 'iconv-lite';
 import { createInitialPacket, createReadonlyQueryPacket, expectedPacketLength, extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId, parseChallenge, parseMemoryDataPacket } from '../features/production-tasks/oenpProtocol';
 import { createLoginParameters } from '../features/production-tasks/auth';
 import { decodeProductionText, normalizeProductionDate } from '../features/production-tasks/mapping';
-import { productionTaskActionsSql, productionTaskAttachmentsSql, productionTaskHistorySql, productionTaskReferenceSql, productionTaskRichDescriptionSql, productionTaskSearchSql, productionTaskSql } from '../features/production-tasks/queries';
+import { productionTaskActionsSql, productionTaskAttachmentsSql, productionTaskByIdSql, productionTaskHistorySql, productionTaskListSql, productionTaskReferenceSql, productionTaskRichDescriptionSql, productionTaskSearchSql, productionTaskSql } from '../features/production-tasks/queries';
 
 suite('OENP protocol', () => {
 	test('builds a framed read-only query', () => {
@@ -32,6 +32,20 @@ suite('OENP protocol', () => {
 		assert.equal(productionTaskSql.includes('%CurPerson'), false);
 		assert.equal(productionTaskSql.includes('LIMIT 250'), false);
 		assert.match(productionTaskSql, /ORDER BY T0\.CreDate DESC, T0\.ID DESC$/);
+	});
+
+	test('uses the release and revision fields bound to the native task card', () => {
+		// ДРаботаДокумент (12851223): РелизНачинаяС/Факт and
+		// Ревизия_РелизФакт (trunk), Ревизия_РелизПред (branch).
+		for (const sql of [productionTaskSql, productionTaskByIdSql(952507978), productionTaskReferenceSql(89328), productionTaskSearchSql('89328')]) {
+			assert.match(sql, /CAST\(T0\.ReleaseFrom AS VARCHAR\(64\)\), ''\) AS releaseplan/);
+			assert.match(sql, /CAST\(T0\.ReleaseFromFact AS VARCHAR\(64\)\), ''\) AS releaseactual/);
+			assert.match(sql, /CAST\(T0\.Revision_ReleaseFact AS VARCHAR\(64\)\), ''\) AS revisiontrunk/);
+			assert.match(sql, /CAST\(T0\.Revision_ReleaseBefore AS VARCHAR\(64\)\), ''\) AS revisionbranch/);
+			assert.doesNotMatch(sql, /URRelease|T0\.ReleasePlan|T0\.ReleaseFact\b/);
+		}
+		assert.match(productionTaskListSql(), /CAST\(T0\.ReleaseFrom AS VARCHAR\(64\)\), ''\) AS releaseplan/);
+		assert.doesNotMatch(productionTaskListSql(), /URRelease|T0\.ReleasePlan/);
 	});
 
 	test('builds a bounded attachment query for the exact task', () => {

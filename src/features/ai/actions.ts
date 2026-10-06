@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import type { NavigationActions } from './navigationTools';
 import { createClassAgentActions } from '../classes';
 import { createMethodAgentActions, type MethodEditorProvider, type MethodCompilationService, type MethodCompilationHistory } from '../methods';
 import { createModuleAgentActions, type ModuleEditorProvider } from '../modules';
@@ -26,11 +25,12 @@ interface Dependencies {
 	productionTasks: ProductionTasksRegistration;
 }
 
-export function createNavigationActions(dependencies: Dependencies): NavigationActions {
+export function createNavigationActions(dependencies: Dependencies) {
 	const { context, workspacePath, getClientCredentials, extensionLogger, explorerProvider, methodEditor,
 		methodCompilation, compilationHistory, moduleEditor, settingsProvider, productionTasks } = dependencies;
 	return {
-		confirmSqlMutation: async (sql, database) => {
+		relationshipMap: undefined as undefined | ((request: unknown) => Promise<Record<string, unknown>>),
+		confirmSqlMutation: async (sql: string, database: string) => {
 			const choice = await vscode.window.showWarningMessage(
 				`Выполнить изменяющий SQL-запрос в базе ${database}?`,
 				{ modal: true, detail: sql },

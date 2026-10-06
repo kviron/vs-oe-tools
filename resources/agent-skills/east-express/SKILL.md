@@ -2,10 +2,19 @@
 name: east-express
 description: Use East Express project tools and internal knowledge when answering questions about its classes, methods, metadata, builds, releases, and development rules through vc-ve-tools MCP.
 metadata:
-  version: 14
+  version: 16
 ---
 
 # East Express
+
+## Knowledge search when starting a task
+
+For every new East Express task, after obtaining its requirements and before drawing conclusions or making changes, search both knowledge sources below. Search by the task's business terms, symptoms, errors, and known class/method names or IDs. Read relevant articles, not only search snippets. Task history is additional context and does not replace either knowledge source.
+
+- **Git knowledge repository:** use the remote repository [kviron/ve-internal-docs](https://github.com/kviron/ve-internal-docs). Access it through an available authenticated GitHub connector or GitHub API; do not require a local checkout, a Git installation, or a machine-specific folder. Resolve the current default branch and revision, read `docs/INDEX.md`, and search/read relevant files under `docs/knowledge/`. For example, an authenticated GitHub CLI can read repository metadata with `gh api repos/kviron/ve-internal-docs` and files with the contents API. If repository code search is unavailable or misses results, use the repository tree and fetch relevant Markdown contents at the resolved revision; inspect nested trees if the tree response is truncated. Any temporary downloaded files are a cache of that revision, not the canonical source. Cite remote article links with their revision. An existing local checkout is optional; verify its remote and revision before relying on it.
+- **MCP knowledge base:** use the extension's `knowledge__weaviate-query-hybrid` tool with the configured collection. Read relevant returned documents and preserve their source references. Search this source even when the Git repository already contains a useful answer, and vice versa.
+
+Briefly report which sources were searched, relevant findings and their references, or that no relevant material was found. If either source is unavailable, distinguish access/authentication/tool failure from an empty search, state the resulting coverage gap, and continue with available evidence. A private repository needs an authorized GitHub connection on the target machine; a public-page 404 is not evidence that the repository is absent. Do not claim both sources were checked successfully when one could not be read. Compare conflicting guidance against its date, release/profile applicability, and current verified code; state unresolved differences.
 
 ## Completed task history
 
@@ -25,13 +34,17 @@ After each successful task save or status change, tell the user briefly that the
 
 Use `record_work_event` for meaningful intermediate outcomes. Link verified object IDs with `link_task_entity`; use `record_task_change` for concrete changes and source revisions, `record_task_verification` for checks and their actual outcomes, and `record_task_decision` when the reason for a choice will matter later. Read these together with `get_task_context`. Before changing a known object, `find_tasks_for_entity` can reveal its earlier task history. MCP calls are logged separately without arguments or result bodies.
 
-When a task yields a reusable rule or procedure, add a reviewable candidate with `propose_task_knowledge`. Use `search_task_knowledge` to review the pending queue periodically. A candidate is not verified knowledge. After the user authorizes publication through the available knowledge workflow, verify the saved article and its reference, mark the candidate with `review_task_knowledge`, then call `mark_task_knowledge_transferred` for the task when its knowledge extraction is complete. The task remains searchable. Never mark transfer based only on a proposed article.
+Before completing a task, inspect its requirements, decisions, source and verification for reusable business knowledge. Capture the main business rules: who and what the rule applies to, triggering conditions, calculations or filters, exceptions, restrictions and the expected business result. Explain why this behavior was chosen and which business requirement or constraint it satisfies. Record significant choices with `record_task_decision` (decision, rationale, known alternatives); do not invent a rationale or alternatives when the evidence does not establish them.
+
+When a task yields a reusable business rule, decision rationale or procedure, add a reviewable candidate with `propose_task_knowledge`. Use a focused title; in `summary` include the rule, conditions, exceptions, business rationale, exact task/source references, applicable release/profile and actual verification limits. In `reason` explain why this knowledge will help future tasks. Separate confirmed requirements and observed behavior from assumptions; explicitly state when the reason for a decision is unknown. Check `get_task_context` and `search_task_knowledge` first to avoid duplicating an existing candidate. A useful rule may be specific to one business process; it need not be a generic development technique.
+
+Saving a candidate automatically sets the task's `knowledge_extracted` flag. This means useful information has been saved to candidates, not that every rule has been extracted or published. Do not claim extraction based only on reading the task or recording a decision. The flag survives progress/completion updates and candidate dismissal; when resuming a task, check for new rules rather than skipping it because the flag is set. If no useful knowledge was found, do not create an empty candidate or claim extraction. Use `search_task_knowledge` to review the pending queue periodically. A candidate is not verified knowledge. After the user authorizes publication through the available knowledge workflow, verify the saved article and its reference, mark the candidate with `review_task_knowledge`, then call `mark_task_knowledge_transferred` for the task when its knowledge extraction is complete. The task remains searchable. Never mark transfer based only on a proposed article.
 
 Use the `vc-ve-tools` MCP tools to inspect East Express database objects. Prefer focused object, class, method, attribute, and DFM tools over unrestricted SQL. Use `query_readonly` only when the focused tools cannot answer the question.
 
 ## Internal knowledge
 
-For questions about East Express development rules, build and release procedures, or other internal documentation, search the knowledge base with `knowledge__weaviate-query-hybrid`. Use the configured collection unless the user names another. Ground the answer in relevant results and identify the document or source returned by the tool. If the service is unavailable or no relevant result is found, say so instead of inventing a rule.
+For questions about East Express development rules, build and release procedures, or other internal documentation, use the same two-source knowledge search above. Ground the answer in relevant results and identify the documents or sources. If a source is unavailable or no relevant result is found, say so instead of inventing a rule.
 
 Knowledge documents describe procedures; verify the current project, active database, and live object state with the appropriate extension or `client__` tools before reporting them as current facts. Use the `client__` tools directly when they provide the needed native capability. The gateway handles their startup and cleanup.
 

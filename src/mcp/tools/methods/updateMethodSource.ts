@@ -1,4 +1,4 @@
-import { z } from '../../schemas';
+import { commands as featureCommands } from '../../../features/methods/commands';
 import { bridgeToolResult } from '../../bridge';
 import { loadActiveDatabaseOptions } from '../../database';
 import { callManagedClientMcpTool, listManagedClientMcpTools, startManagedClientMcp, stopManagedClientMcp } from '../../client/lifecycle';
@@ -9,8 +9,8 @@ export function registerTool(server: McpToolServer): void {
 	server.registerTool('update_method_source', {
 		description: 'Replace complete method source through native client MCP class_method_change when available, otherwise use the extension save pipeline. Re-read the native change and always compile before returning. A saved method with passed=false is incomplete. Preserve the anonymous declaration wrapper without the card name.',
 		inputSchema: {
-			methodId: z.number().int().positive().describe('Existing method ID returned by search_methods'),
-			code: z.string().max(1_500_000).describe('Complete replacement source including the anonymous declaration wrapper, without the method card name'),
+			methodId: featureCommands.update_method_source.schema.shape.id.describe('Existing method ID returned by search_methods'),
+			code: featureCommands.update_method_source.schema.shape.code.max(1_500_000).describe('Complete replacement source including the anonymous declaration wrapper, without the method card name'),
 		},
 		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
 	}, async ({ methodId, code }: { methodId: number; code: string }) => {

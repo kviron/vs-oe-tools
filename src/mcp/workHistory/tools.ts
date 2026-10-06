@@ -89,7 +89,7 @@ export function registerWorkHistoryTools(server: McpToolServer): void {
 	}));
 
 	server.registerTool<{ taskNumber: string; title: string; summary: string; reason: string; sourceRevision?: string }>('propose_task_knowledge', {
-		description: 'Add a reviewable knowledge candidate from task evidence; this does not publish knowledge.',
+		description: 'Save a reviewable candidate with business rules, conditions, exceptions, decision rationale and evidence in summary; reason explains why it is reusable. Automatically sets task knowledge_extracted; does not publish knowledge.',
 		inputSchema: { taskNumber: z.string().min(1), title: z.string().min(1), summary: z.string().min(1),
 			reason: z.string().min(1), sourceRevision: z.string().optional() },
 	}, async input => run(store => ({ candidate: store.addKnowledgeCandidate(workspace, input.taskNumber,

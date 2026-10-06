@@ -1,4 +1,4 @@
-import { z } from '../../schemas';
+import { commands as featureCommands } from '../../../features/methods/commands';
 import { queryDatabaseRaw } from '../../database';
 import { navigationToolResult } from '../../bridge';
 import type { McpToolServer } from '../../toolTypes';
@@ -6,7 +6,9 @@ import type { McpToolServer } from '../../toolTypes';
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('reveal_method_in_class', {
 		description: 'Open the owning class card in the vc-ve-tools Explorer, switch to its Methods tab, select the exact method row, and scroll it into view without mouse or cursor automation.',
-		inputSchema: { methodId: z.number().int().positive().describe('Method ID returned by search_methods') },
+		inputSchema: {
+			methodId: featureCommands.reveal_method.schema.shape.id.describe('Method ID returned by search_methods'),
+		},
 		annotations: { readOnlyHint: false, destructiveHint: false },
 	}, async ({ methodId }: { methodId: number }) => {
 		const rows = await queryDatabaseRaw<{ classid: number }>('SELECT seniorid AS classid FROM methods WHERE id = $1', [methodId]);

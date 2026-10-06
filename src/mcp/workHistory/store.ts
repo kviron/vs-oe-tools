@@ -134,6 +134,11 @@ export class WorkHistoryStore {
 		if (!columns.has('status')) { this.db.exec("ALTER TABLE tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'"); }
 		if (!columns.has('progress')) { this.db.exec("ALTER TABLE tasks ADD COLUMN progress TEXT NOT NULL DEFAULT ''"); }
 		if (!columns.has('completed_at')) { this.db.exec('ALTER TABLE tasks ADD COLUMN completed_at TEXT'); }
+		if (!columns.has('knowledge_extracted')) {
+			this.db.exec(`ALTER TABLE tasks ADD COLUMN knowledge_extracted INTEGER NOT NULL DEFAULT 0;
+				UPDATE tasks SET knowledge_extracted=1 WHERE EXISTS
+				(SELECT 1 FROM knowledge_candidates c WHERE c.task_id=tasks.id);`);
+		}
 		if (!columns.has('agent_working')) { this.db.exec('ALTER TABLE tasks ADD COLUMN agent_working INTEGER NOT NULL DEFAULT 0'); }
 	}
 
@@ -320,10 +325,18 @@ export class WorkHistoryStore {
 
 	addKnowledgeCandidate(workspace: string, taskNumber: string, title: string, summary: string,
 		reason: string, sourceRevision?: string): Record<string, unknown> {
-		const inserted = this.db.prepare(`INSERT INTO knowledge_candidates
-			(task_id, title, summary, reason, source_revision) VALUES (?, ?, ?, ?, ?)`).run(
-			this.taskId(workspace, taskNumber), title, summary, reason, sourceRevision ?? null);
-		return this.db.prepare('SELECT * FROM knowledge_candidates WHERE id=?').get(inserted.lastInsertRowid) as Record<string, unknown>;
+		const taskId = this.taskId(workspace, taskNumber);
+		this.db.exec('BEGIN');
+		try {
+			const inserted = this.db.prepare(`INSERT INTO knowledge_candidates
+				(task_id, title, summary, reason, source_revision) VALUES (?, ?, ?, ?, ?)`).run(
+				taskId, title, summary, reason, sourceRevision ?? null);
+			this.db.prepare("UPDATE tasks SET knowledge_extracted=1, updated_at=datetime('now') WHERE id=?").run(taskId);
+			const candidate = this.db.prepare('SELECT * FROM knowledge_candidates WHERE id=?')
+				.get(inserted.lastInsertRowid) as Record<string, unknown>;
+			this.db.exec('COMMIT');
+			return candidate;
+		} catch (error) { this.db.exec('ROLLBACK'); throw error; }
 	}
 
 	getTaskContext(workspace: string, taskNumber: string): Record<string, unknown> {

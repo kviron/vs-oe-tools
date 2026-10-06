@@ -1,0 +1,877 @@
+{
+  "schemaVersion": 2,
+  "title": "OE Studio — карта программы",
+  "description": "Проектируемая архитектура по README и обсуждению 02.10.2026. Не описание реализованных интеграций. Четыре окружения, общий backend для UI и MCP, явная цель каждого вызова, прямой доступ к БД и отдельное выполнение задач OE. Имена окружений предлагаемые; реальные пути, базы и контракты OeExecTask не подтверждены.",
+  "sourceRoot": "C:/dev/oe-studio",
+  "nodeKinds": {
+    "ui": {
+      "label": "Интерфейс",
+      "color": "#38bdf8"
+    },
+    "actor": {
+      "label": "Агенты",
+      "color": "#c084fc"
+    },
+    "interface": {
+      "label": "MCP",
+      "color": "#a78bfa"
+    },
+    "core": {
+      "label": "Общее ядро",
+      "color": "#60a5fa"
+    },
+    "executor": {
+      "label": "Исполнитель",
+      "color": "#34d399"
+    },
+    "environment": {
+      "label": "Окружение БД",
+      "color": "#2dd4bf"
+    },
+    "installation": {
+      "label": "Установка OE",
+      "color": "#fb923c"
+    },
+    "operation": {
+      "label": "Операция",
+      "color": "#818cf8"
+    },
+    "question": {
+      "label": "Открытый вопрос",
+      "color": "#facc15"
+    }
+  },
+  "edgeKinds": {
+    "request": {
+      "label": "Запрос",
+      "color": "#38bdf8"
+    },
+    "flow": {
+      "label": "Выполнение",
+      "color": "#34d399"
+    },
+    "config": {
+      "label": "Контекст",
+      "color": "#fb923c"
+    },
+    "contains": {
+      "label": "Состав",
+      "color": "#94a3b8"
+    },
+    "target": {
+      "label": "Целевой ресурс",
+      "color": "#2dd4bf"
+    },
+    "record": {
+      "label": "Журнал",
+      "color": "#a78bfa"
+    },
+    "question": {
+      "label": "Уточнение",
+      "color": "#facc15"
+    }
+  },
+  "nodes": [
+    {
+      "id": "workbench",
+      "kind": "ui",
+      "title": "Рабочая область",
+      "description": "Объекты OE, исходники, SQL, сравнение",
+      "x": 0,
+      "y": 0,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "manager",
+      "kind": "ui",
+      "title": "Менеджер окружений",
+      "description": "Базы, релизы, обновления и бинарники",
+      "x": 0,
+      "y": 240,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "agents",
+      "kind": "actor",
+      "title": "Параллельные агенты",
+      "description": "Задания в разных окружениях",
+      "x": 0,
+      "y": 480,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "kind": "interface",
+      "title": "MCP-интерфейс",
+      "description": "Обязательный environmentId в каждом вызове",
+      "x": 400,
+      "y": 480,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Контракт": "environmentId + аргументы операции; идентификатор агента и права берутся из доверенной сессии. Нет глобальной текущей БД."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "catalog",
+      "kind": "core",
+      "title": "Общий каталог операций",
+      "description": "Одни операции для UI и MCP",
+      "x": 800,
+      "y": 100,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Ответственность": "Чтение объектов и исходников, поиск, поддерживаемые изменения, сравнение, диагностика, управление окружениями. Набор MCP-инструментов может ограничиваться задачей."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "context",
+      "kind": "core",
+      "title": "Контекст операции",
+      "description": "Цель фиксируется до выполнения",
+      "x": 1200,
+      "y": 100,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Вход": "environmentId, аргументы, права инициатора",
+        "Контракт": "Разрешить зарегистрированное окружение. Зафиксировать БД, релиз, установку, ID операции. Проверить фактическую БД. Не переключать цель во время операции.",
+        "Выход": "Результат с environmentId, релизом, фактической БД и ID операции. Секреты не выдаются агенту."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "registry",
+      "kind": "core",
+      "title": "Реестр окружений",
+      "description": "БД, релиз, установка и сценарии",
+      "x": 1200,
+      "y": -200,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Окружения": "trunk-dev, trunk-test, r36-dev, r36-test — предлагаемые ID; фактические базы и пути ещё не установлены.",
+        "Модель": "Окружение ссылается на установку релиза. Несколько окружений могут использовать общие бинарники — требует уточнения."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "dispatch",
+      "kind": "core",
+      "title": "Диспетчер операций",
+      "description": "Выбирает исполнителя и ресурсы",
+      "x": 1600,
+      "y": 100,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "kind": "executor",
+      "title": "Прямой доступ к БД",
+      "description": "Изолированные подключения по окружениям",
+      "x": 2000,
+      "y": -180,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Параллельность": "Отдельные пулы по окружениям. Каждая операция удерживает своё подключение и контекст. Конфликты изменений требуют транзакций и контроля версии объекта.",
+        "Граница": "Прямые изменения допускаются только после подтверждения корректного механизма; SQL не заменяет обязательную логику OE."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "queue",
+      "kind": "core",
+      "title": "Очередь долгих задач",
+      "description": "ID, состояние, отмена и блокировки",
+      "x": 2000,
+      "y": 200,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Контракт": "Постановка возвращает ID задачи; ожидание и получение статуса доступны UI и MCP.",
+        "Изоляция": "Блокировки по фактическим общим ресурсам: БД, установка, working copy, объект. Разные environmentId сами по себе не гарантируют параллельность."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "oe",
+      "kind": "executor",
+      "title": "Исполнитель OE",
+      "description": "OeExecTask.exe выбранного релиза",
+      "x": 2400,
+      "y": 180,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Контекст": "Путь к executable, рабочий каталог, параметры БД, входные и временные файлы принадлежат конкретной задаче.",
+        "Ограничение": "Способ передачи БД и независимость запусков ещё не исследованы."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "system",
+      "kind": "executor",
+      "title": "Системный исполнитель",
+      "description": "BAT, SVN и управление процессами",
+      "x": 2400,
+      "y": 450,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "kind": "core",
+      "title": "Журнал операций",
+      "description": "Цель, подтверждение, результат, ошибки",
+      "x": 1600,
+      "y": 650,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "trunkDev",
+      "kind": "environment",
+      "title": "3.7 trunk · разработка",
+      "description": "Основное окружение разработчика",
+      "x": 2800,
+      "y": -420,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "environmentId": "trunk-dev",
+        "Релиз": "3.7 trunk",
+        "База": "Не установлена"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "trunkTest",
+      "kind": "environment",
+      "title": "3.7 trunk · тест",
+      "description": "Проверка накатывания изменений",
+      "x": 2800,
+      "y": -190,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "environmentId": "trunk-test",
+        "Релиз": "3.7 trunk",
+        "База": "Не установлена"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "r36Dev",
+      "kind": "environment",
+      "title": "3.6 · разработка",
+      "description": "Основное окружение разработчика",
+      "x": 2800,
+      "y": 40,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "environmentId": "r36-dev",
+        "Релиз": "3.6",
+        "База": "Не установлена"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "r36Test",
+      "kind": "environment",
+      "title": "3.6 · тест",
+      "description": "Проверка накатывания изменений",
+      "x": 2800,
+      "y": 270,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "environmentId": "r36-test",
+        "Релиз": "3.6",
+        "База": "Не установлена"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "trunkInstall",
+      "kind": "installation",
+      "title": "Установки релиза 3.7",
+      "description": "Клиент, OeExecTask, конфигурации",
+      "x": 3200,
+      "y": -250,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "r36Install",
+      "kind": "installation",
+      "title": "Установки релиза 3.6",
+      "description": "Свои бинарники и сценарии",
+      "x": 3200,
+      "y": 210,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "dbUpdate",
+      "kind": "operation",
+      "title": "Обновление базы",
+      "description": "Сценарий обновления и проверка результата",
+      "x": 2000,
+      "y": 780,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "binaryUpdate",
+      "kind": "operation",
+      "title": "Обновление бинарников",
+      "description": "Соответствие выбранному релизу",
+      "x": 2400,
+      "y": 780,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура"
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "oeQuestion",
+      "kind": "question",
+      "title": "Изоляция OeExecTask",
+      "description": "Исследовать общие ресурсы запусков",
+      "x": 3200,
+      "y": 560,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Вопрос": "Как задаётся БД? Есть ли общая конфигурация, фиксированные файлы, ограничения одновременных процессов?",
+        "Причина": "Определяет безопасную параллельность и необходимость отдельных workers."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    },
+    {
+      "id": "installQuestion",
+      "kind": "question",
+      "title": "Схема установок",
+      "description": "Две установки или четыре?",
+      "x": 3200,
+      "y": 800,
+      "status": "proposed",
+      "attributes": {
+        "Статус": "Проектируемая архитектура",
+        "Вопрос": "Есть ли отдельный каталог клиента для каждой основной и тестовой среды или одна установка на релиз?",
+        "Причина": "Определяет блокировки обновления бинарников и изоляцию задач."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/README.md",
+          "label": "Исходная концепция README"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "agents",
+      "to": "mcp",
+      "type": "request",
+      "label": "environmentId",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "workbench",
+      "to": "catalog",
+      "type": "request",
+      "label": "Операции интерфейса",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "manager",
+      "to": "catalog",
+      "type": "request",
+      "label": "Управление окружением",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "mcp",
+      "to": "catalog",
+      "type": "request",
+      "label": "Те же операции",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "catalog",
+      "to": "context",
+      "type": "flow",
+      "label": "Проверить цель и права",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "registry",
+      "to": "context",
+      "type": "config",
+      "label": "Разрешить окружение",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "context",
+      "to": "dispatch",
+      "type": "flow",
+      "label": "Фиксированный контекст",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "dispatch",
+      "to": "db",
+      "type": "flow",
+      "label": "Прямые операции",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "dispatch",
+      "to": "queue",
+      "type": "flow",
+      "label": "Долгие задачи",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "queue",
+      "to": "oe",
+      "type": "flow",
+      "label": "Задачи OE",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "queue",
+      "to": "system",
+      "type": "flow",
+      "label": "Системные задачи",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "dispatch",
+      "to": "audit",
+      "type": "record",
+      "label": "Начало и цель",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "db",
+      "to": "audit",
+      "type": "record",
+      "label": "Результат и ошибки",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "oe",
+      "to": "audit",
+      "type": "record",
+      "label": "Результат и ошибки",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "system",
+      "to": "audit",
+      "type": "record",
+      "label": "Результат и ошибки",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "db",
+      "to": "trunkDev",
+      "type": "target",
+      "label": "Выбранная БД",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "registry",
+      "to": "trunkDev",
+      "type": "contains",
+      "label": "Окружение",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "db",
+      "to": "trunkTest",
+      "type": "target",
+      "label": "Выбранная БД",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "registry",
+      "to": "trunkTest",
+      "type": "contains",
+      "label": "Окружение",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "db",
+      "to": "r36Dev",
+      "type": "target",
+      "label": "Выбранная БД",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "registry",
+      "to": "r36Dev",
+      "type": "contains",
+      "label": "Окружение",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "db",
+      "to": "r36Test",
+      "type": "target",
+      "label": "Выбранная БД",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "registry",
+      "to": "r36Test",
+      "type": "contains",
+      "label": "Окружение",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "trunkDev",
+      "to": "trunkInstall",
+      "type": "config",
+      "label": "Установка релиза",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "trunkTest",
+      "to": "trunkInstall",
+      "type": "config",
+      "label": "Установка релиза",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "r36Dev",
+      "to": "r36Install",
+      "type": "config",
+      "label": "Установка релиза",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "r36Test",
+      "to": "r36Install",
+      "type": "config",
+      "label": "Установка релиза",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "oe",
+      "to": "trunkInstall",
+      "type": "target",
+      "label": "Executable 3.7",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "oe",
+      "to": "r36Install",
+      "type": "target",
+      "label": "Executable 3.6",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "catalog",
+      "to": "dbUpdate",
+      "type": "contains",
+      "label": "Операция менеджера",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "catalog",
+      "to": "binaryUpdate",
+      "type": "contains",
+      "label": "Операция менеджера",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "dbUpdate",
+      "to": "queue",
+      "type": "flow",
+      "label": "Выполнение сценария",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "binaryUpdate",
+      "to": "queue",
+      "type": "flow",
+      "label": "Блокировка установки",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "system",
+      "to": "trunkInstall",
+      "type": "target",
+      "label": "Обновление и процессы",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "system",
+      "to": "r36Install",
+      "type": "target",
+      "label": "Обновление и процессы",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "oe",
+      "to": "oeQuestion",
+      "type": "question",
+      "label": "Исследовать",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    },
+    {
+      "from": "registry",
+      "to": "installQuestion",
+      "type": "question",
+      "label": "Уточнить",
+      "attributes": {
+        "Статус": "Проектируемая связь"
+      }
+    }
+  ]
+}

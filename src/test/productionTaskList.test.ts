@@ -65,6 +65,10 @@ suite('Production task list loading', () => {
 		await withServer(async (options, requests) => {
 			const task = await loadProductionTaskById(options, 42);
 			assert.equal(task?.workDescription, 'Полное описание');
+			assert.equal(task?.releasePlan, '306');
+			assert.equal(task?.releaseActual, '307');
+			assert.equal(task?.revisionTrunk, '146171');
+			assert.equal(task?.revisionBranch, '146172');
 			assert.match(requests[7].toString('ascii'), /WHERE T0\.ID = 42\nLIMIT 1/);
 			assert.doesNotMatch(requests[7].toString('ascii'), /WHERE T0\.DNumber/);
 		});
@@ -117,7 +121,10 @@ async function withServer(run: (options: ProductionConnectionOptions, requests: 
 				} else if (id >= 8 && sql.includes('WHERE EXISTS')) {
 					body = dataset(['id', 'name'], [[currentPerson, 'Текущий пользователь'], [otherPerson, 'Другой пользователь']]);
 				} else if (id >= 8 && sql.includes('WHERE T0.ID = 42')) {
-					body = dataset(['id', 'workdescription'], [[42, 'Полное описание']]);
+					body = dataset(
+						['id', 'workdescription', 'releaseplan', 'releaseactual', 'revisiontrunk', 'revisionbranch'],
+						[[42, 'Полное описание', 306, '307', '146171', 146172]],
+					);
 				} else if (id >= 8) {
 					const selected = sql.match(/WHERE T0\.RespPerson = (\d+)/)?.[1];
 					const people = selected ? [Number(selected)] : [currentPerson, otherPerson];

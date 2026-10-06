@@ -1,8 +1,4 @@
 import * as vscode from 'vscode';
-import type { ClassAttributeDraft } from '../classes/models';
-import type { PackageBindingMutationRequest } from '../package-sync/packageBindingMutation';
-import type { MethodCompilationRecord } from '../methods/methodCompilationHistory';
-import type { ClientStatus } from '../project';
 
 interface ClassInput {
 	classId: number;
@@ -16,38 +12,7 @@ interface MethodInClassInput extends MethodInput {
 	classId: number;
 }
 
-export interface NavigationActions {
-	relationshipMap?(request: unknown): Promise<Record<string, unknown>>;
-	revealClass(classId: number): Promise<void>;
-	openClass(classId: number): Promise<void>;
-	openMethod(methodId: number): Promise<void>;
-	revealMethod(classId: number, methodId: number): Promise<void>;
-	updateMethodSource(methodId: number, code: string, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<Record<string, unknown>>;
-	compileMethod(methodId: number, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<MethodCompilationRecord>;
-	getMethodCompilationHistory(methodId: number | undefined, limit: number): Promise<{ records: MethodCompilationRecord[] }>;
-	updateModuleSource(moduleId: number, code: string, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<Record<string, unknown>>;
-	bindObjectsToPackage(request: PackageBindingMutationRequest): Promise<Record<string, unknown>>;
-	createClassAttribute(draft: ClassAttributeDraft): Promise<Record<string, unknown>>;
-	createLocalToolClass(name: string, expectedDatabase: string, expectedHost: string, expectedPort: number): Promise<Record<string, unknown>>;
-	executeLifecycleMethod(methodId: number, methodParameter: string, database: string, host: string): Promise<Record<string, unknown>>;
-	startClientMcp(database: string, host: string): Promise<Record<string, unknown>>;
-	startHttpTestServer(methodName: string): Promise<Record<string, unknown>>;
-	stopHttpTestServer(): Promise<Record<string, unknown>>;
-	getHttpTestServerStatus(): Promise<Record<string, unknown>>;
-	callHttpTestServer(request: { method: string; methodName?: string; headers?: Record<string, string>; body?: string }): Promise<Record<string, unknown>>;
-	getSvnFileHistory(filePath: string, limit: number): Promise<Record<string, unknown>>;
-	getPackageSyncChanges(query: string | undefined, offset: number, limit: number): Promise<Record<string, unknown>>;
-	getProductionTasks(query: string | undefined, limit: number): Promise<Record<string, unknown>>;
-	getProductionTask(query: string, limit: number): Promise<Record<string, unknown>>;
-	getProductionTasksInProgress(): Promise<Record<string, unknown>>;
-	updatePackages(): Promise<boolean>;
-	updateBinaries(): Promise<boolean>;
-	updateDatabase(role: 'main' | 'test'): Promise<void>;
-	startClient(role: 'main' | 'test'): Promise<void>;
-	getClientStatus(role: 'main' | 'test'): Promise<ClientStatus>;
-	openClientEntity(role: 'main' | 'test', entityType: string | undefined, id: number): Promise<string>;
-	confirmSqlMutation(sql: string, database: string): Promise<boolean>;
-}
+export type NavigationActions = ReturnType<typeof import('./actions').createNavigationActions>;
 
 export function registerNavigationTools(context: vscode.ExtensionContext, actions: NavigationActions): void {
 	context.subscriptions.push(

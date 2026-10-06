@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import { startNavigationBridge } from '../features/ai/navigationBridge';
 import type { NavigationActions } from '../features/ai/navigationTools';
 
+// Transport fixtures verify responses independently from repository result fields.
+type ActionStubs = { [K in keyof NavigationActions]?: NonNullable<NavigationActions[K]> extends
+	(...args:infer A)=>unknown ? (...args:A)=>Promise<unknown> : never };
+
 suite('Navigation bridge', () => {
 	test('removes its own address file on dispose', async () => {
 		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-dispose-${process.pid}-${Date.now()}.json`);
@@ -63,6 +67,8 @@ suite('Navigation bridge', () => {
 		let startedClientMcp: { database: string; host: string } | undefined;
 		const infoPath = join(tmpdir(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
 		const bridge = await startNavigationBridge({
+			updateEnumElement: async request => ({ ...request, changed:true }),
+			createEnumElement: async request => ({ objectId: 3200480, ...request }),
 			createLocalToolClass: async (name, database) => ({ id: 20000001, name, database }),
 			revealClass: async () => undefined,
 			openClass: async () => undefined,
@@ -123,7 +129,7 @@ suite('Navigation bridge', () => {
 			getClientStatus: async role => ({ role, database: role === 'test' ? 'oetest' : 'oetrunk', clientProcessDetected: false, serverPort: null, serverReachable: null }),
 			openClientEntity: async (role, entityType, id) => `oe-${role}:/open/${entityType}/${id}`,
 			confirmSqlMutation: async () => false,
-		}, infoPath);
+		} satisfies ActionStubs as unknown as NavigationActions, infoPath);
 		try {
 			const connection = JSON.parse(await readFile(infoPath, 'utf8')) as { url: string; token: string };
 			const response = await fetch(connection.url, {

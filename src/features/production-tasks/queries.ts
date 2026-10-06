@@ -29,10 +29,10 @@ const productionTaskSelectSql = `SELECT T0.ID AS id,
     WHERE commagetpos((SELECT R.Refs FROM GETREFOBJECTS(T0.ID, 10763223, 10160264) R), PN.ID) > -1), '') AS VARCHAR(6000)) AS newssection,
   COALESCE((SELECT CAST(E.Name AS VARCHAR(250)) FROM Enum E WHERE E.ID = T0.Priority), '') AS priority,
   COALESCE(CAST(T0.Intensity AS VARCHAR(64)), '') AS effort,
-  COALESCE((SELECT CAST(R.ReleaseByDigits AS VARCHAR(64)) FROM URRelease R WHERE R.ID = T0.ReleasePlan), '') AS releaseplan,
-  COALESCE((SELECT CAST(R.ReleaseByDigits AS VARCHAR(64)) FROM URRelease R WHERE R.ID = T0.ReleaseFact), '') AS releaseactual,
-  COALESCE(CAST(T0.Revision_ReleaseBefore AS VARCHAR(64)), '') AS revisiontrunk,
-  COALESCE(CAST(T0.Revision_ReleaseFact AS VARCHAR(64)), '') AS revisionbranch,
+  COALESCE(CAST(T0.ReleaseFrom AS VARCHAR(64)), '') AS releaseplan,
+  COALESCE(CAST(T0.ReleaseFromFact AS VARCHAR(64)), '') AS releaseactual,
+  COALESCE(CAST(T0.Revision_ReleaseFact AS VARCHAR(64)), '') AS revisiontrunk,
+  COALESCE(CAST(T0.Revision_ReleaseBefore AS VARCHAR(64)), '') AS revisionbranch,
   COALESCE(CAST((SELECT COUNT(SF.ID) FROM StoredFiles SF
     WHERE SF.SeniorID = T0.ID OR SF.RootObj = T0.ID OR SF.MainStoredFile IN
       (SELECT PSF.ID FROM StoredFiles PSF WHERE PSF.SeniorID = T0.ID OR PSF.RootObj = T0.ID)) AS VARCHAR(64)), '0') AS attachmentcount,
@@ -67,7 +67,7 @@ const productionTaskListSelectSql = `SELECT T0.ID AS id,
   COALESCE(CAST(T0.Mantis AS VARCHAR(1000)), '') AS appeal,
   COALESCE(CAST(T0.PackageOfWork AS VARCHAR(250)), '') AS packagename,
   COALESCE(CAST(PR.Name AS VARCHAR(250)), '') AS priority,
-  COALESCE(CAST(RL.ReleaseByDigits AS VARCHAR(64)), '') AS releaseplan,
+  COALESCE(CAST(T0.ReleaseFrom AS VARCHAR(64)), '') AS releaseplan,
   COALESCE(CAST((SELECT COUNT(SF.ID) FROM StoredFiles SF
     WHERE SF.SeniorID = T0.ID OR SF.RootObj = T0.ID OR SF.MainStoredFile IN
       (SELECT PSF.ID FROM StoredFiles PSF WHERE PSF.SeniorID = T0.ID OR PSF.RootObj = T0.ID)) AS VARCHAR(64)), '0') AS attachmentcount
@@ -76,8 +76,7 @@ LEFT JOIN StateLC S ON S.ID = T0.LCStateID
 LEFT JOIN TypeWork W ON W.ID = T0.Tip
 LEFT JOIN Persons E ON E.ID = T0.Executor
 LEFT JOIN Persons P ON P.ID = T0.RespPerson
-LEFT JOIN Enum PR ON PR.ID = T0.Priority
-LEFT JOIN URRelease RL ON RL.ID = T0.ReleasePlan`;
+LEFT JOIN Enum PR ON PR.ID = T0.Priority`;
 
 export function productionTaskListSql(responsiblePersonId?: number): string {
 	if (responsiblePersonId !== undefined && (!Number.isSafeInteger(responsiblePersonId) || responsiblePersonId <= 0)) {

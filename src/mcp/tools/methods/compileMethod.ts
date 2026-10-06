@@ -1,4 +1,4 @@
-import { z } from '../../schemas';
+import { commands as featureCommands } from '../../../features/methods/commands';
 import { bridgeToolResult } from '../../bridge';
 import { loadActiveDatabaseOptions } from '../../database';
 import type { McpToolServer } from '../../toolTypes';
@@ -7,7 +7,7 @@ export function registerTool(server: McpToolServer): void {
 	server.registerTool('compile_method', {
 		description: 'Check an East Express method with the native compiler after creating or changing it. Returns errors and warnings with line numbers and saves the result in compilation history. Verify get_active_database first.',
 		inputSchema: {
-			methodId: z.number().int().positive().describe('Method ID to check'),
+			methodId: featureCommands.compile_method.schema.shape.id.describe('Method ID to check'),
 		},
 		annotations: { readOnlyHint: true },
 	}, async ({ methodId }: { methodId: number }) => {

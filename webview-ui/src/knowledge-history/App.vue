@@ -19,7 +19,7 @@ interface TaskRow {
   id: number; workspace: string; task_number: string; title: string; summary: string;
   status: string; agent_working: number; progress: string; updated_at: string; database_profile: string | null;
   changes: string; verification: string; limitations: string; sources_json: string;
-  knowledge_transferred: number; knowledge_reference: string | null;
+  knowledge_extracted: number; knowledge_transferred: number; knowledge_reference: string | null;
 }
 interface CandidateRow {
   id: number; task_number: string; workspace: string; title: string; summary: string;
@@ -150,11 +150,12 @@ vscode.postMessage({ command: 'knowledgeHistoryReady' });
           <CardHeader class="sr-only"><CardTitle>История задач</CardTitle><CardDescription>Выберите задачу для просмотра контекста.</CardDescription></CardHeader>
           <CardContent class="min-h-0 flex-1 p-0">
             <Table container-class="h-full" class="min-w-[42rem]">
-              <TableHeader class="sticky top-0 bg-card"><TableRow><TableHead class="w-28">Задача</TableHead><TableHead>Название и итог</TableHead><TableHead class="w-32">Статус</TableHead><TableHead class="w-36">Обновлена</TableHead></TableRow></TableHeader>
+              <TableHeader class="sticky top-0 bg-card"><TableRow><TableHead class="w-28">Задача</TableHead><TableHead>Название и итог</TableHead><TableHead class="w-32">Статус</TableHead><TableHead class="w-44">Знания</TableHead><TableHead class="w-36">Обновлена</TableHead></TableRow></TableHeader>
               <TableBody><TableRow v-for="task in tasks" :key="`${task.workspace}:${task.task_number}`" tabindex="0" class="cursor-pointer" :data-row-selected="selectedTaskKey === `${task.workspace}:${task.task_number}` ? '' : undefined" @click="selectTask(task)" @keydown.enter.prevent="selectTask(task)">
                 <TableCell class="font-mono text-xs">{{ task.task_number }}</TableCell>
                 <TableCell class="max-w-0"><div class="truncate font-medium" :title="task.title">{{ task.title }}</div><div class="truncate text-xs text-muted-foreground" :title="task.summary || task.progress">{{ task.summary || task.progress }}</div></TableCell>
                 <TableCell><Badge v-if="agentIsWorking(task)" variant="default">● Агент работает</Badge><Badge v-else :variant="task.status === 'blocked' ? 'destructive' : 'secondary'">{{ statusLabel(task.status) }}</Badge></TableCell>
+                <TableCell><Badge v-if="task.knowledge_extracted" variant="secondary" title="Из задачи сохранена полезная информация в кандидаты; это не означает публикацию или полный разбор задачи">Извлечены в кандидаты</Badge><span v-else class="text-xs text-muted-foreground">Не извлечены</span><Badge v-if="task.knowledge_transferred" variant="outline">Опубликованы</Badge></TableCell>
                 <TableCell class="whitespace-nowrap text-xs text-muted-foreground">{{ date(task.updated_at) }}</TableCell>
               </TableRow></TableBody>
             </Table>

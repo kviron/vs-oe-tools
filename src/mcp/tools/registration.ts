@@ -12,6 +12,7 @@ import { clientToolRegistrations } from './client/registration';
 import { navigationToolRegistrations } from './navigation/registration';
 import { diagnosticsToolRegistrations } from './diagnostics/registration';
 import { httpToolRegistrations } from './http/registration';
+import { registerCommandTools } from './commandTools';
 
 const registrations = [
 	...databaseToolRegistrations,
@@ -30,6 +31,7 @@ const registrations = [
 /** Composes domain catalogs without changing the public registration order. */
 export function registerTools(server: McpToolServer): void {
 	registerWorkHistoryTools(server);
+	registerCommandTools(server);
 	for (const [, register] of registrations) { register(server); }
 	registerRelationshipMapTools(server);
 }

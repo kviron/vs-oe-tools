@@ -4,6 +4,26 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.10.0] - 2026-10-06
+
+### Added
+
+- Added `create_enum_element` and `update_enum_element` MCP tools for direct enumeration subclasses stored in `Enum`, with explicit database targeting, Windows-1251 validation, developer IDs for creation, transactional audit, and post-commit readback. Updates reject stale previous values; creation verifies the class package file. Refresh the native client's enumeration cache after changes.
+- Added `execute_patch` to run one reviewed Windows-1251 SQL or RDE snapshot through native `OEPatch.exe`, with explicit main/test database, host and port checks, SHA-256 confirmation, execution logs, partial-change reporting, and optional `allowAndLog` package-change registration.
+- Added an extracted-knowledge indicator to task history, separate from publication status. Saving a knowledge candidate marks the task atomically; existing candidates migrate to the new flag, which survives task updates and candidate dismissal.
+
+### Changed
+
+- Moved navigation and agent command schemas and handlers into feature-owned contracts shared with MCP adapters. Preserved existing wire action names, public argument aliases, defaults, and response envelopes while validating inputs before dispatch and rejecting duplicate command registrations.
+- Extended `bind_objects_to_package` to move explicitly listed objects between concrete package files, including from `#package$`, and register both source and destination files for synchronization. Results report moved objects and all affected file IDs; descendants are not moved implicitly.
+- Expanded the bundled East Express agent guidance and repository documentation for enumeration changes, package placement, patch execution, and evidence-backed knowledge extraction.
+- Added draft OE Studio architecture maps as repository design references.
+
+### Fixed
+
+- Corrected production-task planned and actual releases to use `ReleaseFrom` and `ReleaseFromFact`, and mapped trunk and branch revisions to the fields used by the native task card.
+- Encoded method audit values as Windows-1251 binary buffers to avoid PostgreSQL `bytea` text-escaping errors when saving source.
+
 ## [0.9.1] - 2026-10-01
 
 ### Fixed

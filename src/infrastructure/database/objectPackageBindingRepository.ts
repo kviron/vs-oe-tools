@@ -30,6 +30,8 @@ export interface PackageBindingMutationResult {
 	target: BindingTargetRow;
 	changedObjectIds: number[];
 	unchangedObjectIds: number[];
+	movedObjects: Array<{ objectId: number; previousSysFileId: number; sysFileId: number }>;
+	changedFileIds: number[];
 	objects: Array<BindingObjectRow & { packageName: string }>;
 }
 
@@ -80,24 +82,26 @@ export async function bindObjectsToPackageWithClient(
 		if (missingIds.length > 0) {
 			throw new Error(`Объекты не найдены: ${missingIds.join(', ')}. Изменения отменены.`);
 		}
-		const conflicting = objectResult.rows.filter(row => row.sysfile !== null && Number(row.sysfile) !== target.sysfileid);
-		if (conflicting.length > 0) {
-			throw new Error(`Объекты уже привязаны к другим пакетным файлам: ${conflicting.map(row => `${row.id} -> ${row.sysfile}`).join(', ')}. Автоматическое перемещение запрещено.`);
-		}
-
-		const changedObjectIds = objectResult.rows.filter(row => row.sysfile === null).map(row => Number(row.id));
+		const movedObjects = objectResult.rows
+			.filter(row => row.sysfile !== null && Number(row.sysfile) !== target.sysfileid)
+			.map(row => ({ objectId: Number(row.id), previousSysFileId: Number(row.sysfile), sysFileId: target.sysfileid }));
+		const changedObjectIds = objectResult.rows
+			.filter(row => row.sysfile === null || Number(row.sysfile) !== target.sysfileid).map(row => Number(row.id));
 		const unchangedObjectIds = objectResult.rows.filter(row => Number(row.sysfile) === target.sysfileid).map(row => Number(row.id));
+		const changedFileIds = [...new Set([target.sysfileid, ...movedObjects.map(row => row.previousSysFileId)])].sort((a,b) => a-b);
 		const session = await loadSession();
 		if (changedObjectIds.length > 0) {
 			const updateResult = await executeMonitoredQuery<{ id: number }, [number, number[]]>(client, {
-				text: 'UPDATE abstract SET sysfile = $1 WHERE id = ANY($2::bigint[]) AND sysfile IS NULL RETURNING id',
+				text: 'UPDATE abstract SET sysfile = $1 WHERE id = ANY($2::bigint[]) AND sysfile IS DISTINCT FROM $1 RETURNING id',
 				values: [target.sysfileid, changedObjectIds], source: `Привязка объектов к пакетному файлу ${target.sysfileid}`, database,
 			});
 			if (updateResult.rowCount !== changedObjectIds.length) {
 				throw new Error('Не все объекты были привязаны. Конкурирующее изменение обнаружено; транзакция отменена.');
 			}
 		}
-		await registerPackageFileChange(client, database, target.sysfileid, session);
+		for (const sysFileId of changedFileIds) {
+			await registerPackageFileChange(client, database, sysFileId, session);
+		}
 		await client.query('COMMIT');
 		committed = true;
 
@@ -116,6 +120,8 @@ export async function bindObjectsToPackageWithClient(
 			target,
 			changedObjectIds,
 			unchangedObjectIds,
+			movedObjects,
+			changedFileIds,
 			objects: verification.rows.map(row => ({
 				...row, id: Number(row.id), classid: Number(row.classid),
 				seniorid: row.seniorid === null ? null : Number(row.seniorid),
@@ -172,7 +178,7 @@ function validateBindingTarget(target: BindingTargetRow): void {
 	}
 }
 
-async function registerPackageFileChange(client: PoolClient, database: string, sysFileId: number, session: SessionContext): Promise<void> {
+export async function registerPackageFileChange(client: PoolClient, database: string, sysFileId: number, session: SessionContext): Promise<void> {
 	const result = await executeMonitoredQuery(client, {
 		text: `INSERT INTO syspackagebase
 		 (objectid, objectclassid, objectseniorid, objectname, objectcontentmd5,
