@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { SvnConflictHostMessage } from '../../core/webviewProtocol';
 import { isSvnConflictWebviewMessage } from '../../core/webviewProtocol';
@@ -16,7 +17,7 @@ export class SvnConflictPanel implements vscode.Disposable {
 		this.conflict = conflict;
 		if (!this.panel) {
 			this.panel = vscode.window.createWebviewPanel('vc-ve-tools.svnConflict', `Конфликт: ${relativePath}`, vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
-			const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+			const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'svn-conflict');
 			this.panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 			this.panel.webview.html = this.html(this.panel.webview, assetsRoot);
 			this.panel.webview.onDidReceiveMessage(message => { void this.receive(message); });

@@ -1,4 +1,6 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
+import { productionMcpTokenSecretKey, productionTaskSourceSetting } from '../../core/constants';
 import { clientLaunchArgumentsSetting, databaseProfileSetting, databaseRoleSetting, knowledgeMcpEnvFileSetting, mcpEnabledSetting, projectRootSetting } from '../../core/constants';
 import type { SettingsHostMessage, SettingsState } from '../../core/webviewProtocol';
 import { isSettingsWebviewMessage } from '../../core/webviewProtocol';
@@ -30,6 +32,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 		private readonly logger: ExtensionLogService,
 		private readonly getClientCredentials: () => Promise<ClientCredentials> = async () => ({}),
 		private readonly setClientCredentials: (credentials: ClientCredentials) => Promise<void> = async () => undefined,
+		private readonly secrets?: vscode.SecretStorage,
 	) {
 		this.clientMcp = services.clientMcp;
 		this.httpApi = services.httpApi;
@@ -54,7 +57,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 			void this.postState();
 			return;
 		}
-		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'settings');
 		const panel = vscode.window.createWebviewPanel('vc-ve-tools.settings', 'Настройки Восточного Экспресса', vscode.ViewColumn.Active, {
 			enableScripts: true,
 			retainContextWhenHidden: true,
@@ -82,7 +85,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 			void this.postState();
 			return;
 		}
-		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'http-api');
 		const panel = vscode.window.createWebviewPanel('vc-ve-tools.httpApi', 'HTTP API Восточного Экспресса', vscode.ViewColumn.Active, {
 			enableScripts: true,
 			retainContextWhenHidden: true,
@@ -171,6 +174,20 @@ export class SettingsViewProvider implements vscode.Disposable {
 			}
 		} else if (message.command === 'setUserId') {
 			await vscode.workspace.getConfiguration('vcVeTools').update('userId', message.userId, vscode.ConfigurationTarget.Workspace);
+		} else if (message.command === 'setProductionTaskSource') {
+			await vscode.workspace.getConfiguration('vcVeTools').update(productionTaskSourceSetting, message.value, vscode.ConfigurationTarget.Global);
+			await this.postState();
+		} else if (message.command === 'setProductionMcpToken') {
+			try {
+				if (!this.secrets) { throw new Error('SecretStorage unavailable'); }
+				const token = message.value.trim();
+				if (token) { await this.secrets.store(productionMcpTokenSecretKey, token); }
+				else { await this.secrets.delete(productionMcpTokenSecretKey); }
+				this.post({ command: 'productionMcpTokenSaved', success: true });
+				await this.postState();
+			} catch {
+				this.post({ command: 'productionMcpTokenSaved', success: false });
+			}
 		} else if (message.command === 'setClientCredentials') {
 			await this.setClientCredentials({ username: message.username, password: message.password });
 			void vscode.window.showInformationMessage('Данные входа клиента ВЭ сохранены.');
@@ -382,6 +399,8 @@ export class SettingsViewProvider implements vscode.Disposable {
 			userId: configuration.get<number>('userId', 0),
 			clientUsername: clientCredentials.username ?? '',
 			clientPasswordSet: Boolean(clientCredentials.password),
+			productionMcpTokenSet: Boolean(await this.secrets?.get(productionMcpTokenSecretKey)),
+			productionTaskSource: configuration.get<'oenp' | 'mcp'>(productionTaskSourceSetting, 'oenp'),
 			clientLaunchArguments: configuration.get<string>(clientLaunchArgumentsSetting, ''),
 			mcpEnabled: enabled,
 			mcpStatus: status,

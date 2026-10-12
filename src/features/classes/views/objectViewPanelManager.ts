@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import { isObjectViewWebviewMessage, type ObjectViewHostMessage } from '../../../core/webviewProtocol';
 import { logTableSelection } from '../../../core/tableSelectionLogger';
@@ -10,7 +11,7 @@ const panels = new Map<number, Entry>();
 export async function openObjectView(context: vscode.ExtensionContext, objectId: number): Promise<void> {
 	const existing = panels.get(objectId);
 	if (existing) { existing.panel.reveal(vscode.ViewColumn.Active); return; }
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'object-view');
 	const panel = vscode.window.createWebviewPanel('vc-ve-tools.objectView', `Просмотр объекта ${objectId}`, vscode.ViewColumn.Active, {
 		enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
 	});

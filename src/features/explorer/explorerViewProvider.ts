@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { ExplorerHostMessage } from '../../core/webviewProtocol';
 import { isExplorerWebviewMessage } from '../../core/webviewProtocol';
@@ -53,7 +54,7 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 	resolveWebviewView(webviewView: vscode.WebviewView): void {
 		this.view = webviewView;
 		this.log('Webview проводника создан.');
-		const assetsRoot = vscode.Uri.joinPath(this.dependencies.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.dependencies.extensionUri, 'explorer');
 		webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 		webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
 		const handleMessage = createExplorerMessageHandler(this.dependencies, this.messageActions);
@@ -95,9 +96,9 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider, vscode.
 		await this.view?.webview.postMessage(message);
 	}
 	private getHtml(webview: vscode.Webview, assetsRoot: vscode.Uri): string {
+		const nonce = this.createNonce();
 		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'explorer.js'));
 		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsRoot, 'webview.css'));
-		const nonce = this.createNonce();
 		return `<!doctype html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';">

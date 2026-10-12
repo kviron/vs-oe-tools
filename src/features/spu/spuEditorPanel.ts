@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import { isSpuEditorWebviewMessage, type SpuEditorHostMessage } from '../../core/webviewProtocol';
 import { createSpu, getSpuEditorOptions, updateSpu } from '../../infrastructure/database/spuRepository';
@@ -16,7 +17,7 @@ export async function openSpuEditor(
 	onSaved: () => void | Promise<void> = () => undefined,
 ): Promise<void> {
 	const editing = options.spuId !== undefined;
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'spu-editor');
 	const panel = vscode.window.createWebviewPanel(
 		'vc-ve-tools.spuEditor',
 		editing ? `SPU ${options.spuId}` : 'Новый SPU',

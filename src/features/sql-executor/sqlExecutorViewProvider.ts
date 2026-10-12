@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { SqlExecutorHostMessage, SqlHistoryEntry } from '../../core/webviewProtocol';
 import { isSqlExecutorWebviewMessage } from '../../core/webviewProtocol';
@@ -16,7 +17,7 @@ export class SqlExecutorViewProvider implements vscode.WebviewViewProvider {
 
 	public resolveWebviewView(webviewView: vscode.WebviewView): void {
 		let latestResult: SerializedQueryResult | undefined;
-		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'sql-executor');
 		webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 		webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
 

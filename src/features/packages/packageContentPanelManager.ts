@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { DatabaseObjectKind } from '../../core/objectSearch';
 import { isPackageContentWebviewMessage, type PackageContentHostMessage } from '../../core/webviewProtocol';
@@ -21,7 +22,7 @@ export async function openPackageContent(
 		if (objectId !== undefined) { await existing.panel.webview.postMessage({ command: 'revealPackageContentObject', objectId } satisfies PackageContentHostMessage); }
 		return;
 	}
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'package-content');
 	const panel = vscode.window.createWebviewPanel('vc-ve-tools.packageContent', `Содержимое файла ${fileId}`, vscode.ViewColumn.Active, {
 		enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
 	});

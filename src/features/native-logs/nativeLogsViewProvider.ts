@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import { logTableSelection } from '../../core/tableSelectionLogger';
 import type { NativeLogsHostMessage } from '../../core/webviewProtocol';
@@ -13,7 +14,7 @@ export class NativeLogsViewProvider implements vscode.WebviewViewProvider {
 	public constructor(private readonly extensionUri: vscode.Uri, private readonly openLog: (fileName: string) => Promise<void>) {}
 
 	public resolveWebviewView(webviewView: vscode.WebviewView): void {
-		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'native-logs');
 		webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 		webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
 		webviewView.webview.onDidReceiveMessage(async (message: unknown) => {

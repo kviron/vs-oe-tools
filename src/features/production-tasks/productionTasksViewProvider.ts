@@ -1,7 +1,8 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { ProductionTasksHostMessage } from '../../core/webviewProtocol';
 import { isProductionTasksWebviewMessage } from '../../core/webviewProtocol';
-import type { ProductionConnectionOptions, ProductionTaskListItem, ProductionTasksLogger, ProductionTaskSummary } from './models';
+import type { ProductionReadOptions, ProductionTaskListItem, ProductionTasksLogger, ProductionTaskSummary } from './models';
 import { loadProductionTaskById, loadProductionTaskList } from './productionTasksRepository';
 import { productionTaskPublicUrl } from './productionTaskPresentation';
 import { KnowledgeHistoryPanel } from '../knowledge-history/view';
@@ -19,7 +20,7 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 	private readonly knowledgeHistory: KnowledgeHistoryPanel;
 	constructor(
 		private readonly extensionUri: vscode.Uri,
-		private readonly getOptions: () => Promise<ProductionConnectionOptions>,
+		private readonly getOptions: () => Promise<ProductionReadOptions>,
 		private readonly openTask: (task: ProductionTaskSummary) => void,
 		private readonly importSessionKey: () => Promise<boolean>,
 		private readonly setPassword: () => Promise<boolean>,
@@ -37,7 +38,7 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 		);
 		this.panel = panel;
 		this.knowledgeHistory.attach(panel.webview);
-		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'production-tasks');
 		panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 		panel.webview.html = shell(panel.webview, assetsRoot);
 		panel.webview.onDidReceiveMessage((message: unknown) => {
@@ -97,7 +98,7 @@ export class ProductionTasksPanelManager implements vscode.Disposable {
 					this.userFilter = loaded.userFilter;
 					this.tasks = new Map(loaded.tasks.map(task => [task.id, task]));
 					this.tasksPublished = true;
-					await this.post({ command: 'productionTasksLoaded', ...loaded, loadedAt: new Date().toISOString(), currentPersonId: options.personId });
+					await this.post({ command: 'productionTasksLoaded', ...loaded, loadedAt: new Date().toISOString(), currentPersonId: options.personId, source: 'transport' in options ? 'mcp' : 'oenp' });
 				});
 				if (revision !== this.refreshRevision || panel !== this.panel) { continue; }
 				await this.post({ command: 'productionTaskUsersLoaded', users: result.users });

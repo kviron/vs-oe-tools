@@ -50,6 +50,7 @@ const loadedAt = ref('');
 const searchQuery = ref(saved.search ?? '');
 const searchOptions = ref<SearchOptions>({ ...defaultSearchOptions });
 const userFilter = ref('current');
+const taskSource = ref<'oenp' | 'mcp'>('oenp');
 const currentUserId = ref('');
 let appliedUserFilter: string | undefined;
 let requestedUserFilter: string | undefined;
@@ -119,7 +120,7 @@ function copyText(text: string): void { vscode.postMessage({ command: 'copyTable
 function changeSort(key: ColumnKey): void { if (sortKey.value === key) sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'; else { sortKey.value = key; sortDirection.value = 'asc'; } }
 function sortValue(task: ProductionTaskListItem, key: ColumnKey): string { return key === 'deadline' ? String(productionDeadlineInfo(task.deadline).days).padStart(8, '0') : String(task[key] ?? ''); }
 function uniqueValues(key: keyof ProductionTaskListItem): string[] { return [...new Set(tasks.value.map(task => String(task[key] ?? '')).filter(Boolean))].sort(collator.compare); }
-function clearFilters(): void { searchQuery.value = ''; userFilter.value = currentUserId.value || 'current'; statusFilter.value = ''; projectFilter.value = ''; priorityFilter.value = ''; workTypeFilter.value = ''; releaseFilter.value = ''; overdueOnly.value = false; }
+function clearFilters(): void { searchQuery.value = ''; userFilter.value = taskSource.value === 'mcp' ? '' : currentUserId.value || 'current'; statusFilter.value = ''; projectFilter.value = ''; priorityFilter.value = ''; workTypeFilter.value = ''; releaseFilter.value = ''; overdueOnly.value = false; }
 function toggleColumn(key: ColumnKey, checked: boolean | 'indeterminate'): void { if (checked) { if (!visibleColumns.value.includes(key)) visibleColumns.value.push(key); } else if (visibleColumns.value.length > 1) visibleColumns.value = visibleColumns.value.filter(value => value !== key); }
 function moveColumn(key: ColumnKey, direction: -1 | 1): void { const index = columnOrder.value.indexOf(key); const target = index + direction; if (target < 0 || target >= columnOrder.value.length) return; const next = [...columnOrder.value]; [next[index], next[target]] = [next[target], next[index]]; columnOrder.value = next; }
 function resetColumns(): void { visibleColumns.value = [...defaultOrder]; columnOrder.value = [...defaultOrder]; compact.value = true; }
@@ -137,11 +138,14 @@ window.addEventListener('message', (event: MessageEvent<ProductionTasksHostMessa
     users.value = message.users.map(user => ({ id: String(user.id), name: user.name || `ID ${user.id}` }));
     return;
   }
-  if (requestedUserFilter !== undefined && /^(?:\d+)?$/u.test(requestedUserFilter) && message.userFilter !== requestedUserFilter) { return; }
+  if ((message.source ?? 'oenp') !== taskSource.value) { requestedUserFilter = undefined; }
+  if (message.source !== 'mcp' && requestedUserFilter !== undefined && /^(?:\d+)?$/u.test(requestedUserFilter) && message.userFilter !== requestedUserFilter) { return; }
+  taskSource.value = message.source ?? 'oenp';
+  if (taskSource.value === 'mcp') { statusFilter.value = ''; projectFilter.value = ''; priorityFilter.value = ''; workTypeFilter.value = ''; releaseFilter.value = ''; overdueOnly.value = false; }
   tasks.value = message.tasks; loadedAt.value = message.loadedAt; loading.value = false; error.value = '';
   users.value = message.users.map(user => ({ id: String(user.id), name: user.name || `ID ${user.id}` }));
   appliedUserFilter = message.userFilter;
-  currentUserId.value = String(message.currentPersonId);
+  currentUserId.value = message.currentPersonId ? String(message.currentPersonId) : '';
   userFilter.value = message.userFilter;
   if (selectedTaskId.value && !tasks.value.some(task => task.id === selectedTaskId.value)) selectedTaskId.value = undefined;
 });
@@ -163,11 +167,12 @@ vscode.postMessage({ command: 'productionTasksReady' });
         <p class="text-xs text-muted-foreground">{{ selectedUserLabel }}<span class="mx-2" aria-hidden="true">·</span>Рабочая очередь</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <Button variant="outline" :disabled="loading" title="Выбрать новый файл и обновить ключ клиентской сессии OENP" @click="importSessionKey"><HugeiconsIcon :icon="FileImportIcon" data-icon="inline-start" />Обновить сессию</Button>
+        <Button v-if="taskSource !== 'mcp'" variant="outline" :disabled="loading" title="Выбрать новый файл и обновить ключ клиентской сессии OENP" @click="importSessionKey"><HugeiconsIcon :icon="FileImportIcon" data-icon="inline-start" />Обновить сессию</Button>
         <Button :disabled="loading" @click="refresh"><HugeiconsIcon :icon="RefreshIcon" data-icon="inline-start" :class="cn(loading && 'animate-spin')" />Обновить</Button>
       </div>
     </header>
-    <section aria-label="Сводка по текущей выборке" class="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
+    <Alert v-if="taskSource === 'mcp'"><AlertDescription>Публичный MCP: общая выборка до 500 последних задач. Поиск в таблице работает внутри выборки; агент может искать по всему API. Статус, ответственные, сроки, релизы, история и вложения пока недоступны.</AlertDescription></Alert>
+    <section v-if="taskSource !== 'mcp'" aria-label="Сводка по текущей выборке" class="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
       <Card v-for="metric in overview" :key="metric.label" size="sm">
         <CardHeader><CardDescription><span class="flex items-center justify-between gap-2">{{ metric.label }}<HugeiconsIcon :icon="metric.icon" class="size-4" aria-hidden="true" /></span></CardDescription></CardHeader>
         <CardContent><Skeleton v-if="loading" class="h-7 w-12" /><p v-else class="text-2xl font-semibold leading-none tracking-tight tabular-nums">{{ error ? '—' : metric.value }}</p><p class="mt-2 text-xs text-muted-foreground">{{ metric.note }}</p></CardContent>
@@ -185,13 +190,13 @@ vscode.postMessage({ command: 'productionTasksReady' });
         </PopoverContent></Popover>
       </div>
       <FieldGroup class="flex-row flex-wrap items-center gap-2">
-        <TaskFilter id="task-user" v-model="userFilter" label="Ответственный пользователь" all-label="Все пользователи" :options="userOptions" />
-        <TaskFilter id="task-status" v-model="statusFilter" label="Статус" all-label="Все статусы" appearance="status" :options="statuses.map(value => ({ value, label: value }))" />
-        <TaskFilter id="task-project" v-model="projectFilter" label="Проект" all-label="Все проекты" :options="projects.map(value => ({ value, label: value }))" />
-        <TaskFilter id="task-priority" v-model="priorityFilter" label="Приоритет" all-label="Все приоритеты" appearance="priority" :options="priorities.map(value => ({ value, label: value }))" />
-        <TaskFilter id="task-work-type" v-model="workTypeFilter" label="Вид работ" all-label="Все виды работ" :options="workTypes.map(value => ({ value, label: value }))" />
-        <TaskFilter id="task-release" v-model="releaseFilter" label="Релиз" all-label="Все релизы" :options="releases.map(value => ({ value, label: value }))" />
-        <Field orientation="horizontal" class="w-auto"><Checkbox id="overdue-only" v-model="overdueOnly" /><FieldLabel for="overdue-only" class="font-normal">Только просроченные</FieldLabel></Field>
+        <TaskFilter v-if="taskSource !== 'mcp'" id="task-user" v-model="userFilter" label="Ответственный пользователь" all-label="Все пользователи" :options="userOptions" />
+        <TaskFilter v-if="taskSource !== 'mcp'" id="task-status" v-model="statusFilter" label="Статус" all-label="Все статусы" appearance="status" :options="statuses.map(value => ({ value, label: value }))" />
+        <TaskFilter v-if="taskSource !== 'mcp'" id="task-project" v-model="projectFilter" label="Проект" all-label="Все проекты" :options="projects.map(value => ({ value, label: value }))" />
+        <TaskFilter v-if="taskSource !== 'mcp'" id="task-priority" v-model="priorityFilter" label="Приоритет" all-label="Все приоритеты" appearance="priority" :options="priorities.map(value => ({ value, label: value }))" />
+        <TaskFilter v-if="taskSource !== 'mcp'" id="task-work-type" v-model="workTypeFilter" label="Вид работ" all-label="Все виды работ" :options="workTypes.map(value => ({ value, label: value }))" />
+        <TaskFilter v-if="taskSource !== 'mcp'" id="task-release" v-model="releaseFilter" label="Релиз" all-label="Все релизы" :options="releases.map(value => ({ value, label: value }))" />
+        <Field v-if="taskSource !== 'mcp'" orientation="horizontal" class="w-auto"><Checkbox id="overdue-only" v-model="overdueOnly" /><FieldLabel for="overdue-only" class="font-normal">Только просроченные</FieldLabel></Field>
         <Button v-if="filtersActive" size="xs" variant="ghost" @click="clearFilters">Сбросить фильтры</Button>
       </FieldGroup>
     </CardHeader>

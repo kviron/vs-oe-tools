@@ -5,7 +5,7 @@
   },
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
@@ -147,6 +147,13 @@
           "default": "172.20.0.23",
           "scope": "window",
           "description": "Сервер рабочей базы Восточного Экспресса."
+        },
+        "vcVeTools.productionTaskSource": {
+          "type": "string",
+          "enum": ["oenp", "mcp"],
+          "default": "oenp",
+          "scope": "window",
+          "description": "Источник продуктовых задач для интерфейса и агента. Публичный MCP пока возвращает только номер, название, дату и текст задачи."
         },
         "vcVeTools.productionPort": {
           "type": "number",
@@ -603,9 +610,9 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check:release && npm run check:generated && npm run check:knowledge && npm run check-types && npm run lint && npm run build:webview && npm run build:relationship-map && node esbuild.js",
-    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && vite build --config vite.webview.config.mts",
+    "build:webview": "vue-tsc -p webview-ui/tsconfig.json --noEmit && node scripts/build-webviews.mjs",
     "watch": "npm-run-all -p watch:*",
-    "watch:webview": "vite build --watch --config vite.webview.config.mts",
+    "watch:webview": "node scripts/build-webviews.mjs --watch",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run check:release && npm run check:generated && npm run check:knowledge && npm run check-types && npm run lint && npm run build:webview && npm run build:relationship-map && node esbuild.js --production",
@@ -619,7 +626,7 @@
     "check:release": "node scripts/check-release-version.mjs",
     "setup:hooks": "git config core.hooksPath .githooks",
     "lint": "eslint src --max-warnings 0",
-    "test": "vscode-test",
+    "test": "node --test scripts/webview/artifacts.test.mjs && vscode-test",
     "build:relationship-map": "npm --prefix relationship-map ci --no-audit --no-fund && npm --prefix relationship-map run build:webview"
   },
   "devDependencies": {

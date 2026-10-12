@@ -6,9 +6,10 @@ import type { ProductionTaskDetailsHostMessage } from '../../../src/core/webview
 import type { DatabaseObjectSearchResult } from '../../../src/core/objectSearch';
 import type { ProductionTaskAction, ProductionTaskAttachment, ProductionTaskDescriptionPart, ProductionTaskHistoryEntry, ProductionTaskSummary } from '../../../src/features/production-tasks/models';
 import { productionDeadlineInfo, productionTaskMarkdown } from '../../../src/features/production-tasks/productionTaskPresentation';
-import { splitWorkDescriptionObjectIds, type WorkDescriptionPart } from '../../../src/features/production-tasks/workDescriptionLinks';
+import WorkDescriptionContent from './WorkDescriptionContent.vue';
 import ProductionTaskBadge from '@/components/ProductionTaskBadge.vue';
 import IdReferencePopover from '@/components/IdReferencePopover.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,25 +62,6 @@ const typeFields = [
   ['Релиз (план)', 'releasePlan'], ['Релиз (факт)', 'releaseActual'],
   ['Ревизия (trunk)', 'revisionTrunk'], ['Ревизия (branch)', 'revisionBranch'],
 ] as const;
-type WorkDescriptionRenderPart =
-  | ({ renderKind: 'text'; bold?: boolean; italic?: boolean; underline?: boolean; strike?: boolean; color?: string } & WorkDescriptionPart)
-  | ({ renderKind: 'image' } & Omit<Extract<ProductionTaskDescriptionPart, { kind: 'image' }>, 'kind'>);
-const workDescriptionParts = computed<WorkDescriptionRenderPart[]>(() => {
-  const rich = richDescriptionParts.value;
-  if (!rich.length) {
-    return splitWorkDescriptionObjectIds(task.value?.workDescription || 'Описание работы не заполнено.').map(part => ({ renderKind: 'text', ...part }));
-  }
-  const result: WorkDescriptionRenderPart[] = [];
-  for (const part of rich) {
-    if (part.kind === 'image') {
-      result.push({ renderKind: 'image', dataUrl: part.dataUrl, width: part.width, height: part.height });
-    } else {
-      const { bold, italic, underline, strike, color } = part;
-      result.push(...splitWorkDescriptionObjectIds(part.text).map(textPart => ({ renderKind: 'text' as const, ...textPart, bold, italic, underline, strike, color })));
-    }
-  }
-  return result;
-});
 const detailGroups = [
   { title: 'Команда', description: 'Участники задачи', icon: UserGroupIcon, fields: peopleFields },
   { title: 'Работа', description: 'Контекст и связанные объекты', icon: Task01Icon, fields: workFields },
@@ -263,6 +245,7 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
   <main class="min-h-screen bg-background p-4 text-foreground lg:p-6">
     <div v-if="!task" class="flex flex-col gap-2"><Skeleton class="h-9 w-72" /><Skeleton class="h-44 w-full" /></div>
     <div v-else class="mx-auto flex max-w-7xl flex-col gap-5">
+      <Alert v-if="task.source === 'mcp'"><AlertDescription>Публичный MCP возвращает номер, название, дату и текст задачи. Статус, участники, релизы, история, вложения и форматированное описание пока недоступны.</AlertDescription></Alert>
       <header class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><p>Восточный Экспресс / Задачи / <span class="text-foreground">{{ task.number || task.id }}</span></p><Badge variant="outline">Только просмотр</Badge></header>
       <Card>
         <CardHeader class="gap-4">
@@ -330,8 +313,9 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
         <TabsContent value="description">
           <Card class="min-h-72">
             <CardHeader class="border-b"><CardTitle>Описание работы</CardTitle><CardDescription>Постановка задачи и связанные материалы</CardDescription></CardHeader>
-        <CardContent class="break-words whitespace-pre-wrap text-sm leading-relaxed">
-          <template v-for="(part, index) in workDescriptionParts" :key="index">
+        <CardContent class="break-words text-sm leading-relaxed">
+          <WorkDescriptionContent :source="task.workDescription || 'Описание работы не заполнено.'" :rich-parts="task.source === 'mcp' ? undefined : richDescriptionParts">
+            <template #default="{ part, index }">
             <img v-if="part.renderKind === 'image'" :src="part.dataUrl" :width="part.width" :height="part.height" alt="Изображение из описания задачи" class="my-3 block h-auto max-w-full rounded-md border object-contain" />
             <Button v-else-if="part.href" variant="link" class="inline h-auto cursor-pointer p-0 align-baseline text-sm leading-5" :class="{ 'font-bold': part.bold, italic: part.italic }" :style="{ textDecoration: part.strike ? 'line-through' : part.underline ? 'underline' : undefined }" :title="part.href" @click="openExternalUrl(part.href)">{{ part.text }}</Button>
             <IdReferencePopover v-else-if="part.id && part.kind === 'task'" :id="part.id" :label="part.text" :open="activePreviewIndex === index" :title="`Задача ${part.id}`" content-class="w-96" @show="showTaskPreview(part.id, index)" @hide="closeObjectPreviewSoon" @activate="openDatabaseObject(part.id)">
@@ -366,7 +350,9 @@ vscode.postMessage({ command: 'productionTaskDetailsReady' });
                 <div v-else class="flex flex-col gap-1"><p class="font-medium">Объект не найден</p><p class="text-muted-foreground">В активной базе нет объекта с ID {{ part.id }}.</p></div>
             </IdReferencePopover>
             <span v-else :class="{ 'font-bold': part.bold, italic: part.italic, underline: part.underline, 'line-through': part.strike }" :style="part.color ? { color: part.color } : undefined">{{ part.text }}</span>
-          </template>
+
+            </template>
+          </WorkDescriptionContent>
           <p v-if="richDescriptionError" class="mt-3 text-xs text-destructive">Не удалось загрузить встроенные изображения: {{ richDescriptionError }}</p>
         </CardContent>
           </Card>

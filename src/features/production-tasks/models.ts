@@ -1,4 +1,5 @@
 export interface ProductionTaskSummary {
+	source?: 'mcp';
 	id: number;
 	number: string;
 	state: string;
@@ -93,6 +94,14 @@ export interface CapturedAuthorization {
 	passwordHash: string;
 	oldPasswordHash: string;
 }
+
+export interface ProductionMcpOptions {
+	transport: 'mcp';
+	token: string;
+	personId: 0;
+	database: 'ric224';
+}
+export type ProductionReadOptions = ProductionConnectionOptions | ProductionMcpOptions;
 
 export interface ProductionTasksLogger {
 	info(message: string, details?: unknown): void;

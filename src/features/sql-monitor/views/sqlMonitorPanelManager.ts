@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { SqlMonitorHostMessage } from '../../../core/webviewProtocol';
 import { isSqlMonitorWebviewMessage } from '../../../core/webviewProtocol';
@@ -13,7 +14,7 @@ export function openSqlMonitor(context: vscode.ExtensionContext): void {
 		return;
 	}
 
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'sql-monitor');
 	const panel = vscode.window.createWebviewPanel(
 		'vc-ve-tools.sqlMonitor',
 		'SQL-монитор',

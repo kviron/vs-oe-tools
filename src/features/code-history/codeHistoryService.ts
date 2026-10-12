@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as path from 'node:path';
 import { access, readFile } from 'node:fs/promises';
 import * as vscode from 'vscode';
@@ -66,7 +67,7 @@ class CodeHistoryService implements vscode.TextDocumentContentProvider, vscode.W
 
 	resolveWebviewView(view: vscode.WebviewView): void {
 		this.view = view;
-		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'code-history');
 		view.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 		view.webview.html = webviewHtml(view.webview, assetsRoot);
 		view.webview.onDidReceiveMessage((message: unknown) => {

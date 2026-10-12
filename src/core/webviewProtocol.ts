@@ -46,7 +46,7 @@ export type ProductionTasksWebviewMessage =
 export type ProductionTasksHostMessage =
 	| { command: 'productionTasksLoading' }
 	| { command: 'productionTaskUsersLoaded'; users: ProductionTaskUser[] }
-	| { command: 'productionTasksLoaded'; tasks: ProductionTaskListItem[]; loadedAt: string; currentPersonId: number; users: ProductionTaskUser[]; userFilter: string }
+	| { command: 'productionTasksLoaded'; tasks: ProductionTaskListItem[]; loadedAt: string; currentPersonId: number; users: ProductionTaskUser[]; userFilter: string; source?: 'oenp' | 'mcp' }
 	| { command: 'productionTasksFailed'; message: string };
 export type ProductionTaskDetailsWebviewMessage =
 	| { command: 'productionTaskDetailsReady' }
@@ -248,6 +248,8 @@ export interface SettingsState {
 	userId: number;
 	clientUsername: string;
 	clientPasswordSet: boolean;
+	productionMcpTokenSet: boolean;
+	productionTaskSource: 'oenp' | 'mcp';
 	clientLaunchArguments: string;
 	mcpEnabled: boolean;
 	mcpStatus: 'ready' | 'disabled' | 'unavailable';
@@ -282,6 +284,8 @@ export type SettingsWebviewMessage =
 	| { command: 'setUserId'; userId: number }
 	| { command: 'setClientCredentials'; username: string; password?: string }
 	| { command: 'setClientLaunchArguments'; value: string }
+	| { command: 'setProductionMcpToken'; value: string }
+	| { command: 'setProductionTaskSource'; value: 'oenp' | 'mcp' }
 	| { command: 'setMcpEnabled'; enabled: boolean }
 	| { command: 'refreshClientMcpStatus' }
 	| { command: 'refreshKnowledgeMcpStatus' }
@@ -302,6 +306,7 @@ export type SettingsWebviewMessage =
 	| { command: 'clearExtensionLogs' };
 export type SettingsHostMessage =
 	| { command: 'settingsState'; state: SettingsState }
+	| { command: 'productionMcpTokenSaved'; success: boolean }
 	| { command: 'databaseConnectionTestStarted' }
 	| { command: 'databaseConnectionTestFinished'; success: boolean; message: string }
 	| { command: 'clientMcpActionStarted'; action: 'start' | 'stop' }
@@ -450,6 +455,13 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 	}
 	if (message.command === 'setClientLaunchArguments') {
 		return 'value' in message && typeof message.value === 'string' && message.value.length <= 2000;
+	}
+	if (message.command === 'setProductionMcpToken') {
+		return 'value' in message && typeof message.value === 'string' && message.value.length <= 16384
+			&& !/[\r\n]/u.test(message.value);
+	}
+	if (message.command === 'setProductionTaskSource') {
+		return 'value' in message && (message.value === 'oenp' || message.value === 'mcp');
 	}
 	return message.command === 'copyMcpConnectionCode' && 'text' in message && typeof message.text === 'string';
 }

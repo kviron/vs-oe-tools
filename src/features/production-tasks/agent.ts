@@ -7,6 +7,11 @@ export function createProductionAgentActions(getOptions: ProductionSession['getO
 		getProductionTasks: async (query: string | undefined, limit: number) => {
 			const options = await getOptions();
 			logger.info('MCP запросил список production-задач.', { query: query ?? null, limit });
+			if ('transport' in options) {
+				const tasks = query?.trim() ? await loadProductionTasksByQuery(options, query, limit, logger) : (await loadProductionTasks(options, logger)).slice(0, limit);
+				return { source: 'mcp', database: options.database, query: query ?? null, count: tasks.length, tasks,
+					note: 'Общая ограниченная выборка API. Фильтр текущего сотрудника, статус, релизы и история недоступны.' };
+			}
 			const tasks = await loadProductionTasks(options, logger);
 			const normalizedQuery = query?.trim().toLocaleLowerCase('ru-RU');
 			const filtered = normalizedQuery
@@ -30,6 +35,12 @@ export function createProductionAgentActions(getOptions: ProductionSession['getO
 			const options = await getOptions();
 			logger.info('MCP запросил полную production-задачу.', { query, limit });
 			const foundTasks = await loadProductionTasksByQuery(options, query, limit, logger);
+			if ('transport' in options) {
+				const mcpTasks = foundTasks.map(task => ({ ...task, history: [], historyAvailable: false }));
+				return { source: 'mcp', database: options.database, query, count: foundTasks.length,
+					match: mcpTasks.length === 1 ? mcpTasks[0] : null, tasks: mcpTasks,
+					note: 'API возвращает номер, название, дату и текст. Остальные поля и история недоступны.' };
+			}
 			const tasks = [];
 			for (const task of foundTasks) {
 				const history = await loadProductionTaskHistory(options, task.id, logger);
@@ -46,6 +57,7 @@ export function createProductionAgentActions(getOptions: ProductionSession['getO
 		getProductionTasksInProgress: async () => {
 			const options = await getOptions();
 			logger.info('MCP запросил production-задачи в работе.');
+			if ('transport' in options) { throw new Error('Публичный MCP пока не предоставляет статус задачи. Переключите источник на OENP для списка задач в работе.'); }
 			const tasks = (await loadProductionTasks(options, logger))
 				.filter(task => task.state.trim().toLocaleLowerCase('ru-RU') === 'в работе');
 			return { database: options.database, personId: options.personId, count: tasks.length, tasks };

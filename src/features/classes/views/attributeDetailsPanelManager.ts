@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import { isAttributeDetailsWebviewMessage, type AttributeDetailsHostMessage } from '../../../core/webviewProtocol';
 import { getClassAttributeDetails } from '../../../infrastructure/database/classRepository';
@@ -57,7 +58,7 @@ export async function openNewAttributeDetails(context: vscode.ExtensionContext, 
 }
 
 function createPanel(context: vscode.ExtensionContext, initial: Omit<AttributeDetailsPanel, 'panel' | 'context'>): void {
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'attribute-details');
 	const panel = vscode.window.createWebviewPanel('vc-ve-tools.attributeDetails',
 		initial.details ? `Атрибут ${initial.details.name}` : `Новый атрибут — ${initial.options.ownerClassName}`,
 		vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true });

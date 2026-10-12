@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { EntityPropertiesHostMessage } from '../../../core/webviewProtocol';
 import { getMethodSource } from '../../../infrastructure/database/methodRepository';
@@ -26,7 +27,7 @@ export async function openEntityProperties(context: vscode.ExtensionContext, obj
 	const existing = panels.get(objectId);
 	if (existing) { existing.panel.reveal(vscode.ViewColumn.Active); return; }
 	const loaded = await load(objectId);
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'entity-properties');
 	const panel = vscode.window.createWebviewPanel('vc-ve-tools.entityProperties', `Свойства — ${loaded.result.name || loaded.result.id}`, vscode.ViewColumn.Active, {
 		enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
 	});

@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
+import { productionMcpTokenSecretKey, productionTaskSourceSetting } from '../../core/constants';
 import { searchDatabaseObjects } from '../../infrastructure/database/objectSearchRepository';
 import type { ExtensionLogService } from '../../infrastructure/logging/extensionLogService';
 import type { ProductionTaskSummary, ProductionTasksLogger } from './models';
-import { openProductionTaskDetails } from './productionTaskDetailsPanel';
+import { closeProductionTaskDetailsPanels, openProductionTaskDetails } from './productionTaskDetailsPanel';
 import { loadProductionTaskActions, loadProductionTaskAttachments, loadProductionTaskHistory, loadProductionTaskReference, loadProductionTaskRichDescription, loadProductionTasksByQuery } from './productionTasksRepository';
 import { ProductionTasksPanelManager, registerProductionTasksActivityLauncher } from './productionTasksViewProvider';
 import { createProductionSession } from './session';
@@ -52,16 +53,20 @@ export function registerProductionTasks(
 		vscode.Uri.joinPath(context.globalStorageUri, 'work-history.sqlite').fsPath,
 	);
 	context.subscriptions.push(
+		context.secrets.onDidChange(event => {
+			if (event.key === productionMcpTokenSecretKey) { void provider.refresh(undefined, true); }
+		}),
 		provider,
 		vscode.commands.registerCommand('vc-ve-tools.openProductionTasks', () => provider.show()),
 		vscode.commands.registerCommand('vc-ve-tools.openKnowledgeHistory', () => provider.showKnowledgeHistory()),
 		registerProductionTasksActivityLauncher(provider),
 		vscode.workspace.onDidChangeConfiguration(event => {
-			if (event.affectsConfiguration('vcVeTools.productionHost') || event.affectsConfiguration('vcVeTools.productionPort')
+			if (event.affectsConfiguration(`vcVeTools.${productionTaskSourceSetting}`)) { closeProductionTaskDetailsPanels(); }
+			if (event.affectsConfiguration(`vcVeTools.${productionTaskSourceSetting}`) || event.affectsConfiguration('vcVeTools.productionHost') || event.affectsConfiguration('vcVeTools.productionPort')
 				|| event.affectsConfiguration('vcVeTools.productionDatabase') || event.affectsConfiguration('vcVeTools.productionClientSessionKey')
 				|| event.affectsConfiguration('vcVeTools.productionPersonId')
 				|| event.affectsConfiguration('vcVeTools.clientUsername')) {
-				void provider.refresh();
+				void provider.refresh(undefined, true);
 			}
 		}),
 	);

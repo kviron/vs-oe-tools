@@ -5,6 +5,12 @@
 output/**
 .tmp-*/**
 .tmp-*.log
+dist/webview/.staging/**
+dist/webview/**/.publishing-*/**
+dist/webview/.manifest-*.json
+dist/webview/*.js
+dist/webview/webview.css
+dist/webview/chunks/**
 debug.log
 *.vsix
 releases/**

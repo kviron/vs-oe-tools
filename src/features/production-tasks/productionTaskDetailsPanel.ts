@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { ProductionTaskDetailsHostMessage } from '../../core/webviewProtocol';
 import { isProductionTaskDetailsWebviewMessage } from '../../core/webviewProtocol';
@@ -25,7 +26,7 @@ export function openProductionTaskDetails(
 ): void {
 	const existing = panels.get(task.id);
 	if (existing) { existing.reveal(vscode.ViewColumn.Active); return; }
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'production-task-details');
 	const panel = vscode.window.createWebviewPanel('vc-ve-tools.productionTaskDetails', `Задача ${task.number || task.id}`, vscode.ViewColumn.Active, {
 		enableScripts: true, enableFindWidget: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
 	});
@@ -41,6 +42,7 @@ export function openProductionTaskDetails(
 		if (!isProductionTaskDetailsWebviewMessage(message)) { return; }
 		if (message.command === 'productionTaskDetailsReady') {
 			await panel.webview.postMessage({ command: 'productionTaskDetailsLoaded', task } satisfies ProductionTaskDetailsHostMessage);
+			if (task.source === 'mcp') { return; }
 			await panel.webview.postMessage({ command: 'productionTaskRichDescriptionLoading' } satisfies ProductionTaskDetailsHostMessage);
 			try {
 				const parts = await convertProductionTaskWmfImages(parseProductionTaskRichDescription(await loadRichDescription()));

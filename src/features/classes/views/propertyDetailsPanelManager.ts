@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import { isPropertyDetailsWebviewMessage, type PropertyDetailsHostMessage } from '../../../core/webviewProtocol';
 import { getClassPropertyDetails } from '../../../infrastructure/database/classRepository';
@@ -13,7 +14,7 @@ export async function openPropertyDetails(context: vscode.ExtensionContext, prop
 		return;
 	}
 	const details = await getClassPropertyDetails(propertyId);
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'property-details');
 	const panel = vscode.window.createWebviewPanel('vc-ve-tools.propertyDetails', `Свойство ${details.name}`, vscode.ViewColumn.Active, {
 		enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
 	});

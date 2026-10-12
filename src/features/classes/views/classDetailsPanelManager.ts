@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import type { ClassDetailsHostMessage } from '../../../core/webviewProtocol';
 import { isClassDetailsWebviewMessage } from '../../../core/webviewProtocol';
@@ -52,7 +53,7 @@ function persistPanels(context: vscode.ExtensionContext): void {
 }
 
 function createPanel(context: vscode.ExtensionContext, classDetails: ClassDetails, pinned: boolean, methodEditor: MethodEditorProvider, activeTab = 'class'): ClassDetailPanel {
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'class-details');
 	const panel = vscode.window.createWebviewPanel(
 		'vc-ve-tools.classDetails',
 		`Класс ${classDetails.name}`,

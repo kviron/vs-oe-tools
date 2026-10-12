@@ -4,6 +4,22 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.11.0] - 2026-10-12
+
+### Added
+
+- Added the read-only public production-task MCP backend, with a shared OENP/MCP source setting for the interface and agent tools. OENP remains the default and is retained as a separate implementation.
+- Added a masked MCP token field backed by VS Code SecretStorage, task lookup by number or ID, and search across task titles and descriptions. The MCP list is limited to 500 tasks; executor filters, status, history and attachments remain unavailable through the current public API.
+
+### Changed
+
+- Render plain-text MCP descriptions as paragraphs and explicit numbered or bulleted lists, preserving clickable object references and task links. Existing OENP RTF formatting and images remain supported.
+- Build each WebView as an independent module graph and publish immutable, content-addressed snapshots through an atomic asset manifest. Open views retain their original assets when another view is rebuilt.
+
+### Fixed
+
+- Validate WebView module imports and named exports before publishing a new snapshot, preventing incomplete or incompatible module graphs from replacing a working build. Added regression coverage for isolated rebuilds, missing exports and snapshot selection.
+
 ## [0.10.0] - 2026-10-06
 
 ### Added

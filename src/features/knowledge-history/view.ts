@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 import type { KnowledgeHistoryWebviewMessage } from '../../core/webviewProtocol';
@@ -66,7 +67,7 @@ export class KnowledgeHistoryPanel implements vscode.Disposable {
 		const panel = vscode.window.createWebviewPanel('vc-ve-tools.knowledgeHistory', 'Знания и история',
 			vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
 		this.panel = panel;
-		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'knowledge-history');
 		panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 		panel.webview.html = shell(panel.webview, assetsRoot);
 		panel.webview.onDidReceiveMessage((message: unknown) => { this.handleEmbeddedMessage(message); });

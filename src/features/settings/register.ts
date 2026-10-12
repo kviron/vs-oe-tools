@@ -21,7 +21,7 @@ export function registerSettings({ context, logger, project, credentials }: Depe
 	const provider = new SettingsViewProvider(context.extensionUri, project, {
 		clientMcp: new ClientMcpService(credentials.get, logger, context.workspaceState),
 		httpApi: new HttpApiService(credentials.get),
-	}, logger, credentials.get, credentials.set);
+	}, logger, credentials.get, credentials.set, context.secrets);
 	context.subscriptions.push(
 		provider,
 		vscode.commands.registerCommand('vc-ve-tools.openSettings', () => provider.show()),

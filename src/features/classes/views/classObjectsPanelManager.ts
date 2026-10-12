@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import { isClassObjectsWebviewMessage, type ClassObjectsHostMessage } from '../../../core/webviewProtocol';
 import { classObjectPageSize, getClassObjects } from '../../../infrastructure/database/classObjectRepository';
@@ -29,7 +30,7 @@ export async function openClassObjects(context: vscode.ExtensionContext, classId
 		}
 		return;
 	}
-	const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+	const assetsRoot = getWebviewAssetsRoot(context.extensionUri, 'class-objects');
 	const panel = vscode.window.createWebviewPanel(
 		'vc-ve-tools.classObjects',
 		`Объекты класса ${classId}`,

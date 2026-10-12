@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
+import { productionMcpTokenSecretKey, productionTaskSourceSetting } from '../../core/constants';
 import * as path from 'node:path';
-import type { CapturedAuthorization, ProductionConnectionOptions, ProductionTasksLogger } from './models';
+import type { CapturedAuthorization, ProductionReadOptions, ProductionTasksLogger } from './models';
 import { findCaptureMetadata, parseStoredAuthorization } from './capture';
 import { extractCapturedAuthorization, extractClientSessionKey, extractCurrentPersonId } from './oenpProtocol';
 
 export interface ProductionSession {
-	getOptions(): Promise<ProductionConnectionOptions>;
+	getOptions(): Promise<ProductionReadOptions>;
 	importCapture(): Promise<boolean>;
 	setPassword(): Promise<boolean>;
 }
@@ -19,8 +20,13 @@ export function createProductionSession(
 	const authorizationKey = `vcVeTools.productionAuthorizationReference:${workspacePath?.toLowerCase() ?? 'default'}`;
 	const passwordKey = `vcVeTools.productionPassword:${workspacePath?.toLowerCase() ?? 'default'}`;
 
-	const getOptions = async (): Promise<ProductionConnectionOptions> => {
+	const getOptions = async (): Promise<ProductionReadOptions> => {
 		const configuration = vscode.workspace.getConfiguration('vcVeTools');
+		if (configuration.get<string>(productionTaskSourceSetting, 'oenp') === 'mcp') {
+			const token = (await context.secrets.get(productionMcpTokenSecretKey))?.trim();
+			if (!token) { throw new Error('Сохраните токен MCP продуктовых задач в настройках расширения.'); }
+			return { transport: 'mcp', token, personId: 0, database: 'ric224' };
+		}
 		const credentials = await getCredentials();
 		const captureMetadata = await findCaptureMetadata(
 			[workspacePath, context.extensionUri.fsPath].filter((value): value is string => Boolean(value)),

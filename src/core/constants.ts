@@ -7,5 +7,7 @@ export const clientLaunchArgumentsSetting = 'clientLaunchArguments';
 export const mcpEnabledSetting = 'mcp.enabled';
 export const clientMcpUrlSetting = 'mcp.clientUrl';
 export const knowledgeMcpEnvFileSetting = 'mcp.knowledgeEnvFile';
+export const productionMcpTokenSecretKey = 'vcVeTools.productionMcpToken';
+export const productionTaskSourceSetting = 'productionTaskSource';
 export const sourceLanguageIds = ['ve-pkf', 've-pascal', 'bat'] as const;
 export const previousEncodingsKey = 'vcVeTools.previousWorkspaceLanguageEncodings';

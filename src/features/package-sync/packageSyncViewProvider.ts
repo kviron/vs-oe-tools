@@ -1,3 +1,4 @@
+import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import { access, readdir } from 'node:fs/promises';
 import * as path from 'node:path';
@@ -36,7 +37,7 @@ export class PackageSyncPanelManager implements vscode.Disposable {
 			{ enableScripts: true, retainContextWhenHidden: true },
 		);
 		this.panel = panel;
-		const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+		const assetsRoot = getWebviewAssetsRoot(this.extensionUri, 'package-sync');
 		panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
 		panel.webview.html = this.html(panel.webview, assetsRoot);
 		panel.webview.onDidReceiveMessage((message: unknown) => {
