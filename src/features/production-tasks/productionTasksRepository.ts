@@ -20,8 +20,8 @@ export async function loadProductionTaskList(options: ProductionReadOptions, use
 export async function loadProductionTaskById(options: ProductionReadOptions, id: number, logger?: ProductionTasksLogger) {
 	return isMcp(options) ? readMcpTask(options, id) : oenp.loadProductionTaskById(options, id, logger);
 }
-export async function loadProductionTasksByQuery(options: ProductionReadOptions, query: string, limit = 10, logger?: ProductionTasksLogger) {
-	return isMcp(options) ? searchMcpTasks(options, query, limit) : oenp.loadProductionTasksByQuery(options, query, limit, logger);
+export async function loadProductionTasksByQuery(options: ProductionReadOptions, query: string, limit = 10, logger?: ProductionTasksLogger, folderUri?: string) {
+	return isMcp(options) ? searchMcpTasks(options, query, limit, folderUri) : oenp.loadProductionTasksByQuery(options, query, limit, logger);
 }
 export async function loadProductionTaskReference(options: ProductionReadOptions, reference: number, logger?: ProductionTasksLogger) {
 	return isMcp(options) ? (await searchMcpTasks(options, String(reference), 1))[0] : oenp.loadProductionTaskReference(options, reference, logger);

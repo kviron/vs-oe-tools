@@ -6,8 +6,9 @@ export const commands = {
 		z.object({
 			query: text('Production tasks query must be a string.').optional(),
 			limit: integer(1, 250, 'Production tasks limit must be an integer from 1 to 250.'),
+			folder_uri: z.string().max(2048, 'Production tasks folder URI must be at most 2048 characters.').optional(),
 		}),
-		async (input, actions) => actions.getProductionTasks(input.query, input.limit),
+		async (input, actions) => actions.getProductionTasks(input.query, input.limit, input.folder_uri),
 	),
 	get_production_task: defineCommand(
 		z.object({
@@ -16,7 +17,9 @@ export const commands = {
 		}),
 		async (input, actions) => actions.getProductionTask(input.query, input.limit),
 	),
-	get_production_tasks_in_progress: defineCommand(z.object({}), async (_input, actions) =>
-		actions.getProductionTasksInProgress(),
+	get_production_tasks_in_progress: defineCommand(z.object({
+		folder_uri: z.string().max(2048, 'Production tasks folder URI must be at most 2048 characters.').optional(),
+	}), async (input, actions) =>
+		actions.getProductionTasksInProgress(input.folder_uri),
 	),
 };

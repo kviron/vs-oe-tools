@@ -24,7 +24,7 @@ export function parseProductionMcpResult(result: unknown): unknown {
 /** Owns the two supported read contracts, transport lifetime and secret-safe errors. */
 export class ProductionMcpClient {
 	constructor(private readonly token: string) {}
-	private async call(name: 'oe_ur_list' | 'oe_ur_view', args: Record<string, unknown>): Promise<unknown> {
+	private async call(name: 'oe_url_list' | 'oe_ur_view', args: Record<string, unknown>): Promise<unknown> {
 		const client = new Client({ name: 'vc-ve-tools-production', version: '0.11.0' });
 		try {
 			await client.connect(new StreamableHTTPClientTransport(new URL('https://mcp.oe-it.ru/proxy/'), {
@@ -35,8 +35,8 @@ export class ProductionMcpClient {
 			throw new Error('Не удалось прочитать продуктовые задачи через публичный MCP. Проверьте токен и доступность https://mcp.oe-it.ru/proxy/.');
 		} finally { await client.close().catch(() => undefined); }
 	}
-	async list(args: { numbers?: string[]; subject_fragments?: string[]; content_fragments?: string[]; limit: number }): Promise<ProductionMcpTask[]> {
-		return listSchema.parse(await this.call('oe_ur_list', args)).item;
+	async list(args: { numbers?: string[]; subject_fragments?: string[]; content_fragments?: string[]; folder_uri?: string; limit: number }): Promise<ProductionMcpTask[]> {
+		return listSchema.parse(await this.call('oe_url_list', args)).item;
 	}
 	async view(ids: number[]): Promise<ProductionMcpTask[]> {
 		if (!ids.length) { return []; }

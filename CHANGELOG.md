@@ -4,6 +4,21 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.12.0] - 2026-10-13
+
+### Added
+
+- Added optional `folder_uri` selection-folder filtering to public MCP task lists and searches. The agent uses only a complete URI explicitly supplied by the user; numeric lookup preserves the folder filter instead of adding unfiltered ID matches.
+- Enabled `get_production_tasks_in_progress` through public MCP when an explicitly supplied selection folder encodes the requested state. Responses clarify that filters come from the folder settings.
+
+### Changed
+
+- Expanded the bundled East Express agent skill to version 17 with self-contained business knowledge candidates covering requirements, rules, rationale, examples, evidence and applicability. Clarified completeness checks and preservation of business explanations when publishing knowledge.
+
+### Fixed
+
+- Corrected the public production-task list tool name to `oe_url_list`.
+
 ## [0.11.0] - 2026-10-12
 
 ### Added

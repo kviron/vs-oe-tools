@@ -1,16 +1,20 @@
 import type { ProductionTasksLogger } from './models';
 import { loadProductionTaskHistory, loadProductionTasks, loadProductionTasksByQuery } from './productionTasksRepository';
+import { listMcpTasks } from './productionMcpRepository';
 import type { ProductionSession } from './session';
 
 export function createProductionAgentActions(getOptions: ProductionSession['getOptions'], logger: ProductionTasksLogger) {
 	return {
-		getProductionTasks: async (query: string | undefined, limit: number) => {
+		getProductionTasks: async (query: string | undefined, limit: number, folderUri?: string) => {
 			const options = await getOptions();
-			logger.info('MCP запросил список production-задач.', { query: query ?? null, limit });
+			logger.info('MCP запросил список production-задач.', { query: query ?? null, limit, hasFolderUri: Boolean(folderUri) });
 			if ('transport' in options) {
-				const tasks = query?.trim() ? await loadProductionTasksByQuery(options, query, limit, logger) : (await loadProductionTasks(options, logger)).slice(0, limit);
+				const tasks = query?.trim()
+					? await loadProductionTasksByQuery(options, query, limit, logger, folderUri)
+					: (await listMcpTasks(options, folderUri)).slice(0, limit);
 				return { source: 'mcp', database: options.database, query: query ?? null, count: tasks.length, tasks,
-					note: 'Общая ограниченная выборка API. Фильтр текущего сотрудника, статус, релизы и история недоступны.' };
+					filterApplied: Boolean(folderUri),
+					note: folderUri ? 'Список ограничен явно переданной папкой отбора. Статус и исполнитель доступны только если заданы условиями этой папки.' : 'Общая ограниченная выборка API. Статус и исполнитель доступны только через явно переданную папку отбора.' };
 			}
 			const tasks = await loadProductionTasks(options, logger);
 			const normalizedQuery = query?.trim().toLocaleLowerCase('ru-RU');
@@ -54,10 +58,15 @@ export function createProductionAgentActions(getOptions: ProductionSession['getO
 				tasks,
 			};
 		},
-		getProductionTasksInProgress: async () => {
+		getProductionTasksInProgress: async (folderUri?: string) => {
 			const options = await getOptions();
 			logger.info('MCP запросил production-задачи в работе.');
-			if ('transport' in options) { throw new Error('Публичный MCP пока не предоставляет статус задачи. Переключите источник на OENP для списка задач в работе.'); }
+			if ('transport' in options) {
+				if (!folderUri) { throw new Error('Для списка задач в работе через публичный MCP передайте folder_uri папки отбора со статусом «В работе».'); }
+				const tasks = await listMcpTasks(options, folderUri);
+				return { source: 'mcp', database: options.database, count: tasks.length, tasks,
+					note: 'Результат отфильтрован явно переданной папкой отбора; статус задаётся настройками этой папки.' };
+			}
 			const tasks = (await loadProductionTasks(options, logger))
 				.filter(task => task.state.trim().toLocaleLowerCase('ru-RU') === 'в работе');
 			return { database: options.database, personId: options.personId, count: tasks.length, tasks };

@@ -2,7 +2,7 @@
 name: east-express
 description: Use East Express project tools and internal knowledge when answering questions about its classes, methods, metadata, builds, releases, and development rules through vc-ve-tools MCP.
 metadata:
-  version: 16
+  version: 17
 ---
 
 # East Express
@@ -41,6 +41,28 @@ When a task yields a reusable business rule, decision rationale or procedure, ad
 Saving a candidate automatically sets the task's `knowledge_extracted` flag. This means useful information has been saved to candidates, not that every rule has been extracted or published. Do not claim extraction based only on reading the task or recording a decision. The flag survives progress/completion updates and candidate dismissal; when resuming a task, check for new rules rather than skipping it because the flag is set. If no useful knowledge was found, do not create an empty candidate or claim extraction. Use `search_task_knowledge` to review the pending queue periodically. A candidate is not verified knowledge. After the user authorizes publication through the available knowledge workflow, verify the saved article and its reference, mark the candidate with `review_task_knowledge`, then call `mark_task_knowledge_transferred` for the task when its knowledge extraction is complete. The task remains searchable. Never mark transfer based only on a proposed article.
 
 Use the `vc-ve-tools` MCP tools to inspect East Express database objects. Prefer focused object, class, method, attribute, and DFM tools over unrestricted SQL. Use `query_readonly` only when the focused tools cannot answer the question.
+
+## Business knowledge candidates
+
+The candidate is a self-contained explanation of domain behavior that a future agent can read without the original conversation. Its purpose is to preserve the business requirement and why the system behaves this way. A list of implemented methods, files or fixes alone is not a knowledge candidate; keep that in task changes.
+
+Read the task description, relevant discussions, recorded decisions and verified behavior before extraction. Cover each materially distinct business rule; group related rules by business process and split unrelated topics. Do not force the candidate into the task history summary's 1–3 sentence limit. Use domain terms in the title and text so future agents can find it by business questions.
+
+Write concise Markdown in `propose_task_knowledge.summary` with these parts, omitting only genuinely inapplicable details:
+
+- **Business requirement and purpose:** who needs the behavior, the process/problem, the intended outcome and the source establishing the requirement.
+- **Rule:** when it applies, inputs, conditions, calculations/filters, priorities, exceptions, restrictions and expected result. Describe behavior precisely enough to guide a later change.
+- **Why this decision:** connect the chosen behavior to the business requirement or constraint. Distinguish requested domain behavior from a technical implementation choice. Include known tradeoffs/alternatives only when supported by evidence. If the business motivation is unknown, say so; code proves behavior, not stakeholder intent.
+- **Example:** a concrete input/scenario and expected outcome when it clarifies the rule, including a boundary or exception when relevant. Label illustrative examples; do not invent actual customer cases.
+- **Applicability and evidence:** exact task/source references, relevant object IDs, release/profile, what was verified and what remains unknown. Distinguish confirmed requirement, observed implementation and hypothesis; retain unresolved disagreements between them.
+
+`reason` explains when a future agent should use this knowledge and which misunderstanding or regression it helps avoid. It does not replace the business rationale in `summary`.
+
+For example, “added a filter to the selection method” is only a change report. A useful rule says which records users may select, under which conditions, what happens to existing selections, and why that restriction is required. Record only details established by the task or verification; mark missing motivation or unresolved behavior explicitly.
+
+Before saving, check that a future agent can answer: what does the business require, when does the rule apply, what result is expected, why was it chosen, and where is the evidence? If the text only answers “what changed”, revise it. Before finishing, compare candidates with the task's main requirements and decisions, and report any material business knowledge still missing. Do not treat `knowledge_extracted` as proof of complete coverage.
+
+When later publishing an authorized knowledge article, preserve these business explanations and evidence rather than reducing the candidate to a changelog. Link the article into the knowledge index so subsequent knowledge searches can discover it.
 
 ## Internal knowledge
 

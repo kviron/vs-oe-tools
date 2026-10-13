@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
-import { parseProductionMcpResult } from '../features/production-tasks/productionMcpClient';
-import { mapProductionMcpTask } from '../features/production-tasks/productionMcpRepository';
+import { parseProductionMcpResult, ProductionMcpClient } from '../features/production-tasks/productionMcpClient';
+import { mapProductionMcpTask, searchMcpTasks } from '../features/production-tasks/productionMcpRepository';
 import { loadProductionTaskHistory } from '../features/production-tasks/productionTasksRepository';
 import { createProductionAgentActions } from '../features/production-tasks/agent';
 import { isSettingsWebviewMessage } from '../core/webviewProtocol';
@@ -21,15 +21,37 @@ suite('Public production MCP', () => {
 		assert.equal(task.state, '');
 		assert.equal(mapProductionMcpTask({ id: 1, number: 0, subject: 'Без номера', date: '' }).number, '');
 	});
-	test('reports unsupported history and in-progress filtering without OENP fallback', async () => {
+	test('reports unsupported history and requires an explicit in-progress folder without OENP fallback', async () => {
 		const options = { transport: 'mcp', token: 'never sent', personId: 0, database: 'ric224' } as const;
 		await assert.rejects(loadProductionTaskHistory(options, 952507978), /не предоставляет историю/);
 		const actions = createProductionAgentActions(async () => options, { info() {}, warning() {}, error() {} });
-		await assert.rejects(actions.getProductionTasksInProgress(), /не предоставляет статус/);
+		await assert.rejects(actions.getProductionTasksInProgress(), /передайте folder_uri/);
 	});
 	test('validates source selection and rejects multiline token messages', () => {
 		assert.equal(isSettingsWebviewMessage({ command: 'setProductionTaskSource', value: 'mcp' }), true);
 		assert.equal(isSettingsWebviewMessage({ command: 'setProductionTaskSource', value: 'unknown' }), false);
 		assert.equal(isSettingsWebviewMessage({ command: 'setProductionMcpToken', value: 'one\ntwo' }), false);
+	});
+	test('keeps numeric searches inside the supplied folder and does not read the query as an unfiltered ID', async () => {
+		const originalList = ProductionMcpClient.prototype.list;
+		const originalView = ProductionMcpClient.prototype.view;
+		const reads: number[][] = [];
+		ProductionMcpClient.prototype.list = async args => {
+			assert.equal(args.folder_uri, 'oe-ric224:/folder/123');
+			assert.deepEqual(args.numbers, ['89328']);
+			return [{ id: 7, number: 89328, subject: 'Filtered task', date: '' }];
+		};
+		ProductionMcpClient.prototype.view = async ids => {
+			reads.push(ids);
+			return [{ id: 7, number: 89328, subject: 'Filtered task', date: '' }];
+		};
+		try {
+			const tasks = await searchMcpTasks({ transport: 'mcp', token: 'never sent', personId: 0, database: 'ric224' }, '89328', 10, 'oe-ric224:/folder/123');
+			assert.deepEqual(reads, [[7]]);
+			assert.deepEqual(tasks.map(task => task.id), [7]);
+		} finally {
+			ProductionMcpClient.prototype.list = originalList;
+			ProductionMcpClient.prototype.view = originalView;
+		}
 	});
 });
