@@ -1,6 +1,7 @@
 import { readOptionalArgument } from '../arguments';
 import { readMcpRuntimeStateSync } from '../../core/mcpRuntimeState';
 import { callWithMethodCodeFile, maximumRequestUrlLength } from './codeFile';
+import { fetchLocalClientMcp } from './ipv4Transport';
 
 export interface ClientMcpTool {
 	name: string;
@@ -23,6 +24,9 @@ interface ClientMcpToolsResponse {
 export interface ClientMcpHealth {
 	status: string;
 	database?: string;
+	processId?: number;
+	isConsole?: boolean;
+	userId?: number;
 	methodCodeFile?: string;
 	tempDirectory?: string;
 }
@@ -116,12 +120,10 @@ function normalizeBaseUrl(value: string): string {
 async function requestJson<T>(url: URL, timeoutMs = requestTimeoutMs): Promise<T> {
 	let response: Response;
 	try {
-		response = await fetch(url, {
-			headers: { accept: 'application/json' },
-			signal: AbortSignal.timeout(timeoutMs),
-		});
+		response = await fetchLocalClientMcp(url, readMcpRuntimeStateSync()?.clientMcpPreferIPv4 === true,
+			timeoutMs, maximumResponseLength);
 	} catch (error) {
-		const cause = (error as { cause?: { code?: string; errors?: Array<{ code?: string }> } })?.cause;
+		const cause = ((error as { cause?: unknown })?.cause ?? error) as { code?: string; errors?: Array<{ code?: string }> } | undefined;
 		const refused = cause?.code === 'ECONNREFUSED' || (cause?.errors?.length !== undefined && cause.errors.length > 0
 			&& cause.errors.every(item => item.code === 'ECONNREFUSED'));
 		throw new ClientMcpConnectionError(`Клиентский MCP недоступен по адресу ${url.origin}: ${error instanceof Error ? error.message : String(error)}`, refused);

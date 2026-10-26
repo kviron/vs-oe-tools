@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SvnConflictPanel = void 0;
+const assets_1 = require("../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const svnMergeService_1 = require("./svnMergeService");
@@ -53,7 +54,7 @@ class SvnConflictPanel {
         this.conflict = conflict;
         if (!this.panel) {
             this.panel = vscode.window.createWebviewPanel('vc-ve-tools.svnConflict', `Конфликт: ${relativePath}`, vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
-            const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+            const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(this.extensionUri, 'svn-conflict');
             this.panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
             this.panel.webview.html = this.html(this.panel.webview, assetsRoot);
             this.panel.webview.onDidReceiveMessage(message => { void this.receive(message); });

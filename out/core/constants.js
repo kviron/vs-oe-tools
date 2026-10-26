@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.previousEncodingsKey = exports.sourceLanguageIds = exports.knowledgeMcpEnvFileSetting = exports.clientMcpUrlSetting = exports.mcpEnabledSetting = exports.clientLaunchArgumentsSetting = exports.clientUsernameSetting = exports.sqlMonitorCollectorPathSetting = exports.databaseProfileSetting = exports.databaseRoleSetting = exports.projectRootSetting = void 0;
+exports.previousEncodingsKey = exports.sourceLanguageIds = exports.productionTaskSourceSetting = exports.productionMcpTokenSecretKey = exports.knowledgeMcpEnvFileSetting = exports.clientMcpPreferIPv4Setting = exports.clientMcpUrlSetting = exports.mcpEnabledSetting = exports.clientLaunchArgumentsSetting = exports.clientUsernameSetting = exports.sqlMonitorCollectorPathSetting = exports.databaseProfileSetting = exports.databaseRoleSetting = exports.projectRootSetting = void 0;
 exports.projectRootSetting = 'useFolderAsProjectRoot';
 exports.databaseRoleSetting = 'databaseRole';
 exports.databaseProfileSetting = 'databaseProfile';
@@ -9,7 +9,10 @@ exports.clientUsernameSetting = 'clientUsername';
 exports.clientLaunchArgumentsSetting = 'clientLaunchArguments';
 exports.mcpEnabledSetting = 'mcp.enabled';
 exports.clientMcpUrlSetting = 'mcp.clientUrl';
+exports.clientMcpPreferIPv4Setting = 'mcp.preferIPv4';
 exports.knowledgeMcpEnvFileSetting = 'mcp.knowledgeEnvFile';
+exports.productionMcpTokenSecretKey = 'vcVeTools.productionMcpToken';
+exports.productionTaskSourceSetting = 'productionTaskSource';
 exports.sourceLanguageIds = ['ve-pkf', 've-pascal', 'bat'];
 exports.previousEncodingsKey = 'vcVeTools.previousWorkspaceLanguageEncodings';
 //# sourceMappingURL=constants.js.map

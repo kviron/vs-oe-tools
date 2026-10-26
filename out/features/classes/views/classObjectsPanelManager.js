@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.configureClassObjectsActions = configureClassObjectsActions;
 exports.openClassObjects = openClassObjects;
 exports.closeClassObjectPanels = closeClassObjectPanels;
+const assets_1 = require("../../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classObjectRepository_1 = require("../../../infrastructure/database/classObjectRepository");
@@ -59,7 +60,7 @@ async function openClassObjects(context, classId, objectId) {
         }
         return;
     }
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'class-objects');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.classObjects', `Объекты класса ${classId}`, vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot] });
     panel.webview.html = shell(panel.webview, assetsRoot);
     let ready = false;

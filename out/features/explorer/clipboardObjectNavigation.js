@@ -186,6 +186,7 @@ async function openMatch(match, actions, directTarget) {
     const targets = [
         { label: 'Показать в проводнике', description: explorerDescription(match.object.kind), target: 'explorer' },
         { label: 'Открыть объект', description: objectDescription(match.object.kind), target: 'object' },
+        { label: 'Открыть в клиенте', description: 'Открыть объект по ID в нативном клиенте ВЭ', target: 'client' },
         { label: 'Универсальный просмотр', description: 'Компактная таблица всех атрибутов и свойств объекта', target: 'objectView' },
         ...(match.object.kind === 'class' ? [{
                 label: 'Открыть просмотр объектов',
@@ -200,6 +201,21 @@ async function openMatch(match, actions, directTarget) {
     }))?.target;
     if (!target) {
         return false;
+    }
+    if (target === 'client') {
+        const selected = await vscode.window.showQuickPick([
+            { label: 'Основная база', role: 'main' },
+            { label: 'Тестовая база', role: 'test' },
+        ], { title: 'Открыть в клиенте', placeHolder: `Объект ID=${match.object.id} · выберите базу` });
+        if (!selected) {
+            return false;
+        }
+        const objectId = Number(match.object.id);
+        if (!Number.isSafeInteger(objectId) || objectId <= 0) {
+            throw new Error('Некорректный ID объекта.');
+        }
+        await actions.openClientEntity(selected.role, objectId);
+        return true;
     }
     if (target === 'history') {
         await actions.openHistory(match.object);

@@ -1,11 +1,66 @@
 import * as assert from 'node:assert/strict';
-import { parseProductionMcpResult, ProductionMcpClient } from '../features/production-tasks/productionMcpClient';
+import { describeProductionMcpFailure, parseProductionMcpResult, ProductionMcpClient } from '../features/production-tasks/productionMcpClient';
 import { mapProductionMcpTask, searchMcpTasks } from '../features/production-tasks/productionMcpRepository';
 import { loadProductionTaskHistory } from '../features/production-tasks/productionTasksRepository';
 import { createProductionAgentActions } from '../features/production-tasks/agent';
 import { isSettingsWebviewMessage } from '../core/webviewProtocol';
 
 suite('Public production MCP', () => {
+	test('sends the production list request to oe_ur_list through the SDK', async () => {
+		const originalFetch = globalThis.fetch;
+		const tools: string[] = [];
+		globalThis.fetch = async (_url, init) => {
+			if (init?.method !== 'POST') { return new Response(null, { status: 405 }); }
+			const request = JSON.parse(String(init.body));
+			if (request.id === undefined) { return new Response(null, { status: 202 }); }
+			let result: unknown;
+			if (request.method === 'initialize') {
+				result = { protocolVersion: request.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'test-production', version: '1' } };
+			} else {
+				assert.equal(request.method, 'tools/call');
+				tools.push(request.params.name);
+				assert.deepEqual(request.params.arguments, { limit: 1 });
+				result = { content: [{ type: 'text', text: '{"count":0,"item":[]}' }] };
+			}
+			return new Response(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }), { headers: { 'Content-Type': 'application/json' } });
+		};
+		try {
+			assert.deepEqual(await new ProductionMcpClient('test-token').list({ limit: 1 }), []);
+			assert.deepEqual(tools, ['oe_ur_list']);
+		} finally { globalThis.fetch = originalFetch; }
+	});
+	test('retains tool error details while redacting credentials before truncation', () => {
+		assert.throws(() => parseProductionMcpResult({ isError: true, content: [{ type: 'text', text: 'Unknown tool oe_url_list; token=other-secret; Bearer another-secret; supplied private-token' }] }, 'private-token'), error => {
+			assert.ok(error instanceof Error);
+			assert.match(error.message, /Unknown tool oe_url_list/);
+			assert.doesNotMatch(error.message, /other-secret|another-secret|private-token/);
+			return true;
+		});
+	});
+	test('preserves an HTTP failure from the SDK connection while dropping the response body', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = async () => new Response('private-token in server response', { status: 500 });
+		try {
+			await assert.rejects(new ProductionMcpClient('private-token').list({ limit: 1 }), error => {
+				assert.ok(error instanceof Error);
+				assert.match(error.message, /подключиться.*HTTP 500/);
+				assert.doesNotMatch(error.message, /private-token/);
+				return true;
+			});
+		} finally { globalThis.fetch = originalFetch; }
+	});
+	test('distinguishes connection, authorization, server and tool failures without exposing server text or secrets', () => {
+		assert.match(describeProductionMcpFailure({ code: 500, message: 'Bearer private-token' }, 'connect'), /подключиться.*HTTP 500/);
+		assert.match(describeProductionMcpFailure({ code: 401 }, 'connect'), /HTTP 401.*токен/);
+		assert.match(describeProductionMcpFailure({ code: -32601 }, 'read'), /прочитать.*инструмент/);
+		assert.match(describeProductionMcpFailure({ code: -32602 }, 'read'), /параметры/);
+		assert.match(describeProductionMcpFailure({ cause: { code: 'ENOTFOUND' } }, 'connect'), /DNS/);
+		assert.match(describeProductionMcpFailure({ name: 'TimeoutError' }, 'read'), /время ожидания/);
+		assert.doesNotMatch(describeProductionMcpFailure({ code: 500, message: 'Bearer private-token' }, 'connect'), /private-token|Bearer/);
+		assert.doesNotMatch(describeProductionMcpFailure(new Error('private-token'), 'read'), /private-token/);
+		try { parseProductionMcpResult({ content: [{ type: 'text', text: 'private-token' }] }); }
+		catch (error) { assert.match(describeProductionMcpFailure(error, 'read'), /некорректный JSON/); }
+	});
 	test('parses nested JSON and rejects tool errors and malformed responses', () => {
 		assert.deepEqual(parseProductionMcpResult({ content: [{ type: 'text', text: '{"count":0,"item":[]}' }] }), { count: 0, item: [] });
 		assert.throws(() => parseProductionMcpResult({ isError: true, content: [{ type: 'text', text: 'secret error' }] }), /не смог выполнить/);

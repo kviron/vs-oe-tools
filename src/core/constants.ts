@@ -6,6 +6,7 @@ export const clientUsernameSetting = 'clientUsername';
 export const clientLaunchArgumentsSetting = 'clientLaunchArguments';
 export const mcpEnabledSetting = 'mcp.enabled';
 export const clientMcpUrlSetting = 'mcp.clientUrl';
+export const clientMcpPreferIPv4Setting = 'mcp.preferIPv4';
 export const knowledgeMcpEnvFileSetting = 'mcp.knowledgeEnvFile';
 export const productionMcpTokenSecretKey = 'vcVeTools.productionMcpToken';
 export const productionTaskSourceSetting = 'productionTaskSource';

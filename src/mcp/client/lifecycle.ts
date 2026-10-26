@@ -40,10 +40,12 @@ async function startClientMcp(): Promise<{ url: string; alreadyRunning: boolean 
 	throw new Error('Client MCP was started, but its health endpoint did not become available.');
 }
 
-export async function stopManagedClientMcp(): Promise<{ url: string; stopped: true }> {
-	await stopClientMcpServer();
-	await waitForClientMcpStop();
-	return { url: getClientMcpUrl(), stopped: true };
+export async function stopManagedClientMcp(force = false, url = getClientMcpUrl()): Promise<{ url: string; stopped: boolean }> {
+	const health = await getClientMcpHealth(url);
+	if (health.isConsole === false && !force) { return { url, stopped: false }; }
+	await stopClientMcpServer(url);
+	await waitForClientMcpStop(url);
+	return { url, stopped: true };
 }
 
 export function listManagedClientMcpTools(): Promise<ClientMcpTool[]> {

@@ -1,7 +1,9 @@
+import {taskPageSchema} from './taskPage';
 import { z } from 'zod';
 import { defineCommand, integer, nonempty, text } from '../ai/command';
 
 export const commands = {
+    get_production_tasks_page:defineCommand(taskPageSchema,async(input,actions)=>actions.getProductionTasksPage(input)),
 	get_production_tasks: defineCommand(
 		z.object({
 			query: text('Production tasks query must be a string.').optional(),

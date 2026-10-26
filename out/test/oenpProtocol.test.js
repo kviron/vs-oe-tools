@@ -69,6 +69,19 @@ suite('OENP protocol', () => {
         assert.equal(queries_1.productionTaskSql.includes('LIMIT 250'), false);
         assert.match(queries_1.productionTaskSql, /ORDER BY T0\.CreDate DESC, T0\.ID DESC$/);
     });
+    test('uses the release and revision fields bound to the native task card', () => {
+        // ДРаботаДокумент (12851223): РелизНачинаяС/Факт and
+        // Ревизия_РелизФакт (trunk), Ревизия_РелизПред (branch).
+        for (const sql of [queries_1.productionTaskSql, (0, queries_1.productionTaskByIdSql)(952507978), (0, queries_1.productionTaskReferenceSql)(89328), (0, queries_1.productionTaskSearchSql)('89328')]) {
+            assert.match(sql, /CAST\(T0\.ReleaseFrom AS VARCHAR\(64\)\), ''\) AS releaseplan/);
+            assert.match(sql, /CAST\(T0\.ReleaseFromFact AS VARCHAR\(64\)\), ''\) AS releaseactual/);
+            assert.match(sql, /CAST\(T0\.Revision_ReleaseFact AS VARCHAR\(64\)\), ''\) AS revisiontrunk/);
+            assert.match(sql, /CAST\(T0\.Revision_ReleaseBefore AS VARCHAR\(64\)\), ''\) AS revisionbranch/);
+            assert.doesNotMatch(sql, /URRelease|T0\.ReleasePlan|T0\.ReleaseFact\b/);
+        }
+        assert.match((0, queries_1.productionTaskListSql)(), /CAST\(T0\.ReleaseFrom AS VARCHAR\(64\)\), ''\) AS releaseplan/);
+        assert.doesNotMatch((0, queries_1.productionTaskListSql)(), /URRelease|T0\.ReleasePlan/);
+    });
     test('builds a bounded attachment query for the exact task', () => {
         const sql = (0, queries_1.productionTaskAttachmentsSql)(85008);
         assert.match(sql, /FROM StoredFiles SF/);

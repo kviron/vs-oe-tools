@@ -160,6 +160,7 @@ function actions(calls, foundObject, foundTask, objects = [], tasks = []) {
         openMethod: async (id) => { calls.push(`openMethod:${id}`); },
         openModule: async (id) => { calls.push(`openModule:${id}`); },
         openObject: async (id) => { calls.push(`openObject:${id}`); },
+        openClientEntity: async (role, id) => { calls.push(`openClientEntity:${role}:${id}`); },
         openHistory: async (value) => { calls.push(`openHistory:${value.id}`); },
         openTask: async (task) => { calls.push(`openTask:${task.id}`); },
         revealPackage: async (id) => { calls.push(`revealPackage:${id}`); },

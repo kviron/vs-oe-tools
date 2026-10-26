@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerCodeHistory = registerCodeHistory;
+const assets_1 = require("../../infrastructure/webview/assets");
 const path = __importStar(require("node:path"));
 const promises_1 = require("node:fs/promises");
 const vscode = __importStar(require("vscode"));
@@ -79,7 +80,7 @@ class CodeHistoryService {
     }
     resolveWebviewView(view) {
         this.view = view;
-        const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+        const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(this.extensionUri, 'code-history');
         view.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
         view.webview.html = webviewHtml(view.webview, assetsRoot);
         view.webview.onDidReceiveMessage((message) => {

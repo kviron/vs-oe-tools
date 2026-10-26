@@ -101,6 +101,8 @@ suite('Navigation bridge', () => {
         let startedClientMcp;
         const infoPath = (0, node_path_1.join)((0, node_os_1.tmpdir)(), 'vc-ve-tools-test', `navigation-${process.pid}.json`);
         const bridge = await (0, navigationBridge_1.startNavigationBridge)({
+            updateEnumElement: async (request) => ({ ...request, changed: true }),
+            createEnumElement: async (request) => ({ objectId: 3200480, ...request }),
             createLocalToolClass: async (name, database) => ({ id: 20000001, name, database }),
             revealClass: async () => undefined,
             openClass: async () => undefined,
@@ -158,6 +160,7 @@ suite('Navigation bridge', () => {
             updateBinaries: async () => { binariesUpdated = true; return false; },
             updateDatabase: async (role) => { updatedDatabase = role; },
             startClient: async (role) => { startedClient = role; },
+            getClientStatus: async (role) => ({ role, database: role === 'test' ? 'oetest' : 'oetrunk', clientProcessDetected: false, serverPort: null, serverReachable: null }),
             openClientEntity: async (role, entityType, id) => `oe-${role}:/open/${entityType}/${id}`,
             confirmSqlMutation: async () => false,
         }, infoPath);

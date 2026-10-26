@@ -1,3 +1,5 @@
+import {loadProductionTaskPage} from './productionOenpRepository';
+import {taskPageSchema,type TaskPageInput} from './taskPage';
 import type { ProductionTasksLogger } from './models';
 import { loadProductionTaskHistory, loadProductionTasks, loadProductionTasksByQuery } from './productionTasksRepository';
 import { listMcpTasks } from './productionMcpRepository';
@@ -5,6 +7,12 @@ import type { ProductionSession } from './session';
 
 export function createProductionAgentActions(getOptions: ProductionSession['getOptions'], logger: ProductionTasksLogger) {
 	return {
+        getProductionTasksPage:async(input:TaskPageInput)=>{
+            const parsed=taskPageSchema.parse(input),options=await getOptions();
+            if('transport' in options){throw Error('Постраничный отбор по датам требует источника OENP в расширении. Публичный MCP не поддерживает этот контракт.');}
+            const rows=await loadProductionTaskPage(options,parsed,logger),more=rows.length>parsed.limit,tasks=rows.slice(0,parsed.limit).map(t=>({id:t.id,number:t.number,title:t.title,createdAt:t.createdAt,state:t.state}));
+            return {source:'oenp',database:options.database,count:tasks.length,tasks,has_more:more,next_after_id:more?tasks.at(-1)!.id:null,created_from:parsed.created_from??null,created_to:parsed.created_to??null};
+        },
 		getProductionTasks: async (query: string | undefined, limit: number, folderUri?: string) => {
 			const options = await getOptions();
 			logger.info('MCP запросил список production-задач.', { query: query ?? null, limit, hasFolderUri: Boolean(folderUri) });
@@ -16,20 +24,15 @@ export function createProductionAgentActions(getOptions: ProductionSession['getO
 					filterApplied: Boolean(folderUri),
 					note: folderUri ? 'Список ограничен явно переданной папкой отбора. Статус и исполнитель доступны только если заданы условиями этой папки.' : 'Общая ограниченная выборка API. Статус и исполнитель доступны только через явно переданную папку отбора.' };
 			}
-			const tasks = await loadProductionTasks(options, logger);
-			const normalizedQuery = query?.trim().toLocaleLowerCase('ru-RU');
-			const filtered = normalizedQuery
-				? tasks.filter(task => [task.id, task.number, task.title]
-					.some(value => String(value).toLocaleLowerCase('ru-RU').includes(normalizedQuery)))
-				: tasks;
+			const filtered = await loadProductionTaskPage(options, { limit: Math.min(limit, 99) }, logger, query);
 			return {
 				database: options.database,
 				personId: options.personId,
 				query: query ?? null,
-				totalCount: filtered.length,
-				count: Math.min(filtered.length, limit),
-				truncated: filtered.length > limit,
-				tasks: filtered.slice(0, limit).map(task => ({
+				totalCount: filtered.length > Math.min(limit,99) ? undefined : filtered.length,
+				count: Math.min(filtered.length,limit,99),
+				truncated: filtered.length > Math.min(limit,99),
+				tasks: filtered.slice(0, Math.min(limit,99)).map(task => ({
 					id: task.id, number: task.number, state: task.state, title: task.title,
 					createdAt: task.createdAt, deadline: task.deadline, project: task.project, executor: task.executor,
 				})),

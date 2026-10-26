@@ -257,6 +257,7 @@ export interface SettingsState {
 	knowledgeMcpStatus: { state: 'missing' | 'invalid' | 'offline' | 'online'; text: string; collection?: string; toolCount?: number };
 	knowledgeMcpEnvFile: string;
 	clientMcpUrl: string;
+	clientMcpPreferIPv4: boolean;
 	clientMcpStatus: 'online' | 'offline';
 	clientMcpStatusText: string;
 	clientMcpDatabase?: string;
@@ -287,6 +288,7 @@ export type SettingsWebviewMessage =
 	| { command: 'setProductionMcpToken'; value: string }
 	| { command: 'setProductionTaskSource'; value: 'oenp' | 'mcp' }
 	| { command: 'setMcpEnabled'; enabled: boolean }
+	| { command: 'setClientMcpPreferIPv4'; enabled: boolean }
 	| { command: 'refreshClientMcpStatus' }
 	| { command: 'refreshKnowledgeMcpStatus' }
 	| { command: 'selectKnowledgeMcpEnvFile' }
@@ -430,7 +432,7 @@ export function isSettingsWebviewMessage(message: unknown): message is SettingsW
 			&& 'fileName' in message && typeof message.fileName === 'string' && /^[^\\/:*?"<>|\r\n]{1,200}$/u.test(message.fileName)
 			&& (!('contentType' in message) || message.contentType === undefined || typeof message.contentType === 'string');
 	}
-	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
+	if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled' || message.command === 'setClientMcpPreferIPv4') {
 		return 'enabled' in message && typeof message.enabled === 'boolean';
 	}
 	if (message.command === 'setDatabaseRole') {

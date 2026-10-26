@@ -41,7 +41,7 @@ const sqlResultExport_1 = require("../features/sql-executor/sqlResultExport");
 const sqlDialectAdapter_1 = require("../features/sql-executor/sqlDialectAdapter");
 const projectDatabaseOptions_1 = require("../infrastructure/configuration/projectDatabaseOptions");
 const rdboadmIni_1 = require("../infrastructure/configuration/rdboadmIni");
-const projectCommandService_1 = require("../features/project/projectCommandService");
+const clientLaunchService_1 = require("../features/project/clientLaunchService");
 const projectStatusBar_1 = require("../features/project/projectStatusBar");
 const databaseSelection_1 = require("../core/databaseSelection");
 // import * as myExtension from '../../extension';
@@ -52,6 +52,15 @@ suite('Extension Test Suite', () => {
         assert.ok(extension, 'Расширение Kviron.vc-ve-tools не найдено');
         await extension.activate();
         assert.equal(extension.isActive, true);
+    });
+    test('opens the bundled relationship map editor', async () => {
+        const extension = vscode.extensions.getExtension('Kviron.vc-ve-tools');
+        assert.ok(extension);
+        await extension.activate();
+        const result = await vscode.commands.executeCommand('vc-ve-tools.openRelationshipMap');
+        assert.equal(result?.opened, true);
+        assert.ok(result?.directory);
+        await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
     });
     test('Vars.bat parser supports quoted and role-specific variables', () => {
         const variables = (0, projectDatabaseOptions_1.parseVarsFile)([
@@ -83,18 +92,18 @@ suite('Extension Test Suite', () => {
         assert.strictEqual(updated, '; comment\r\n[oetrunk]\r\nDispName = Новое имя\r\nTCPport = 4000\r\n');
     });
     test('client launch command invokes fme.exe without project batch files', () => {
-        const command = (0, projectCommandService_1.createClientLaunchCommand)('C:\\OE\\trunk', 'main', { host: 'localhost', database: 'oetrunk' }, { username: 'ВЭ_Пользователь', password: 'secret' }, 'oe-oetrunk:/open/Метод/11158589');
-        assert.strictEqual(command, 'start "" /D "C:\\OE\\trunk\\bin" "C:\\OE\\trunk\\bin\\fme.exe" -NoSelfUpdate "oe-oetrunk:/open/Метод/11158589" -l "host=localhost,db=oetrunk,username=ВЭ_Пользователь,password=secret,MultiLogin=True" -ok');
+        const command = (0, clientLaunchService_1.createClientLaunchCommand)('C:\\OE\\trunk', 'main', { host: 'localhost', database: 'oetrunk' }, { username: 'ВЭ_Пользователь', password: 'secret' }, 'oe-oetrunk:/edit/11158589');
+        assert.strictEqual(command, 'start "" /D "C:\\OE\\trunk\\bin" "C:\\OE\\trunk\\bin\\fme.exe" -NoSelfUpdate "oe-oetrunk:/edit/11158589" -l "host=localhost,db=oetrunk,username=ВЭ_Пользователь,password=secret,MultiLogin=True" -ok');
         assert.ok(!/\.bat|\bcall\b/iu.test(command));
-        assert.throws(() => (0, projectCommandService_1.createClientLaunchCommand)('C:\\OE\\trunk', 'test', { host: 'localhost', database: 'oetest' }, {}), /Укажите логин и пароль/);
+        assert.throws(() => (0, clientLaunchService_1.createClientLaunchCommand)('C:\\OE\\trunk', 'test', { host: 'localhost', database: 'oetest' }, {}), /Укажите логин и пароль/);
     });
     test('client launch command safely appends configured arguments', () => {
-        assert.deepStrictEqual((0, projectCommandService_1.parseClientLaunchArguments)('-BeautifyPGQueries -CustomOption "value with spaces"'), ['-BeautifyPGQueries', '-CustomOption', 'value with spaces']);
-        const command = (0, projectCommandService_1.createClientLaunchCommand)('C:\\OE\\trunk', 'test', { host: 'localhost', database: 'oetest' }, { username: 'user', password: 'secret' }, undefined, '-BeautifyPGQueries -CustomOption "value with spaces"');
+        assert.deepStrictEqual((0, clientLaunchService_1.parseClientLaunchArguments)('-BeautifyPGQueries -CustomOption "value with spaces"'), ['-BeautifyPGQueries', '-CustomOption', 'value with spaces']);
+        const command = (0, clientLaunchService_1.createClientLaunchCommand)('C:\\OE\\trunk', 'test', { host: 'localhost', database: 'oetest' }, { username: 'user', password: 'secret' }, undefined, '-BeautifyPGQueries -CustomOption "value with spaces"');
         assert.ok(command.includes('-NoSelfUpdate "-BeautifyPGQueries" "-CustomOption" "value with spaces" -l'));
-        assert.throws(() => (0, projectCommandService_1.parseClientLaunchArguments)('-l hacked'), /задаётся расширением автоматически/);
-        assert.throws(() => (0, projectCommandService_1.parseClientLaunchArguments)('-CustomOption & whoami'), /недопустимые/);
-        assert.throws(() => (0, projectCommandService_1.parseClientLaunchArguments)('-CustomOption "unfinished'), /не закрыта/);
+        assert.throws(() => (0, clientLaunchService_1.parseClientLaunchArguments)('-l hacked'), /задаётся расширением автоматически/);
+        assert.throws(() => (0, clientLaunchService_1.parseClientLaunchArguments)('-CustomOption & whoami'), /недопустимые/);
+        assert.throws(() => (0, clientLaunchService_1.parseClientLaunchArguments)('-CustomOption "unfinished'), /не закрыта/);
     });
     test('project status bar offers main and test database actions', () => {
         assert.deepStrictEqual(projectStatusBar_1.projectRoleActions.map(action => ({ label: action.label, role: action.role })), [

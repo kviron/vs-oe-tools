@@ -9,11 +9,17 @@ export const classAppearances = {
   metadata: { icon: DatabaseIcon, color: 'text-kind-list', label: 'Метаданные' },
 };
 
+export type ClassAppearanceKind = keyof typeof classAppearances;
+
+export function classAppearanceKind(node: { kind?: string; hasDfm?: boolean; virtual?: number | null; dbtablename?: string | null }): ClassAppearanceKind {
+  if (node.kind === 'comment') return 'comment';
+  if (node.kind === 'metadata') return 'metadata';
+  if (node.hasDfm) return 'dialog';
+  if (node.virtual) return 'virtual';
+  if (node.dbtablename?.trim()) return 'stored';
+  return 'class';
+}
+
 export function classAppearance(node: { kind?: string; hasDfm?: boolean; virtual?: number | null; dbtablename?: string | null }) {
-  if (node.kind === 'comment') return classAppearances.comment;
-  if (node.kind === 'metadata') return classAppearances.metadata;
-  if (node.hasDfm) return classAppearances.dialog;
-  if (node.virtual) return classAppearances.virtual;
-  if (node.dbtablename?.trim()) return classAppearances.stored;
-  return classAppearances.class;
+  return classAppearances[classAppearanceKind(node)];
 }

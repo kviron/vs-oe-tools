@@ -37,6 +37,7 @@ exports.openClassDetails = openClassDetails;
 exports.revealClassMethod = revealClassMethod;
 exports.restoreClassDetailPanels = restoreClassDetailPanels;
 exports.closeClassDetailPanels = closeClassDetailPanels;
+const assets_1 = require("../../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
@@ -71,7 +72,7 @@ function persistPanels(context) {
     void context.workspaceState.update('classDetails.openPanels', [...classDetailPanels.values()].map(entry => ({ id: entry.details.id, pinned: entry.pinned, activeTab: entry.activeTab })));
 }
 function createPanel(context, classDetails, pinned, methodEditor, activeTab = 'class') {
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'class-details');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.classDetails', `Класс ${classDetails.name}`, { viewColumn: vscode.ViewColumn.Active, preserveFocus: !pinned }, { enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true });
     panel.webview.html = getClassDetailsShell(panel.webview, assetsRoot);
     const entry = { panel, pinned, details: classDetails, activeTab, ready: false, attributeIncludeInherited: false, methodIncludeInherited: false };

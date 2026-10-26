@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { clientMcpUrlSetting, databaseProfileSetting, databaseRoleSetting } from '../core/constants';
+import { clientMcpPreferIPv4Setting, clientMcpUrlSetting, databaseProfileSetting, databaseRoleSetting } from '../core/constants';
 import { createMcpRuntimePublisher } from '../features/ai';
 import { registerDatabaseMcpServer } from '../mcp/registerMcpServer';
 import type { bootstrap } from './bootstrap';
@@ -27,7 +27,8 @@ export async function registerMcp(
 		async onConfigurationChange(event: vscode.ConfigurationChangeEvent): Promise<void> {
 			if (event.affectsConfiguration(`vcVeTools.${databaseRoleSetting}`)
 				|| event.affectsConfiguration(`vcVeTools.${databaseProfileSetting}`)
-				|| event.affectsConfiguration(`vcVeTools.${clientMcpUrlSetting}`)) {
+				|| event.affectsConfiguration(`vcVeTools.${clientMcpUrlSetting}`)
+				|| event.affectsConfiguration(`vcVeTools.${clientMcpPreferIPv4Setting}`)) {
 				await publishRuntimeState();
 			}
 		},

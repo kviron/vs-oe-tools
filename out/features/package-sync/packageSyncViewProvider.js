@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PackageSyncPanelManager = void 0;
+const assets_1 = require("../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const promises_1 = require("node:fs/promises");
 const path = __importStar(require("node:path"));
@@ -66,7 +67,7 @@ class PackageSyncPanelManager {
         }
         const panel = vscode.window.createWebviewPanel(PackageSyncPanelManager.viewType, 'Синхронизация проектов', vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
         this.panel = panel;
-        const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+        const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(this.extensionUri, 'package-sync');
         panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
         panel.webview.html = this.html(panel.webview, assetsRoot);
         panel.webview.onDidReceiveMessage((message) => {

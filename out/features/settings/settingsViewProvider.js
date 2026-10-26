@@ -34,66 +34,47 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SettingsViewProvider = void 0;
+const assets_1 = require("../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const constants_1 = require("../../core/constants");
+const constants_2 = require("../../core/constants");
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const projectDatabaseOptions_1 = require("../../infrastructure/configuration/projectDatabaseOptions");
 const classRepository_1 = require("../../infrastructure/database/classRepository");
-const http_1 = require("../../mcp/client/http");
 const connectionStatus_1 = require("../../mcp/knowledge/connectionStatus");
-const oeStaticMethodExecutor_1 = require("../lifecycle/oeStaticMethodExecutor");
 const rdboadmIni_1 = require("../../infrastructure/configuration/rdboadmIni");
-const projectCommandService_1 = require("../project/projectCommandService");
-const project_1 = require("../project");
 const tools_1 = require("../../mcp/tools");
-const httpApiRequest_1 = require("../http-api/httpApiRequest");
-const httpServerLifecycle_1 = require("../http-api/httpServerLifecycle");
-const directHttpMethod_1 = require("../http-api/directHttpMethod");
-const httpMethodRepository_1 = require("../http-api/httpMethodRepository");
+const clientMcpService_1 = require("./clientMcpService");
 class SettingsViewProvider {
     extensionUri;
-    setProjectRootEnabled;
+    project;
     logger;
     getClientCredentials;
     setClientCredentials;
-    workspaceState;
-    static clientMcpToolsCacheKey = 'vcVeTools.clientMcpTools.v1';
+    secrets;
     panel;
     httpApiPanel;
     clientMcpStatusTimer;
-    clientMcpDatabaseSync;
-    clientMcpTools;
-    clientMcpToolsDatabase;
-    clientMcpToolsUpdatedAt;
-    clientMcpToolsError;
+    clientMcp;
     knowledgeMcpStatusCache;
-    httpMethods = [];
-    httpMethodsError;
-    httpServerLifecycle = new httpServerLifecycle_1.HttpServerLifecycle();
-    directRequestController;
-    get httpTestServer() { return this.httpServerLifecycle.server; }
-    set httpTestServer(server) { this.httpServerLifecycle.server = server; }
+    httpApi;
     disposables = [];
-    constructor(extensionUri, setProjectRootEnabled, logger, getClientCredentials = async () => ({}), setClientCredentials = async () => undefined, workspaceState) {
+    constructor(extensionUri, project, services, logger, getClientCredentials = async () => ({}), setClientCredentials = async () => undefined, secrets) {
         this.extensionUri = extensionUri;
-        this.setProjectRootEnabled = setProjectRootEnabled;
+        this.project = project;
         this.logger = logger;
         this.getClientCredentials = getClientCredentials;
         this.setClientCredentials = setClientCredentials;
-        this.workspaceState = workspaceState;
-        const cachedTools = this.workspaceState?.get(SettingsViewProvider.clientMcpToolsCacheKey);
-        if (cachedTools) {
-            this.clientMcpTools = cachedTools.tools;
-            this.clientMcpToolsDatabase = cachedTools.database;
-            this.clientMcpToolsUpdatedAt = cachedTools.updatedAt;
-        }
+        this.secrets = secrets;
+        this.clientMcp = services.clientMcp;
+        this.httpApi = services.httpApi;
         this.disposables.push(this.logger.onDidChange(() => void this.postState()), vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration('vcVeTools')) {
                 void this.postState();
             }
-            if (event.affectsConfiguration(`vcVeTools.${constants_1.databaseProfileSetting}`)
-                || event.affectsConfiguration(`vcVeTools.${constants_1.databaseRoleSetting}`)) {
-                this.scheduleClientMcpDatabaseSync();
+            if (event.affectsConfiguration(`vcVeTools.${constants_2.databaseProfileSetting}`)
+                || event.affectsConfiguration(`vcVeTools.${constants_2.databaseRoleSetting}`)) {
+                this.clientMcp.scheduleDatabaseSync(action => this.setClientMcpServerRunning(action));
             }
         }), vscode.workspace.onDidChangeWorkspaceFolders(() => void this.postState()));
     }
@@ -103,7 +84,7 @@ class SettingsViewProvider {
             void this.postState();
             return;
         }
-        const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+        const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(this.extensionUri, 'settings');
         const panel = vscode.window.createWebviewPanel('vc-ve-tools.settings', 'Настройки Восточного Экспресса', vscode.ViewColumn.Active, {
             enableScripts: true,
             retainContextWhenHidden: true,
@@ -136,7 +117,7 @@ class SettingsViewProvider {
             void this.postState();
             return;
         }
-        const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+        const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(this.extensionUri, 'http-api');
         const panel = vscode.window.createWebviewPanel('vc-ve-tools.httpApi', 'HTTP API Восточного Экспресса', vscode.ViewColumn.Active, {
             enableScripts: true,
             retainContextWhenHidden: true,
@@ -156,113 +137,32 @@ class SettingsViewProvider {
         void this.postState();
     }
     async startHttpTestServer(methodName) {
-        await this.httpServerLifecycle.replace(async () => {
-            await this.refreshHttpMethods();
-            const selected = this.httpMethods.find(item => item.name === methodName);
-            if (!selected) {
-                throw new Error('Выбранный HTTP-метод не найден в текущей базе.');
-            }
-            const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            if (!workspacePath) {
-                throw new Error('Сначала откройте папку проекта Восточного Экспресса.');
-            }
-            const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-            return (0, oeStaticMethodExecutor_1.startHttpTestServerProcess)(workspacePath, selected.name, options.database, options.host, await this.getClientCredentials());
-        });
+        await this.httpApi.start(methodName);
         await this.postState();
-        return this.getHttpTestServerState();
+        return this.httpApi.getServerState();
     }
     async stopHttpTestServer() {
-        await this.httpServerLifecycle.replace();
+        const state = await this.httpApi.stop();
         await this.postState();
-        return { running: false };
+        return state;
     }
-    async callHttpTestServer(request) {
-        const server = this.httpTestServer;
-        if (!server || !server.isRunning()) {
-            throw new Error('Тестовый HTTP-сервер не запущен.');
-        }
-        const state = this.getHttpTestServerState();
-        const url = new URL(server.url);
-        url.searchParams.set('method', request.methodName?.trim() || server.methodName);
-        const response = await (0, httpApiRequest_1.executeHttpApiRequest)({
-            method: typeof request.method === 'string' && request.method.trim() ? request.method : 'GET',
-            url: url.toString(), headers: request.headers ?? {}, body: request.body,
-        });
-        return { server: state, response };
+    callHttpTestServer(request) {
+        return this.httpApi.callServer(request);
     }
-    async callDirectHttpMethod(input) {
-        if (this.directRequestController) {
-            throw new Error('Предыдущий прямой вызов ещё выполняется.');
-        }
-        const request = (0, directHttpMethod_1.validateDirectHttpMethodRequest)(input);
-        const controller = new AbortController();
-        this.directRequestController = controller;
-        try {
-            const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            if (!workspacePath) {
-                throw new Error('Сначала откройте папку проекта Восточного Экспресса.');
-            }
-            const options = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-            const methods = await (0, httpMethodRepository_1.loadHttpMethods)();
-            if (!methods.some(method => method.name === request.methodName)) {
-                throw new Error('Метод не найден в каталоге текущей базы. Обновите список методов.');
-            }
-            return await (0, directHttpMethod_1.executeDirectHttpMethod)(workspacePath, request, options.database, options.host, await this.getClientCredentials(), controller.signal);
-        }
-        finally {
-            this.directRequestController = undefined;
-        }
+    callDirectHttpMethod(input) {
+        return this.httpApi.callDirect(input);
     }
     getHttpTestServerState() {
-        if (this.httpTestServer && !this.httpTestServer.isRunning()) {
-            this.httpTestServer = undefined;
-        }
-        return this.httpTestServer ? {
-            running: true,
-            methodName: this.httpTestServer.methodName,
-            database: this.httpTestServer.database,
-            url: this.httpTestServer.url,
-            processId: this.httpTestServer.processId,
-        } : { running: false };
-    }
-    async refreshHttpMethods() {
-        this.httpMethods = await (0, httpMethodRepository_1.loadHttpMethods)();
-        this.httpMethodsError = undefined;
+        return this.httpApi.getServerState();
     }
     dispose() {
-        this.directRequestController?.abort();
         if (this.clientMcpStatusTimer) {
             clearInterval(this.clientMcpStatusTimer);
         }
         this.panel?.dispose();
         this.httpApiPanel?.dispose();
-        void this.httpServerLifecycle.replace().catch(error => this.logger.error('HTTP API', 'Не удалось остановить тестовый сервер.', error));
+        void this.httpApi.dispose().catch(error => this.logger.error('HTTP API', 'Не удалось остановить тестовый сервер.', error));
         this.disposables.forEach(disposable => disposable.dispose());
-    }
-    scheduleClientMcpDatabaseSync() {
-        if (this.clientMcpDatabaseSync) {
-            return;
-        }
-        this.clientMcpDatabaseSync = this.syncClientMcpDatabase()
-            .then(() => this.refreshClientMcpTools(true))
-            .catch(error => this.logger.error('Настройки', 'Не удалось переключить базу клиентского MCP', error))
-            .finally(() => { this.clientMcpDatabaseSync = undefined; });
-    }
-    async syncClientMcpDatabase() {
-        const clientMcpUrl = getConfiguredClientMcpUrl(vscode.workspace.getConfiguration('vcVeTools'));
-        const selectedDatabase = (await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)()).database;
-        try {
-            const health = await (0, http_1.getClientMcpHealth)(clientMcpUrl);
-            if (health.status.toLocaleLowerCase('en') === 'ok'
-                && health.database?.toLocaleLowerCase('en') !== selectedDatabase.toLocaleLowerCase('en')) {
-                await this.setClientMcpServerRunning('stop');
-                await this.setClientMcpServerRunning('start');
-            }
-        }
-        catch {
-            // An offline client MCP does not need database synchronization.
-        }
     }
     async handleMessage(message) {
         if (!(0, webviewProtocol_1.isSettingsWebviewMessage)(message)) {
@@ -272,13 +172,13 @@ class SettingsViewProvider {
             await this.postState();
         }
         else if (message.command === 'setProjectRootEnabled') {
-            await this.setProjectRootEnabled(message.enabled);
+            await this.project.setProjectRootEnabled(message.enabled);
         }
         else if (message.command === 'setDatabaseRole') {
-            await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseRoleSetting, message.role, vscode.ConfigurationTarget.Workspace);
+            await vscode.workspace.getConfiguration('vcVeTools').update(constants_2.databaseRoleSetting, message.role, vscode.ConfigurationTarget.Workspace);
         }
         else if (message.command === 'setDatabaseProfile') {
-            await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.databaseProfileSetting, message.profile, vscode.ConfigurationTarget.Workspace);
+            await vscode.workspace.getConfiguration('vcVeTools').update(constants_2.databaseProfileSetting, message.profile, vscode.ConfigurationTarget.Workspace);
         }
         else if (message.command === 'saveDatabaseProfile') {
             const workspace = vscode.workspace.workspaceFolders?.[0];
@@ -297,16 +197,16 @@ class SettingsViewProvider {
         else if (message.command === 'runProjectCommand') {
             try {
                 if (message.action === 'updateDatabase') {
-                    await (0, project_1.updateProjectDatabase)(message.role);
+                    await this.project.updateDatabase(message.role);
                 }
                 else if (message.action === 'startClient') {
-                    await (0, projectCommandService_1.startProjectClient)(message.role, await this.getClientCredentials());
+                    await this.project.startClient(message.role);
                 }
                 else if (message.action === 'updatePackages') {
-                    await (0, projectCommandService_1.updateProjectPackages)();
+                    await this.project.updatePackages();
                 }
                 else {
-                    await (0, project_1.updateProjectBinaries)();
+                    await this.project.updateBinaries();
                 }
             }
             catch (error) {
@@ -316,6 +216,29 @@ class SettingsViewProvider {
         else if (message.command === 'setUserId') {
             await vscode.workspace.getConfiguration('vcVeTools').update('userId', message.userId, vscode.ConfigurationTarget.Workspace);
         }
+        else if (message.command === 'setProductionTaskSource') {
+            await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.productionTaskSourceSetting, message.value, vscode.ConfigurationTarget.Global);
+            await this.postState();
+        }
+        else if (message.command === 'setProductionMcpToken') {
+            try {
+                if (!this.secrets) {
+                    throw new Error('SecretStorage unavailable');
+                }
+                const token = message.value.trim();
+                if (token) {
+                    await this.secrets.store(constants_1.productionMcpTokenSecretKey, token);
+                }
+                else {
+                    await this.secrets.delete(constants_1.productionMcpTokenSecretKey);
+                }
+                this.post({ command: 'productionMcpTokenSaved', success: true });
+                await this.postState();
+            }
+            catch {
+                this.post({ command: 'productionMcpTokenSaved', success: false });
+            }
+        }
         else if (message.command === 'setClientCredentials') {
             await this.setClientCredentials({ username: message.username, password: message.password });
             void vscode.window.showInformationMessage('Данные входа клиента ВЭ сохранены.');
@@ -323,8 +246,8 @@ class SettingsViewProvider {
         }
         else if (message.command === 'setClientLaunchArguments') {
             try {
-                (0, projectCommandService_1.parseClientLaunchArguments)(message.value);
-                await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.clientLaunchArgumentsSetting, message.value.trim(), vscode.ConfigurationTarget.Workspace);
+                this.project.validateClientLaunchArguments(message.value);
+                await vscode.workspace.getConfiguration('vcVeTools').update(constants_2.clientLaunchArgumentsSetting, message.value.trim(), vscode.ConfigurationTarget.Workspace);
                 void vscode.window.showInformationMessage('Дополнительные параметры запуска клиента сохранены.');
                 await this.postState();
             }
@@ -333,7 +256,10 @@ class SettingsViewProvider {
             }
         }
         else if (message.command === 'setMcpEnabled') {
-            await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.mcpEnabledSetting, message.enabled, vscode.ConfigurationTarget.Workspace);
+            await vscode.workspace.getConfiguration('vcVeTools').update(constants_2.mcpEnabledSetting, message.enabled, vscode.ConfigurationTarget.Workspace);
+        }
+        else if (message.command === 'setClientMcpPreferIPv4') {
+            await vscode.workspace.getConfiguration('vcVeTools').update(constants_2.clientMcpPreferIPv4Setting, message.enabled, vscode.ConfigurationTarget.Workspace);
         }
         else if (message.command === 'refreshClientMcpStatus') {
             await this.postState();
@@ -348,7 +274,7 @@ class SettingsViewProvider {
                 openLabel: 'Выбрать .env базы знаний',
             });
             if (selected?.[0]) {
-                await vscode.workspace.getConfiguration('vcVeTools').update(constants_1.knowledgeMcpEnvFileSetting, selected[0].fsPath, vscode.ConfigurationTarget.Global);
+                await vscode.workspace.getConfiguration('vcVeTools').update(constants_2.knowledgeMcpEnvFileSetting, selected[0].fsPath, vscode.ConfigurationTarget.Global);
                 this.knowledgeMcpStatusCache = undefined;
                 await this.postState();
             }
@@ -375,7 +301,7 @@ class SettingsViewProvider {
         else if (message.command === 'executeHttpApiRequest') {
             this.post({ command: 'httpApiRequestStarted' });
             try {
-                const response = await (0, httpApiRequest_1.executeHttpApiRequest)(message);
+                const response = await this.httpApi.executeRequest(message);
                 this.post({ command: 'httpApiRequestFinished', success: true, response });
             }
             catch (error) {
@@ -391,7 +317,7 @@ class SettingsViewProvider {
             await this.setHttpTestServerRunning('stop');
         }
         else if (message.command === 'searchHttpParameterValues') {
-            const values = await (0, httpMethodRepository_1.searchHttpParameterValues)(message.typeName, message.query);
+            const values = await this.httpApi.searchParameterValues(message.typeName, message.query);
             this.post({ command: 'httpParameterValuesLoaded', parameter: message.parameter, query: message.query, values });
         }
         else if (message.command === 'copyHttpApiRequest') {
@@ -431,76 +357,12 @@ class SettingsViewProvider {
         }
     }
     async setClientMcpServerRunning(action) {
-        const configuration = vscode.workspace.getConfiguration('vcVeTools');
-        const clientMcpUrl = getConfiguredClientMcpUrl(configuration);
-        let currentlyOnline = false;
         try {
-            const health = await (0, http_1.getClientMcpHealth)(clientMcpUrl);
-            currentlyOnline = health.status.toLocaleLowerCase('en') === 'ok';
-        }
-        catch {
-            currentlyOnline = false;
-        }
-        if ((action === 'start' && currentlyOnline) || (action === 'stop' && !currentlyOnline)) {
-            await this.postState();
-            return;
-        }
-        this.post({ command: 'clientMcpActionStarted', action });
-        try {
-            let database = '';
-            let startedMethodId;
-            if (action === 'start') {
-                const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-                if (!workspacePath) {
-                    throw new Error('Сначала откройте папку проекта Восточного Экспресса.');
-                }
-                const databaseOptions = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-                database = databaseOptions.database;
-                const started = await (0, oeStaticMethodExecutor_1.startClientMcpProcess)(workspacePath, databaseOptions.database, databaseOptions.host, await this.getClientCredentials());
-                startedMethodId = started.methodId;
+            const result = await this.clientMcp.changeRunning(action, () => this.post({ command: 'clientMcpActionStarted', action }));
+            if (result.changed && result.message) {
+                this.post({ command: 'clientMcpActionFinished', action, success: true, message: result.message });
+                void vscode.window.showInformationMessage(result.message);
             }
-            else {
-                await (0, http_1.stopClientMcpServer)(clientMcpUrl);
-            }
-            let targetStateReached = false;
-            for (let attempt = 0; attempt < 10; attempt += 1) {
-                try {
-                    const health = await (0, http_1.getClientMcpHealth)(clientMcpUrl);
-                    targetStateReached = action === 'start' && health.status.toLocaleLowerCase('en') === 'ok';
-                }
-                catch {
-                    targetStateReached = action === 'stop';
-                }
-                if (targetStateReached) {
-                    break;
-                }
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-            if (!targetStateReached) {
-                const statusUrl = `${clientMcpUrl}/health`;
-                throw new Error(action === 'start'
-                    ? `Метод выполнен, но ${statusUrl} не ответил со статусом ok.`
-                    : `Метод выполнен, но ${statusUrl} продолжает отвечать.`);
-            }
-            if (action === 'start') {
-                try {
-                    await this.loadClientMcpTools(clientMcpUrl, database);
-                }
-                catch (error) {
-                    this.clientMcpTools = undefined;
-                    this.clientMcpToolsError = error instanceof Error ? error.message : String(error);
-                }
-            }
-            else {
-                this.clientMcpTools = undefined;
-                this.clientMcpToolsError = undefined;
-            }
-            const actionText = action === 'start' ? 'запущен' : 'остановлен';
-            const toolsText = action === 'start' && this.clientMcpToolsError ? ' Проверка списка инструментов завершилась ошибкой.' : '';
-            const route = action === 'start' ? `через Функции_IDE.startClientMcp (ID ${startedMethodId})` : 'через HTTP /stop';
-            const message = `Клиентский MCP ${actionText} ${route}${database ? ' в базе ' + database : ''}.${toolsText}`;
-            this.post({ command: 'clientMcpActionFinished', action, success: true, message });
-            void vscode.window.showInformationMessage(message);
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
@@ -513,85 +375,14 @@ class SettingsViewProvider {
         this.post({ command: 'clientMcpToolsCheckStarted' });
         this.knowledgeMcpStatusCache = undefined;
         try {
-            await this.refreshClientMcpTools(true);
+            await this.clientMcp.refreshTools(true);
             this.post({ command: 'clientMcpToolsCheckFinished', success: true });
         }
         catch (error) {
-            this.clientMcpTools = undefined;
-            this.clientMcpToolsError = error instanceof Error ? error.message : String(error);
+            this.clientMcp.recordToolsError(error);
             this.post({ command: 'clientMcpToolsCheckFinished', success: false });
         }
         await this.postState();
-    }
-    async refreshClientMcpTools(stopAfterTemporaryStart) {
-        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (!workspacePath) {
-            throw new Error('Сначала откройте папку проекта Восточного Экспресса.');
-        }
-        const clientMcpUrl = getConfiguredClientMcpUrl(vscode.workspace.getConfiguration('vcVeTools'));
-        const databaseOptions = await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)();
-        let startedTemporarily = false;
-        let health;
-        try {
-            try {
-                health = await (0, http_1.getClientMcpHealth)(clientMcpUrl);
-            }
-            catch {
-                health = undefined;
-            }
-            const wasOnline = health?.status.toLocaleLowerCase('en') === 'ok';
-            const onlineForSelectedDatabase = wasOnline
-                && health?.database?.toLocaleLowerCase('en') === databaseOptions.database.toLocaleLowerCase('en');
-            if (!onlineForSelectedDatabase) {
-                if (health?.status.toLocaleLowerCase('en') === 'ok') {
-                    await (0, http_1.stopClientMcpServer)(clientMcpUrl);
-                }
-                startedTemporarily = stopAfterTemporaryStart && !wasOnline;
-                await (0, oeStaticMethodExecutor_1.startClientMcpProcess)(workspacePath, databaseOptions.database, databaseOptions.host, await this.getClientCredentials());
-                await this.waitForClientMcp(clientMcpUrl, databaseOptions.database);
-            }
-            await this.loadClientMcpTools(clientMcpUrl, databaseOptions.database);
-        }
-        finally {
-            if (startedTemporarily) {
-                try {
-                    await (0, http_1.stopClientMcpServer)(clientMcpUrl);
-                }
-                catch (error) {
-                    this.logger.warning('MCP client', 'Не удалось остановить временно запущенный MCP после чтения каталога.', error);
-                }
-            }
-        }
-    }
-    async waitForClientMcp(clientMcpUrl, database) {
-        for (let attempt = 0; attempt < 10; attempt += 1) {
-            try {
-                const health = await (0, http_1.getClientMcpHealth)(clientMcpUrl);
-                if (health.status.toLocaleLowerCase('en') === 'ok'
-                    && health.database?.toLocaleLowerCase('en') === database.toLocaleLowerCase('en')) {
-                    return;
-                }
-            }
-            catch { /* The client can still be starting. */ }
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        throw new Error(`Клиентский MCP для базы ${database} не запустился.`);
-    }
-    async loadClientMcpTools(clientMcpUrl, database) {
-        const tools = await (0, http_1.listClientMcpTools)(clientMcpUrl);
-        this.clientMcpTools = tools
-            .map(tool => ({ name: tool.name, description: tool.description.trim() }))
-            .sort((left, right) => left.name.localeCompare(right.name, 'ru'));
-        this.clientMcpToolsDatabase = database;
-        this.clientMcpToolsUpdatedAt = new Date().toISOString();
-        this.clientMcpToolsError = undefined;
-        if (database && this.workspaceState) {
-            await this.workspaceState.update(SettingsViewProvider.clientMcpToolsCacheKey, {
-                database,
-                updatedAt: this.clientMcpToolsUpdatedAt,
-                tools: this.clientMcpTools,
-            });
-        }
     }
     async testConnection() {
         this.post({ command: 'databaseConnectionTestStarted' });
@@ -617,7 +408,7 @@ class SettingsViewProvider {
                 await this.startHttpTestServer(methodName);
             }
             const message = action === 'start'
-                ? `Тестовый сервер метода ${this.httpTestServer?.methodName} запущен: ${this.httpTestServer?.url}`
+                ? `Тестовый сервер метода ${this.httpApi.server?.methodName} запущен: ${this.httpApi.server?.url}`
                 : 'Тестовый HTTP-сервер остановлен.';
             this.post({ command: 'httpTestServerActionFinished', action, success: true, message });
         }
@@ -635,14 +426,13 @@ class SettingsViewProvider {
         this.post({ command: 'settingsState', state: await this.getState() });
     }
     async getState() {
-        if (this.httpTestServer && !this.httpTestServer.isRunning()) {
-            this.httpTestServer = undefined;
-        }
+        this.httpApi.getServerState();
+        const httpTestServer = this.httpApi.server;
         const configuration = vscode.workspace.getConfiguration('vcVeTools');
         const workspace = vscode.workspace.workspaceFolders?.[0];
-        const enabled = configuration.get(constants_1.mcpEnabledSetting, true);
-        const clientMcpUrl = getConfiguredClientMcpUrl(configuration);
-        const knowledgeMcpEnvFile = configuration.get(constants_1.knowledgeMcpEnvFileSetting, '');
+        const enabled = configuration.get(constants_2.mcpEnabledSetting, true);
+        const clientMcpUrl = (0, clientMcpService_1.configuredClientMcpUrl)();
+        const knowledgeMcpEnvFile = configuration.get(constants_2.knowledgeMcpEnvFileSetting, '');
         const knowledgeMcpStatus = await this.getKnowledgeMcpStatus(workspace?.uri.fsPath, knowledgeMcpEnvFile);
         const role = (0, projectDatabaseOptions_1.getDatabaseRole)();
         const clientCredentials = await this.getClientCredentials();
@@ -659,41 +449,11 @@ class SettingsViewProvider {
                 rdboadmError = error instanceof Error ? error.message : String(error);
             }
         }
-        const configuredProfile = configuration.get(constants_1.databaseProfileSetting, '');
+        const configuredProfile = configuration.get(constants_2.databaseProfileSetting, '');
         const databaseProfile = databaseProfiles.some(item => item.id === configuredProfile) ? configuredProfile : (databaseProfiles[0]?.id ?? '');
         const lastError = this.logger.getLastError();
-        try {
-            this.httpMethods = await (0, httpMethodRepository_1.loadHttpMethods)();
-            this.httpMethodsError = undefined;
-        }
-        catch (error) {
-            this.httpMethods = [];
-            this.httpMethodsError = error instanceof Error ? error.message : String(error);
-        }
-        let clientMcpStatus = 'offline';
-        let clientMcpStatusText = 'Нет связи';
-        let clientMcpDatabase;
-        let selectedDatabase;
-        try {
-            selectedDatabase = (await (0, projectDatabaseOptions_1.getProjectDatabaseOptions)()).database;
-        }
-        catch {
-            selectedDatabase = undefined;
-        }
-        try {
-            const health = await (0, http_1.getClientMcpHealth)(clientMcpUrl);
-            clientMcpDatabase = health.database?.trim() || undefined;
-            if (health.status.toLocaleLowerCase('en') === 'ok') {
-                clientMcpStatus = 'online';
-                clientMcpStatusText = clientMcpDatabase ? `Работает · ${clientMcpDatabase}` : 'Работает';
-            }
-            else {
-                clientMcpStatusText = `Статус: ${health.status}`;
-            }
-        }
-        catch {
-            // The offline state is expected when the original client is not running.
-        }
+        await this.httpApi.loadMethodsForState();
+        const clientMcpStatus = await this.clientMcp.getStatus();
         let status = enabled ? 'ready' : 'disabled';
         let statusText = enabled ? 'Готов к запуску агентом' : 'MCP-сервер выключен';
         if (enabled && !workspace) {
@@ -713,7 +473,7 @@ class SettingsViewProvider {
             }
         }
         return {
-            useFolderAsProjectRoot: configuration.get(constants_1.projectRootSetting, false),
+            useFolderAsProjectRoot: configuration.get(constants_2.projectRootSetting, false),
             databaseRole: role,
             databaseProfile,
             databaseProfiles,
@@ -722,34 +482,32 @@ class SettingsViewProvider {
             userId: configuration.get('userId', 0),
             clientUsername: clientCredentials.username ?? '',
             clientPasswordSet: Boolean(clientCredentials.password),
-            clientLaunchArguments: configuration.get(constants_1.clientLaunchArgumentsSetting, ''),
+            productionMcpTokenSet: Boolean(await this.secrets?.get(constants_1.productionMcpTokenSecretKey)),
+            productionTaskSource: configuration.get(constants_1.productionTaskSourceSetting, 'oenp'),
+            clientLaunchArguments: configuration.get(constants_2.clientLaunchArgumentsSetting, ''),
             mcpEnabled: enabled,
             mcpStatus: status,
             mcpStatusText: statusText,
             knowledgeMcpStatus,
             knowledgeMcpEnvFile,
             clientMcpUrl,
-            clientMcpStatus,
-            clientMcpStatusText,
-            clientMcpDatabase,
-            clientMcpDatabaseMatchesSelection: clientMcpDatabase && selectedDatabase
-                ? clientMcpDatabase.toLocaleLowerCase('en') === selectedDatabase.toLocaleLowerCase('en')
-                : undefined,
+            clientMcpPreferIPv4: configuration.get(constants_2.clientMcpPreferIPv4Setting, false),
+            ...clientMcpStatus,
             extensionMcpTools: (0, tools_1.getRegisteredToolCatalog)(),
-            clientMcpTools: this.clientMcpTools,
+            clientMcpTools: this.clientMcp.tools,
             knowledgeMcpTools: knowledgeMcpStatus.tools,
-            clientMcpToolsDatabase: this.clientMcpToolsDatabase,
-            clientMcpToolsUpdatedAt: this.clientMcpToolsUpdatedAt,
-            clientMcpToolsError: this.clientMcpToolsError,
+            clientMcpToolsDatabase: this.clientMcp.toolsDatabase,
+            clientMcpToolsUpdatedAt: this.clientMcp.toolsUpdatedAt,
+            clientMcpToolsError: this.clientMcp.toolsError,
             mcpConnectionCode: this.connectionCode(),
             lastExtensionError: lastError && { timestamp: lastError.timestamp, source: lastError.source, message: lastError.message },
-            httpMethods: this.httpMethods,
-            httpMethodsError: this.httpMethodsError,
-            httpTestServer: this.httpTestServer && {
-                methodName: this.httpTestServer.methodName,
-                database: this.httpTestServer.database,
-                url: this.httpTestServer.url,
-                processId: this.httpTestServer.processId,
+            httpMethods: this.httpApi.methods,
+            httpMethodsError: this.httpApi.methodsError,
+            httpTestServer: httpTestServer && {
+                methodName: httpTestServer.methodName,
+                database: httpTestServer.database,
+                url: httpTestServer.url,
+                processId: httpTestServer.processId,
             },
         };
     }
@@ -764,7 +522,7 @@ class SettingsViewProvider {
     }
     connectionCode() {
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        const configuredFile = vscode.workspace.getConfiguration('vcVeTools').get(constants_1.knowledgeMcpEnvFileSetting, '').trim();
+        const configuredFile = vscode.workspace.getConfiguration('vcVeTools').get(constants_2.knowledgeMcpEnvFileSetting, '').trim();
         return JSON.stringify({
             mcpServers: {
                 'vc-ve-tools': {
@@ -788,13 +546,6 @@ class SettingsViewProvider {
     }
 }
 exports.SettingsViewProvider = SettingsViewProvider;
-function getConfiguredClientMcpUrl(configuration) {
-    const configured = configuration.get(constants_1.clientMcpUrlSetting, 'http://localhost:8080').trim();
-    if (/^http:\/\/(?:localhost|127\.0\.0\.1):8080\/mcp\/?$/iu.test(configured)) {
-        return configured.replace(/\/mcp\/?$/iu, '');
-    }
-    return configured;
-}
 function createNonce() {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     return Array.from({ length: 32 }, () => alphabet.charAt(Math.floor(Math.random() * alphabet.length))).join('');

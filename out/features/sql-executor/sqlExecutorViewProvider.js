@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SqlExecutorViewProvider = void 0;
+const assets_1 = require("../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const sqlMonitorService_1 = require("../sql-monitor/sqlMonitorService");
@@ -49,7 +50,7 @@ class SqlExecutorViewProvider {
     }
     resolveWebviewView(webviewView) {
         let latestResult;
-        const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+        const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(this.extensionUri, 'sql-executor');
         webviewView.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
         webviewView.webview.html = this.getHtml(webviewView.webview, assetsRoot);
         const historySubscription = sqlMonitorService_1.sqlMonitorService.subscribe(record => {

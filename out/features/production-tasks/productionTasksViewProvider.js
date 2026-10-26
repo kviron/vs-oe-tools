@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProductionTasksPanelManager = void 0;
 exports.registerProductionTasksActivityLauncher = registerProductionTasksActivityLauncher;
+const assets_1 = require("../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const productionTasksRepository_1 = require("./productionTasksRepository");
@@ -76,7 +77,7 @@ class ProductionTasksPanelManager {
         const panel = vscode.window.createWebviewPanel(ProductionTasksPanelManager.viewType, 'Задачи', vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
         this.panel = panel;
         this.knowledgeHistory.attach(panel.webview);
-        const assetsRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
+        const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(this.extensionUri, 'production-tasks');
         panel.webview.options = { enableScripts: true, localResourceRoots: [assetsRoot] };
         panel.webview.html = shell(panel.webview, assetsRoot);
         panel.webview.onDidReceiveMessage((message) => {
@@ -171,7 +172,7 @@ class ProductionTasksPanelManager {
                     this.userFilter = loaded.userFilter;
                     this.tasks = new Map(loaded.tasks.map(task => [task.id, task]));
                     this.tasksPublished = true;
-                    await this.post({ command: 'productionTasksLoaded', ...loaded, loadedAt: new Date().toISOString(), currentPersonId: options.personId });
+                    await this.post({ command: 'productionTasksLoaded', ...loaded, loadedAt: new Date().toISOString(), currentPersonId: options.personId, source: 'transport' in options ? 'mcp' : 'oenp' });
                 });
                 if (revision !== this.refreshRevision || panel !== this.panel) {
                     continue;

@@ -8,7 +8,7 @@ export function registerTool(server: McpToolServer): void {
 		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
 	}, async () => {
 		try {
-			const result = await stopManagedClientMcp();
+			const result = await stopManagedClientMcp(true);
 			return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], structuredContent: result };
 		} catch (error) {
 			return { content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true };

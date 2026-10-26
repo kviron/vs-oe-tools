@@ -1,3 +1,4 @@
+import {registerTool as getProductionTasksPage} from './getProductionTasksPage';
 import type { OrderedToolRegistration } from '../registrationTypes';
 import { registerTool as updateDatabase } from './updateDatabase';
 import { registerTool as updatePackages } from './updatePackages';
@@ -12,6 +13,7 @@ export const projectToolRegistrations: readonly OrderedToolRegistration[] = [
 	[310, updatePackages],
 	[320, updateBinaries],
 	[380, getProductionTasks],
+    [385, getProductionTasksPage],
 	[390, getProductionTask],
 	[400, getProductionTasksInProgress],
 ];

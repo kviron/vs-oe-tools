@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openPropertyDetails = openPropertyDetails;
 exports.closePropertyDetailPanels = closePropertyDetailPanels;
+const assets_1 = require("../../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
@@ -46,7 +47,7 @@ async function openPropertyDetails(context, propertyId) {
         return;
     }
     const details = await (0, classRepository_1.getClassPropertyDetails)(propertyId);
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'property-details');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.propertyDetails', `Свойство ${details.name}`, vscode.ViewColumn.Active, {
         enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
     });

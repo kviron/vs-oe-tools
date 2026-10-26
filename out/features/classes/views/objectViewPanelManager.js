@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openObjectView = openObjectView;
 exports.closeObjectViewPanels = closeObjectViewPanels;
+const assets_1 = require("../../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const tableSelectionLogger_1 = require("../../../core/tableSelectionLogger");
@@ -46,7 +47,7 @@ async function openObjectView(context, objectId) {
         existing.panel.reveal(vscode.ViewColumn.Active);
         return;
     }
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'object-view');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.objectView', `Просмотр объекта ${objectId}`, vscode.ViewColumn.Active, {
         enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
     });

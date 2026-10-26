@@ -1,3 +1,4 @@
+import {productionTaskPageSql,type TaskPageInput} from './taskPage';
 import type { ProductionConnectionOptions, ProductionTaskAction, ProductionTaskAttachment, ProductionTaskHistoryEntry, ProductionTaskListItem, ProductionTasksLogger, ProductionTaskSummary, ProductionTaskUser } from './models';
 import { createReadonlyQueryPacket, parseMemoryDataPacket } from './oenpProtocol';
 import { productionTaskActionsSql, productionTaskAttachmentsSql, productionTaskByIdSql, productionTaskHistorySql, productionTaskListSql, productionTaskReferenceSql, productionTaskRichDescriptionSql, productionTaskSearchSql, productionTaskSql, productionTaskUsersSql } from './queries';
@@ -181,4 +182,9 @@ export async function loadProductionTaskReference(
 		logger?.info('Связанная задача загружена.', { reference, found: Boolean(task), elapsedMs: Date.now() - startedAt });
 		return task ? mapProductionTask(task) : undefined;
 	});
+}
+
+export async function loadProductionTaskPage(options: ProductionConnectionOptions, input: TaskPageInput,
+	logger?: ProductionTasksLogger, query?: string): Promise<ProductionTaskSummary[]> {
+	return loadProductionTasksWithSql(options, productionTaskPageSql(input, query), 'страницы задач', logger);
 }

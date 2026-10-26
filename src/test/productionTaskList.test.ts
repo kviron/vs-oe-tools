@@ -5,12 +5,32 @@ import { expectedPacketLength } from '../features/production-tasks/oenpProtocol'
 import { loadProductionTaskActions, loadProductionTaskById, loadProductionTaskList } from '../features/production-tasks/productionTasksRepository';
 import { createProductionAgentActions } from '../features/production-tasks/agent';
 import { productionTaskByIdSql, productionTaskListSql } from '../features/production-tasks/queries';
+import {productionTaskPageSql} from '../features/production-tasks/taskPage';
 import { isProductionTasksWebviewMessage } from '../core/webviewProtocol';
 
 const currentPerson = 938697394;
 const otherPerson = 938697395;
 
 suite('Production task list loading', () => {
+	test('general search accepts large limits and filters before the bounded lightweight query', async () => {
+		await withServer(async (options, requests) => {
+			const actions = createProductionAgentActions(async () => options, { info: () => undefined, warning: () => undefined, error: () => undefined });
+			await actions.getProductionTasks("release's 10%_", 250);
+			const sql = requests[7].toString('ascii');
+			assert.match(sql, /position\(lower\('release''s 10%_'\)/);
+			assert.match(sql, /LIMIT 100\r?\n/);
+			assert.doesNotMatch(sql, /HistoryLC|StoredFiles|GETREFOBJECTS/);
+		});
+	});
+ test('page filters inclusive dates on server, uses a stable ID cursor and omits expensive card fields',()=>{
+  const sql=productionTaskPageSql({created_from:'2026-04-15',created_to:'2026-10-15',after_id:900,limit:50});
+  assert.match(sql,/CreDate >= CAST\('2026-04-15' AS DATE\)/);assert.match(sql,/CreDate < CAST\('2026-10-15' AS DATE\) \+ 1/);
+  assert.match(sql,/T0.ID < 900/);assert.match(sql,/ORDER BY T0.ID DESC\nLIMIT 51$/);assert.doesNotMatch(sql,/GETREFOBJECTS|StoredFiles|HistoryLC|WorkDescription|Comment/);
+  assert.throws(()=>productionTaskPageSql({created_from:'2026-02-30',created_to:'2026-10-15',limit:50}));assert.throws(()=>productionTaskPageSql({created_from:'2026-04-15',limit:50}));assert.throws(()=>productionTaskPageSql({limit:250,after_id:-1}));
+ });
+ test('page request runs one bounded readonly query through the authenticated protocol',async()=>{
+  await withServer(async(options,requests)=>{const actions=createProductionAgentActions(async()=>options,{info:()=>undefined,warning:()=>undefined,error:()=>undefined});const result=await actions.getProductionTasksPage({created_from:'2026-04-15',created_to:'2026-10-15',limit:1});assert.equal(result.tasks.length,1);assert.equal(result.has_more,true);assert.equal(result.next_after_id,42);assert.match(requests[7].toString('ascii'),/LIMIT 2/);});
+ });
 	test('filters on the server without loading full-card fields or silently limiting all tasks', () => {
 		const sql = productionTaskListSql(currentPerson);
 		assert.match(sql, /WHERE T0\.RespPerson = 938697394\nORDER BY/);

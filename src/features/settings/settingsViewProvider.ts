@@ -1,7 +1,7 @@
 import { getWebviewAssetsRoot } from '../../infrastructure/webview/assets';
 import * as vscode from 'vscode';
 import { productionMcpTokenSecretKey, productionTaskSourceSetting } from '../../core/constants';
-import { clientLaunchArgumentsSetting, databaseProfileSetting, databaseRoleSetting, knowledgeMcpEnvFileSetting, mcpEnabledSetting, projectRootSetting } from '../../core/constants';
+import { clientLaunchArgumentsSetting, clientMcpPreferIPv4Setting, databaseProfileSetting, databaseRoleSetting, knowledgeMcpEnvFileSetting, mcpEnabledSetting, projectRootSetting } from '../../core/constants';
 import type { SettingsHostMessage, SettingsState } from '../../core/webviewProtocol';
 import { isSettingsWebviewMessage } from '../../core/webviewProtocol';
 import { getDatabaseRole } from '../../infrastructure/configuration/projectDatabaseOptions';
@@ -203,6 +203,8 @@ export class SettingsViewProvider implements vscode.Disposable {
 			}
 		} else if (message.command === 'setMcpEnabled') {
 			await vscode.workspace.getConfiguration('vcVeTools').update(mcpEnabledSetting, message.enabled, vscode.ConfigurationTarget.Workspace);
+		} else if (message.command === 'setClientMcpPreferIPv4') {
+			await vscode.workspace.getConfiguration('vcVeTools').update(clientMcpPreferIPv4Setting, message.enabled, vscode.ConfigurationTarget.Workspace);
 		} else if (message.command === 'refreshClientMcpStatus') {
 			await this.postState();
 		} else if (message.command === 'refreshKnowledgeMcpStatus') {
@@ -408,6 +410,7 @@ export class SettingsViewProvider implements vscode.Disposable {
 			knowledgeMcpStatus,
 			knowledgeMcpEnvFile,
 			clientMcpUrl,
+			clientMcpPreferIPv4: configuration.get<boolean>(clientMcpPreferIPv4Setting, false),
 			...clientMcpStatus,
 			extensionMcpTools: getRegisteredToolCatalog(),
 			clientMcpTools: this.clientMcp.tools,

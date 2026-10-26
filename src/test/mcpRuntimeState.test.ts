@@ -19,6 +19,10 @@ suite('MCP runtime state', () => {
 		assert.equal(state?.workspacePath, 'C:\\OE\\trunk');
 		assert.equal(state?.sqlMonitorHistoryPath, 'C:\\storage\\sql-monitor\\recent-queries.json');
 		assert.equal(state?.workHistoryPath, 'C:\\storage\\work-history.sqlite');
+		assert.equal(state?.clientMcpPreferIPv4, undefined);
+		assert.equal(parseMcpRuntimeState({ ...state, clientMcpPreferIPv4: true })?.clientMcpPreferIPv4, true);
+		assert.equal(parseMcpRuntimeState({ ...state, clientMcpPreferIPv4: false })?.clientMcpPreferIPv4, false);
+		assert.equal(parseMcpRuntimeState({ ...state, clientMcpPreferIPv4: 'true' }), undefined);
 	});
 
 	test('rejects incomplete or relative state', () => {

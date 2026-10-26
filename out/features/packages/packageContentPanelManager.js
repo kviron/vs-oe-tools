@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openPackageContent = openPackageContent;
 exports.closePackageContentPanels = closePackageContentPanels;
+const assets_1 = require("../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const tableSelectionLogger_1 = require("../../core/tableSelectionLogger");
@@ -50,7 +51,7 @@ async function openPackageContent(context, fileId, objectId, openObject) {
         }
         return;
     }
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'package-content');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.packageContent', `Содержимое файла ${fileId}`, vscode.ViewColumn.Active, {
         enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
     });

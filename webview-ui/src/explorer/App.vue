@@ -11,15 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { vscode } from '@/vscode';
 import ClassTreeNode, { type TreeNode } from './ClassTreeNode.vue';
 import PackageTreeNode from './PackageTreeNode.vue';
 import EntityContextMenu from '@/components/EntityContextMenu.vue';
-import { Archive01Icon, ArrowDown01Icon, CodeIcon, DatabaseIcon, InformationCircleIcon, Search01Icon } from '@hugeicons/core-free-icons';
+import { Archive01Icon, ArrowDown01Icon, CodeIcon, DatabaseIcon, FilterIcon, InformationCircleIcon, Search01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/vue';
-import { classAppearance, classAppearances } from './classAppearance';
+import { classAppearance, classAppearanceKind, classAppearances, type ClassAppearanceKind } from './classAppearance';
 import SearchField from '@/components/SearchField.vue';
 import { defaultSearchOptions, matchesSearch, type SearchOptions } from '@/lib/searchMatch';
 
@@ -55,15 +55,32 @@ let classSearchInputValue = '';
 const searchDebounceMs = 600;
 const selectedPackageName = computed(() => packages.value.find(item => item.id === Number(selectedPackageId.value))?.name ?? 'Выберите пакет');
 
+const selectedClassKinds = ref<ClassAppearanceKind[]>(Object.keys(classAppearances) as ClassAppearanceKind[]);
+const classFilterActive = computed(() => selectedClassKinds.value.length !== Object.keys(classAppearances).length);
+const filteredClasses = computed(() => classes.value.filter(item => selectedClassKinds.value.includes(classAppearanceKind(item))));
+function setClassKind(kind: ClassAppearanceKind, enabled: boolean): void {
+  selectedClassKinds.value = enabled
+    ? [...selectedClassKinds.value.filter(item => item !== kind), kind]
+    : selectedClassKinds.value.filter(item => item !== kind);
+}
+function resetClassFilter(): void {
+  selectedClassKinds.value = Object.keys(classAppearances) as ClassAppearanceKind[];
+}
+function filterClassNode(node: TreeNode): TreeNode[] {
+  const children = node.children.flatMap(filterClassNode);
+  return selectedClassKinds.value.includes(classAppearanceKind(node)) || children.length
+    ? [{ ...node, children }] : [];
+}
+
 const normalizedSearchQuery = computed(() => debouncedSearchQuery.value);
 const searchResults = computed(() => {
   const query = normalizedSearchQuery.value;
   if (!query) return [];
   if (/^\d+$/.test(query)) {
     const id = Number(query);
-    return classes.value.filter(item => item.id === id);
+    return filteredClasses.value.filter(item => item.id === id);
   }
-  return classes.value
+  return filteredClasses.value
     .filter(item => matchesSearch(item.name, query, classSearchOptions.value))
     .sort((left, right) => left.name.localeCompare(right.name, 'ru'));
 });
@@ -94,7 +111,7 @@ const classTree = computed<TreeNode>(() => {
     if (parent && parent !== node) parent.children.push(node);
     else roots.push(node);
   }
-  return { id: 'root', name: 'Классы', kind: 'root', children: roots.length === 1 ? roots[0].children : roots };
+  return { id: 'root', name: 'Классы', kind: 'root', children: (roots.length === 1 ? roots[0].children : roots).flatMap(filterClassNode) };
 });
 
 function loadClasses(): void {
@@ -361,6 +378,7 @@ window.addEventListener('message', (event: MessageEvent<ExplorerHostMessage>) =>
     loadingFileId.value = undefined;
   } else if (message.command === 'revealClass') {
     activeTab.value = 'classes';
+    resetClassFilter();
     selectedClassId.value = message.id;
     persistExplorerState();
     clearClassSearch();
@@ -495,7 +513,25 @@ vscode.postMessage({ command: 'explorerReady' });
             <span class="text-xs font-medium">Дерево классов <span class="ml-1 text-muted-foreground">{{ classes.length.toLocaleString('ru-RU') }}</span></span>
             <Popover><PopoverTrigger as-child><Button variant="ghost" size="icon-xs" aria-label="Обозначения классов" title="Обозначения классов"><HugeiconsIcon :icon="InformationCircleIcon" /></Button></PopoverTrigger><PopoverContent align="end" class="w-60"><PopoverHeader><PopoverTitle>Обозначения</PopoverTitle><PopoverDescription>Значки одинаковы в дереве и поиске.</PopoverDescription></PopoverHeader><div class="mt-3 flex flex-col gap-2"><div v-for="appearance in classAppearances" :key="appearance.label" class="flex items-center gap-2 text-xs"><HugeiconsIcon :icon="appearance.icon" :class="cn('size-4', appearance.color)" /><span>{{ appearance.label }}</span></div></div></PopoverContent></Popover>
           </div>
-          <SearchField v-model="classSearchQuery" v-model:options="classSearchOptions" placeholder="Название или ID класса…" aria-label="Поиск класса по названию или ID" @update:model-value="onClassSearchInput" @keydown.enter.prevent="searchClasses" />
+          <div class="flex items-center gap-1">
+            <SearchField class="min-w-0 flex-1" v-model="classSearchQuery" v-model:options="classSearchOptions" placeholder="Название или ID класса…" aria-label="Поиск класса по названию или ID" @update:model-value="onClassSearchInput" @keydown.enter.prevent="searchClasses" />
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button :variant="classFilterActive ? 'secondary' : 'ghost'" size="icon-sm" class="shrink-0" aria-label="Фильтры типов" :title="classFilterActive ? `Фильтры типов: ${selectedClassKinds.length} из 6` : 'Фильтры типов: все типы'">
+                  <HugeiconsIcon :icon="FilterIcon" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuCheckboxItem v-for="(appearance, kind) in classAppearances" :key="kind" :model-value="selectedClassKinds.includes(kind)" @update:model-value="setClassKind(kind, $event)" @select.prevent>
+                    <HugeiconsIcon :icon="appearance.icon" :class="appearance.color" />{{ appearance.label }}
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup><DropdownMenuItem :disabled="!classFilterActive" @select="resetClassFilter">Показать все типы</DropdownMenuItem></DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <div v-if="normalizedSearchQuery" class="flex min-h-0 flex-1 flex-col overflow-auto p-1">
           <EntityContextMenu v-for="item in searchResults" :key="item.id" :entity-id="item.id" entity-type="Класс" :class-id="item.hasDfm ? item.id : undefined" :view-objects-class-id="item.id" copy-shortcut="Ctrl+C">
@@ -516,9 +552,10 @@ vscode.postMessage({ command: 'explorerReady' });
           </Button>
 		  </EntityContextMenu>
           <Empty v-if="searchResults.length === 0" class="min-h-0 py-6">
-            <EmptyHeader><EmptyTitle>Совпадений нет</EmptyTitle><EmptyDescription>Измените название или ID класса.</EmptyDescription></EmptyHeader>
+            <EmptyHeader><EmptyTitle>Совпадений нет</EmptyTitle><EmptyDescription>Измените название, ID класса или фильтры типов.</EmptyDescription></EmptyHeader>
           </Empty>
         </div>
+        <Empty v-else-if="classTree.children.length === 0" class="min-h-0 py-6"><EmptyHeader><EmptyTitle>Совпадений нет</EmptyTitle><EmptyDescription>Выберите другие типы в фильтрах.</EmptyDescription></EmptyHeader></Empty>
         <div v-else class="min-h-0 min-w-0 flex-1 overflow-auto p-1">
           <div class="w-max min-w-full">
             <ClassTreeNode

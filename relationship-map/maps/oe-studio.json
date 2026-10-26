@@ -1,877 +1,736 @@
 {
   "schemaVersion": 2,
-  "title": "OE Studio — карта программы",
-  "description": "Проектируемая архитектура по README и обсуждению 02.10.2026. Не описание реализованных интеграций. Четыре окружения, общий backend для UI и MCP, явная цель каждого вызова, прямой доступ к БД и отдельное выполнение задач OE. Имена окружений предлагаемые; реальные пути, базы и контракты OeExecTask не подтверждены.",
+  "title": "OE Studio — карта реализованных модулей",
+  "description": "Срез кода 14.10.2026. Реализованные модули и отдельный runner. Настройки/PostgreSQL подключены; lifecycle и SQL проверены на изолированном временном PostgreSQL 18. Legacy OE-сценарии сохранены через адаптеры; подробные границы перехода — в контрактах. Дополнение 15.10.2026: SVN reads/history/diff/merge и OE catalog/source/binding/history подключены к backend; native mutations и UI пока не перенесены.",
   "sourceRoot": "C:/dev/oe-studio",
   "nodeKinds": {
     "ui": {
-      "label": "Интерфейс",
+      "label": "ui",
       "color": "#38bdf8"
     },
-    "actor": {
-      "label": "Агенты",
+    "composition": {
+      "label": "composition",
       "color": "#c084fc"
     },
-    "interface": {
-      "label": "MCP",
-      "color": "#a78bfa"
-    },
-    "core": {
-      "label": "Общее ядро",
-      "color": "#60a5fa"
-    },
-    "executor": {
-      "label": "Исполнитель",
-      "color": "#34d399"
-    },
-    "environment": {
-      "label": "Окружение БД",
-      "color": "#2dd4bf"
-    },
-    "installation": {
-      "label": "Установка OE",
+    "storage": {
+      "label": "storage",
       "color": "#fb923c"
     },
     "operation": {
-      "label": "Операция",
+      "label": "operation",
       "color": "#818cf8"
     },
-    "question": {
-      "label": "Открытый вопрос",
+    "process": {
+      "label": "process",
+      "color": "#2dd4bf"
+    },
+    "service": {
+      "label": "service",
+      "color": "#34d399"
+    },
+    "planned": {
+      "label": "planned",
       "color": "#facc15"
     }
   },
   "edgeKinds": {
-    "request": {
-      "label": "Запрос",
-      "color": "#38bdf8"
-    },
-    "flow": {
-      "label": "Выполнение",
-      "color": "#34d399"
-    },
-    "config": {
-      "label": "Контекст",
-      "color": "#fb923c"
-    },
-    "contains": {
-      "label": "Состав",
+    "uses": {
+      "label": "Вызов / зависимость",
       "color": "#94a3b8"
     },
-    "target": {
-      "label": "Целевой ресурс",
-      "color": "#2dd4bf"
+    "ipc": {
+      "label": "Межпроцессный вызов",
+      "color": "#38bdf8"
     },
-    "record": {
-      "label": "Журнал",
-      "color": "#a78bfa"
-    },
-    "question": {
-      "label": "Уточнение",
-      "color": "#facc15"
+    "composition": {
+      "label": "Сборка",
+      "color": "#c084fc"
     }
   },
   "nodes": [
     {
-      "id": "workbench",
+      "id": "ui",
       "kind": "ui",
-      "title": "Рабочая область",
-      "description": "Объекты OE, исходники, SQL, сравнение",
+      "title": "Workbench",
+      "description": "Панели менеджера, навигация, формы и прогресс.",
       "x": 0,
       "y": 0,
-      "status": "proposed",
       "attributes": {
-        "Статус": "Проектируемая архитектура"
+        "Состояние": "Реализовано в коде",
+        "Граница": "UI не владеет исполнением native-операций."
       },
       "sourceRefs": [
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
+          "uri": "C:/dev/oe-studio/packages/workbench/src/browser/frontend-module.ts",
+          "label": "packages/workbench/src/browser/frontend-module.ts"
         }
       ]
     },
     {
-      "id": "manager",
-      "kind": "ui",
-      "title": "Менеджер окружений",
-      "description": "Базы, релизы, обновления и бинарники",
-      "x": 0,
-      "y": 240,
-      "status": "proposed",
+      "id": "backend",
+      "kind": "composition",
+      "title": "Theia backend / RPC",
+      "description": "Сборка сервисов и публикация RPC.",
+      "x": 480,
+      "y": 0,
       "attributes": {
-        "Статус": "Проектируемая архитектура"
+        "Состояние": "Реализовано в коде",
+        "Граница": "Здесь также находятся guardUpdate и правила разрешения runtime; граница требует очистки."
       },
       "sourceRefs": [
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "agents",
-      "kind": "actor",
-      "title": "Параллельные агенты",
-      "description": "Задания в разных окружениях",
-      "x": 0,
-      "y": 480,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура"
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "mcp",
-      "kind": "interface",
-      "title": "MCP-интерфейс",
-      "description": "Обязательный environmentId в каждом вызове",
-      "x": 400,
-      "y": 480,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Контракт": "environmentId + аргументы операции; идентификатор агента и права берутся из доверенной сессии. Нет глобальной текущей БД."
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "catalog",
-      "kind": "core",
-      "title": "Общий каталог операций",
-      "description": "Одни операции для UI и MCP",
-      "x": 800,
-      "y": 100,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Ответственность": "Чтение объектов и исходников, поиск, поддерживаемые изменения, сравнение, диагностика, управление окружениями. Набор MCP-инструментов может ограничиваться задачей."
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "context",
-      "kind": "core",
-      "title": "Контекст операции",
-      "description": "Цель фиксируется до выполнения",
-      "x": 1200,
-      "y": 100,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Вход": "environmentId, аргументы, права инициатора",
-        "Контракт": "Разрешить зарегистрированное окружение. Зафиксировать БД, релиз, установку, ID операции. Проверить фактическую БД. Не переключать цель во время операции.",
-        "Выход": "Результат с environmentId, релизом, фактической БД и ID операции. Секреты не выдаются агенту."
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
+          "uri": "C:/dev/oe-studio/packages/workbench/src/node/backend-module.ts",
+          "label": "packages/workbench/src/node/backend-module.ts"
         }
       ]
     },
     {
       "id": "registry",
-      "kind": "core",
+      "kind": "storage",
       "title": "Реестр окружений",
-      "description": "БД, релиз, установка и сценарии",
-      "x": 1200,
-      "y": -200,
-      "status": "proposed",
+      "description": "Конфигурация релизов и контуров, ревизии, наблюдения, SQLite.",
+      "x": 960,
+      "y": 0,
       "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Окружения": "trunk-dev, trunk-test, r36-dev, r36-test — предлагаемые ID; фактические базы и пути ещё не установлены.",
-        "Модель": "Окружение ссылается на установку релиза. Несколько окружений могут использовать общие бинарники — требует уточнения."
+        "Состояние": "Реализовано в коде",
+        "Граница": "Не должен владеть исполнением операций."
       },
       "sourceRefs": [
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
+          "uri": "C:/dev/oe-studio/src/registry/sqlite-registry.ts",
+          "label": "src/registry/sqlite-registry.ts"
         }
       ]
     },
     {
-      "id": "dispatch",
-      "kind": "core",
-      "title": "Диспетчер операций",
-      "description": "Выбирает исполнителя и ресурсы",
-      "x": 1600,
-      "y": 100,
-      "status": "proposed",
+      "id": "planning",
+      "kind": "operation",
+      "title": "Планирование окружений",
+      "description": "Размещение каталогов, план подготовки, read model и выбор IDE-цели.",
+      "x": 960,
+      "y": 240,
       "attributes": {
-        "Статус": "Проектируемая архитектура"
+        "Состояние": "Реализовано в коде",
+        "Граница": "Логическая область внутри environment; не отдельный пакет."
       },
       "sourceRefs": [
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
+          "uri": "C:/dev/oe-studio/src/environment/preparation-planner.ts",
+          "label": "src/environment/preparation-planner.ts"
         }
       ]
     },
     {
-      "id": "db",
-      "kind": "executor",
-      "title": "Прямой доступ к БД",
-      "description": "Изолированные подключения по окружениям",
-      "x": 2000,
-      "y": -180,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Параллельность": "Отдельные пулы по окружениям. Каждая операция удерживает своё подключение и контекст. Конфликты изменений требуют транзакций и контроля версии объекта.",
-        "Граница": "Прямые изменения допускаются только после подтверждения корректного механизма; SQL не заменяет обязательную логику OE."
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "queue",
-      "kind": "core",
-      "title": "Очередь долгих задач",
-      "description": "ID, состояние, отмена и блокировки",
-      "x": 2000,
-      "y": 200,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Контракт": "Постановка возвращает ID задачи; ожидание и получение статуса доступны UI и MCP.",
-        "Изоляция": "Блокировки по фактическим общим ресурсам: БД, установка, working copy, объект. Разные environmentId сами по себе не гарантируют параллельность."
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "oe",
-      "kind": "executor",
-      "title": "Исполнитель OE",
-      "description": "OeExecTask.exe выбранного релиза",
-      "x": 2400,
-      "y": 180,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Контекст": "Путь к executable, рабочий каталог, параметры БД, входные и временные файлы принадлежат конкретной задаче.",
-        "Ограничение": "Способ передачи БД и независимость запусков ещё не исследованы."
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "system",
-      "kind": "executor",
-      "title": "Системный исполнитель",
-      "description": "BAT, SVN и управление процессами",
-      "x": 2400,
-      "y": 450,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура"
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "audit",
-      "kind": "core",
-      "title": "Журнал операций",
-      "description": "Цель, подтверждение, результат, ошибки",
-      "x": 1600,
-      "y": 650,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура"
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "trunkDev",
-      "kind": "environment",
-      "title": "3.7 trunk · разработка",
-      "description": "Основное окружение разработчика",
-      "x": 2800,
-      "y": -420,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "environmentId": "trunk-dev",
-        "Релиз": "3.7 trunk",
-        "База": "Не установлена"
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "trunkTest",
-      "kind": "environment",
-      "title": "3.7 trunk · тест",
-      "description": "Проверка накатывания изменений",
-      "x": 2800,
-      "y": -190,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "environmentId": "trunk-test",
-        "Релиз": "3.7 trunk",
-        "База": "Не установлена"
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "r36Dev",
-      "kind": "environment",
-      "title": "3.6 · разработка",
-      "description": "Основное окружение разработчика",
-      "x": 2800,
-      "y": 40,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "environmentId": "r36-dev",
-        "Релиз": "3.6",
-        "База": "Не установлена"
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "r36Test",
-      "kind": "environment",
-      "title": "3.6 · тест",
-      "description": "Проверка накатывания изменений",
-      "x": 2800,
+      "id": "updates",
+      "kind": "operation",
+      "title": "Обновление окружения",
+      "description": "Очередь бинарники → SVN → выбранные базы; журнал и остановка.",
+      "x": 480,
       "y": 270,
-      "status": "proposed",
       "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "environmentId": "r36-test",
-        "Релиз": "3.6",
-        "База": "Не установлена"
+        "Состояние": "Реализовано в коде",
+        "Граница": "Работает в backend, не в отдельном runner."
       },
       "sourceRefs": [
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
+          "uri": "C:/dev/oe-studio/src/environment/update-service.ts",
+          "label": "src/environment/update-service.ts"
         }
       ]
     },
     {
-      "id": "trunkInstall",
-      "kind": "installation",
-      "title": "Установки релиза 3.7",
-      "description": "Клиент, OeExecTask, конфигурации",
-      "x": 3200,
-      "y": -250,
-      "status": "proposed",
+      "id": "runner",
+      "kind": "process",
+      "title": "Runner / IPC",
+      "description": "Запуск отдельного процесса, локальный pipe, health и восстановление.",
+      "x": 0,
+      "y": 570,
       "attributes": {
-        "Статус": "Проектируемая архитектура"
+        "Состояние": "Реализовано в коде",
+        "Граница": "Ответы IPC пока приводятся к типам без схем результата."
       },
       "sourceRefs": [
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
+          "uri": "C:/dev/oe-studio/src/environment/runner-main.ts",
+          "label": "src/environment/runner-main.ts"
         }
       ]
     },
     {
-      "id": "r36Install",
-      "kind": "installation",
-      "title": "Установки релиза 3.6",
-      "description": "Свои бинарники и сценарии",
-      "x": 3200,
-      "y": 210,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура"
-      },
-      "sourceRefs": [
-        {
-          "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "dbUpdate",
+      "id": "pipelines",
       "kind": "operation",
-      "title": "Обновление базы",
-      "description": "Сценарий обновления и проверка результата",
-      "x": 2000,
-      "y": 780,
-      "status": "proposed",
+      "title": "Пайплайны песочниц",
+      "description": "Допуск, план, этапы, stop/resume, отчёты и история запусков.",
+      "x": 480,
+      "y": 570,
       "attributes": {
-        "Статус": "Проектируемая архитектура"
+        "Состояние": "Реализовано в коде",
+        "Граница": "SandboxService владеет допуском; PipelineExecutor — этапами; RunStore — историей."
       },
       "sourceRefs": [
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
+          "uri": "C:/dev/oe-studio/src/environment/sandbox-service.ts",
+          "label": "src/environment/sandbox-service.ts"
         }
       ]
     },
     {
-      "id": "binaryUpdate",
+      "id": "hotfix",
       "kind": "operation",
-      "title": "Обновление бинарников",
-      "description": "Соответствие выбранному релизу",
+      "title": "Hotfix существующего контура",
+      "description": "Фиксация входного ХФ, запуск, состояние и проверка повторного применения.",
+      "x": 480,
+      "y": 830,
+      "attributes": {
+        "Состояние": "Реализовано в коде",
+        "Граница": "Координатор backend; native-исполнение делегируется PostgreSQL-области."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/environment/hotfix-application.ts",
+          "label": "src/environment/hotfix-application.ts"
+        }
+      ]
+    },
+    {
+      "id": "removal",
+      "kind": "operation",
+      "title": "Удаление окружений",
+      "description": "План удаления контура/группы, освобождение ресурсов и реестра.",
+      "x": 480,
+      "y": 1090,
+      "attributes": {
+        "Состояние": "Реализовано в коде",
+        "Граница": "Логическая область внутри environment."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/environment/removal-service.ts",
+          "label": "src/environment/removal-service.ts"
+        }
+      ]
+    },
+    {
+      "id": "binaries",
+      "kind": "service",
+      "title": "Модуль бинарников OE",
+      "description": "Файловые источники, сборки, получение, установка, проверка обновлений, удаление и восстановление.",
+      "x": 1440,
+      "y": 0,
+      "attributes": {
+        "Состояние": "Реализован и подключён к backend, очереди обновления и runner",
+        "Граница": "Управляет файлами своей установки по манифесту. Базы, SVN-исходники и запуск клиента принадлежат другим модулям.",
+        "Внешняя поверхность": "list, inspect, plan, install, update, checkUpdates, installation, recover, planRemoval, remove, removalStatus, recoverRemoval",
+        "Внутренняя поверхность": "Каталог, планировщик, установщик, update checker и manifest-based removal; composition roots создают только BinaryModule.",
+        "Удаление": "Перенос управляемых неизменённых файлов в quarantine. Пользовательские файлы, INI и XML сохраняются."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/binaries/index.ts",
+          "label": "Публичный API"
+        },
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/docs/binary-module-contract.md",
+          "label": "Внешний и внутренний контракт"
+        }
+      ]
+    },
+    {
+      "id": "svn",
+      "kind": "service",
+      "title": "SVN",
+      "description": "Working copy lifecycle, версии файлов, log/blame/diff, merge и текстовые конфликты.",
+      "x": 1440,
+      "y": 270,
+      "attributes": {
+        "Состояние": "Реализован и подключён к backend; lifecycle потребители используют SvnModule",
+        "Граница": "Версии файлов и WC без знания объектов OE; semantic extraction принадлежит модулю OE."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/svn/index.ts",
+          "label": "Публичный API"
+        },
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/svn/package-service.ts",
+          "label": "src/svn/package-service.ts"
+        },
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/docs/svn-module-contract.md",
+          "label": "Проект внешнего и внутреннего контракта"
+        },
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/docs/svn-oe-implementation.md",
+          "label": "Фактическая реализация и ограничения"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "kind": "service",
+      "title": "Модуль PostgreSQL",
+      "description": "Свои кластеры и базы, SQL/транзакции, статусы и единый драйверный адаптер.",
+      "x": 1440,
+      "y": 570,
+      "attributes": {
+        "Состояние": "Реализовано в коде",
+        "Граница": "PostgresModule владеет SQL/status; ClusterLifecycle — мутациями. Старый ManagedPostgresService сохранён как совместимый координатор OE-сценариев.",
+        "Согласованная ответственность": "Только кластеры Studio и базы внутри них; соединения, параметризованные запросы и транзакции. SQL составляет вызывающий модуль.",
+        "Настройки доступа": "Получает из предлагаемого отдельного модуля настроек; сам владеет соединениями.",
+        "Согласованные статусы": "Список всех своих кластеров и баз. Кластер: работает / остановлен / неизвестно, адрес, порт и время проверки. База: доступна / недоступна / неизвестно, имя и кластер. Порт принадлежит кластеру; ошибки проверки показаны явно. Точные типы ещё не определены.",
+        "Поставка": "Бинарники PostgreSQL поставляет установщик; автоматическая поставка ещё не реализована.",
+        "Вне границы": "Чужие кластеры, бизнес-правила OE и внутренняя работа FME."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/postgres/index.ts",
+          "label": "Публичный API"
+        },
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/docs/postgres-module-contract.md",
+          "label": "Контракт и ограничения"
+        }
+      ]
+    },
+    {
+      "id": "native",
+      "kind": "service",
+      "title": "Native-профили и клиент",
+      "description": "Профили INI, пользовательские настройки и запуск FME.",
+      "x": 960,
+      "y": 830,
+      "attributes": {
+        "Состояние": "Реализовано в коде",
+        "Граница": "Runtime и credentials разрешаются сервером; callback повторён в двух composition roots."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/native-profiles/service.ts",
+          "label": "src/native-profiles/service.ts"
+        }
+      ]
+    },
+    {
+      "id": "runtime",
+      "kind": "service",
+      "title": "Studio runtime в OE",
+      "description": "Подготовка служебной интеграции, миграция и компиляция.",
+      "x": 1920,
+      "y": 570,
+      "attributes": {
+        "Состояние": "Реализовано в коде",
+        "Граница": "Вызывается через PostgreSQL-область."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/studio-runtime/prepare.ts",
+          "label": "src/studio-runtime/prepare.ts"
+        }
+      ]
+    },
+    {
+      "id": "cache",
+      "kind": "storage",
+      "title": "Кеши и retention",
+      "description": "Бинарные артефакты, SVN-кеш и очистка с учётом истории.",
+      "x": 960,
+      "y": 570,
+      "attributes": {
+        "Состояние": "Реализовано в коде",
+        "Граница": "Используются runner-host; это ресурсы подготовки, не очередь задач."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/environment/artifact-cache.ts",
+          "label": "src/environment/artifact-cache.ts"
+        }
+      ]
+    },
+    {
+      "id": "journal",
+      "kind": "storage",
+      "title": "Журнал",
+      "description": "Файловые события и чтение/очистка журнала.",
+      "x": 1920,
+      "y": 0,
+      "attributes": {
+        "Состояние": "Реализовано в коде",
+        "Граница": "Отдельно от статусов заданий и SQLite-истории пайплайнов."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/logging/file-journal.ts",
+          "label": "src/logging/file-journal.ts"
+        }
+      ]
+    },
+    {
+      "id": "platform",
+      "kind": "service",
+      "title": "Файлы и процессы",
+      "description": "Атомарная запись, диагностика блокировок, безопасное удаление, Windows-процессы.",
+      "x": 1920,
+      "y": 830,
+      "attributes": {
+        "Состояние": "Реализовано в коде",
+        "Граница": "Технические механизмы; прикладная политика остаётся у владельца операции."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/files/atomic-json.ts",
+          "label": "src/files/atomic-json.ts"
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "kind": "service",
+      "title": "Настройки",
+      "description": "Типизированная конфигурация, SQLite-ревизии, DPAPI credentials и уведомления.",
+      "x": 1920,
+      "y": 1090,
+      "attributes": {
+        "Состояние": "Реализован и подключён к backend/runner; применение отдельных настроек потребителями ещё переносится",
+        "Граница": "Хранит конфигурацию и секреты; не владеет ресурсами, статусами, соединениями и выполнением операций.",
+        "Внешняя поверхность": "Чтение, валидация, сохранение с revision, reset, подписка; отдельные возможности backend для профилей доступа.",
+        "Внутренняя поверхность": "Схемы/defaults, хранилище ревизий, защищённое хранилище секретов, согласование профилей, уведомления."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/settings/index.ts",
+          "label": "Публичный API"
+        },
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/docs/settings-module-contract.md",
+          "label": "Контракт и ограничения"
+        }
+      ]
+    },
+    {
+      "id": "contracts",
+      "kind": "planned",
+      "title": "Контракты ядра / целевая модель",
+      "description": "ID, targets, passports, commands, jobs, access и dispatcher ports.",
+      "x": 0,
+      "y": 1090,
+      "attributes": {
+        "Состояние": "Типы реализованы; интеграция целевая",
+        "Граница": "Типы и схемы существуют; единый AccessService/Dispatcher не подключён к действующим RPC."
+      },
+      "sourceRefs": [
+        {
+          "kind": "file",
+          "uri": "C:/dev/oe-studio/src/contracts/ports.ts",
+          "label": "src/contracts/ports.ts"
+        }
+      ]
+    },
+    {
+      "id": "oe-objects",
+      "kind": "service",
+      "title": "Объекты OE",
+      "description": "Каталог, источники, inheritance, package binding, DFM, audit/SVN история и diff.",
       "x": 2400,
-      "y": 780,
-      "status": "proposed",
+      "y": 270,
       "attributes": {
-        "Статус": "Проектируемая архитектура"
+        "Состояние": "Реализован и подключён к backend; native mutations, instances и structural class diff unsupported",
+        "Граница": "Смысл объектов и PKF; SVN transport, управление БД и UI снаружи",
+        "Проверка": "Core tests, реальные временные SVN репозитории и изолированный PostgreSQL fixture; UI/native writes не проверены"
       },
       "sourceRefs": [
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "oeQuestion",
-      "kind": "question",
-      "title": "Изоляция OeExecTask",
-      "description": "Исследовать общие ресурсы запусков",
-      "x": 3200,
-      "y": 560,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Вопрос": "Как задаётся БД? Есть ли общая конфигурация, фиксированные файлы, ограничения одновременных процессов?",
-        "Причина": "Определяет безопасную параллельность и необходимость отдельных workers."
-      },
-      "sourceRefs": [
+          "uri": "C:/dev/oe-studio/src/oe-objects/index.ts",
+          "label": "Публичный API"
+        },
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
-        }
-      ]
-    },
-    {
-      "id": "installQuestion",
-      "kind": "question",
-      "title": "Схема установок",
-      "description": "Две установки или четыре?",
-      "x": 3200,
-      "y": 800,
-      "status": "proposed",
-      "attributes": {
-        "Статус": "Проектируемая архитектура",
-        "Вопрос": "Есть ли отдельный каталог клиента для каждой основной и тестовой среды или одна установка на релиз?",
-        "Причина": "Определяет блокировки обновления бинарников и изоляцию задач."
-      },
-      "sourceRefs": [
+          "uri": "C:/dev/oe-studio/docs/oe-objects-module-contract.md",
+          "label": "Внешний и внутренний контракт"
+        },
         {
           "kind": "file",
-          "uri": "C:/dev/oe-studio/README.md",
-          "label": "Исходная концепция README"
+          "uri": "C:/dev/oe-studio/docs/oe-objects-svn-analysis.md",
+          "label": "Анализ и live-подтверждения"
+        },
+        {
+          "kind": "file",
+          "uri": "C:/dev/vc-ve-tools/src/features/code-history/codeHistoryService.ts",
+          "label": "Исследованная реализация расширения"
         }
       ]
     }
   ],
   "edges": [
     {
-      "from": "agents",
-      "to": "mcp",
-      "type": "request",
-      "label": "environmentId",
+      "from": "postgres",
+      "to": "settings",
+      "type": "uses",
+      "label": "Чтение настроек и разрешение доступа",
       "attributes": {
-        "Статус": "Проектируемая связь"
+        "Состояние": "Реализовано"
       }
     },
     {
-      "from": "workbench",
-      "to": "catalog",
-      "type": "request",
-      "label": "Операции интерфейса",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "ui",
+      "to": "backend",
+      "type": "uses",
+      "label": "RPC"
     },
     {
-      "from": "manager",
-      "to": "catalog",
-      "type": "request",
-      "label": "Управление окружением",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
-    },
-    {
-      "from": "mcp",
-      "to": "catalog",
-      "type": "request",
-      "label": "Те же операции",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
-    },
-    {
-      "from": "catalog",
-      "to": "context",
-      "type": "flow",
-      "label": "Проверить цель и права",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "registry",
+      "type": "uses",
+      "label": "Конфигурация"
     },
     {
       "from": "registry",
-      "to": "context",
-      "type": "config",
-      "label": "Разрешить окружение",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "to": "planning",
+      "type": "uses",
+      "label": "План и паспорт"
     },
     {
-      "from": "context",
-      "to": "dispatch",
-      "type": "flow",
-      "label": "Фиксированный контекст",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "updates",
+      "type": "composition",
+      "label": "Создание"
     },
     {
-      "from": "dispatch",
-      "to": "db",
-      "type": "flow",
-      "label": "Прямые операции",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "hotfix",
+      "type": "composition",
+      "label": "Создание"
     },
     {
-      "from": "dispatch",
-      "to": "queue",
-      "type": "flow",
-      "label": "Долгие задачи",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "removal",
+      "type": "composition",
+      "label": "Создание"
     },
     {
-      "from": "queue",
-      "to": "oe",
-      "type": "flow",
-      "label": "Задачи OE",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "runner",
+      "type": "ipc",
+      "label": "PipelineRunnerClient → pipe"
     },
     {
-      "from": "queue",
-      "to": "system",
-      "type": "flow",
-      "label": "Системные задачи",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "runner",
+      "to": "pipelines",
+      "type": "composition",
+      "label": "runner-host"
     },
     {
-      "from": "dispatch",
-      "to": "audit",
-      "type": "record",
-      "label": "Начало и цель",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "runner",
+      "to": "registry",
+      "type": "uses",
+      "label": "Отдельное подключение SQLite"
     },
     {
-      "from": "db",
-      "to": "audit",
-      "type": "record",
-      "label": "Результат и ошибки",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "runner",
+      "to": "cache",
+      "type": "composition",
+      "label": "Кеши подготовки"
     },
     {
-      "from": "oe",
-      "to": "audit",
-      "type": "record",
-      "label": "Результат и ошибки",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "pipelines",
+      "to": "cache",
+      "type": "uses",
+      "label": "Через host callbacks"
     },
     {
-      "from": "system",
-      "to": "audit",
-      "type": "record",
-      "label": "Результат и ошибки",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "updates",
+      "to": "binaries",
+      "type": "uses",
+      "label": "Установка"
     },
     {
-      "from": "db",
-      "to": "trunkDev",
-      "type": "target",
-      "label": "Выбранная БД",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "updates",
+      "to": "svn",
+      "type": "uses",
+      "label": "Обновление пакетов"
     },
     {
-      "from": "registry",
-      "to": "trunkDev",
-      "type": "contains",
-      "label": "Окружение",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "updates",
+      "to": "postgres",
+      "type": "uses",
+      "label": "Обновление баз"
     },
     {
-      "from": "db",
-      "to": "trunkTest",
-      "type": "target",
-      "label": "Выбранная БД",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "pipelines",
+      "to": "postgres",
+      "type": "uses",
+      "label": "Дамп / restore / OE"
     },
     {
-      "from": "registry",
-      "to": "trunkTest",
-      "type": "contains",
-      "label": "Окружение",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "pipelines",
+      "to": "binaries",
+      "type": "uses",
+      "label": "Через runner-host"
     },
     {
-      "from": "db",
-      "to": "r36Dev",
-      "type": "target",
-      "label": "Выбранная БД",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "pipelines",
+      "to": "svn",
+      "type": "uses",
+      "label": "CLI / SVN cache"
     },
     {
-      "from": "registry",
-      "to": "r36Dev",
-      "type": "contains",
-      "label": "Окружение",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "pipelines",
+      "to": "registry",
+      "type": "uses",
+      "label": "Регистрация песочницы"
     },
     {
-      "from": "db",
-      "to": "r36Test",
-      "type": "target",
-      "label": "Выбранная БД",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "hotfix",
+      "to": "postgres",
+      "type": "uses",
+      "label": "Native hotfix"
     },
     {
-      "from": "registry",
-      "to": "r36Test",
-      "type": "contains",
-      "label": "Окружение",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "removal",
+      "to": "postgres",
+      "type": "uses",
+      "label": "Освобождение ресурсов"
     },
     {
-      "from": "trunkDev",
-      "to": "trunkInstall",
-      "type": "config",
-      "label": "Установка релиза",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "removal",
+      "to": "registry",
+      "type": "uses",
+      "label": "Удаление привязок"
     },
     {
-      "from": "trunkTest",
-      "to": "trunkInstall",
-      "type": "config",
-      "label": "Установка релиза",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "native",
+      "type": "composition",
+      "label": "Профили / launcher"
     },
     {
-      "from": "r36Dev",
-      "to": "r36Install",
-      "type": "config",
-      "label": "Установка релиза",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "runner",
+      "to": "native",
+      "type": "composition",
+      "label": "Профили"
     },
     {
-      "from": "r36Test",
-      "to": "r36Install",
-      "type": "config",
-      "label": "Установка релиза",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "native",
+      "to": "postgres",
+      "type": "uses",
+      "label": "Готовность / подготовка клиента"
     },
     {
-      "from": "oe",
-      "to": "trunkInstall",
-      "type": "target",
-      "label": "Executable 3.7",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "postgres",
+      "to": "runtime",
+      "type": "uses",
+      "label": "Подготовка интеграции"
     },
     {
-      "from": "oe",
-      "to": "r36Install",
-      "type": "target",
-      "label": "Executable 3.6",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "binaries",
+      "type": "composition",
+      "label": "Прямые RPC"
     },
     {
-      "from": "catalog",
-      "to": "dbUpdate",
-      "type": "contains",
-      "label": "Операция менеджера",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "svn",
+      "type": "composition",
+      "label": "Прямые RPC"
     },
     {
-      "from": "catalog",
-      "to": "binaryUpdate",
-      "type": "contains",
-      "label": "Операция менеджера",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "postgres",
+      "type": "composition",
+      "label": "Прямые RPC"
     },
     {
-      "from": "dbUpdate",
-      "to": "queue",
-      "type": "flow",
-      "label": "Выполнение сценария",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "backend",
+      "to": "journal",
+      "type": "uses",
+      "label": "Аудит / RPC"
     },
     {
-      "from": "binaryUpdate",
-      "to": "queue",
-      "type": "flow",
-      "label": "Блокировка установки",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "runner",
+      "to": "journal",
+      "type": "uses",
+      "label": "События процесса"
     },
     {
-      "from": "system",
-      "to": "trunkInstall",
-      "type": "target",
-      "label": "Обновление и процессы",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "postgres",
+      "to": "platform",
+      "type": "uses",
+      "label": "Файлы / native processes"
     },
     {
-      "from": "system",
-      "to": "r36Install",
-      "type": "target",
-      "label": "Обновление и процессы",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
-    },
-    {
-      "from": "oe",
-      "to": "oeQuestion",
-      "type": "question",
-      "label": "Исследовать",
-      "attributes": {
-        "Статус": "Проектируемая связь"
-      }
+      "from": "binaries",
+      "to": "platform",
+      "type": "uses",
+      "label": "Файлы"
     },
     {
       "from": "registry",
-      "to": "installQuestion",
-      "type": "question",
-      "label": "Уточнить",
+      "to": "contracts",
+      "type": "uses",
+      "label": "Targets / passports"
+    },
+    {
+      "from": "binaries",
+      "to": "settings",
+      "type": "uses",
+      "label": "Профиль источника"
+    },
+    {
+      "from": "oe-objects",
+      "to": "svn",
+      "type": "uses",
+      "label": "Исторические и локальные файловые снимки",
       "attributes": {
-        "Статус": "Проектируемая связь"
+        "Состояние": "Реализовано"
       }
+    },
+    {
+      "from": "oe-objects",
+      "to": "postgres",
+      "type": "uses",
+      "label": "Read-only SQL для своих и внешних баз",
+      "attributes": {
+        "Состояние": "Реализовано"
+      }
+    },
+    {
+      "from": "oe-objects",
+      "to": "settings",
+      "type": "uses",
+      "label": "Через PostgreSQL read access: профиль доступа",
+      "attributes": {
+        "Состояние": "Реализовано"
+      }
+    },
+    {
+      "from": "backend",
+      "to": "oe-objects",
+      "type": "composition",
+      "label": "Публичные RPC каталога, исходников и истории"
     }
   ]
 }

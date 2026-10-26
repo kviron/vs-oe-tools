@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.configureEntityPropertiesActions = configureEntityPropertiesActions;
 exports.openEntityProperties = openEntityProperties;
 exports.closeEntityPropertiesPanels = closeEntityPropertiesPanels;
+const assets_1 = require("../../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const methodRepository_1 = require("../../../infrastructure/database/methodRepository");
 const objectViewRepository_1 = require("../../../infrastructure/database/objectViewRepository");
@@ -52,7 +53,7 @@ async function openEntityProperties(context, objectId) {
         return;
     }
     const loaded = await load(objectId);
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'entity-properties');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.entityProperties', `Свойства — ${loaded.result.name || loaded.result.id}`, vscode.ViewColumn.Active, {
         enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
     });

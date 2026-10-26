@@ -37,6 +37,7 @@ exports.onDidChangeAttribute = void 0;
 exports.openAttributeDetails = openAttributeDetails;
 exports.openNewAttributeDetails = openNewAttributeDetails;
 exports.closeAttributeDetailPanels = closeAttributeDetailPanels;
+const assets_1 = require("../../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const classRepository_1 = require("../../../infrastructure/database/classRepository");
@@ -79,7 +80,7 @@ async function openNewAttributeDetails(context, ownerClassId, onCreated) {
     createPanel(context, { key, databaseKey, options, draft, mode: 'create', busy: false, onCreated });
 }
 function createPanel(context, initial) {
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'attribute-details');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.attributeDetails', initial.details ? `Атрибут ${initial.details.name}` : `Новый атрибут — ${initial.options.ownerClassName}`, vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true });
     const entry = { ...initial, panel, context };
     panels.set(entry.key, entry);

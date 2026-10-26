@@ -28,8 +28,22 @@ function isNativeLogsWebviewMessage(message) {
     if (typeof message !== 'object' || message === null || !('command' in message)) {
         return false;
     }
-    if (message.command === 'nativeLogsReady' || message.command === 'refreshNativeLogs') {
+    if ((0, commonMessages_1.isCopyTableCellsMessage)(message) || (0, commonMessages_1.isTableSelectionDebugMessage)(message)) {
         return true;
+    }
+    if (message.command === 'nativeLogsReady') {
+        return true;
+    }
+    if (message.command === 'refreshNativeLogs') {
+        if ('query' in message && typeof message.query !== 'string') {
+            return false;
+        }
+        if (!('options' in message)) {
+            return true;
+        }
+        const options = message.options;
+        return typeof options === 'object' && options !== null && 'mode' in options && 'caseSensitive' in options
+            && ['contains', 'starts', 'ends', 'exact', 'word'].includes(String(options.mode)) && typeof options.caseSensitive === 'boolean';
     }
     if (message.command === 'openNativeLog') {
         return 'fileName' in message && typeof message.fileName === 'string';
@@ -124,7 +138,7 @@ function isSettingsWebviewMessage(message) {
             && 'fileName' in message && typeof message.fileName === 'string' && /^[^\\/:*?"<>|\r\n]{1,200}$/u.test(message.fileName)
             && (!('contentType' in message) || message.contentType === undefined || typeof message.contentType === 'string');
     }
-    if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled') {
+    if (message.command === 'setProjectRootEnabled' || message.command === 'setMcpEnabled' || message.command === 'setClientMcpPreferIPv4') {
         return 'enabled' in message && typeof message.enabled === 'boolean';
     }
     if (message.command === 'setDatabaseRole') {
@@ -157,6 +171,13 @@ function isSettingsWebviewMessage(message) {
     }
     if (message.command === 'setClientLaunchArguments') {
         return 'value' in message && typeof message.value === 'string' && message.value.length <= 2000;
+    }
+    if (message.command === 'setProductionMcpToken') {
+        return 'value' in message && typeof message.value === 'string' && message.value.length <= 16384
+            && !/[\r\n]/u.test(message.value);
+    }
+    if (message.command === 'setProductionTaskSource') {
+        return 'value' in message && (message.value === 'oenp' || message.value === 'mcp');
     }
     return message.command === 'copyMcpConnectionCode' && 'text' in message && typeof message.text === 'string';
 }

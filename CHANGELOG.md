@@ -4,6 +4,27 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.13.0] - 2026-10-26
+
+### Added
+
+- Added the “IPv4 для localhost” switch to client MCP settings (`vcVeTools.mcp.preferIPv4`). It connects local MCP requests over IPv4 while preserving the localhost host name, helping with VPN/Happ connection errors. The setting applies to subsequent requests without restarting agents.
+- Added native GUI command tools to find an unambiguous running client, open registered commands and start MCP in that GUI client, with database and process checks. Included the native URL command handler reference.
+- Added lightweight production-task paging through OENP with inclusive creation-date filters, descending-ID cursors and explicit continuation metadata. Documented the page contract; the public MCP source reports that paging is unsupported.
+- Added multiple class-type filters to the explorer tree and search while preserving ancestor paths.
+
+### Changed
+
+- Published the active MCP server path in runtime state and expanded the OE Studio architecture map.
+- Bounded the general production-task list and returned lightweight summaries instead of loading full task bodies.
+- The OENP general list now returns at most 99 summaries, applies search on the server before limiting rows, and omits `totalCount` when truncated. Use `get_production_tasks_page` for explicit continuation; full cards remain available through `get_production_task`.
+
+### Fixed
+
+- Kept GUI client MCP listeners running after managed tool calls; explicit stop still shuts down the listener.
+- Corrected the public production-task list tool name to `oe_ur_list`, distinguished transport, authorization and malformed-response errors, and masked tokens in reported server errors.
+- Added regression coverage for IPv4 connection cycles, response limits, GUI commands and production-task paging.
+
 ## [0.12.0] - 2026-10-13
 
 ### Added
@@ -14,10 +35,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ### Changed
 
 - Expanded the bundled East Express agent skill to version 17 with self-contained business knowledge candidates covering requirements, rules, rationale, examples, evidence and applicability. Clarified completeness checks and preservation of business explanations when publishing knowledge.
-
-### Fixed
-
-- Corrected the public production-task list tool name to `oe_url_list`.
 
 ## [0.11.0] - 2026-10-12
 

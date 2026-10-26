@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openProductionTaskDetails = openProductionTaskDetails;
 exports.closeProductionTaskDetailsPanels = closeProductionTaskDetailsPanels;
+const assets_1 = require("../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const productionTaskPresentation_1 = require("./productionTaskPresentation");
@@ -48,7 +49,7 @@ function openProductionTaskDetails(context, task, findObjectById, loadTaskRefere
         existing.reveal(vscode.ViewColumn.Active);
         return;
     }
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'production-task-details');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.productionTaskDetails', `Задача ${task.number || task.id}`, vscode.ViewColumn.Active, {
         enableScripts: true, enableFindWidget: true, localResourceRoots: [assetsRoot], retainContextWhenHidden: true,
     });
@@ -66,6 +67,9 @@ function openProductionTaskDetails(context, task, findObjectById, loadTaskRefere
         }
         if (message.command === 'productionTaskDetailsReady') {
             await panel.webview.postMessage({ command: 'productionTaskDetailsLoaded', task });
+            if (task.source === 'mcp') {
+                return;
+            }
             await panel.webview.postMessage({ command: 'productionTaskRichDescriptionLoading' });
             try {
                 const parts = await (0, productionTaskRichText_1.convertProductionTaskWmfImages)((0, productionTaskRichText_1.parseProductionTaskRichDescription)(await loadRichDescription()));

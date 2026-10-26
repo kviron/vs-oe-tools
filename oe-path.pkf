@@ -1,0 +1,36 @@
+ class procedure HandleUrl_Command '(парПараметры: wStringList; парПеременные: wStringList)' [_Ид='3201442']
+    {{
+    procedure(парПараметры, парПеременные: wStringList);
+    begin
+      Assert(парПараметры.Count = 1,'Ожидается command/<имя команды>; параметры задаются в реестре');
+      var commandName := парПараметры[0];
+      Assert(commandName <> '' and Length(commandName) <= 100,'Некорректное имя команды');
+      var ids := ArrayToComma(Rat.EvalQuery(SQLText!
+        select ID from SimpleObjectAction
+        where SeniorID = 3201438 and Name = &commandName&
+      !end));
+      Assert(CommaGetCount(ids) = 1,'Команда не найдена или имя неоднозначно: '+commandName);
+      var entry := SimpleObjectAction(ToRoid(CommaGet(ids,0)));
+      Assert(not entry.НеИспользуется,'Команда отключена: '+commandName);
+      var roles := Роль[].CreateByCommaTextObj(entry.РолиДоступа,false,false,true);
+      Assert(roles.Count > 0 and User.ЕстьРоли(roles),'Нет прав на команду: '+commandName);
+      var target := entry.МетодВыполнения;
+      Assert(Assigned(target) and target.MethKind = 6,'Для команды нужен статический метод');
+      var valuesDS := wDynamicStorage.CreateByJsonString(IfThen(entry.Подсказка = '', '{}',entry.Подсказка));
+      var count := target.ParamCount();
+      var args := VarArrayCreate(0,count-1);
+      for var i := 0 to count-1 do
+      begin
+        var paramName := target.ParamName(i);
+        if valuesDS.Exists(paramName) then
+        begin
+          var paramType := target.ParamType(i);
+          Assert(CommaGetPos('300,303,305,308,310,314,352,353,354',ToRoid(paramType)) >= 0,'Неподдерживаемый тип параметра '+paramName);
+          if paramType = ТипАтрибута.'Дата' then
+            args[i] := valuesDS.ReadDate(paramName)
+          else args[i] := valuesDS.Read(paramName);
+        end
+        else Assert(target.ParamIsDefault(i),'Не задан обязательный параметр '+paramName);
+      end;
+      target.InvokeInParams(target.SeniorID,args);
+    end;}};

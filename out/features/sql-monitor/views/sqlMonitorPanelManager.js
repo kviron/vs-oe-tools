@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openSqlMonitor = openSqlMonitor;
 exports.closeSqlMonitor = closeSqlMonitor;
+const assets_1 = require("../../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../../core/webviewProtocol");
 const sqlMonitorService_1 = require("../sqlMonitorService");
@@ -46,7 +47,7 @@ function openSqlMonitor(context) {
         monitorPanel.reveal(vscode.ViewColumn.Active);
         return;
     }
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'sql-monitor');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.sqlMonitor', 'SQL-монитор', vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [assetsRoot] });
     monitorPanel = panel;
     sqlMonitorService_1.sqlMonitorService.setActive(true);

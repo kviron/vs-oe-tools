@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openSpuEditor = openSpuEditor;
 exports.closeSpuEditorPanels = closeSpuEditorPanels;
+const assets_1 = require("../../infrastructure/webview/assets");
 const vscode = __importStar(require("vscode"));
 const webviewProtocol_1 = require("../../core/webviewProtocol");
 const spuRepository_1 = require("../../infrastructure/database/spuRepository");
@@ -42,7 +43,7 @@ const sqlCompletionSchema_1 = require("../../infrastructure/database/sqlCompleti
 const panels = new Set();
 async function openSpuEditor(context, options = {}, onSaved = () => undefined) {
     const editing = options.spuId !== undefined;
-    const assetsRoot = vscode.Uri.joinPath(context.extensionUri, 'dist', 'webview');
+    const assetsRoot = (0, assets_1.getWebviewAssetsRoot)(context.extensionUri, 'spu-editor');
     const panel = vscode.window.createWebviewPanel('vc-ve-tools.spuEditor', editing ? `SPU ${options.spuId}` : 'Новый SPU', vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [assetsRoot] });
     panels.add(panel);
     panel.webview.html = shell(panel.webview, assetsRoot);

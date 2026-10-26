@@ -5,7 +5,7 @@
   },
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
@@ -193,6 +193,12 @@
           "default": "http://localhost:8080",
           "scope": "window",
           "description": "Адрес HTTP MCP-сервера, запущенного внутри клиента Восточного Экспресса."
+        },
+        "vcVeTools.mcp.preferIPv4": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "description": "Подключаться к клиентскому MCP на localhost по IPv4. Помогает при ошибках подключения с включённым VPN (например, Happ). Применяется со следующего запроса."
         },
         "vcVeTools.mcp.knowledgeEnvFile": {
           "type": "string",

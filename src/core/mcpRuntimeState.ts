@@ -13,7 +13,9 @@ export interface McpRuntimeState {
 	sqlMonitorHistoryPath: string;
 	navigationInfoPath: string;
 	clientMcpUrl: string;
+	clientMcpPreferIPv4?: boolean;
 	workHistoryPath?: string;
+    mcpServerPath?: string;
 	updatedAt: string;
 }
 
@@ -54,8 +56,10 @@ export function parseMcpRuntimeState(value: unknown): McpRuntimeState | undefine
 		|| typeof state.sqlMonitorHistoryPath !== 'string'
 		|| typeof state.navigationInfoPath !== 'string'
 		|| typeof state.clientMcpUrl !== 'string'
+		|| (state.clientMcpPreferIPv4 !== undefined && typeof state.clientMcpPreferIPv4 !== 'boolean')
 		|| typeof state.updatedAt !== 'string'
-		|| (state.workHistoryPath !== undefined && (typeof state.workHistoryPath !== 'string' || !path.isAbsolute(state.workHistoryPath)))) {
+		|| (state.mcpServerPath !== undefined && (typeof state.mcpServerPath !== 'string' || !path.isAbsolute(state.mcpServerPath)))
+        || (state.workHistoryPath !== undefined && (typeof state.workHistoryPath !== 'string' || !path.isAbsolute(state.workHistoryPath)))) {
 		return undefined;
 	}
 	return state as McpRuntimeState;
