@@ -4,6 +4,12 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.13.1] - 2026-10-26
+
+### Fixed
+
+- Open a fresh connection for each local IPv4 MCP request. External Node agents no longer reuse a socket belonging to a stopped server, which could produce `ECONNRESET` and prevent the next managed startup. No tool calls are retried automatically.
+
 ## [0.13.0] - 2026-10-26
 
 ### Added

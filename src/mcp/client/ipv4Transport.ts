@@ -9,7 +9,7 @@ export function fetchLocalClientMcp(url: URL, preferIPv4: boolean, timeoutMs: nu
 		return fetch(url, { headers, signal });
 	}
 	return new Promise<Response>((resolve, reject) => {
-		const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, { family: 4, headers, signal }, response => {
+		const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, { family: 4, agent: false, headers, signal }, response => {
 			const chunks: Buffer[] = [];
 			let bytes = 0;
 			response.on('error', reject);

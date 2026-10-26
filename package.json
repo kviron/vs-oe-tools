@@ -5,7 +5,7 @@
   },
   "displayName": "Восточный Экспресс расширение",
   "description": "Инструменты разработки и сопровождения проектов Восточного Экспресса",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "publisher": "Kviron",
   "license": "MIT",
   "repository": {
@@ -632,7 +632,7 @@
     "check:release": "node scripts/check-release-version.mjs",
     "setup:hooks": "git config core.hooksPath .githooks",
     "lint": "eslint src --max-warnings 0",
-    "test": "node --test scripts/webview/artifacts.test.mjs && vscode-test",
+    "test": "node --test scripts/webview/artifacts.test.mjs && mocha --ui tdd out/test/clientMcpIPv4.test.js && vscode-test",
     "build:relationship-map": "npm --prefix relationship-map ci --no-audit --no-fund && npm --prefix relationship-map run build:webview"
   },
   "devDependencies": {
