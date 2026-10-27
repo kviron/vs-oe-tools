@@ -9,7 +9,6 @@ import { commands as codeHistoryCommands } from '../code-history/commands';
 import { commands as productionTaskCommands } from '../production-tasks/commands';
 import { commands as projectCommands } from '../project/commands';
 import { commands as relationshipMapCommands } from '../relationship-maps/commands';
-import { commands as assistantCommands } from './commands';
 
 /** Composition only; each feature owns schemas and command invocation. */
 export const commandRegistry = composeCommands(
@@ -23,5 +22,4 @@ export const commandRegistry = composeCommands(
 	productionTaskCommands,
 	projectCommands,
 	relationshipMapCommands,
-	assistantCommands,
 );

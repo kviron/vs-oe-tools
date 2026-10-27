@@ -4,6 +4,16 @@ All notable changes to the "vc-ve-tools" extension will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.14.0] - 2026-10-27
+
+### Added
+
+- Added FME automation MCP tools for discovering running clients and their visible windows, capturing a screenshot and accessibility tree, and sending clicks, text, keys and scrolling to a checked child window. Input delivery is unverified until the agent inspects the resulting state.
+
+### Changed
+
+- **Breaking:** `query_database` executes one SQL statement immediately against the active database; it no longer issues approval tokens or opens a VS Code confirmation dialog. Agent-driven database updates and patch execution also no longer open confirmation dialogs. Interactive database updates retain their confirmation.
+
 ## [0.13.1] - 2026-10-26
 
 ### Fixed

@@ -162,7 +162,6 @@ suite('Navigation bridge', () => {
             startClient: async (role) => { startedClient = role; },
             getClientStatus: async (role) => ({ role, database: role === 'test' ? 'oetest' : 'oetrunk', clientProcessDetected: false, serverPort: null, serverReachable: null }),
             openClientEntity: async (role, entityType, id) => `oe-${role}:/open/${entityType}/${id}`,
-            confirmSqlMutation: async () => false,
         }, infoPath);
         try {
             const connection = JSON.parse(await (0, promises_1.readFile)(infoPath, 'utf8'));
@@ -173,13 +172,6 @@ suite('Navigation bridge', () => {
             });
             assert.equal(response.status, 200);
             assert.equal(openedMethod, 3200110);
-            const confirmationResponse = await fetch(connection.url, {
-                method: 'POST',
-                headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },
-                body: JSON.stringify({ action: 'confirm_sql_mutation', sql: 'UPDATE classes SET name = name', database: 'oetrunk' }),
-            });
-            assert.equal(confirmationResponse.status, 200);
-            assert.equal((await confirmationResponse.json()).approved, false);
             const revealResponse = await fetch(connection.url, {
                 method: 'POST',
                 headers: { authorization: `Bearer ${connection.token}`, 'content-type': 'application/json' },

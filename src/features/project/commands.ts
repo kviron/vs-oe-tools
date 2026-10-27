@@ -13,7 +13,7 @@ export const commands = {
 		async (input, actions) => actions.executePatch(input),
 		{
 			input: z.object({ ...patchFields, ...expectedConnection('execute_patch') }),
-			description: 'Применяет один патч RDE или SQL в Windows-1251 через штатный OEPatch.exe к явно указанной основной или тестовой базе. VS Code подтверждает точный текст и подключение перед выполнением. Возвращает журналы и признак возможных частичных изменений; не повторяйте неудачный запуск автоматически.',
+			description: 'Применяет один патч RDE или SQL в Windows-1251 через штатный OEPatch.exe к явно указанной основной или тестовой базе. Выполняется без подтверждения в VS Code. Возвращает журналы и признак возможных частичных изменений; не повторяйте неудачный запуск автоматически.',
 			annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
 			timeoutMs: 1_800_000,
 			prepare: (input) => input,

@@ -11,7 +11,7 @@ export function createProjectAgentActions(getCredentials: () => Promise<{ userna
 		executePatch: executeProjectPatch,
 		updatePackages: () => updateProjectPackages(),
 		updateBinaries: () => updateProjectBinaries(),
-		updateDatabase: (role: 'main' | 'test') => updateProjectDatabase(role),
+		updateDatabase: (role: 'main' | 'test') => updateProjectDatabase(role, false),
 		startClient: async (role: 'main' | 'test') => startProjectClient(role, await getCredentials()),
 		getClientStatus: getProjectClientStatus,
 		openClientEntity: (role: 'main' | 'test', entityType: string | undefined, id: number) => openProjectClientEntity(role, entityType, id),

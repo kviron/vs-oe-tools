@@ -4,7 +4,7 @@ import type { McpToolServer } from '../../toolTypes';
 
 export function registerTool(server: McpToolServer): void {
 	server.registerTool('update_database', {
-		description: 'DEPRECATED: this data-changing tool will be removed soon. Update the main or test East Express database with OEPrjScript and OEPatch. VS Code shows the resolved target and asks for confirmation, then reports progress and logs.',
+		description: 'DEPRECATED: this data-changing tool will be removed soon. Update the main or test East Express database with OEPrjScript and OEPatch. Runs without confirmation and reports progress and logs.',
 		inputSchema: {
 			role: featureCommands.update_database.schema.shape.role.describe('Database role to update'),
 		},

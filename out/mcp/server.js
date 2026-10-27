@@ -30,7 +30,7 @@ const server = new McpServer({ name: 'vc-ve-tools-database', version: '0.22.0' }
         'Client tools are exposed here with the client__ prefix. Call them directly; the gateway starts OEExecTask, invokes the live client MCP, and closes the process after the call. Knowledge tools use the knowledge__ prefix and the configured collection. Invoke mutating client and knowledge tools only when the user explicitly requests the action.',
         'For East Express REST testing, call start_http_test_server with one exact method name, use call_http_test_server for requests, and always call stop_http_test_server in cleanup even when a request fails.',
         'For VS Code navigation, use open_method for the source editor and reveal_method_in_class to select a method on the owning class Methods tab. Never use cursor or screen automation for these actions.',
-        'Use query_database for unrestricted PostgreSQL statements. Read queries run immediately. If it returns requiresApproval, show the user the exact SQL and active database, ask for explicit approval in conversation, and wait for their answer. Only after approval call query_database again with the unchanged SQL and approvalToken; the user must also confirm the exact SQL in the VS Code modal. Never infer approval from the token or a prior unrelated request. Include relevant object IDs in analysis so navigation can continue.',
+        'Use query_database for a single PostgreSQL statement against the active database. It executes without an approval prompt. Include relevant object IDs in analysis so navigation can continue.',
     ].join(' '),
 });
 const historyPath = (0, path_1.currentWorkHistoryPath)();

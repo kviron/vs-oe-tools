@@ -24,14 +24,6 @@ suite('Navigation request validation', () => {
 			{ message: 'An exact methodName is required for start_http_test_server.' });
 	});
 
-	test('requires exact SQL and database for mutation confirmation', () => {
-		const request = validateRequest({ action: 'confirm_sql_mutation', sql: 'UPDATE classes SET name = name', database: 'oetrunk' });
-		assert.equal(request.action, 'confirm_sql_mutation');
-		assert.equal(request.sql, 'UPDATE classes SET name = name');
-		assert.throws(() => validateRequest({ action: 'confirm_sql_mutation', sql: ' ', database: 'oetrunk' }),
-			{ message: 'SQL and database are required for confirm_sql_mutation.' });
-	});
-
 	test('preserves the first validation error for each action group', () => {
 		const cases: Array<[unknown, string]> = [
 			[{ action: 'unknown', id: 0 }, 'Unknown navigation action.'],

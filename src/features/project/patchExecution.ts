@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { isUtf8 } from 'node:buffer';
 import { readFile, realpath, mkdir, writeFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
-import * as iconv from 'iconv-lite';
 import * as vscode from 'vscode';
 import { Client } from 'pg';
 import { createDatabaseUpdatePlan } from './databaseUpdatePlan';
@@ -42,11 +41,6 @@ export async function executeProjectPatch(input: PatchInput): Promise<Record<str
 	const hash = createHash('sha256').update(bytes).digest('hex');
 	const packageChanges = input.packageChanges ?? 'deny';
 	const target = { database: plan.database, host: plan.host, port: plan.port, role: input.role, packageChanges };
-	const choice = await vscode.window.showWarningMessage(`Применить патч к базе ${plan.database}?`, {
-		modal: true,
-		detail: `${plan.host}:${plan.port}\n${file}\nИзменения пакетов: ${packageChanges === 'allowAndLog' ? 'разрешены с регистрацией (-allowandlogpkgchanges)' : 'без дополнительного разрешения'}\nSHA-256: ${hash}\n\n${iconv.decode(bytes, 'win1251')}\n\nПатч может содержать COMMIT; при ошибке часть изменений может сохраниться.`,
-	}, 'Применить патч');
-	if (choice !== 'Применить патч') { return { ...target, executed: false, cancelled: true, hash }; }
 	if (running) { throw new Error('Патч уже выполняется.'); }
 	running = true;
 	let log: UpdateLog | undefined;

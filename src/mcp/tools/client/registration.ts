@@ -9,6 +9,7 @@ import { registerTool as stopClientMcp } from './stopClientMcp';
 import { registerTool as listNativeClientLogs } from './listNativeClientLogs';
 import { registerTool as readNativeClientLog } from './readNativeClientLog';
 import { registerTool as guiClientCommands } from './guiClientCommands';
+import { registerTool as fmeAutomation } from './fmeAutomation';
 
 /** Owns the client tool catalog and its stable public positions. */
 export const clientToolRegistrations: readonly OrderedToolRegistration[] = [
@@ -22,4 +23,5 @@ export const clientToolRegistrations: readonly OrderedToolRegistration[] = [
 	[570, listNativeClientLogs],
 	[580, readNativeClientLog],
 	[585, guiClientCommands],
+	[586, fmeAutomation],
 ];

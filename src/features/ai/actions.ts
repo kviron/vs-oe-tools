@@ -30,14 +30,6 @@ export function createNavigationActions(dependencies: Dependencies) {
 		methodCompilation, compilationHistory, moduleEditor, settingsProvider, productionTasks } = dependencies;
 	return {
 		relationshipMap: undefined as undefined | ((request: unknown) => Promise<Record<string, unknown>>),
-		confirmSqlMutation: async (sql: string, database: string) => {
-			const choice = await vscode.window.showWarningMessage(
-				`Выполнить изменяющий SQL-запрос в базе ${database}?`,
-				{ modal: true, detail: sql },
-				'Выполнить SQL',
-			);
-			return choice === 'Выполнить SQL';
-		},
 		...createClassAgentActions(context, methodEditor, id => explorerProvider.revealClass(id)),
 		...createMethodAgentActions(methodEditor, methodCompilation, compilationHistory),
 		...createModuleAgentActions(moduleEditor),

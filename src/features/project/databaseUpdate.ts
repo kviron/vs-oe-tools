@@ -10,17 +10,19 @@ import type { DatabaseRole as ProjectDatabaseRole } from '../../core/database';
 const expectedPatchKeys = ['-y', '-nointeractive', '-dontcheckdupfiles', '-dontregpatchfile', '-f', '-renamefinishedfilesfromlistfile'];
 let updateRunning = false;
 
-export async function updateProjectDatabase(role: ProjectDatabaseRole): Promise<void> {
+export async function updateProjectDatabase(role: ProjectDatabaseRole, confirm = true): Promise<void> {
 	if (updateRunning) { throw new Error('Обновление базы уже выполняется.'); }
 	const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	if (!workspacePath) { throw new Error('Сначала откройте папку проекта Восточного Экспресса.'); }
 	const plan = await createDatabaseUpdatePlan(workspacePath, role);
-	const answer = await vscode.window.showWarningMessage(
-		`Обновить ${role === 'test' ? 'тестовую' : 'основную'} базу ${plan.database}?`,
-		{ modal: true, detail: `Сервер: ${plan.host}:${plan.port}\nПакеты: ${plan.packagesPath}\nФайлы запуска: ${plan.tempPath}\nРежим: ${plan.generateOnly ? 'только формирование обновления' : 'формирование и применение'}.` },
-		'Обновить',
-	);
-	if (answer !== 'Обновить') { return; }
+	if (confirm) {
+		const answer = await vscode.window.showWarningMessage(
+			`Обновить ${role === 'test' ? 'тестовую' : 'основную'} базу ${plan.database}?`,
+			{ modal: true, detail: `Сервер: ${plan.host}:${plan.port}\nПакеты: ${plan.packagesPath}\nФайлы запуска: ${plan.tempPath}\nРежим: ${plan.generateOnly ? 'только формирование обновления' : 'формирование и применение'}.` },
+			'Обновить',
+		);
+		if (answer !== 'Обновить') { return; }
+	}
 	if (updateRunning) { throw new Error('Обновление базы уже выполняется.'); }
 	updateRunning = true;
 	const output = vscode.window.createOutputChannel(`ВЭ: обновление ${plan.database}`);
